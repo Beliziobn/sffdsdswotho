@@ -2949,11 +2949,20 @@ export default defineConfig(() => {
     resolve: {
       alias: {
         '@': path.resolve(__dirname, './src'),
+        '@vercel/speed-insights/next': '@vercel/speed-insights/react',
       },
       dedupe: ['react', 'react-dom'],
     },
     optimizeDeps: {
-      include: ['react', 'react-dom', 'react-router-dom', '@tanstack/react-query', 'framer-motion'],
+      include: [
+        'react',
+        'react-dom',
+        'react-router-dom',
+        '@tanstack/react-query',
+        'framer-motion',
+        '@vercel/speed-insights/react',
+        '@vercel/speed-insights',
+      ],
     },
     build: {
       chunkSizeWarningLimit: 8000,

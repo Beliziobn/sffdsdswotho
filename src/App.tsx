@@ -38,6 +38,7 @@ import Contact from "./pages/Contact";
 import CookieConsent from "./components/consent/CookieConsent";
 import TermsGate from "./components/consent/TermsGate";
 import CanonicalManager from "./components/CanonicalManager";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -56,6 +57,7 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <Sonner />
+      <SpeedInsights />
       <BrowserRouter>
         <ScrollToTop />
         <CanonicalManager />
