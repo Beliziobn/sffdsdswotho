@@ -450,22 +450,22 @@ const NewsArticle = () => {
             image: [
               liveCover ||
                 article.cover_url ||
-                "https://worsco.vercel.app/og-image.jpg",
+                "https://wotho.vercel.app/og-image.jpg",
             ],
             datePublished: article.published_at,
             dateModified: article.published_at,
             author: [
               {
                 "@type": "Organization",
-                name: "Redação Worsco",
+                name: "Redação Wotho",
               },
             ],
             publisher: {
               "@type": "Organization",
-              name: "Worsco",
+              name: "Wotho",
               logo: {
                 "@type": "ImageObject",
-                url: "https://worsco.vercel.app/favicon-512x512.png",
+                url: "https://wotho.vercel.app/favicon-512x512.png",
               },
             },
             description: article.excerpt || article.title,

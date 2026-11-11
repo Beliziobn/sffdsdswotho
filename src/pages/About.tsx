@@ -81,12 +81,12 @@ const VALUES = [
 
 export const About = () => {
   useEffect(() => {
-    document.title = "Sobre a Worsco — Plataforma de Streaming, Notícias e Leitura";
+    document.title = "Sobre a Wotho — Plataforma de Streaming, Notícias e Leitura";
     const metaDesc = document.querySelector('meta[name="description"]');
     if (metaDesc) {
       metaDesc.setAttribute(
         "content",
-        "Conheça a Worsco: plataforma digital independente de streaming de animes, portal de notícias globais, webtoons e livros digitais para ler online."
+        "Livros, notícias globais, streaming e webtoons, com um espaço para acompanhar as últimas novidades sobre cultura, literatura e grandes ideias."
       );
     }
   }, []);
@@ -101,19 +101,19 @@ export const About = () => {
           <div className="max-w-3xl mx-auto text-center space-y-6">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 text-emerald-400 text-xs uppercase tracking-wider font-medium">
               <Sparkles className="h-3.5 w-3.5" />
-              Manifesto & Identidade Worsco
+              Manifesto & Identidade Wotho
             </div>
 
             <div className="flex items-center justify-center gap-2.5 my-2">
               <img
                 src={brandLogo}
-                alt="Worsco"
+                alt="Wotho"
                 width={40}
                 height={40}
                 className="h-10 w-10 object-contain brightness-0 invert"
               />
               <span className="text-3xl sm:text-4xl font-normal tracking-tight text-white">
-                orsco
+                otho
               </span>
             </div>
 
@@ -124,8 +124,8 @@ export const About = () => {
             </h1>
 
             <p className="text-base sm:text-lg text-zinc-300 font-light leading-relaxed max-w-2xl mx-auto">
-              A <strong>Worsco</strong> nasceu com o propósito de conectar mentes curiosas ao melhor da cultura mundial. 
-              Unimos em um só ambiente o streaming de animes, quadrinhos verticais (webtoons), jornalismo atualizado 
+              A <strong>Wotho</strong> nasceu com o propósito de conectar mentes curiosas ao melhor da cultura mundial. 
+              Unimos em um só ambiente o streaming de animes, quadrinhos verticais (webtoons), cinema e séries, jornalismo atualizado 
               e um acervo robusto de livros digitais para ler online no navegador.
             </p>
 
@@ -151,7 +151,7 @@ export const About = () => {
             Nossa Proposta
           </span>
           <h2 className="text-2xl sm:text-4xl font-light tracking-tight text-foreground">
-            Os Quatro Pilares da Worsco
+            Os Quatro Pilares da Wotho
           </h2>
           <p className="text-sm text-muted-foreground font-light">
             Desenvolvida para oferecer entretenimento, conhecimento e informação crítica com estética refinada.
@@ -200,7 +200,7 @@ export const About = () => {
               Princípios
             </span>
             <h2 className="text-2xl sm:text-3xl font-light tracking-tight text-foreground">
-              Por que a Worsco é diferente
+              Por que a Wotho é diferente
             </h2>
           </div>
 
@@ -246,15 +246,15 @@ export const About = () => {
           __html: JSON.stringify({
             "@context": "https://schema.org",
             "@type": "AboutPage",
-            name: "Sobre a Worsco",
+            name: "Sobre a Wotho",
             description:
-              "Conheça a Worsco: plataforma digital de streaming de animes, portal de notícias globais, webtoons e livros digitais para ler online.",
-            url: "https://worsco.vercel.app/sobre",
+              "Livros, notícias globais, streaming e webtoons, com um espaço para acompanhar as últimas novidades sobre cultura, literatura e grandes ideias.",
+            url: "https://wotho.vercel.app/sobre",
             mainEntity: {
               "@type": "Organization",
-              name: "Worsco",
-              url: "https://worsco.vercel.app/",
-              logo: "https://worsco.vercel.app/favicon-512x512.png",
+              name: "Wotho",
+              url: "https://wotho.vercel.app/",
+              logo: "https://wotho.vercel.app/favicon-512x512.png",
             },
           }),
         }}

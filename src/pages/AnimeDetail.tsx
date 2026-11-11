@@ -930,13 +930,13 @@ export const AnimeDetail = () => {
             "@type": "TVSeries",
             name: anime.title,
             description: anime.synopsis,
-            image: anime.cover || anime.banner || "https://worsco.vercel.app/og-image.jpg",
+            image: anime.cover || anime.banner || "https://wotho.vercel.app/og-image.jpg",
             inLanguage: "pt-BR",
             url: window.location.href,
             genre: anime.genres,
             publisher: {
               "@type": "Organization",
-              name: "Worsco",
+              name: "Wotho",
             },
           }),
         }}

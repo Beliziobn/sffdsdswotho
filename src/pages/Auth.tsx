@@ -208,8 +208,8 @@ const Auth = () => {
       <div className="w-full max-w-md">
         <div className="mb-10 text-center">
           <Link to="/" className="mb-5 inline-flex items-center justify-center gap-2 text-foreground">
-            <img src={brandIcon} alt="Worscoi" width={28} height={28} className="h-7 w-7 rounded-md" />
-            <span className="text-base font-normal tracking-wide">Worscoi</span>
+            <img src={brandIcon} alt="Wotho" width={28} height={28} className="h-7 w-7 rounded-md" />
+            <span className="text-base font-normal tracking-wide">Wotho</span>
           </Link>
         </div>
 

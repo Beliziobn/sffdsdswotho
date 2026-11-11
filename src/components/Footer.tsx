@@ -11,12 +11,12 @@ const Footer = () => {
             <div className="flex items-center gap-1.5 mb-4">
               <img
                 src={brandLogo}
-                alt="Worsco"
+                alt="Wotho"
                 width={24}
                 height={24}
                 className="h-6 w-6 object-contain brightness-0 invert"
               />
-              <span className="text-sm font-normal tracking-wide">orsco</span>
+              <span className="text-sm font-normal tracking-wide">otho</span>
             </div>
             <p className="text-background/70 text-xs font-light leading-relaxed max-w-xs">
               Livros, notícias globais, streaming e webtoons, com um espaço para acompanhar as últimas novidades sobre cultura, literatura e grandes ideias.
@@ -122,7 +122,7 @@ const Footer = () => {
         </div>
 
         <div className="border-t border-background/20 pt-8 mt-12 text-center text-background/50 text-xs font-light">
-          <p>&copy; 2026 Worsco. Todos os direitos reservados.</p>
+          <p>&copy; 2026 Wotho. Todos os direitos reservados.</p>
         </div>
       </div>
     </footer>

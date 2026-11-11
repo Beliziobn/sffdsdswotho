@@ -1,6 +1,6 @@
-# Worsco
+# Wotho
 
-> Worsco é uma plataforma digital brasileira multifacetada dedicada à leitura online no navegador de livros digitais (bestsellers, didáticos para o ENEM e artigos científicos), streaming de fichas de animes e mangás, leitura vertical de webtoons e portal de notícias com cobertura jornalística sobre cultura, inovação, literatura, esportes e grandes ideias.
+> Wotho é uma plataforma digital brasileira multifacetada dedicada à leitura online no navegador de livros digitais (bestsellers, didáticos para o ENEM e artigos científicos), streaming de filmes, séries e animes, leitura vertical de webtoons e portal de notícias com cobertura jornalística sobre cultura, inovação, literatura, esportes e grandes ideias.
 
 ## Recursos Principais
 
@@ -10,26 +10,26 @@
 - **Portal de Notícias Globais**: Feed jornalístico em tempo real com categorias dedicadas (Cultura, Futebol, Negócios, Tecnologia, Entretenimento) com persistência local e artigos completos.
 - **Webtoons & Comics**: Coleção de títulos ilustrados em formato vertical de alta resolução com histórias contínuas.
 - **Portal de Animes**: Catálogo de produções selecionadas, trailers, sinopses estruturadas, fichas técnicas e leitor de mangás integrado.
-- **Cinema & Séries**: Catálogo premium de filmes e séries consagradas com player cinematográfico imersivo, seleção de temporadas e episódios, trailers em alta definição e proteção de reprodução.
+- **Cinema & Séries**: Catálogo premium de filmes e séries consagradas com player cinematográfico imersivo, seleção de temporadas e episódios, áudio oficial dublado em português (PT-BR) e legendado.
 
 ## Rotas Canônicas da Plataforma
 
-- [Página Inicial](https://worsco.ai.studio/): Vitrine principal, destaques de livros, novidades e notícias em tempo real.
-- [Catálogo de Livros](https://worsco.ai.studio/livros): Acervo completo de livros digitais modernos, didáticos e acadêmicos.
-- [Webtoons](https://worsco.ai.studio/webtoons): Leitura contínua em formato scroll vertical de quadrinhos e mangás.
-- [Portal de Animes](https://worsco.ai.studio/animes): Catálogo de animes, episódios, fichas e capítulos de mangá vinculados.
-- [Cinema & Séries](https://worsco.ai.studio/cinema): Catálogo de filmes e séries com player imersivo e seleção de episódios.
-- [Portal de Notícias](https://worsco.ai.studio/noticias): Feed contínuo de matérias, reportagens aprofundadas e artigos opinativos.
-- [Minha Estante](https://worsco.ai.studio/biblioteca): Espaço pessoal para títulos salvos, livros adquiridos e histórico de leitura.
-- [Para Você](https://worsco.ai.studio/para-voce): Recomendações inteligentes baseadas no comportamento de leitura.
-- [Buscar](https://worsco.ai.studio/buscar): Busca global textual unificada em todo o acervo.
-- [Mapa do Site](https://worsco.ai.studio/mapa-do-site): Índice canônico de páginas e sitemap interativo.
-- [Sobre a Worsco](https://worsco.ai.studio/sobre): Manifesto editorial, pilares da plataforma e valores.
-- [Contato & Atendimento](https://worsco.ai.studio/contato): Formulário de contato direto, suporte e perguntas frequentes.
-- [Sitemap XML](https://worsco.ai.studio/sitemap.xml): Arquivo sitemap em formato padrão para indexadores.
+- [Página Inicial](https://wotho.vercel.app/): Vitrine principal, destaques de livros, novidades e notícias em tempo real.
+- [Catálogo de Livros](https://wotho.vercel.app/livros): Acervo completo de livros digitais modernos, didáticos e acadêmicos.
+- [Webtoons](https://wotho.vercel.app/webtoons): Leitura contínua em formato scroll vertical de quadrinhos e mangás.
+- [Portal de Animes](https://wotho.vercel.app/animes): Catálogo de animes, episódios, fichas e capítulos de mangá vinculados.
+- [Cinema & Séries](https://wotho.vercel.app/cinema): Catálogo de filmes e séries com player imersivo e seleção de episódios.
+- [Portal de Notícias](https://wotho.vercel.app/noticias): Feed contínuo de matérias, reportagens aprofundadas e artigos opinativos.
+- [Minha Estante](https://wotho.vercel.app/biblioteca): Espaço pessoal para títulos salvos, livros adquiridos e histórico de leitura.
+- [Para Você](https://wotho.vercel.app/para-voce): Recomendações inteligentes baseadas no comportamento de leitura.
+- [Buscar](https://wotho.vercel.app/buscar): Busca global textual unificada em todo o acervo.
+- [Mapa do Site](https://wotho.vercel.app/mapa-do-site): Índice canônico de páginas e sitemap interativo.
+- [Sobre a Wotho](https://wotho.vercel.app/sobre): Manifesto editorial, pilares da plataforma e valores.
+- [Contato & Atendimento](https://wotho.vercel.app/contato): Formulário de contato direto, suporte e perguntas frequentes.
+- [Sitemap XML](https://wotho.vercel.app/sitemap.xml): Arquivo sitemap em formato padrão para indexadores.
 
 ## Links Opcionais e Detalhes
 
-- [Versão Estendida do Acervo](https://worsco.ai.studio/llms-full.txt): Listagem exaustiva de todos os títulos, identificadores e metadados.
-- [Termos de Uso](https://worsco.ai.studio/termos): Diretrizes legais e de propriedade intelectual da plataforma.
-- [Política de Privacidade](https://worsco.ai.studio/privacidade): Práticas de segurança, LGPD e cookies.
+- [Versão Estendida do Acervo](https://wotho.vercel.app/llms-full.txt): Listagem exaustiva de todos os títulos, identificadores e metadados.
+- [Termos de Uso](https://wotho.vercel.app/termos): Diretrizes legais e de propriedade intelectual da plataforma.
+- [Política de Privacidade](https://wotho.vercel.app/privacidade): Práticas de segurança, LGPD e cookies.

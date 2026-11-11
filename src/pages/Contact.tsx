@@ -38,19 +38,19 @@ const SUBJECTS = [
 
 const FAQS = [
   {
-    q: "O acesso aos conteúdos e leitura na Worsco é gratuito?",
+    q: "O acesso aos conteúdos e leitura na Wotho é gratuito?",
     a: "Sim! Grande parte do acervo de bestsellers, artigos acadêmicos do ENEM, webtoons e notícias está disponível para leitura livre diretamente no navegador, sem necessidade de assinaturas obrigatórias.",
   },
   {
-    q: "Como funciona o streaming de animes e a leitura de mangás?",
-    a: "No portal de animes da Worsco, você encontra trailers em alta definição, episódios selecionados e uma aba dedicada para leitura dos capítulos correspondentes de mangá com atualização ao vivo.",
+    q: "Como funciona o streaming de animes e cinema?",
+    a: "No portal da Wotho, você encontra cinema em alta definição, episódios selecionados e uma aba dedicada para leitura dos capítulos correspondentes de mangá com atualização ao vivo.",
   },
   {
     q: "Posso sugerir livros ou pautas para a redação?",
     a: "Com certeza! Utilize o formulário desta página selecionando a opção 'Sugestão de Livro, Webtoon ou Anime' ou 'Pauta / Sugestão para o Portal de Notícias'. Nossa equipe editorial avalia semanalmente todas as contribuições da comunidade.",
   },
   {
-    q: "A Worsco funciona em dispositivos móveis?",
+    q: "A Wotho funciona em dispositivos móveis?",
     a: "Sim, a plataforma foi desenvolvida com arquitetura Mobile-First e PWA. Ela funciona perfeitamente em qualquer smartphone Android, iOS, tablet ou computador através do navegador, adaptando o tamanho das fontes e temas visuais.",
   },
 ];
@@ -64,12 +64,12 @@ export const Contact = () => {
   const [isSubmitted, setIsSubmitted] = useState(false);
 
   useEffect(() => {
-    document.title = "Contato — Fale com a Worsco";
+    document.title = "Contato — Fale com a Wotho";
     const metaDesc = document.querySelector('meta[name="description"]');
     if (metaDesc) {
       metaDesc.setAttribute(
         "content",
-        "Entre em contato com a equipe da Worsco para dúvidas, sugestões de conteúdo, parcerias editoriais ou suporte técnico."
+        "Entre em contato com a equipe da Wotho para dúvidas, sugestões de conteúdo, parcerias editoriais ou suporte técnico."
       );
     }
   }, []);
@@ -337,18 +337,18 @@ export const Contact = () => {
           __html: JSON.stringify({
             "@context": "https://schema.org",
             "@type": "ContactPage",
-            name: "Contato — Fale com a Worsco",
+            name: "Contato — Fale com a Wotho",
             description:
-              "Entre em contato com a equipe da Worsco para dúvidas, sugestões de conteúdo, parcerias editoriais ou suporte técnico.",
-            url: "https://worsco.vercel.app/contato",
+              "Entre em contato com a equipe da Wotho para dúvidas, sugestões de conteúdo, parcerias editoriais ou suporte técnico.",
+            url: "https://wotho.vercel.app/contato",
             mainEntity: {
               "@type": "Organization",
-              name: "Worsco",
-              url: "https://worsco.vercel.app/",
-              logo: "https://worsco.vercel.app/favicon-512x512.png",
+              name: "Wotho",
+              url: "https://wotho.vercel.app/",
+              logo: "https://wotho.vercel.app/favicon-512x512.png",
               contactPoint: {
                 "@type": "ContactPoint",
-                email: "ola@worscoi.com",
+                email: "contato@wotho.vercel.app",
                 contactType: "customer service",
                 availableLanguage: "Portuguese",
               },

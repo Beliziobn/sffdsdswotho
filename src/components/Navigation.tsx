@@ -78,7 +78,7 @@ const Navigation = ({ variant = "default" }: NavigationProps) => {
             <motion.div whileHover={{ scale: 1.02 }} className="flex items-center gap-1.5 cursor-pointer">
               <img
                 src={brandLogo}
-                alt="Worsco"
+                alt="Wotho"
                 width={32}
                 height={32}
                 className={`h-7 w-7 sm:h-8 sm:w-8 object-contain transition-all duration-300 ${
@@ -86,7 +86,7 @@ const Navigation = ({ variant = "default" }: NavigationProps) => {
                 }`}
               />
               <span className={`text-sm sm:text-base font-normal tracking-wide ${lightText ? "text-white" : "text-foreground"}`}>
-                orsco
+                otho
               </span>
             </motion.div>
           </Link>

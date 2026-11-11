@@ -62,8 +62,8 @@ const ResetPassword = () => {
     <div className="flex min-h-screen items-center justify-center bg-secondary/30 px-6">
       <div className="w-full max-w-sm">
         <Link to="/" className="mb-8 flex items-center justify-center gap-2 text-foreground">
-          <img src={brandIcon} alt="Worscoi" width={28} height={28} className="h-7 w-7 rounded-md" />
-          <span className="text-base font-normal tracking-wide">Worscoi</span>
+          <img src={brandIcon} alt="Wotho" width={28} height={28} className="h-7 w-7 rounded-md" />
+          <span className="text-base font-normal tracking-wide">Wotho</span>
         </Link>
 
         <div className="rounded-2xl border border-border bg-card p-6 shadow-[var(--soft-shadow)]">

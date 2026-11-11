@@ -30,7 +30,7 @@ const MAIN_PAGES = [
   { path: "/para-voce", title: "Recomendações Personalizadas", desc: "Sugestões de leitura baseadas nos seus interesses." },
   { path: "/continuar-lendo", title: "Continuar Leitura", desc: "Retome suas leituras exatamente de onde parou." },
   { path: "/buscar", title: "Busca Global", desc: "Pesquise por títulos, autores, gêneros ou notícias." },
-  { path: "/sobre", title: "Sobre a Worsco", desc: "Manifesto, valores, proposta editorial e pilares da plataforma." },
+  { path: "/sobre", title: "Sobre a Wotho", desc: "Manifesto, valores, proposta editorial e pilares da plataforma." },
   { path: "/contato", title: "Contato e Atendimento", desc: "Canais diretos, formulário para dúvidas e sugestões, e FAQ." },
   { path: "/termos", title: "Termos de Uso", desc: "Condições gerais de navegação e utilização da plataforma." },
   { path: "/privacidade", title: "Política de Privacidade", desc: "Diretrizes de proteção de dados e privacidade dos usuários." },
@@ -88,7 +88,7 @@ const SiteMapPage = () => {
               Mapa do Site (Sitemap)
             </h1>
             <p className="text-sm text-muted-foreground mt-2 max-w-2xl font-light">
-              Navegue por todas as páginas canônicas, catálogos de livros digitais, webtoons, animes e acervo jornalístico estruturado da Worsco.
+              Navegue por todas as páginas canônicas, catálogos de livros digitais, webtoons, animes e acervo jornalístico estruturado da Wotho.
             </p>
           </div>
 

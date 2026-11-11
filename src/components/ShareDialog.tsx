@@ -68,7 +68,7 @@ export const ShareDialog: React.FC<ShareDialogProps> = ({
   const setOpen = isControlled ? setControlledOpen! : setInternalOpen;
 
   const currentUrl =
-    url || (typeof window !== "undefined" ? window.location.href : "https://worsco.vercel.app");
+    url || (typeof window !== "undefined" ? window.location.href : "https://wotho.vercel.app");
 
   const handleCopy = async () => {
     try {

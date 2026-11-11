@@ -561,13 +561,13 @@ const WebtoonDetail = () => {
             "@type": "CreativeWorkSeries",
             name: item.title,
             description: item.description,
-            image: item.cover || "https://worsco.vercel.app/og-image.jpg",
+            image: item.cover || "https://wotho.vercel.app/og-image.jpg",
             inLanguage: "pt-BR",
             url: window.location.href,
             genre: item.category,
             publisher: {
               "@type": "Organization",
-              name: "Worsco",
+              name: "Wotho",
             },
           }),
         }}

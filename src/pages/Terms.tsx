@@ -4,7 +4,7 @@ const Terms = () => (
   <LegalLayout title="Termos de Uso" updatedAt="12 de agosto de 2026">
     <h2>1. Aceitação</h2>
     <p>
-      Ao criar uma conta ou usar a Worscoi, concorda com estes Termos de Uso. Se não concordar, não deve
+      Ao criar uma conta ou usar a Wotho, concorda com estes Termos de Uso. Se não concordar, não deve
       utilizar a plataforma.
     </p>
 

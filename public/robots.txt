@@ -1,6 +1,6 @@
 # ==============================================================================
-# Worsco Official Robots.txt
-# Domain: https://worsco.ai.studio
+# Wotho Official Robots.txt
+# Domain: https://wotho.vercel.app
 # ==============================================================================
 
 User-agent: *
@@ -66,4 +66,4 @@ User-agent: PerplexityBot
 Allow: /
 
 # Sitemaps & Discovery
-Sitemap: https://worsco.ai.studio/sitemap.xml
+Sitemap: https://wotho.vercel.app/sitemap.xml

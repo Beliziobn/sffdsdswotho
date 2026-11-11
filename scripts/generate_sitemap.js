@@ -6,7 +6,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const rootDir = path.resolve(__dirname, '..');
 
-const BASE_URL = process.env.VITE_APP_URL || 'https://worsco.ai.studio';
+const BASE_URL = process.env.VITE_APP_URL || 'https://wotho.vercel.app';
 const TODAY = new Date().toISOString().split('T')[0];
 
 const STATIC_ROUTES = [

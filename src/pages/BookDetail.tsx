@@ -459,12 +459,12 @@ const BookDetail = () => {
               name: book.author,
             },
             description: book.description,
-            image: book.cover_url || "https://worsco.vercel.app/og-image.jpg",
+            image: book.cover_url || "https://wotho.vercel.app/og-image.jpg",
             inLanguage: "pt-BR",
             url: window.location.href,
             publisher: {
               "@type": "Organization",
-              name: "Worsco",
+              name: "Wotho",
             },
           }),
         }}

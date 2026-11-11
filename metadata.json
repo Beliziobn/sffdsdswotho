@@ -1,5 +1,5 @@
 {
-  "name": "Worscoi - Livros digitais e notícias",
+  "name": "wotho",
   "description": "Livros, notícias globais, streaming e webtoons, com um espaço para acompanhar as últimas novidades sobre cultura, literatura e grandes ideias.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
