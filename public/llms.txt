@@ -1,0 +1,35 @@
+# Worsco
+
+> Worsco é uma plataforma digital brasileira multifacetada dedicada à leitura online no navegador de livros digitais (bestsellers, didáticos para o ENEM e artigos científicos), streaming de fichas de animes e mangás, leitura vertical de webtoons e portal de notícias com cobertura jornalística sobre cultura, inovação, literatura, esportes e grandes ideias.
+
+## Recursos Principais
+
+- **Leitor Digital no Navegador**: Leitura imersiva de livros em texto integral e PDFs originais com controle de progresso, tamanhos tipográficos e modo noturno.
+- **Catálogo de Bestsellers Canônicos**: Obras fundamentais de desenvolvimento pessoal, estoicismo, finanças e literatura clássica (ex.: *Hábitos Atômicos*, *A Psicologia Financeira*, *Pai Rico, Pai Pobre*, *1984*, *O Homem Mais Rico da Babilônia*, *Meditações de Marco Aurélio*, *Antifrágil*, *Essencialismo*).
+- **Acervo ENEM & Artigos Científicos**: Livros didáticos completos para preparação de vestibulares e revisões científicas revisadas por pares (astrofísica, CRISPR, neurociência, computação quântica).
+- **Portal de Notícias Globais**: Feed jornalístico em tempo real com categorias dedicadas (Cultura, Futebol, Negócios, Tecnologia, Entretenimento) com persistência local e artigos completos.
+- **Webtoons & Comics**: Coleção de títulos ilustrados em formato vertical de alta resolução com histórias contínuas.
+- **Portal de Animes**: Catálogo de produções selecionadas, trailers, sinopses estruturadas, fichas técnicas e leitor de mangás integrado.
+- **Cinema & Séries**: Catálogo premium de filmes e séries consagradas com player cinematográfico imersivo, seleção de temporadas e episódios, trailers em alta definição e proteção de reprodução.
+
+## Rotas Canônicas da Plataforma
+
+- [Página Inicial](https://worsco.ai.studio/): Vitrine principal, destaques de livros, novidades e notícias em tempo real.
+- [Catálogo de Livros](https://worsco.ai.studio/livros): Acervo completo de livros digitais modernos, didáticos e acadêmicos.
+- [Webtoons](https://worsco.ai.studio/webtoons): Leitura contínua em formato scroll vertical de quadrinhos e mangás.
+- [Portal de Animes](https://worsco.ai.studio/animes): Catálogo de animes, episódios, fichas e capítulos de mangá vinculados.
+- [Cinema & Séries](https://worsco.ai.studio/cinema): Catálogo de filmes e séries com player imersivo e seleção de episódios.
+- [Portal de Notícias](https://worsco.ai.studio/noticias): Feed contínuo de matérias, reportagens aprofundadas e artigos opinativos.
+- [Minha Estante](https://worsco.ai.studio/biblioteca): Espaço pessoal para títulos salvos, livros adquiridos e histórico de leitura.
+- [Para Você](https://worsco.ai.studio/para-voce): Recomendações inteligentes baseadas no comportamento de leitura.
+- [Buscar](https://worsco.ai.studio/buscar): Busca global textual unificada em todo o acervo.
+- [Mapa do Site](https://worsco.ai.studio/mapa-do-site): Índice canônico de páginas e sitemap interativo.
+- [Sobre a Worsco](https://worsco.ai.studio/sobre): Manifesto editorial, pilares da plataforma e valores.
+- [Contato & Atendimento](https://worsco.ai.studio/contato): Formulário de contato direto, suporte e perguntas frequentes.
+- [Sitemap XML](https://worsco.ai.studio/sitemap.xml): Arquivo sitemap em formato padrão para indexadores.
+
+## Links Opcionais e Detalhes
+
+- [Versão Estendida do Acervo](https://worsco.ai.studio/llms-full.txt): Listagem exaustiva de todos os títulos, identificadores e metadados.
+- [Termos de Uso](https://worsco.ai.studio/termos): Diretrizes legais e de propriedade intelectual da plataforma.
+- [Política de Privacidade](https://worsco.ai.studio/privacidade): Práticas de segurança, LGPD e cookies.

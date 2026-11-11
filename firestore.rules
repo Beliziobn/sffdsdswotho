@@ -1,0 +1,88 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-\\.]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isValidNews(data) {
+      return data.keys().hasAll(['title', 'slug', 'content', 'published']) &&
+        data.title is string && data.title.size() <= 300 &&
+        data.slug is string && data.slug.size() <= 150 &&
+        data.content is string && data.content.size() <= 50000 &&
+        data.published is bool;
+    }
+
+    function isValidBook(data) {
+      return data.keys().hasAll(['title', 'author', 'published']) &&
+        data.title is string && data.title.size() <= 300 &&
+        data.author is string && data.author.size() <= 150 &&
+        data.published is bool;
+    }
+
+    function isValidChapter(data) {
+      return data.keys().hasAll(['book_id', 'title', 'content', 'position']) &&
+        data.book_id is string && data.book_id.size() <= 128 &&
+        data.title is string && data.title.size() <= 300 &&
+        data.content is string && data.content.size() <= 100000 &&
+        data.position is number;
+    }
+
+    function isValidAnimeOverride(data) {
+      return data.keys().hasAll(['id']) &&
+        data.id is string && data.id.size() <= 128;
+    }
+
+    // Default deny catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Test connection doc
+    match /test/{testId} {
+      allow read: if true;
+      allow write: if isSignedIn();
+    }
+
+    // News articles: Publicly readable by all visitors and users everywhere
+    match /news/{newsId} {
+      allow get, list: if true;
+      allow create: if isSignedIn() && isValidId(newsId) && isValidNews(incoming());
+      allow update: if isSignedIn() && isValidId(newsId) && isValidNews(incoming());
+      allow delete: if isSignedIn() && isValidId(newsId);
+    }
+
+    // Books: Publicly readable by all visitors
+    match /books/{bookId} {
+      allow get, list: if true;
+      allow create: if isSignedIn() && isValidId(bookId) && isValidBook(incoming());
+      allow update: if isSignedIn() && isValidId(bookId) && isValidBook(incoming());
+      allow delete: if isSignedIn() && isValidId(bookId);
+    }
+
+    // Chapters: Publicly readable by all visitors
+    match /chapters/{chapterId} {
+      allow get, list: if true;
+      allow create: if isSignedIn() && isValidId(chapterId) && isValidChapter(incoming());
+      allow update: if isSignedIn() && isValidId(chapterId) && isValidChapter(incoming());
+      allow delete: if isSignedIn() && isValidId(chapterId);
+    }
+
+    // Anime Overrides: Publicly readable by all visitors
+    match /anime_overrides/{animeId} {
+      allow get, list: if true;
+      allow create: if isSignedIn() && isValidId(animeId) && isValidAnimeOverride(incoming());
+      allow update: if isSignedIn() && isValidId(animeId) && isValidAnimeOverride(incoming());
+      allow delete: if isSignedIn() && isValidId(animeId);
+    }
+  }
+}

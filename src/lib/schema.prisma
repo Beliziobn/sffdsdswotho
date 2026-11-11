@@ -1,0 +1,105 @@
+// Prisma Schema - Streaming de Animes com Hierarquia Estrita e Integridade de Mídia
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Anime {
+  id               String    @id @default(uuid())
+  slug             String    @unique
+  title            String
+  japaneseTitle    String?
+  synopsis         String
+  coverUrl         String
+  bannerUrl        String
+  rating           Float     @default(0.0)
+  ratingCount      Int       @default(0)
+  status           String    // 'Em lançamento' | 'Completo' | 'Cancelado'
+  studio           String
+  year             Int
+  audioType        String    @default("Dublado & Legendado PT-BR")
+  trailerYoutubeId String?
+  malId            Int?      @unique
+  tmdbId           Int?      @unique
+  anilistId        Int?      @unique
+  featured         Boolean   @default(false)
+  trending         Boolean   @default(false)
+  rank             Int?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  seasons          Season[]
+  episodes         Episode[]
+
+  @@index([slug])
+  @@index([rating(sort: Desc)])
+}
+
+model Season {
+  id               String    @id @default(uuid())
+  animeId          String
+  seasonNumber     Int
+  title            String
+  year             Int
+  synopsis         String?
+  posterUrl        String?
+  bannerUrl        String?
+  episodesCount    Int       @default(0)
+  trailerYoutubeId String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  anime            Anime     @relation(fields: [animeId], references: [id], onDelete: Cascade)
+  episodes         Episode[]
+
+  @@unique([animeId, seasonNumber], name: "unique_anime_season_number")
+  @@index([animeId])
+}
+
+model Episode {
+  id               String    @id @default(uuid())
+  animeId          String
+  seasonId         String
+  seasonNumber     Int
+  episodeNumber    Int
+  title            String
+  duration         String    @default("24m")
+  thumbnailUrl     String
+  synopsis         String?
+  isFree           Boolean   @default(true)
+  airDate          DateTime?
+  contentHash      String    @unique // Garante que cada arquivo/stream seja único e verificado
+  streamUrl        String
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  anime            Anime     @relation(fields: [animeId], references: [id], onDelete: Cascade)
+  season           Season    @relation(fields: [seasonId], references: [id], onDelete: Cascade)
+  sources          Source[]
+
+  @@unique([animeId, seasonNumber, episodeNumber], name: "unique_anime_season_episode")
+  @@index([seasonId])
+  @@index([animeId, seasonNumber, episodeNumber])
+}
+
+model Source {
+  id          String   @id @default(uuid())
+  episodeId   String
+  quality     String   // '360p' | '480p' | '720p' | '1080p' | '4k'
+  streamUrl   String   @unique
+  format      String   @default("hls") // 'hls' | 'mp4' | 'dash' | 'embed'
+  provider    String   @default("official-cdn")
+  isDefault   Boolean  @default(false)
+  contentHash String
+  createdAt   DateTime @default(now())
+
+  episode     Episode  @relation(fields: [episodeId], references: [id], onDelete: Cascade)
+
+  @@unique([episodeId, quality], name: "unique_episode_quality")
+  @@index([episodeId])
+}

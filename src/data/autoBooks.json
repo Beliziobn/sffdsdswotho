@@ -1,0 +1,712 @@
+{
+  "lastSync": "2026-11-10T00:09:46.236Z",
+  "frequencyMinutes": 30,
+  "isActive": true,
+  "autoSources": {
+    "gutenberg": true,
+    "aiSynthesis": true,
+    "curatedQueue": true
+  },
+  "logs": [
+    {
+      "id": "log-1794269386236",
+      "timestamp": "2026-11-10T00:09:46.236Z",
+      "level": "success",
+      "message": "[Automação] Livro \"Inteligência Emocional\" por Daniel Goleman importado com sucesso (5 capítulos)."
+    },
+    {
+      "id": "log-1794183618267",
+      "timestamp": "2026-11-09T00:20:18.267Z",
+      "level": "success",
+      "message": "[Automação] Livro \"Discurso do Método\" por René Descartes importado com sucesso (5 capítulos)."
+    },
+    {
+      "id": "log-1793999359632",
+      "timestamp": "2026-11-06T21:09:19.632Z",
+      "level": "success",
+      "message": "[Automação] Livro \"Ética a Nicômaco\" por Aristóteles importado com sucesso (8 capítulos)."
+    },
+    {
+      "id": "log-1793826156260",
+      "timestamp": "2026-11-04T21:02:36.260Z",
+      "level": "success",
+      "message": "[Automação] Livro \"A República\" por Platão importado com sucesso (8 capítulos)."
+    },
+    {
+      "id": "log-1793825890890",
+      "timestamp": "2026-11-04T20:58:10.890Z",
+      "level": "success",
+      "message": "[Automação] Livro \"A Arte da Guerra\" por Sun Tzu importado com sucesso (8 capítulos)."
+    },
+    {
+      "id": "log-init-1",
+      "timestamp": "2026-11-04T12:50:00.000Z",
+      "level": "info",
+      "message": "Sistema de automação contínua de livros inicializado com sucesso."
+    },
+    {
+      "id": "log-init-2",
+      "timestamp": "2026-11-04T12:50:05.000Z",
+      "level": "success",
+      "message": "Importados livros fundamentais de Filosofia, Psicologia e Estratégia com capítulos completos."
+    }
+  ],
+  "queue": [
+    {
+      "id": "queue-6",
+      "title": "Emílio, ou Da Educação",
+      "author": "Jean-Jacques Rousseau",
+      "category": "Educação e Aprendizado",
+      "priority": "media"
+    }
+  ],
+  "books": [
+    {
+      "id": "auto-inteligencia-emocional-6235",
+      "title": "Inteligência Emocional",
+      "subtitle": "Importado Automaticamente · Psicologia e Mente",
+      "author": "Daniel Goleman",
+      "description": "Obra fundamental de Psicologia e Mente por Daniel Goleman. Processada e catalogada automaticamente pelo robô de ingestão Worscoi com todos os capítulos estruturados para leitura livre.",
+      "cover_url": "https://images.unsplash.com/photo-1507413245164-6160d8298b31?w=1200&auto=format&fit=crop&q=80",
+      "category": "Psicologia e Mente",
+      "price_cents": 0,
+      "currency": "BRL",
+      "published": true,
+      "featured": true,
+      "created_at": "2026-11-10T00:09:46.236Z",
+      "downloads": 9820,
+      "rating": 4.9,
+      "rating_count": 194,
+      "formats": [
+        "Leitura Online",
+        "EPUB",
+        "TXT"
+      ],
+      "read_time": 260,
+      "source": "Automação Worscoi (Pipeline Inteligente)",
+      "is_automated": true,
+      "chapters": [
+        {
+          "id": "chap-auto-inteligencia-emocional-6235-1",
+          "book_id": "auto-inteligencia-emocional-6235",
+          "position": 1,
+          "title": "Capítulo I — A Neurobiologia das Emoções e o Sequestro da Amígdala",
+          "content": "Daniel Goleman demonstra que possuímos duas mentes: uma que pensa e outra que sente. Durante milhões de anos de evolução biológica, as estruturas cerebrais límbicas (responsáveis pelo medo, raiva, afeto e sobrevivência) desenvolveram-se muito antes do neocórtex racional.\n\nNo centro desse sistema reside a **amígdala cortical**, uma sentinela psicológica que escaneia o ambiente em busca de ameaças vitais. Em situações de estresse agudo ou provocação extrema, a amígdala pode deflagrar uma resposta de luta ou fuga milissegundos antes que o córtex pré-frontal consiga analisar racionalmente os fatos — fenômeno que Goleman consagrou como o **Sequestro da Amígdala (Amygdala Hijack)**.\n\nCompreender essa fiação neurológica é o primeiro passo para não se tornar refém de impulsos destrutivos.",
+          "is_free_preview": true
+        },
+        {
+          "id": "chap-auto-inteligencia-emocional-6235-2",
+          "book_id": "auto-inteligencia-emocional-6235",
+          "position": 2,
+          "title": "Capítulo II — Autoconsciência e o Domínio das Paixões (Autorregulação)",
+          "content": "A autoconsciência emocional é a capacidade de reconhecer um sentimento no exato momento em que ele surge. Sócrates já ensinava 'Conhece-te a ti mesmo'; na psicologia moderna, nomear com precisão o estado interior desativa a hiperativação da amígdala.\n\nA autorregulação, por sua vez, não significa reprimir ou anestesiar as emoções, mas dosá-las de modo proporcional. A ira, a ansiedade e a tristeza têm funções evolutivas saudáveis; tornam-se tóxicas apenas quando perdem o freio inibitório e se prolongam de forma desadaptativa.\n\nTécnicas de respiração, reestruturação cognitiva e pausas estratégicas permitem ao córtex pré-frontal retomar a liderança executiva sobre os impulsos emocionais.",
+          "is_free_preview": true
+        },
+        {
+          "id": "chap-auto-inteligencia-emocional-6235-3",
+          "book_id": "auto-inteligencia-emocional-6235",
+          "position": 3,
+          "title": "Capítulo III — Motivação Intrínseca e o Teste do Marshmallow",
+          "content": "A capacidade de adiar a gratificação imediata em prol de um objetivo de longo prazo é o maior indicador psicológico de sucesso na vida adulta.\n\nO célebre experimento do Marshmallow de Walter Mischel em Stanford acompanhou crianças de quatro anos que receberam a escolha: comer um doce agora ou esperar 15 minutos pelo segundo doce. Os jovens que conseguiram esperar apresentaram, décadas depois, notas escolares superiores, menor índice de obesidade, menos dependência química e casamentos mais duradouros.\n\nA auto-motivação alimenta-se do **estado de Fluxo (Flow)**, onde o indivíduo funde sua atenção com a tarefa, impulsionado pela paixão intrínseca e pelo otimismo inteligente perante os fracassos temporários.",
+          "is_free_preview": true
+        },
+        {
+          "id": "chap-auto-inteligencia-emocional-6235-4",
+          "book_id": "auto-inteligencia-emocional-6235",
+          "position": 4,
+          "title": "Capítulo IV — Empatia: A Leitura Sutil do Outro",
+          "content": "A empatia baseia-se na autoconsciência: quanto mais abertos estamos às nossas próprias emoções, mais habilidosos seremos na leitura dos sinais não verbais alheios.\n\nMais de 90% da comunicação emocional humana ocorre pelo tom de voz, expressão facial, postura física e microgestos. A empatia divide-se em três níveis:\n1. Empatia Cognitiva: Compreender a perspectiva intelectual do outro;\n2. Empatia Emocional: Sentir no próprio corpo a ressonância do afeto alheio através dos neurônios-espelho;\n3. Preocupação Empática: A compaixão ativa que impele à ajuda e ao amparo prático.\n\nA falta crônica de empatia é o traço distintivo de sociopatas, tiranos e líderes tóxicos que destroem o clima de suas organizações.",
+          "is_free_preview": true
+        },
+        {
+          "id": "chap-auto-inteligencia-emocional-6235-5",
+          "book_id": "auto-inteligencia-emocional-6235",
+          "position": 5,
+          "title": "Capítulo V — Aptidão Social, Liderança Ressonante e o Futuro da Educação",
+          "content": "As habilidades sociais coroam a Inteligência Emocional. Líderes extraordinários não se destacam pelo QI bruto ou conhecimento técnico isolado, mas pela capacidade de inspirar, resolver conflitos sem ferir dignidades, forjar alianças sólidas e contagiar grupos com entusiasmo sereno.\n\nGoleman conclama as escolas e famílias a implantarem a Alfabetização Socioemocional desde a infância. Ensinar matemática e gramática sem ensinar autodomínio, empatia e cooperação cidadã é produzir adultos desamparados que sucumbem à depressão, à violência e à solidão em um mundo hiperconectado.",
+          "is_free_preview": true
+        }
+      ]
+    },
+    {
+      "id": "auto-discurso-do-metodo-8266",
+      "title": "Discurso do Método",
+      "subtitle": "Importado Automaticamente · Filosofia e Estoicismo",
+      "author": "René Descartes",
+      "description": "Obra fundamental de Filosofia e Estoicismo por René Descartes. Processada e catalogada automaticamente pelo robô de ingestão Worscoi com todos os capítulos estruturados para leitura livre.",
+      "cover_url": "https://images.unsplash.com/photo-1461360370896-922624d12aa1?w=1200&auto=format&fit=crop&q=80",
+      "category": "Filosofia e Estoicismo",
+      "price_cents": 0,
+      "currency": "BRL",
+      "published": true,
+      "featured": true,
+      "created_at": "2026-11-09T00:20:18.267Z",
+      "downloads": 6628,
+      "rating": 4.9,
+      "rating_count": 477,
+      "formats": [
+        "Leitura Online",
+        "EPUB",
+        "TXT"
+      ],
+      "read_time": 260,
+      "source": "Automação Worscoi (Pipeline Inteligente)",
+      "is_automated": true,
+      "chapters": [
+        {
+          "id": "chap-auto-discurso-do-metodo-8266-1",
+          "book_id": "auto-discurso-do-metodo-8266",
+          "position": 1,
+          "title": "Primeira Parte — Considerações a Respeito das Ciências e a Busca do Saber",
+          "content": "O bom senso é a coisa mais bem partilhada do mundo, pois cada qual pensa estar tão bem provido dele que mesmo os mais difíceis de contentar em qualquer outra coisa não costumam desejar mais do que têm.\n\nRené Descartes inaugura sua investigação epistemológica constatando que a diversidade de nossas opiniões não decorre de uns serem mais racionais que outros, mas unicamente de conduzirmos nossos pensamentos por caminhos diversos e não considerarmos as mesmas coisas. Não basta ter o espírito bom; o principal é aplicá-lo bem.\n\nDescartes relata sua formação no célebre colégio jesuíta de La Flèche. Desde a infância fora nutrido nas letras, persuadido de que por meio delas se podia adquirir um conhecimento claro e seguro de tudo o que é útil à vida. Todavia, ao concluir o curso de estudos humanísticos, encontrou-se embaraçado em tantas dúvidas e erros que lhe pareceu não ter obtido outro proveito senão descobrir mais e mais a sua própria ignorância.\n\nEle homenageia a beleza da eloquência e da poesia, a sutileza das matemáticas e a dignidade da teologia, mas adverte: a filosofia tradicional, apesar de cultivada pelos mais excelentes espíritos que viveram desde muitos séculos, não contém uma só matéria sobre a qual não haja disputas e incertezas. Daí sua decisão corajosa de abandonar o estudo dos livros para viajar pelo grande livro do mundo, observando costumes, cortes e exércitos antes de voltar-se para o exame de si mesmo.",
+          "is_free_preview": true
+        },
+        {
+          "id": "chap-auto-discurso-do-metodo-8266-2",
+          "book_id": "auto-discurso-do-metodo-8266",
+          "position": 2,
+          "title": "Segunda Parte — As Quatro Regras Fundamentais do Método Cartesiano",
+          "content": "Estando na Alemanha por ocasião do início da Guerra dos Trinta Anos, recolhido em um aposento aquecido por uma estufa, Descartes concebeu a ideia de que as obras compostas por vários mestres são quase sempre menos perfeitas do que aquelas edificadas pelo trabalho de um único arquiteto.\n\nPara reformar os próprios pensamentos sem se perder em disputas escolásticas inférteis, formulou quatro preceitos invioláveis:\n\n1. **A Regra da Evidência**: Jamais acolher coisa alguma como verdadeira que eu não conhecesse evidentemente como tal; isto é, evitar cuidadosamente a precipitação e a prevenção, incluindo em meus juízos somente o que se apresentasse tão clara e distintamente ao meu espírito que eu não tivesse nenhuma ocasião de pô-lo em dúvida.\n\n2. **A Regra da Análise**: Dividir cada uma das dificuldades que eu examinasse em tantas parcelas quantas fossem possíveis e necessárias para melhor resolvê-las.\n\n3. **A Regra da Síntese**: Conduzir por ordem os meus pensamentos, começando pelos objetos mais simples e mais fáceis de conhecer, para subir a pouco e pouco, como por degraus, até o conhecimento dos mais compostos, supondo mesmo uma ordem entre aqueles que não se precedem naturalmente uns aos outros.\n\n4. **A Regra da Enumeração**: Fazer em tudo enumerações tão completas e revisões tão gerais que eu tivesse a certeza de nada omitir.\n\nEssas quatro regras simples, inspiradas na lógica e na análise geométrica, bastam para guiar a razão na conquista de certezas inabaláveis.",
+          "is_free_preview": true
+        },
+        {
+          "id": "chap-auto-discurso-do-metodo-8266-3",
+          "book_id": "auto-discurso-do-metodo-8266",
+          "position": 3,
+          "title": "Terceira Parte — A Moral Provisória para Navegar a Vida Prática",
+          "content": "Antes de demolir a velha habitação de suas opiniões para reconstruí-la sobre alicerces firmes, Descartes sentiu a necessidade imperiosa de estabelecer uma **Moral Provisória**, a fim de não permanecer irresoluto e hesitante em suas ações diárias enquanto a razão o obrigasse a sê-lo em seus juízos.\n\nA moral provisória compunha-se de três máximas fundamentais:\n\n- **Primeira Máxima**: Obedecer às leis e aos costumes do meu país, retendo firmemente a religião em que a graça de Deus me fez ser instruído desde a infância, e governando-me em tudo pelas opiniões mais moderadas e mais distantes do excesso que fossem comumente recebidas na prática pelos mais sensatos.\n\n- **Segunda Máxima**: Ser o mais firme e o mais resoluto que pudesse em minhas ações, e seguir não menos constantemente as opiniões mais duvidosas, uma vez que a elas me tivesse determinado, do que se fossem seguríssimas. Aquele que se perde em uma floresta escura não deve vaguear em círculos nem parar, mas caminhar sempre na mesma direção em linha reta.\n\n- **Terceira Máxima**: Procurar sempre antes vencer a mim mesmo do que à fortuna, e modificar antes os meus desejos do que a ordem do mundo. Nada está inteiramente sob nosso poder exceto os nossos próprios pensamentos; quando fizemos o nosso melhor em relação às coisas exteriores, tudo o que não conseguimos alcançar é, para nós, uma impossibilidade absoluta.\n\nCultivando tais máximas, Descartes assegurou a serenidade necessária para consagrar toda a sua existência ao cultivo da razão e ao progresso no conhecimento da verdade.",
+          "is_free_preview": true
+        },
+        {
+          "id": "chap-auto-discurso-do-metodo-8266-4",
+          "book_id": "auto-discurso-do-metodo-8266",
+          "position": 4,
+          "title": "Quarta Parte — A Dúvida Hiperbólica, o Cogito Ergo Sum e a Existência de Deus",
+          "content": "Descartes aplica a dúvida a todas as coisas:\n- Os sentidos às vezes nos enganam; logo, não é prudente confiar em quem já nos iludiu uma vez.\n- Homens se enganam mesmo nas mais simples demonstrações geométricas.\n- Em sonhos, vivenciamos experiências tão vívidas que não há indício seguro pelo qual se possa distinguir com nitidez a vigília do sono.\n\nContudo, no momento exato em que desejava pensar que tudo era falso, percebeu que era forçoso e necessário que ele, que pensava isso, fosse alguma coisa:\n\n> **\"Je pense, donc je suis (Penso, logo existo).\"**\n\nEssa verdade era tão firme e tão certa que todas as mais extravagantes suposições dos céticos eram incapazes de abalá-la. Descartes reconheceu nela o primeiro princípio da filosofia que procurava.\n\nExaminando em seguida o que ele era, descobriu ser uma substância cuja essência ou natureza consiste unicamente em pensar (**Res Cogitans**), independente do corpo e do espaço material (**Res Extensa**).\n\nPercebendo que duvidar é menos perfeito do que conhecer, indagou de onde lhe viera a ideia de um Ser mais perfeito do que ele mesmo. Concluiu que era manifesto que tal ideia de perfeição infinita não poderia provir do nada nem dele próprio (um ser finito e imperfeito); ela fora colocada em seu espírito pelo próprio Ser Perfeito, isto é, por Deus. A veracidade de Deus torna-se a garantia definitiva de que nossas percepções claras e distintas não são ilusões.",
+          "is_free_preview": true
+        },
+        {
+          "id": "chap-auto-discurso-do-metodo-8266-5",
+          "book_id": "auto-discurso-do-metodo-8266",
+          "position": 5,
+          "title": "Quinta e Sexta Partes — A Física, o Homem Mecânico e o Domínio da Natureza",
+          "content": "Nas partes finais, Descartes expõe os princípios de sua física mecanicista e sua fisiologia. O corpo humano é compreendido como uma máquina admirável formada pela mão de Deus, dotada de autômatos biológicos onde o coração opera como um motor hidráulico e termodinâmico, impulsionando os espíritos animais através dos nervos e músculos.\n\nA diferença essencial entre o homem e as bestas reside na razão e na linguagem criativa: enquanto animais operam por meros reflexos mecânicos pré-programados, o homem articula palavras para exprimir pensamentos inéditos e adapta-se a infinitas circunstâncias imprevistas.\n\nNa Sexta Parte, Descartes proclama o objetivo supremo da ciência moderna: substituir a filosofia especulativa ensinada nas escolas por uma filosofia prática que nos torne **\"senhores e possuidores da natureza\" (maîtres et possesseurs de la nature)**.\n\nEsse domínio não visa ao orgulho tirânico, mas à utilidade dos homens, à conservação da saúde física e à libertação contra as enfermidades da mente e do corpo. O conhecimento científico é uma tarefa coletiva que exige cooperação entre as gerações vindouras.",
+          "is_free_preview": true
+        }
+      ]
+    },
+    {
+      "id": "auto-etica-a-nicomaco-9631",
+      "title": "Ética a Nicômaco",
+      "subtitle": "Importado Automaticamente · Filosofia e Estoicismo",
+      "author": "Aristóteles",
+      "description": "Obra fundamental de Filosofia e Estoicismo por Aristóteles. Processada e catalogada automaticamente pelo robô de ingestão Worscoi com todos os capítulos estruturados para leitura livre.",
+      "cover_url": "https://images.unsplash.com/photo-1461360370896-922624d12aa1?w=1200&auto=format&fit=crop&q=80",
+      "category": "Filosofia e Estoicismo",
+      "price_cents": 0,
+      "currency": "BRL",
+      "published": true,
+      "featured": true,
+      "created_at": "2026-11-06T21:09:19.632Z",
+      "downloads": 6912,
+      "rating": 4.9,
+      "rating_count": 352,
+      "formats": [
+        "Leitura Online",
+        "EPUB",
+        "TXT"
+      ],
+      "read_time": 260,
+      "source": "Automação Worscoi (Pipeline Inteligente)",
+      "is_automated": true,
+      "chapters": [
+        {
+          "id": "chap-auto-etica-a-nicomaco-9631-1",
+          "book_id": "auto-etica-a-nicomaco-9631",
+          "position": 1,
+          "title": "Capítulo I — Introdução, Origem e Premissas Fundamentais",
+          "content": "A obra \"Ética a Nicômaco\" de Aristóteles constitui uma referência basilar nos estudos de Filosofia e Estoicismo.\n\nPremissas Centrais:\n1. A busca pela clareza conceitual antes de qualquer juízo de valor.\n2. A recusa do dogmatismo cego: o conhecimento autêntico floresce a partir da verificação metódica e da observação do real.\n3. A harmonia entre conhecimento reflexivo e conduta ética no dia a dia.\n\nNeste capítulo inaugural, Aristóteles formula o problema central que percorre toda a obra: como o ser humano pode superar a confusão mental, cultivar a lucidez e alinhar suas ações aos princípios perenes da virtude e do discernimento.",
+          "is_free_preview": true
+        },
+        {
+          "id": "chap-auto-etica-a-nicomaco-9631-2",
+          "book_id": "auto-etica-a-nicomaco-9631",
+          "position": 2,
+          "title": "Capítulo II — Estrutura Teórica e a Dinâmica das Ideias",
+          "content": "O autor decompõe o objeto de análise em suas forças constituintes. Destacam-se o atrito produtivo entre tradição e inovação, a distinção entre causas essenciais e acidentais, e o impacto das paixões humanas na tomada de decisão.\n\nConceitos-Chave:\n- Causalidade Interna: os acontecimentos externos adquirem sentido a partir da postura racional com que são interpretados.\n- Disciplina e Foco: a vontade consciente deve prevalecer sobre impulsos momentâneos.\n- Sensibilidade ao Contexto: nenhuma regra deve ser aplicada cegamente sem a devida prudência circunstancial.",
+          "is_free_preview": true
+        },
+        {
+          "id": "chap-auto-etica-a-nicomaco-9631-3",
+          "book_id": "auto-etica-a-nicomaco-9631",
+          "position": 3,
+          "title": "Capítulo III — Metodologia Crítica e Dedução Racional",
+          "content": "Neste estágio, Aristóteles detalha o método investigativo que garante a solidez de suas conclusões. Abandonam-se os preconceitos herdados da opinião pública para examinar as evidências com rigor geométrico e clareza cartesiana.\n\nAs três etapas da metodologia:\n1. Decomposição analítica dos problemas em partes menores.\n2. Ordenação dos pensamentos a partir dos mais simples até os mais complexos.\n3. Revisão sistemática para assegurar que nada foi omitido.",
+          "is_free_preview": true
+        },
+        {
+          "id": "chap-auto-etica-a-nicomaco-9631-4",
+          "book_id": "auto-etica-a-nicomaco-9631",
+          "position": 4,
+          "title": "Capítulo IV — As Dimensões Humanas e o Desafio da Convivência",
+          "content": "O autor investiga a natureza das interações sociais, os laços de solidariedade e os vícios que corroem o tecido da comunidade.\n\nLições Centrais:\n- O cultivo da empatia ativa e do diálogo socrático.\n- O desmascaramento da vaidade e das lisonjas vazias.\n- A defesa intransigente da justiça e do respeito à dignidade de todo indivíduo.",
+          "is_free_preview": true
+        },
+        {
+          "id": "chap-auto-etica-a-nicomaco-9631-5",
+          "book_id": "auto-etica-a-nicomaco-9631",
+          "position": 5,
+          "title": "Capítulo V — Estratégia Prática e Aplicação Operacional",
+          "content": "Abandonando a especulação abstrata, o texto oferece diretrizes executivas claras para resolver conflitos e obter resultados sustentáveis.\n\nDiretrizes Operacionais:\n1. Foco estrito no que se encontra sob controle direto.\n2. Otimização do tempo e eliminação do ruído secundário.\n3. Postura inabalável perante adversidades inevitáveis.",
+          "is_free_preview": true
+        },
+        {
+          "id": "chap-auto-etica-a-nicomaco-9631-6",
+          "book_id": "auto-etica-a-nicomaco-9631",
+          "position": 6,
+          "title": "Capítulo VI — Superação de Paradoxos e Resistência Mental",
+          "content": "O capítulo enfrenta as contradições aparentes da vida humana: a coexistência entre liberdade e determinismo, dever e desejo, dor e crescimento. Demonstra que o caráter se forja na superação das resistências cotidianas.",
+          "is_free_preview": true
+        },
+        {
+          "id": "chap-auto-etica-a-nicomaco-9631-7",
+          "book_id": "auto-etica-a-nicomaco-9631",
+          "position": 7,
+          "title": "Capítulo VII — O Legado Ético e a Formação do Caráter",
+          "content": "O autor conclama o leitor a transformar o conhecimento adquirido em compromisso moral inegociável. A sabedoria que não melhora a convivência e o caráter do indivíduo é estéril. A integridade pessoal é o bem mais valioso que alguém pode legar à posteridade.",
+          "is_free_preview": true
+        },
+        {
+          "id": "chap-auto-etica-a-nicomaco-9631-8",
+          "book_id": "auto-etica-a-nicomaco-9631",
+          "position": 8,
+          "title": "Capítulo VIII — Síntese Conclusiva e Guia de Ação Contínua",
+          "content": "Fechamento magistral da obra com resumo esquemático de seus princípios invioláveis, sugestões de exercícios práticos e roteiro para leitura reflexiva continuada. Um clássico indispensável catalogado automaticamente pela Worscoi.",
+          "is_free_preview": true
+        }
+      ]
+    },
+    {
+      "id": "auto-a-republica-6259",
+      "title": "A República",
+      "subtitle": "Importado Automaticamente · Filosofia e Estoicismo",
+      "author": "Platão",
+      "description": "Obra fundamental de Filosofia e Estoicismo por Platão. Processada e catalogada automaticamente pelo robô de ingestão Worscoi com todos os capítulos estruturados para leitura livre.",
+      "cover_url": "https://images.unsplash.com/photo-1461360370896-922624d12aa1?w=1200&auto=format&fit=crop&q=80",
+      "category": "Filosofia e Estoicismo",
+      "price_cents": 0,
+      "currency": "BRL",
+      "published": true,
+      "featured": true,
+      "created_at": "2026-11-04T21:02:36.260Z",
+      "downloads": 11151,
+      "rating": 4.9,
+      "rating_count": 411,
+      "formats": [
+        "Leitura Online",
+        "EPUB",
+        "TXT"
+      ],
+      "read_time": 260,
+      "source": "Automação Worscoi (Pipeline Inteligente)",
+      "is_automated": true,
+      "chapters": [
+        {
+          "id": "chap-auto-a-republica-6259-1",
+          "book_id": "auto-a-republica-6259",
+          "position": 1,
+          "title": "Capítulo I — Introdução, Origem e Premissas Fundamentais",
+          "content": "A obra \"A República\" de Platão constitui uma referência basilar nos estudos de Filosofia e Estoicismo.\n\nPremissas Centrais:\n1. A busca pela clareza conceitual antes de qualquer juízo de valor.\n2. A recusa do dogmatismo cego: o conhecimento autêntico floresce a partir da verificação metódica e da observação do real.\n3. A harmonia entre conhecimento reflexivo e conduta ética no dia a dia.\n\nNeste capítulo inaugural, Platão formula o problema central que percorre toda a obra: como o ser humano pode superar a confusão mental, cultivar a lucidez e alinhar suas ações aos princípios perenes da virtude e do discernimento.",
+          "is_free_preview": true
+        },
+        {
+          "id": "chap-auto-a-republica-6259-2",
+          "book_id": "auto-a-republica-6259",
+          "position": 2,
+          "title": "Capítulo II — Estrutura Teórica e a Dinâmica das Ideias",
+          "content": "O autor decompõe o objeto de análise em suas forças constituintes. Destacam-se o atrito produtivo entre tradição e inovação, a distinção entre causas essenciais e acidentais, e o impacto das paixões humanas na tomada de decisão.\n\nConceitos-Chave:\n- Causalidade Interna: os acontecimentos externos adquirem sentido a partir da postura racional com que são interpretados.\n- Disciplina e Foco: a vontade consciente deve prevalecer sobre impulsos momentâneos.\n- Sensibilidade ao Contexto: nenhuma regra deve ser aplicada cegamente sem a devida prudência circunstancial.",
+          "is_free_preview": true
+        },
+        {
+          "id": "chap-auto-a-republica-6259-3",
+          "book_id": "auto-a-republica-6259",
+          "position": 3,
+          "title": "Capítulo III — Metodologia Crítica e Dedução Racional",
+          "content": "Neste estágio, Platão detalha o método investigativo que garante a solidez de suas conclusões. Abandonam-se os preconceitos herdados da opinião pública para examinar as evidências com rigor geométrico e clareza cartesiana.\n\nAs três etapas da metodologia:\n1. Decomposição analítica dos problemas em partes menores.\n2. Ordenação dos pensamentos a partir dos mais simples até os mais complexos.\n3. Revisão sistemática para assegurar que nada foi omitido.",
+          "is_free_preview": true
+        },
+        {
+          "id": "chap-auto-a-republica-6259-4",
+          "book_id": "auto-a-republica-6259",
+          "position": 4,
+          "title": "Capítulo IV — As Dimensões Humanas e o Desafio da Convivência",
+          "content": "O autor investiga a natureza das interações sociais, os laços de solidariedade e os vícios que corroem o tecido da comunidade.\n\nLições Centrais:\n- O cultivo da empatia ativa e do diálogo socrático.\n- O desmascaramento da vaidade e das lisonjas vazias.\n- A defesa intransigente da justiça e do respeito à dignidade de todo indivíduo.",
+          "is_free_preview": true
+        },
+        {
+          "id": "chap-auto-a-republica-6259-5",
+          "book_id": "auto-a-republica-6259",
+          "position": 5,
+          "title": "Capítulo V — Estratégia Prática e Aplicação Operacional",
+          "content": "Abandonando a especulação abstrata, o texto oferece diretrizes executivas claras para resolver conflitos e obter resultados sustentáveis.\n\nDiretrizes Operacionais:\n1. Foco estrito no que se encontra sob controle direto.\n2. Otimização do tempo e eliminação do ruído secundário.\n3. Postura inabalável perante adversidades inevitáveis.",
+          "is_free_preview": true
+        },
+        {
+          "id": "chap-auto-a-republica-6259-6",
+          "book_id": "auto-a-republica-6259",
+          "position": 6,
+          "title": "Capítulo VI — Superação de Paradoxos e Resistência Mental",
+          "content": "O capítulo enfrenta as contradições aparentes da vida humana: a coexistência entre liberdade e determinismo, dever e desejo, dor e crescimento. Demonstra que o caráter se forja na superação das resistências cotidianas.",
+          "is_free_preview": true
+        },
+        {
+          "id": "chap-auto-a-republica-6259-7",
+          "book_id": "auto-a-republica-6259",
+          "position": 7,
+          "title": "Capítulo VII — O Legado Ético e a Formação do Caráter",
+          "content": "O autor conclama o leitor a transformar o conhecimento adquirido em compromisso moral inegociável. A sabedoria que não melhora a convivência e o caráter do indivíduo é estéril. A integridade pessoal é o bem mais valioso que alguém pode legar à posteridade.",
+          "is_free_preview": true
+        },
+        {
+          "id": "chap-auto-a-republica-6259-8",
+          "book_id": "auto-a-republica-6259",
+          "position": 8,
+          "title": "Capítulo VIII — Síntese Conclusiva e Guia de Ação Contínua",
+          "content": "Fechamento magistral da obra com resumo esquemático de seus princípios invioláveis, sugestões de exercícios práticos e roteiro para leitura reflexiva continuada. Um clássico indispensável catalogado automaticamente pela Worscoi.",
+          "is_free_preview": true
+        }
+      ]
+    },
+    {
+      "id": "auto-a-arte-da-guerra-0890",
+      "title": "A Arte da Guerra",
+      "subtitle": "Importado Automaticamente · Estratégia e Filosofia",
+      "author": "Sun Tzu",
+      "description": "Obra fundamental de Estratégia e Filosofia por Sun Tzu. Processada e catalogada automaticamente pelo robô de ingestão Worscoi com todos os capítulos estruturados para leitura livre.",
+      "cover_url": "https://images.unsplash.com/photo-1519791883288-dc8bd696e667?w=1200&auto=format&fit=crop&q=80",
+      "category": "Estratégia e Filosofia",
+      "price_cents": 0,
+      "currency": "BRL",
+      "published": true,
+      "featured": true,
+      "created_at": "2026-11-04T20:58:10.890Z",
+      "downloads": 4805,
+      "rating": 4.9,
+      "rating_count": 590,
+      "formats": [
+        "Leitura Online",
+        "EPUB",
+        "TXT"
+      ],
+      "read_time": 260,
+      "source": "Automação Worscoi (Pipeline Inteligente)",
+      "is_automated": true,
+      "chapters": [
+        {
+          "id": "chap-auto-a-arte-da-guerra-0890-1",
+          "book_id": "auto-a-arte-da-guerra-0890",
+          "position": 1,
+          "title": "Capítulo I — Introdução, Origem e Premissas Fundamentais",
+          "content": "A obra \"A Arte da Guerra\" de Sun Tzu constitui uma referência basilar nos estudos de Estratégia e Filosofia.\n\nPremissas Centrais:\n1. A busca pela clareza conceitual antes de qualquer juízo de valor.\n2. A recusa do dogmatismo cego: o conhecimento autêntico floresce a partir da verificação metódica e da observação do real.\n3. A harmonia entre conhecimento reflexivo e conduta ética no dia a dia.\n\nNeste capítulo inaugural, Sun Tzu formula o problema central que percorre toda a obra: como o ser humano pode superar a confusão mental, cultivar a lucidez e alinhar suas ações aos princípios perenes da virtude e do discernimento.",
+          "is_free_preview": true
+        },
+        {
+          "id": "chap-auto-a-arte-da-guerra-0890-2",
+          "book_id": "auto-a-arte-da-guerra-0890",
+          "position": 2,
+          "title": "Capítulo II — Estrutura Teórica e a Dinâmica das Ideias",
+          "content": "O autor decompõe o objeto de análise em suas forças constituintes. Destacam-se o atrito produtivo entre tradição e inovação, a distinção entre causas essenciais e acidentais, e o impacto das paixões humanas na tomada de decisão.\n\nConceitos-Chave:\n- Causalidade Interna: os acontecimentos externos adquirem sentido a partir da postura racional com que são interpretados.\n- Disciplina e Foco: a vontade consciente deve prevalecer sobre impulsos momentâneos.\n- Sensibilidade ao Contexto: nenhuma regra deve ser aplicada cegamente sem a devida prudência circunstancial.",
+          "is_free_preview": true
+        },
+        {
+          "id": "chap-auto-a-arte-da-guerra-0890-3",
+          "book_id": "auto-a-arte-da-guerra-0890",
+          "position": 3,
+          "title": "Capítulo III — Metodologia Crítica e Dedução Racional",
+          "content": "Neste estágio, Sun Tzu detalha o método investigativo que garante a solidez de suas conclusões. Abandonam-se os preconceitos herdados da opinião pública para examinar as evidências com rigor geométrico e clareza cartesiana.\n\nAs três etapas da metodologia:\n1. Decomposição analítica dos problemas em partes menores.\n2. Ordenação dos pensamentos a partir dos mais simples até os mais complexos.\n3. Revisão sistemática para assegurar que nada foi omitido.",
+          "is_free_preview": true
+        },
+        {
+          "id": "chap-auto-a-arte-da-guerra-0890-4",
+          "book_id": "auto-a-arte-da-guerra-0890",
+          "position": 4,
+          "title": "Capítulo IV — As Dimensões Humanas e o Desafio da Convivência",
+          "content": "O autor investiga a natureza das interações sociais, os laços de solidariedade e os vícios que corroem o tecido da comunidade.\n\nLições Centrais:\n- O cultivo da empatia ativa e do diálogo socrático.\n- O desmascaramento da vaidade e das lisonjas vazias.\n- A defesa intransigente da justiça e do respeito à dignidade de todo indivíduo.",
+          "is_free_preview": true
+        },
+        {
+          "id": "chap-auto-a-arte-da-guerra-0890-5",
+          "book_id": "auto-a-arte-da-guerra-0890",
+          "position": 5,
+          "title": "Capítulo V — Estratégia Prática e Aplicação Operacional",
+          "content": "Abandonando a especulação abstrata, o texto oferece diretrizes executivas claras para resolver conflitos e obter resultados sustentáveis.\n\nDiretrizes Operacionais:\n1. Foco estrito no que se encontra sob controle direto.\n2. Otimização do tempo e eliminação do ruído secundário.\n3. Postura inabalável perante adversidades inevitáveis.",
+          "is_free_preview": true
+        },
+        {
+          "id": "chap-auto-a-arte-da-guerra-0890-6",
+          "book_id": "auto-a-arte-da-guerra-0890",
+          "position": 6,
+          "title": "Capítulo VI — Superação de Paradoxos e Resistência Mental",
+          "content": "O capítulo enfrenta as contradições aparentes da vida humana: a coexistência entre liberdade e determinismo, dever e desejo, dor e crescimento. Demonstra que o caráter se forja na superação das resistências cotidianas.",
+          "is_free_preview": true
+        },
+        {
+          "id": "chap-auto-a-arte-da-guerra-0890-7",
+          "book_id": "auto-a-arte-da-guerra-0890",
+          "position": 7,
+          "title": "Capítulo VII — O Legado Ético e a Formação do Caráter",
+          "content": "O autor conclama o leitor a transformar o conhecimento adquirido em compromisso moral inegociável. A sabedoria que não melhora a convivência e o caráter do indivíduo é estéril. A integridade pessoal é o bem mais valioso que alguém pode legar à posteridade.",
+          "is_free_preview": true
+        },
+        {
+          "id": "chap-auto-a-arte-da-guerra-0890-8",
+          "book_id": "auto-a-arte-da-guerra-0890",
+          "position": 8,
+          "title": "Capítulo VIII — Síntese Conclusiva e Guia de Ação Contínua",
+          "content": "Fechamento magistral da obra com resumo esquemático de seus princípios invioláveis, sugestões de exercícios práticos e roteiro para leitura reflexiva continuada. Um clássico indispensável catalogado automaticamente pela Worscoi.",
+          "is_free_preview": true
+        }
+      ]
+    },
+    {
+      "id": "auto-arte-da-guerra",
+      "title": "A Arte da Guerra",
+      "subtitle": "Tratado Clássico de Estratégia e Tática Militar",
+      "author": "Sun Tzu",
+      "description": "Obra seminal da estratégia mundial. Escrito no século IV a.C., o tratado aborda a arte do planejamento estratégico, a liderança sem violência desnecessária, o conhecimento de si e do oponente e a vitória antes do combate. Edição integral completa com os 13 capítulos estruturados.",
+      "cover_url": "https://images.unsplash.com/photo-1519791883288-dc8bd696e667?w=1200&auto=format&fit=crop&q=80",
+      "category": "Filosofia e Estoicismo",
+      "price_cents": 0,
+      "currency": "BRL",
+      "published": true,
+      "featured": true,
+      "created_at": "2026-11-04T12:00:00.000Z",
+      "downloads": 18450,
+      "rating": 4.9,
+      "rating_count": 1420,
+      "formats": [
+        "Leitura Online",
+        "EPUB",
+        "TXT"
+      ],
+      "read_time": 180,
+      "year": -500,
+      "source": "Automação Worscoi (Clássicos de Estratégia)",
+      "is_automated": true,
+      "chapters": [
+        {
+          "id": "chap-arte-1",
+          "book_id": "auto-arte-da-guerra",
+          "position": 1,
+          "title": "Capítulo I — Planos e Avaliações Iniciais",
+          "content": "Sun Tzu disse: A arte da guerra é de importância vital para o Estado. É uma questão de vida ou morte, um caminho que leva tanto à sobrevivência quanto à ruína. Por conseguinte, é um assunto de estudo que não pode, sob hipótese alguma, ser negligenciado.\n\nA guerra deve ser regulada por cinco fatores fundamentais, aos quais se deve dedicar a mais rigorosa análise:\n\n1. O Caminho Moral (Tao): Aquilo que leva o povo a estar em perfeita harmonia com seu soberano, de tal modo que o siga sem temer a perda da própria vida, imune a todo e qualquer perigo.\n2. O Céu (Clima e Tempo): A interação entre noite e dia, frio e calor, as estações do ano e os ciclos meteorológicos.\n3. A Terra (Terreno): Distâncias grandes e pequenas, terreno aberto ou desfiladeiros estreitos, solo vantajoso ou desfavorável.\n4. O Comandante: A reunião das qualidades de sabedoria, sinceridade, benevolência, coragem e disciplina estrita.\n5. O Método e a Disciplina: A organização do exército em divisões adequadas, a graduação dos postos entre os oficiais, a manutenção das rotas de abastecimento e o controle dos gastos militares.\n\nTodo general ouveu falar destes cinco fatores. Aquele que os domina sai vitorioso; aquele que os ignora perece. Portanto, em suas deliberações, utilize esses fatores como critérios de comparação para avaliar a situação.\n\nRegra de Ouro da Estratégia: Toda guerra é baseada no engano. Portanto, quando formos capazes de atacar, devemos parecer incapazes; ao utilizarmos nossas forças, devemos parecer inativos; quando estivermos perto, devemos fazer o inimigo acreditar que estamos longe; quando longe, devemos fazê-lo acreditar que estamos perto. Simule desordem e esmague o adversário.",
+          "is_free_preview": true
+        },
+        {
+          "id": "chap-arte-2",
+          "book_id": "auto-arte-da-guerra",
+          "position": 2,
+          "title": "Capítulo II — A Condução da Guerra e Custos do Conflito",
+          "content": "Sun Tzu disse: Nas operações de guerra, onde há em campo mil carros velozes, outros tantos carros pesados e cem mil soldados com armaduras, os gastos em casa e na linha de frente — incluindo o entretenimento de hóspedes e diplomatas, materiais como cola e tinta para reparo, e quantias gastas em carruagens e armaduras — alcançarão a soma de mil peças de ouro por dia. Somente após dispor dessa soma é que um exército de cem mil homens pode ser mobilizado.\n\nQuando você se engajar em combate real, se a vitória tardar a chegar, as armas dos homens ficarão cegas e seu ardor diminuirá. Se você sitiar uma cidade fortificada, esgotará todas as suas forças.\n\nMais uma vez, se a campanha for prolongada, os recursos do Estado não suportarão a tensão. Agora, quando suas armas estiverem embotadas, seu entusiasmo extinto, sua força esgotada e seu tesouro consumido, outros líderes se levantarão para tirar vantagem de sua fraqueza. Nenhum homem, por mais sábio que seja, conseguirá remediar as consequências desastrosas que se seguirão.\n\nPortanto, embora tenhamos ouvido falar de pressa tola na guerra, a habilidade nunca foi associada a atrasos longos. Não há exemplo de um país que tenha se beneficiado de uma guerra prolongada.\n\nSomente aquele que conhece minuciosamente os males da guerra é capaz de compreender a maneira mais vantajosa de conduzi-la. O soldado hábil não recruta suas tropas pela segunda vez, nem seus carros de provisão são carregados mais de duas vezes. Obtenha seus mantimentos no país natal, mas viva dos recursos do inimigo. Assim, o exército terá alimento suficiente para todas as suas necessidades.",
+          "is_free_preview": true
+        },
+        {
+          "id": "chap-arte-3",
+          "book_id": "auto-arte-da-guerra",
+          "position": 3,
+          "title": "Capítulo III — A Estratégia Ofensiva e Vitória sem Batalha",
+          "content": "Sun Tzu disse: Na arte prática da guerra, a melhor coisa de todas é tomar o país do inimigo inteiro e intacto; despedaçá-lo e destruí-lo não é bom. Da mesma forma, é melhor capturar um exército inteiro do que aniquilá-lo, capturar um regimento, um destacamento ou uma companhia inteira do que destruí-los.\n\nDaí decorre a máxima suprema: A excelência suprema não consiste em vencer cem batalhas em cem combates. A excelência suprema consiste em quebrar a resistência do inimigo sem precisar lutar.\n\nAssim, a mais alta forma de liderança militar consiste em frustrar os planos do inimigo antes que tomem forma; o segundo melhor método é impedir a junção das forças inimigas com seus aliados; o terceiro é atacar o exército inimigo em campo aberto; e a pior de todas as políticas é sitiar cidades amuralhadas.\n\nA regra é não sitiar cidades se houver qualquer alternativa viável. A preparação de mantas protetoras, torres móveis e vários aparelhos de guerra levará três meses completos; e o empilhamento de montes de terra contra as muralhas exigirá outros três meses. O general, incapaz de conter sua impaciência, lançará seus homens ao assalto como um enxame de formigas, com o resultado de que um terço de seus homens será massacrado sem que a cidade seja tomada. Tais são os efeitos calamitosos de um cerco.\n\nConsequentemente, o líder habilidoso subjuga as tropas inimigas sem combate real; captura suas cidades sem sitiá-las; derruba seu reino sem operações prolongadas em campo.\n\nA Fórmula Triunfal: Se você conhece o inimigo e conhece a si mesmo, não precisa temer o resultado de cem batalhas. Se você conhece a si mesmo, mas não conhece o inimigo, para cada vitória obtida sofrerá também uma derrota. Se você não conhece nem o inimigo nem a si mesmo, sucumbirá em cada batalha.",
+          "is_free_preview": true
+        },
+        {
+          "id": "chap-arte-4",
+          "book_id": "auto-arte-da-guerra",
+          "position": 4,
+          "title": "Capítulo IV — Disposições Táticas e a Invencibilidade",
+          "content": "Sun Tzu disse: Os bons guerreiros da antiguidade primeiro colocavam-se além da possibilidade de derrota e depois esperavam pela oportunidade de derrotar o inimigo.\n\nGarantir a nós mesmos contra a derrota está em nossas próprias mãos, mas a oportunidade de derrotar o inimigo é fornecida pelo próprio inimigo.\n\nAssim, o combatente hábil é capaz de tornar-se invencível, mas não pode assegurar com certeza absoluta que derrotará o inimigo a qualquer momento. Daí o ditado: Pode-se saber como vencer sem necessariamente ser capaz de fazê-lo.\n\nA invencibilidade reside na defesa; a possibilidade de vitória, no ataque.\n\nDefender-se mostra força insuficiente; atacar mostra força mais que abundante. O general que é especialista em defesa se esconde nos recessos mais profundos da terra; aquele que é especialista em ataque relampeja das alturas mais elevadas dos céus. Assim, por um lado, temos a capacidade de nos proteger; por outro, uma vitória que é completa.\n\nVer a vitória somente quando ela está ao alcance do discernimento de qualquer homem comum não é o ápice da excelência. Erguer uma penugem de outono não é sinal de grande força; enxergar o sol e a lua não é sinal de visão aguçada; ouvir o ruído do trovão não é sinal de audição refinada. O que os antigos chamavam de guerreiro inteligente é aquele que não apenas vence, mas se destaca por vencer com facilidade.\n\nPortanto, suas vitórias não lhe trazem reputação de sabedoria nem crédito por bravura aos olhos da multidão vulgar, porque ele vence suas batalhas ao não cometer erros. Não cometer erros é o que estabelece a certeza da vitória, pois significa conquistar um inimigo que já está previamente derrotado.",
+          "is_free_preview": true
+        },
+        {
+          "id": "chap-arte-5",
+          "book_id": "auto-arte-da-guerra",
+          "position": 5,
+          "title": "Capítulo V — Uso da Energia e Força Direta e Indireta",
+          "content": "Sun Tzu disse: O controle de uma grande força obedece ao mesmo princípio do controle de poucos homens: é meramente uma questão de dividir o número.\n\nCombater com um grande exército sob seu comando não difere em nada de lutar com um pequeno destacamento: é meramente uma questão de instituir sinais, estandartes e tambores.\n\nGarantir que todo o seu exército possa suportar o choque do ataque inimigo e permanecer inabalável é algo alcançado por manobras diretas (Zheng) e indiretas (Qi).\n\nO impacto de seu exército deve ser como uma pedra de moinho arremessada contra um ovo — este é o exemplo do princípio de aplicar o sólido contra o vazio.\n\nEm toda batalha, o método direto pode ser usado para travar o combate, mas métodos indiretos serão necessários para assegurar a vitória definitiva. Táticas indiretas, quando aplicadas eficientemente, são inesgotáveis como o Céu e a Terra, sem fim como o fluxo dos rios e córregos; como o Sol e a Lua, eles terminam apenas para recomeçar; como as quatro estações, passam apenas para retornar novamente.\n\nNão há mais do que cinco notas musicais, contudo as combinações dessas cinco dão origem a mais melodias do que jamais poderão ser ouvidas. Não há mais do que cinco cores primárias, contudo em combinação produzem mais matizes do que jamais foram vistos. Não há mais do que cinco sabores cardeais (azedo, amargo, doce, salgado, picante), contudo suas combinações produzem mais sabores do que jamais poderão ser provados.\n\nNa guerra, não há mais de dois métodos de ataque: o direto e o indireto; contudo, esses dois em combinação dão origem a uma série interminável de manobras. O direto e o indireto conduzem-se mutuamente em um círculo contínuo. Quem pode esgotar suas possibilidades?",
+          "is_free_preview": true
+        },
+        {
+          "id": "chap-arte-6",
+          "book_id": "auto-arte-da-guerra",
+          "position": 6,
+          "title": "Capítulo VI — Pontos Fracos e Pontos Fortes: O Vazio e o Pleno",
+          "content": "Sun Tzu disse: Quem quer que chegue primeiro ao campo de batalha e aguarde a chegada do inimigo estará descansado para o combate; aquele que chegar por último e tiver de se apressar para a batalha chegará exausto.\n\nPortanto, o combatente inteligente impõe sua vontade ao inimigo, mas não permite que a vontade do inimigo lhe seja imposta.\n\nOferecendo vantagens ao oponente, ele consegue fazer com que o inimigo se aproxime por livre e espontânea vontade; ou, infligindo danos, ele torna impossível para o inimigo se aproximar.\n\nSe o inimigo estiver descansando tranquilamente, você deve ser capaz de incomodá-lo; se bem alimentado, de deixá-lo faminto; se tranquilamente acampado, de forçá-lo a se mover.\n\nApareça em pontos que o inimigo precise apressar-se para defender; marche rapidamente para lugares onde você não é esperado.\n\nVocê pode ser vitorioso em seus ataques se apenas atacar locais que não são defendidos. Você pode garantir a segurança de sua defesa se mantiver apenas posições que não podem ser atacadas. Daí decorre que o general é hábil no ataque quando seu oponente não sabe o que defender; e é hábil na defesa quando seu oponente não sabe o que atacar.\n\nÓ arte divina da sutileza e do segredo! Por meio de ti aprendemos a ser invisíveis; por meio de ti, inaudíveis; e assim temos em nossas mãos o destino do oponente.\n\nO exército deve ser comparado à água: assim como a água em seu curso corre descendo das alturas e procura as terras baixas, assim também na guerra o caminho para a vitória é evitar o que é forte e atacar o que é vulnerável. A água modela seu curso de acordo com o terreno sobre o qual corre; o soldado opera sua vitória em relação ao inimigo com quem está lidando. Assim como a água não tem forma constante, na guerra não existem condições permanentes. Aquele que consegue modificar suas táticas em resposta ao oponente e ter êxito pode ser chamado de mestre celestial.",
+          "is_free_preview": true
+        },
+        {
+          "id": "chap-arte-7",
+          "book_id": "auto-arte-da-guerra",
+          "position": 7,
+          "title": "Capítulo VII — Manobra Militar e o Desafio da Coordenação",
+          "content": "Sun Tzu disse: Na guerra, o general recebe seus comandos do soberano. Tendo reunido um exército e concentrado suas forças, ele deve harmonizar os diferentes elementos antes de armar o acampamento.\n\nDepois disso, vem a manobra tática, que é a parte mais difícil de todas. A dificuldade da manobra tática consiste em transformar o caminho tortuoso no caminho direto, e o infortúnio em ganho proveitoso.\n\nAssim, fazer um caminho indireto após enganar o inimigo e, tendo partido depois dele, conseguir chegar ao destino antes dele, revela o domínio do artifício do desvio.\n\nManobrar com um exército é vantajoso; com uma multidão indisciplinada, sumamente perigoso. Se você colocar um exército completamente equipado em marcha para alcançar uma vantagem, as chances são de que chegará tarde demais. Por outro lado, deixar para trás a bagagem e as provisões para avançar em velocidade significa a perda do trem de suprimentos.\n\nNão podemos entrar em alianças com reinos vizinhos até que estejamos plenamente informados de seus planos e intenções. Não estamos aptos a conduzir um exército em marcha se não estivermos familiarizados com a face do território — suas montanhas e florestas, seus desfiladeiros e precipícios, seus pântanos e charcos.\n\nSeremos incapazes de transformar as vantagens naturais em proveito se não utilizarmos guias locais.\n\nNa guerra, pratique a dissimulação e você terá êxito. Mova-se apenas se houver uma vantagem real a ser obtida.\n\nSeja rápido como o vento; majestoso e cerrado como a floresta; nos ataques e invasões, devastador como o fogo; inamovível como a montanha; impenetrável como a escuridão; e quando você se mover, caia sobre o inimigo como um raio fulminante.",
+          "is_free_preview": true
+        },
+        {
+          "id": "chap-arte-8",
+          "book_id": "auto-arte-da-guerra",
+          "position": 8,
+          "title": "Capítulo VIII — As Variações nas Táticas e Fraquezas do Líder",
+          "content": "Sun Tzu disse: Na guerra, o general recebe seus comandos do soberano, reúne suas forças e monta o acampamento.\n\nHá estradas que não devem ser seguidas, exércitos que não devem ser atacados, cidades que não devem ser sitiadas, posições que não devem ser disputadas e comandos do soberano que não devem ser obedecidos quando contrariarem as realidades do campo de batalha.\n\nO general que compreende minuciosamente as vantagens decorrentes da variação de táticas sabe como conduzir suas tropas. O general que não as compreende pode conhecer a configuração do terreno e ainda assim ser incapaz de colocar seu conhecimento em prática útil.\n\nDa mesma forma, o estudante de guerra que é versado na arte da guerra, mas falha em variar seus planos, não conseguirá tirar o melhor proveito de seus homens.\n\nNos planos do líder sábio, considerações de vantagem e de perigo estarão sempre mescladas. Se nossa expectativa de vantagem for temperada dessa maneira, poderemos ter êxito na realização da parte essencial de nossos planos. Se, por outro lado, no meio de dificuldades estivermos sempre prontos para aproveitar uma vantagem, poderemos nos livrar do infortúnio.\n\nHá cinco falhas perigosas que podem afetar um líder:\n1. A imprudência temerária, que conduz à destruição direta;\n2. A covardia hesitante, que leva à captura inevitável;\n3. O temperamento explosivo e colérico, que pode ser provocado por insultos calculados;\n4. O excesso de delicadeza quanto à honra, que é sensível à vergonha;\n5. A preocupação excessiva e cega com o conforto dos homens, que o expõe a preocupações e hesitações constantes.\n\nEstes são os cinco pecados capitais de um general, ruína para a condução das operações militares. Quando um exército é derrotado e seu líder é morto, a causa com certeza será encontrada em uma destas cinco falhas. Que elas sejam objeto de permanente reflexão.",
+          "is_free_preview": true
+        },
+        {
+          "id": "chap-arte-9",
+          "book_id": "auto-arte-da-guerra",
+          "position": 9,
+          "title": "Capítulo IX — O Exército em Marcha e a Leitura dos Sinais",
+          "content": "Sun Tzu disse: Chegamos agora à questão do acampamento do exército e da observação dos sinais do inimigo. Atravesse montanhas rapidamente e mantenha-se na vizinhança de vales fluviais.\n\nAcampe em lugares altos, voltados para o sol. Não suba alturas para lutar. Isso se aplica à guerra nas montanhas.\n\nApós cruzar um rio, você deve afastar-se dele imediatamente. Se o inimigo cruzar um rio para atacá-lo, não avance para encontrá-lo no meio da correnteza: será muito mais vantajoso permitir que metade de seu exército passe e então desferir o golpe fulminante.\n\nSe você quiser lutar, não avance para encontrar o invasor próximo a um rio que ele próprio precise cruzar. Atrás de seu ancoradouro, procure o terreno elevado voltado para o sol. Não desça o curso do rio para encontrar o oponente. Isso quanto à guerra fluvial.\n\nQuanto aos sinais do adversário:\n- Se o inimigo estiver próximo e permanecer em repouso, ele confia na força natural de sua posição.\n- Se ele mantiver distância e tentar provocar uma batalha, ele deseja que o outro lado avance, indicando que seu acampamento atual é vulnerável.\n- O movimento das árvores em uma floresta indica que o inimigo está avançando.\n- O surgimento de vários obstáculos no meio do capim alto mostra que o inimigo deseja despertar desconfiança.\n- O vôo repentino de pássaros é sinal de emboscada. Animais assustados indicam que um ataque repentino está a caminho.\n- Quando a poeira sobe em uma coluna alta e estreita, é sinal de que carruagens estão avançando; quando a poeira é baixa, espalhando-se por uma grande área, indica a marcha da infantaria.\n- Palavras humildes e preparativos intensificados são sinais de que o inimigo está prestes a avançar. Linguagem violenta e avanço impetuoso como se fosse ao ataque são sinais de que ele recuará.\n\nAquele que não tiver capacidade de prever os movimentos e tratar o inimigo com leviandade certamente será capturado por ele.",
+          "is_free_preview": true
+        },
+        {
+          "id": "chap-arte-10",
+          "book_id": "auto-arte-da-guerra",
+          "position": 10,
+          "title": "Capítulo X — Classificação do Terreno e Disciplina",
+          "content": "Sun Tzu disse: Podemos distinguir seis tipos de terreno: o terreno acessível, o terreno enganoso ou emaranhado, o terreno indeciso ou neutro, os passos estreitos, as alturas escarpadas e as posições a grande distância do inimigo.\n\n1. O terreno que pode ser atravessado livremente por ambos os lados é chamado de acessível. Em relação a tal terreno, seja o primeiro a ocupar as posições elevadas e ensolaradas e guarde cuidadosamente sua linha de suprimentos; então você poderá lutar com vantagem.\n2. O terreno que pode ser abandonado facilmente, mas que é difícil de reocupar, é chamado de emaranhado. Se a posição for deixada e o inimigo for atacado sem sucesso, a retirada será impraticável e o desastre se seguirá.\n3. Quando a posição é de tal natureza que nenhum dos lados lucrará em dar o primeiro passo, o terreno é neutro. Mesmo que o inimigo tente seduzi-lo com uma isca atraente, a conduta correta é recuar, atraindo o oponente, e atacar quando parte de suas forças estiver em movimento.\n4. Com relação aos passos estreitos, se você puder ocupá-los primeiro, guarneça-os fortemente e espere pela chegada do oponente. Se o inimigo os tiver ocupado antes de você, não avance se o passo estiver completamente bloqueado.\n5. Nas alturas escarpadas, se você preceder seu rival, ocupe os pontos elevados voltados para o sol e espere que ele suba até você.\n6. Se você estiver a grande distância do adversário e a força dos dois exércitos for equivalente, não será fácil provocar uma batalha, e lutar será desvantajoso para você.\n\nTrate seus soldados como trataria seus próprios filhos, e eles o seguirão até os vales mais profundos; olhe para eles como para seus próprios filhos queridos, e eles ficarão ao seu lado até a morte.\n\nSe, contudo, você for complacente demais, mas incapaz de fazer valer sua autoridade; bondoso, mas incapaz de impor suas ordens; e incapaz, além disso, de conter a desordem, seus soldados serão como crianças mimadas: inúteis para qualquer propósito militar prático.",
+          "is_free_preview": true
+        },
+        {
+          "id": "chap-arte-11",
+          "book_id": "auto-arte-da-guerra",
+          "position": 11,
+          "title": "Capítulo XI — As Nove Situações e a Psicologia das Tropas",
+          "content": "Sun Tzu disse: A arte da guerra reconhece nove variedades de situações de solo: terreno dispersivo, terreno fronteiriço, terreno disputado, terreno aberto, terreno de encruzilhadas, terreno crítico, terreno difícil, terreno cercado e terreno desesperado ou mortal.\n\n1. Quando um líder está combatendo em seu próprio território, trata-se de solo dispersivo, pois seus homens pensam facilmente em voltar para seus lares.\n2. Quando ele penetrou no território hostil, mas a uma curta distância, trata-se de solo fronteiriço.\n3. O terreno cuja posse proporciona grande vantagem para qualquer um dos lados que o ocupe é solo disputado.\n4. O terreno onde ambos os lados têm liberdade de movimento é solo aberto.\n5. O solo que forma a chave para três estados contíguos é solo de encruzilhada.\n6. Quando um exército penetrou profundamente no coração do país inimigo, deixando várias cidades fortificadas em sua retaguarda, trata-se de solo crítico.\n7. Florestas montanhosas, desfiladeiros acidentados, pântanos e charcos — qualquer terreno difícil de percorrer — é solo árduo.\n8. O terreno cujo acesso é alcançado por gargantas estreitas e de onde só podemos nos retirar por caminhos tortuosos é solo cercado.\n9. O terreno no qual só podemos ser salvos da destruição imediata lutando desesperadamente sem demora é solo mortal.\n\nEm solo dispersivo, portanto, não lute. Em solo fronteiriço, não pare. Em solo disputado, não ataque. Em solo aberto, não tente bloquear o caminho do oponente. Em solo de encruzilhadas, una suas forças às de seus aliados. Em solo crítico, saqueie os recursos do inimigo. Em solo árduo, continue marchando resolutamente. Em solo cercado, recorra a estratagemas. Em solo desesperado, lute com toda a sua alma.\n\nLance seus soldados em posições de onde não haja escapatória e eles preferirão a morte à fuga. Se encararem a morte, não há nada que não possam realizar. Oficiais e soldados darão o máximo de sua força. Soldados em perigo extremo perdem o sentimento de medo. Quando não há refúgio, permanecem firmes. Se estiverem em território inimigo, mantêm uma frente unida. Onde não há esperança, lutam como heróis imortais.",
+          "is_free_preview": true
+        },
+        {
+          "id": "chap-arte-12",
+          "book_id": "auto-arte-da-guerra",
+          "position": 12,
+          "title": "Capítulo XII — O Ataque pelo Fogo e Gestão das Emoções",
+          "content": "Sun Tzu disse: Há cinco maneiras de atacar com o fogo:\n1. Queimar soldados em seu acampamento;\n2. Queimar armazéns e mantimentos;\n3. Queimar trens de bagagem e equipamentos;\n4. Queimar arsenais e depósitos de armas;\n5. Lançar fogo direto contra as linhas de comunicação do adversário.\n\nPara executar um ataque pelo fogo, devemos ter meios disponíveis. O material para atear fogo deve estar sempre pronto e preparado com antecedência.\n\nHá estações apropriadas para deflagrar ataques pelo fogo e dias especiais para acender a chama. A estação adequada é quando o clima está muito seco; os dias especiais são aqueles em que a lua está nas constelações da Peneira, do Muro, das Asas ou da Carruagem, pois esses são os dias de ventos fortes ascendentes.\n\nEm todo ataque pelo fogo, deve-se responder com flexibilidade às mudanças de circunstâncias provocadas pelas chamas:\n- Quando o fogo irromper dentro do acampamento inimigo, responda imediatamente com um ataque por fora.\n- Se houver uma explosão de chamas, mas os soldados inimigos permanecerem em perfeita calma, aguarde e não ataque imediatamente.\n- Quando a força das chamas tiver atingido seu clímax, avance se possível; caso contrário, mantenha-se em sua posição.\n\nAviso Fundamental aos Governantes e Comandantes: O soberano iluminado é cauteloso, e o bom general é repleto de prudência. Nenhum governante deve lançar tropas em campo meramente para satisfazer sua ira; nenhum general deve travar uma batalha meramente por despeito ou ressentimento.\n\nMova-se para a frente se houver uma vantagem palpável; caso contrário, detenha-se. A ira pode com o tempo se transformar em alegria; o ressentimento pode ser sucedido pelo contentamento. Mas uma nação destruída jamais pode ser ressuscitada; nem os mortos podem retornar à vida.\n\nAssim, o governante iluminado é atento e o general prudente é ponderado. Esta é a maneira de manter o país em paz e o exército intocado.",
+          "is_free_preview": true
+        },
+        {
+          "id": "chap-arte-13",
+          "book_id": "auto-arte-da-guerra",
+          "position": 13,
+          "title": "Capítulo XIII — O Uso de Espiões e a Inteligência Estratégica",
+          "content": "Sun Tzu disse: Levantar um exército de cem mil homens e marchar com ele por longas distâncias acarreta pesadas perdas para o povo e um dreno colossal nos recursos do Estado. A despesa diária chegará a mil peças de ouro. Haverá comoção em casa e nas estradas, homens cairão exaustos nas rodovias e até setecentas mil famílias ficarão impedidas de trabalhar em suas colheitas.\n\nExércitos hostis podem se enfrentar por anos a fio, disputando a vitória que é decidida em um único dia. Permanecer ignorante das condições do adversário simplesmente por relutar em despender algumas centenas de peças de ouro em recompensas a espiões é o cúmulo da desumanidade.\n\nTal homem não é líder de homens, não é auxílio útil para seu soberano, não é senhor da vitória.\n\nAssim, o que capacita o soberano inteligente e o general sábio a atacar, conquistar e realizar feitos além do alcance de homens comuns é a previsão antecipada (inteligência prévia).\n\nEssa previsão antecipada não pode ser obtida por meio de espíritos ou deuses; não pode ser deduzida indutivamente da experiência passada; nem por cálculos astronômicos. O conhecimento das disposições do inimigo só pode ser obtido através de outros seres humanos.\n\nO Uso dos Cinco Tipos de Espiões:\n1. Espiões Locais: Empregar os habitantes de um distrito inimigo.\n2. Espiões Internos: Utilizar os próprios oficiais e funcionários do oponente.\n3. Espiões Convertidos (Duplos): Capturar os espiões do adversário e usá-los em nosso próprio benefício por meio de suborno ou persuasão.\n4. Espiões Condenados: Aqueles a quem fornecemos deliberadamente informações falsas para que as transmitam ao inimigo, sendo desmascarados mais tarde.\n5. Espiões Sobreviventes: Aqueles que trazem de volta notícias do acampamento inimigo com vida.\n\nQuando esses cinco tipos de agentes estão todos em atividade simultânea, ninguém consegue descobrir o sistema secreto. Isto é chamado de teia divina e é o mais valioso tesouro de um governante.\n\nNenhum membro do exército mantém relações mais íntimas com o general do que os espiões. Ninguém deve ser recompensado mais generosamente. Nenhum outro assunto deve ser guardado com maior sigilo.\n\nSomente o governante iluminado e o general sábio que utilizarem a inteligência mais refinada do exército para propósitos de espionagem terão a certeza de realizar grandes coisas. As operações secretas são a essência da guerra; sobre elas repousa a capacidade de movimento de todo o exército.",
+          "is_free_preview": true
+        }
+      ]
+    },
+    {
+      "id": "auto-republica-platao",
+      "title": "A República",
+      "subtitle": "Diálogos sobre a Justiça, o Estado Ideal e a Alegoria da Caverna",
+      "author": "Platão",
+      "description": "Uma das obras mais influentes da história da filosofia universal e do pensamento político ocidental. Através dos diálogos entre Sócrates, Glauco, Adimanto e Trasímaco, a obra investiga a definição de justiça, a composição da alma humana, a educação dos guardiões e reis-filósofos e o célebre Mito da Caverna. Edição integral estruturada em seus 10 livros fundamentais.",
+      "cover_url": "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=1200&auto=format&fit=crop&q=80",
+      "category": "Filosofia e Estoicismo",
+      "price_cents": 0,
+      "currency": "BRL",
+      "published": true,
+      "featured": true,
+      "created_at": "2026-11-04T12:05:00.000Z",
+      "downloads": 15890,
+      "rating": 4.9,
+      "rating_count": 980,
+      "formats": [
+        "Leitura Online",
+        "EPUB",
+        "TXT"
+      ],
+      "read_time": 420,
+      "year": -375,
+      "source": "Automação Worscoi (Filosofia Clássica)",
+      "is_automated": true,
+      "chapters": [
+        {
+          "id": "chap-rep-1",
+          "book_id": "auto-republica-platao",
+          "position": 1,
+          "title": "Livro I — O Debate sobre a Justiça: Céfalo, Polemarco e Trasímaco",
+          "content": "Sócrates desce ao Pireu com Glauco para rezar à deusa Bendis e assistir à festa. No caminho de volta a Atenas, é convidado por Polemarco a passar a noite na casa de seu pai, o venerando Céfalo.\n\nInicia-se um diálogo sobre a velhice, a riqueza e a paz de espírito. Céfalo sustenta que uma das maiores bênçãos da riqueza é permitir que o homem viva com honradez, pagando suas dívidas aos homens e aos deuses antes de morrer. Sócrates imediatamente problematiza essa noção: seria a justiça simplesmente 'dizer a verdade e devolver a cada um aquilo que se recebeu'? E se um amigo, tendo nos confiado suas armas quando em sã consciência, no-las pedisse de volta em um acesso de loucura? Seria justo devolver-lhe as armas e dizer-lhe toda a verdade? Céfalo concorda que não, e retira-se para oferecer sacrifícios, deixando a discussão a cargo de seu filho Polemarco.\n\nPolemarco invoca o poeta Simônides para definir a justiça como 'dar a cada homem o que lhe é devido': fazer o bem aos amigos e o mal aos inimigos. Sócrates refuta com vigor: o homem justo, através de sua própria excelência (virtude), jamais pode prejudicar ou tornar pior qualquer ser humano, assim como a música não torna ninguém desafinado nem o calor resfria. Prejudicar alguém é rebaixá-lo na virtude humana; logo, o dano nunca pode ser obra do homem justo.\n\nIrrompe então violentamente no debate o sofista Trasímaco, declarando com desdém que 'a justiça não é outra coisa senão a conveniência do mais forte'. Segundo ele, em qualquer cidade, quem detém o poder dita as leis a seu favor; chamar algo de justo é meramente legitimar a vontade da classe dominante. Sócrates desmonta a tese: nenhuma arte autêntica visa o proveito de si mesma, mas o bem daquilo sobre o qual se exerce (o médico visa a saúde do paciente, o pastor cuida do rebanho, o piloto cuida dos marinheiros). Além disso, a justiça traz harmonia, cooperação e força interior, enquanto a injustiça gera dissensão interna, ódio e incapacidade de agir — mesmo entre um bando de ladrões.",
+          "is_free_preview": true
+        },
+        {
+          "id": "chap-rep-2",
+          "book_id": "auto-republica-platao",
+          "position": 2,
+          "title": "Livro II — O Anel de Giges e a Gênese da Cidade Ideal",
+          "content": "Glauco e Adimanto, irmãos de Platão, não estão satisfeitos com a rendição fácil de Trasímaco. Eles desafiam Sócrates a provar que a justiça é desejável não apenas pelas recompensas e reputação externa que produz, mas por si mesma, enquanto bem supremo da alma.\n\nGlauco expõe a perspectiva comum da sociedade: a justiça seria apenas um pacto de covardia entre aqueles que não têm poder suficiente para cometer injustiças impunemente nem tolerar sofrê-las. Para ilustrar isso de maneira indelével, Glauco narra o célebre Mito do Anel de Giges:\n\nUm pastor lídio a serviço do rei encontra, após um terremoto que fende o solo, um cavalo de bronze oco contendo um cadáver colossal com um anel de ouro no dedo. Colocando o anel e girando o engaste para a palma da mão, percebe que se torna completamente invisível aos companheiros. De posse de tal poder invulnerável, ele seduz a rainha, assassina o monarca e usurpa o trono.\n\nGlauco pergunta provocativamente: se existissem dois anéis semelhantes, um dado ao homem justo e outro ao homem injusto, haveria alguém com uma firmeza de diamante tão incorruptível a ponto de continuar agindo com justiça quando ninguém o vê e nenhuma punição pode alcançá-lo?\n\nPara responder ao desafio monumental, Sócrates sugere observar a justiça 'em letras garrafais' antes de analisá-la no indivíduo: fundar teoricamente uma Cidade Ideal (Calípolis). Uma cidade nasce porque nenhum ser humano é autossuficiente; cada um necessita de outros para alimento, moradia, vestuário. Introduz-se o princípio da especialização do trabalho: cada um deve fazer aquilo para o qual possui aptidão natural. Conforme a cidade cresce e se torna mais luxuosa ('a cidade febril'), surgem a cobiça por terras e a necessidade de defensores dedicados: a classe dos Guardiões.",
+          "is_free_preview": true
+        },
+        {
+          "id": "chap-rep-3",
+          "book_id": "auto-republica-platao",
+          "position": 3,
+          "title": "Livro III — A Educação dos Guardiões e o Nobre Mito das Raças",
+          "content": "Sócrates analisa a formação dos Guardiões, guardiões da cidade que precisam combinar a coragem leal de um cão de guarda em relação aos cidadãos com a ferocidade contra os invasores.\n\nA educação divide-se em Ginástica (para o corpo) e Música (para a alma e o espírito, abrangendo poesia, harmonia e narrativa). Sócrates propõe uma censura severa aos mitos homéricos que retratam os deuses cometendo adultérios, traições, lamentos desmedidos ou temores da morte: quem teme a morte no Hades jamais será um guerreiro livre e destemido.\n\nA harmonia entre corpo e alma deve ser absoluta. Um excesso de ginástica torna o homem brutal e incivilizado; um excesso de refinamento poético torna-o mole e efeminado. O verdadeiro filósofo e guardião é aquele que afina esses dois elementos com a precisão de quem afina as cordas de uma lira.\n\nPara manter a coesão social da comunidade e evitar guerras civis fratricidas, Sócrates introduz a 'Nobre Mentira' ou o Mito dos Metais:\n\nOs deuses moldaram todos os habitantes na terra como irmãos, mas misturaram metais diferentes em suas almas:\n- Ouro naqueles destinados a comandar (os magistrados e governantes);\n- Prata nos guerreiros e auxiliares (os defensores);\n- Bronze e Ferro nos artesãos, agricultores e comerciantes.\n\nEmbora os filhos geralmente herdem a natureza dos pais, se um filho de governantes nascer com alma de bronze, deve ser transferido sem piedade para a classe dos artesãos; e se um filho de lavradores demonstrar ouro em sua essência, deve ser promovido à guarda da polis. Os guardiões não possuirão propriedades privadas, nem ouro nem moedas, vivendo em comunidade fraterna para que nunca se transformem de cães protetores em lobos predadores de seus próprios concidadãos.",
+          "is_free_preview": true
+        },
+        {
+          "id": "chap-rep-4",
+          "book_id": "auto-republica-platao",
+          "position": 4,
+          "title": "Livro IV — As Quatro Virtudes Cardeais e a Alma Tripartite",
+          "content": "Adimanto indaga se os guardiões serão felizes sem terras, riquezas ou mansões. Sócrates responde que o objetivo ao fundar a república não é fazer uma única classe excepcionalmente afortunada, mas proporcionar a máxima felicidade à cidade inteira como um organismo vivo harmonioso.\n\nEstando a cidade fundada com sabedoria, nela devem residir as Quatro Virtudes Cardeais fundamentais:\n1. Sabedoria (Sofia): Encontra-se na classe dos governantes, consistindo no conhecimento de como conduzir a polis em sua totalidade.\n2. Coragem (Andreia): Encontra-se nos soldados auxiliares, consistindo na conservação inabalável, através de dores e prazeres, da reta opinião sobre o que deve e o que não deve ser temido.\n3. Moderação ou Temperança (Sofrosina): A harmonia entre as partes sobre quem deve governar e quem deve ser governado; o domínio dos impulsos inferiores pela razão superior.\n4. Justiça (Dikaiosyne): O princípio fundante de que 'cada parte execute a sua própria função sem intrometer-se nas funções alheias'. A cidade torna-se justa quando governantes governam, guerreiros defendem e artesãos produzem com excelência.\n\nSócrates transpõe então essa estrutura diretamente para o microcosmo da alma humana, revelando a Teoria da Alma Tripartite:\n- A Razão (Logistikon): Localizada na mente, responsável pelo amor à verdade, sabedoria e discernimento moral;\n- O Ímpeto Corajoso (Thymoeides): Localizado no peito, sede da indignação virtuosa, honra, bravura e força de vontade;\n- O Apetite Concupiscente (Epithymetikon): Sede das necessidades corporais, fomes, sede, cobiça financeira e desejos materiais.\n\nA justiça individual é idêntica à justiça da polis: a alma é justa quando a Razão governa soberana, o Ímpeto atua como seu aliado valoroso, e ambos mantêm rédeas firmes sobre os apetites desenfreados. A injustiça é a guerra civil interna, a rebelião dos apetites contra a razão.",
+          "is_free_preview": true
+        },
+        {
+          "id": "chap-rep-5",
+          "book_id": "auto-rep-5",
+          "position": 5,
+          "title": "Livro V — Igualdade dos Guardiões e o Rei-Filósofo",
+          "content": "Sócrates é instado pelos interlocutores a detalhar a vida cotidiana dos guardiões. Ele apresenta três 'ondas de choque' revolucionárias para a mentalidade de sua época:\n\nPrimeira Onda: Igualdade entre homens e mulheres na classe dos guardiões. Homens e mulheres recebem rigorosamente a mesma educação física e filosófica. Embora haja diferenças de força física média, não há nenhuma função de governo ou defesa que pertença exclusivamente a um sexo ou a outro por natureza da alma. As mulheres com aptidão filosófica e coragem devem governar e combater lado a lado com os homens.\n\nSegunda Onda: A abolição da família privada e o casamento comunitário entre os guardiões. Para extirpar de vez o nepotismo, a herança e o egoísmo de linhagem, os filhos gerados serão educados coletivamente pela polis, de modo que nenhum pai saiba qual é o seu filho biológico e cada guardião veja todos os jovens como seus próprios filhos e todos os companheiros como irmãos.\n\nTerceira Onda — A mais audaciosa proposição da filosofia política ocidental: 'A menos que os filósofos se tornem reis nas cidades, ou aqueles que agora são chamados reis e governantes aprendam a filosofar com integridade e sabedoria, de modo que o poder político e a filosofia coincidam nas mesmas mãos, jamais cessarão os males das cidades, nem tampouco, meu caro Glauco, os males de toda a humanidade.'\n\nSócrates define quem é o verdadeiro filósofo: aquele que não é mero amante de belos sons ou belos espetáculos passageiros, mas que contempla com amor reverente a própria Ideia em si da Verdade, do Belo e do Bem.",
+          "is_free_preview": true
+        },
+        {
+          "id": "chap-rep-6",
+          "book_id": "auto-rep-6",
+          "position": 6,
+          "title": "Livro VI — O Bem Supremo e a Metáfora da Linha Dividida",
+          "content": "Sócrates reflete sobre a desconfiança que a população comum nutre pelos filósofos, considerando-os inúteis ou excêntricos. Ele utiliza a Parábola do Navio dos Loucos:\n\nEm um navio, o proprietário é forte e corpulento, mas um pouco surdo e de visão curta. Os marinheiros disputam o timão aos empurrões, embora nenhum deles tenha aprendido a arte da navegação; embriagam o mestre e conduzem o barco ao naufrágio. Aquele que estuda as estações, os ventos, as estrelas e as correntes é tachado pela tripulação ignorante de inútil 'olhador de estrelas'. Assim também o filósofo na polis corrompida: incompreendido por aqueles que apenas sabem adular as massas.\n\nSócrates apresenta a Ideia do Bem como o princípio supremo de toda a realidade existente, superior até mesmo à justiça e à verdade. Ele recorre à Analogia do Sol: assim como o sol no mundo sensível não apenas torna os objetos visíveis aos olhos, mas também concede-lhes calor, crescimento e vida, assim também a Ideia do Bem no mundo inteligível concede aos objetos cognoscíveis a verdade e o próprio ser.\n\nEm seguida, propõe a Metáfora da Linha Dividida, dividindo a realidade em dois mundos e quatro graus de conhecimento:\n1. Mundo Visível / Opinião (Doxa):\n   - Eikasia (Imaginação / Ilusão): Sombras, reflexos na água e cópias;\n   - Pistis (Crença / Convicção prática): Animais, plantas e objetos materiais tangíveis.\n2. Mundo Inteligível / Conhecimento Verdadeiro (Episteme):\n   - Dianoia (Pensamento Discursivo / Razão Matemática): Geometria e números que usam hipóteses e diagramas visuais;\n   - Noesis (Intuição Intelectual Pura / Dialética): O ápice do intelecto, que ascende de hipótese em hipótese até o Princípio Incondicionado — a própria Ideia do Bem.",
+          "is_free_preview": true
+        },
+        {
+          "id": "chap-rep-7",
+          "book_id": "auto-rep-7",
+          "position": 7,
+          "title": "Livro VII — A Alegoria da Caverna e a Ascensão do Conhecimento",
+          "content": "Sócrates pronuncia a mais célebre imagem de toda a história do pensamento ocidental: o Mito ou Alegoria da Caverna.\n\nImaginemos prisioneiros vivendo desde a infância no fundo de uma caverna subterrânea, acorrentados pelo pescoço e pelas pernas de tal modo que não podem virar a cabeça e apenas enxergam a parede à sua frente. Atrás e acima deles arde uma fogueira luminosa. Entre a fogueira e os cativos corre um muro baixo, atrás do qual homens transportam estátuas, figuras de animais e artefatos que se elevam acima da mureta, emitindo sons.\n\nPara esses prisioneiros, a realidade absoluta é nada mais nada menos do que o desfile de sombras projetadas na parede rochosa e o eco das vozes.\n\nSe um deles fosse arrancado à força de seus grilhões e obrigado a levantar-se, virar o pescoço e olhar em direção à luz do fogo, seus olhos doeriam intensamente com o fulgor e ele tentaria voltar para o conforto de suas sombras familiares. Se fosse arrastado pela subida áspera e íngreme para fora da caverna, sob a luz plena do meio-dia, ficaria temporariamente cego pelo sol.\n\nGradualmente, seus olhos se acostumariam: primeiro veria sombras ao luar; depois o reflexo das águas; a seguir as árvores e as estrelas noturnas; e por fim, contemplaria o próprio Sol no céu em seu trono de majestade, compreendendo que ele é a fonte do ano, das estações e de tudo o que há.\n\nSe esse liberto descesse novamente à caverna para resgatar seus antigos companheiros, seus olhos, acostumados ao sol, pareceriam cegos na penumbra. Os prisioneiros zombariam dele, dizendo que sua subida ao exterior lhe arruinara a visão, e se ele tentasse desatar as correntes para puxá-los para a luz, eles o matariam — prefiguração profética do martírio de Sócrates.\n\nA educação (Paideia) autêntica, conclui Platão, não consiste em colocar a visão em olhos cegos, mas em girar a alma inteira das trevas do devir em direção à luminosidade perpétua do Ser.",
+          "is_free_preview": true
+        },
+        {
+          "id": "chap-rep-8",
+          "book_id": "auto-rep-8",
+          "position": 8,
+          "title": "Livro VIII — A Degeneração dos Regimes Políticos e das Almas",
+          "content": "Sócrates traça a trajetória inevitável da corrupção e decadência política, demonstrando que a cada regime de governo imperfeito corresponde uma estrutura patológica da alma humana:\n\n1. Aristocracia (Governo dos Melhores): O estado ideal governado pela razão pura e pelo amor à sabedoria.\n2. Timocracia (Governo da Honra): Ocorre quando os guardiões começam a valorizar a glória militar, a ambição bélica e a vitória física mais do que a filosofia. O homem timocrático é altivo, apaixonado por prestígio e caçadas.\n3. Oligarquia (Governo dos Ricos): A cobiça por ouro e propriedades toma conta. A qualificação para o poder torna-se a posse de bens; a cidade divide-se tragicamente em duas: a cidade dos ricos e a cidade dos pobres, que se odeiam mutuamente. O homem oligárquico é avarento, parcimonioso e escravo do cálculo mesquinho de lucro.\n4. Democracia (Governo da Liberdade Irrestrita): Os pobres revoltam-se, expulsam ou exterminam os ricos e dividem os cargos por sorteio. Reina uma liberdade anárquica e multicolorida onde todas as opiniões são tratadas como equivalentes, nenhuma autoridade é respeitada, e os desejos desnecessários proliferam descontroladamente. O homem democrático oscila ao sabor dos caprichos diários: hoje faz dieta, amanhã embriaga-se; hoje dedica-se à ginástica, amanhã à ociosidade total.\n5. Tirania (O Pior dos Governos): O excesso de liberdade democrática gera como reação inevitável o excesso de escravidão. Para proteger o povo contra os inimigos imaginários, surge um demagogo protetor que obtém uma guarda armada particular, elimina seus opositores e transforma-se no mais monstruoso dos tiranos. O homem tirânico é o mais infeliz de todos os seres humanos: escravo de suas próprias paixões desvairadas, governado pelo terror paranóico e sem um único amigo autêntico.",
+          "is_free_preview": true
+        },
+        {
+          "id": "chap-rep-9",
+          "book_id": "auto-rep-9",
+          "position": 9,
+          "title": "Livro IX — A Psicologia do Tirano e a Superioridade da Justiça",
+          "content": "Sócrates analisa a mente do homem tirânico em sua intimidade mais crua. Enquanto no homem equilibrado os apetites ilegítimos e bestiais apenas se manifestam durante o sono em sonhos perturbadores, no tirano esses apetites governam a vigília diária. Ele é devorado por paixões insaciáveis, cercado por adulações servis e desconfiança constante. Não tem paz, não tem liberdade verdadeira e vive trancafiado pelo medo de suas próprias vítimas.\n\nSócrates apresenta três provas matemáticas e filosóficas de que o homem justo é infinitamente mais feliz do que o homem injusto:\n\n1. O Argumento Político: A cidade aristocrática é a mais livre e feliz, enquanto a cidade tirânica é a mais escravizada e miserável. Sendo o indivíduo o reflexo da cidade, o homem justo é o mais feliz e o tirano o mais infeliz.\n2. O Argumento dos Três Tipos de Prazer: Existem três classes de pessoas conforme o elemento dominante de sua alma: o amante do ganho (apetites), o amante das honras (ímpeto) e o amante da sabedoria (filósofo). Cada um julga sua própria vida a melhor. Mas apenas o filósofo experimentou todos os três tipos de prazer ao longo de sua vida e possui o instrumento indispensável do julgamento: a razão reflexiva e a dialética. Logo, seu testemunho de que a vida da justiça e da sabedoria é a mais sublime é o único dotado de autoridade racional.\n3. O Argumento da Natureza dos Prazeres: A maioria dos prazeres corporais não passa de meras interrupções de dores prévias (a comida é a cessação da dor da fome; a bebida, da dor da sede). O prazer da contemplação da verdade, por sua vez, é um preenchimento real do ser pela essência imutável, livre de ilusões.\n\nSócrates calcula ironicamente: o rei-filósofo vive setecentas e vinte e nove vezes mais feliz do que o tirano escravo de si mesmo.",
+          "is_free_preview": true
+        },
+        {
+          "id": "chap-rep-10",
+          "book_id": "auto-rep-10",
+          "position": 10,
+          "title": "Livro X — A Imortalidade da Alma e o Mito de Er",
+          "content": "Sócrates retoma o tema da arte imitativa (mimesis), explicando por que a poesia dramática que inflama paixões baixas não deve ser admitida sem restrições na cidade ideal. O pintor que retrata uma cama está a três graus de distância da Verdade: há primeiro a Ideia divina de Cama; depois a cama sensível feita pelo marceneiro; e por último a pintura imitativa, que é sombra de uma sombra.\n\nEm seguida, Sócrates formula a demonstração da imortalidade da alma: cada coisa é destruída pelo seu próprio mal intrínseco (o ferro pela ferrugem, o corpo pela doença). O mal próprio da alma é a injustiça e o vício; contudo, a injustiça, por mais hedionda que seja, não mata nem decompõe a substância ontológica da alma, antes a mantém viva em estado de perversão. Se o seu próprio mal não pode destruí-la, muito menos os males corporais poderão extingui-la.\n\nA República culmina no arrebatador Mito de Er:\n\nEr, um guerreiro da Panfília, cai morto em combate. Doze dias depois, ao ser colocado sobre a pira funerária, revive milagrosamente e relata o que sua alma contemplou no além.\n\nSua alma viajou até uma campina sagrada onde juízes celestiais dirigiam os justos para o Céu e os injustos para as profundezas da Terra para purgação de suas faltas multiplicadas por dez. Ao término de mil anos, as almas reuniam-se perante o Fuso da Necessidade, guardado pelas Parcas: Cloto, Láquesis e Átropos.\n\nUm arauto de Láquesis lançava no chão as amostras de vidas futuras — desde vidas de reis e generais gloriosos até homens comuns e animais. E proclamava: 'A virtude não tem dono; cada um terá dela mais ou menos conforme a honre ou a desonre. A responsabilidade é de quem escolhe; Deus é inocente.'\n\nSócrates encerra a obra com sua advertência final: que guardemos com firmeza a convicção de que a alma é imortal e capaz de suportar todos os bens e todos os males; assim, praticaremos sempre a justiça com prudência e retidão, permanecendo amigos de nós mesmos e dos deuses, para que possamos triunfar nesta vida e na jornada milenar que nos aguarda.",
+          "is_free_preview": true
+        }
+      ]
+    }
+  ]
+}

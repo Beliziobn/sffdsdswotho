@@ -1,0 +1,103 @@
+{
+  "entities": {
+    "news": {
+      "title": "News Item",
+      "description": "Journalistic article or news piece published on Worscoi",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "title": { "type": "string", "maxLength": 300 },
+        "slug": { "type": "string", "maxLength": 150 },
+        "excerpt": { "type": "string", "maxLength": 2000 },
+        "content": { "type": "string", "maxLength": 50000 },
+        "cover_url": { "type": "string", "maxLength": 1000 },
+        "category": { "type": "string", "maxLength": 100 },
+        "published": { "type": "boolean" },
+        "published_at": { "type": "string", "maxLength": 100 },
+        "created_at": { "type": "string", "maxLength": 100 },
+        "author": { "type": "string", "maxLength": 150 },
+        "source_name": { "type": "string", "maxLength": 150 },
+        "source_url": { "type": "string", "maxLength": 1000 }
+      },
+      "required": ["title", "slug", "content", "published"]
+    },
+    "books": {
+      "title": "Book Publication",
+      "description": "Book or literary work published or customized by editorial admin",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "title": { "type": "string", "maxLength": 300 },
+        "author": { "type": "string", "maxLength": 150 },
+        "description": { "type": "string", "maxLength": 10000 },
+        "cover_url": { "type": "string", "maxLength": 1000 },
+        "price_cents": { "type": "number" },
+        "currency": { "type": "string", "maxLength": 10 },
+        "category": { "type": "string", "maxLength": 100 },
+        "published": { "type": "boolean" },
+        "featured": { "type": "boolean" },
+        "created_at": { "type": "string", "maxLength": 100 }
+      },
+      "required": ["title", "author", "published"]
+    },
+    "chapters": {
+      "title": "Book Chapter",
+      "description": "Chapter belonging to a book publication",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "book_id": { "type": "string", "maxLength": 128 },
+        "title": { "type": "string", "maxLength": 300 },
+        "content": { "type": "string", "maxLength": 100000 },
+        "position": { "type": "number" },
+        "is_free_preview": { "type": "boolean" }
+      },
+      "required": ["book_id", "title", "content", "position"]
+    },
+    "anime_overrides": {
+      "title": "Anime Override",
+      "description": "Editorial customizations for anime titles in the catalog",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "title": { "type": "string", "maxLength": 300 },
+        "synopsis": { "type": "string", "maxLength": 5000 },
+        "cover": { "type": "string", "maxLength": 1000 },
+        "banner": { "type": "string", "maxLength": 1000 },
+        "trailerYoutubeId": { "type": "string", "maxLength": 100 },
+        "updatedAt": { "type": "string", "maxLength": 100 }
+      },
+      "required": ["id"]
+    },
+    "test_connection": {
+      "title": "Test Connection",
+      "description": "Used by app startup to verify Firestore connectivity",
+      "type": "object",
+      "properties": {
+        "status": { "type": "string", "maxLength": 50 }
+      }
+    }
+  },
+  "firestore": {
+    "/news/{newsId}": {
+      "schema": "news",
+      "description": "Collection of all published and editorial news articles"
+    },
+    "/books/{bookId}": {
+      "schema": "books",
+      "description": "Collection of all editorial books published on Worscoi"
+    },
+    "/chapters/{chapterId}": {
+      "schema": "chapters",
+      "description": "Collection of all editorial chapters for books"
+    },
+    "/anime_overrides/{animeId}": {
+      "schema": "anime_overrides",
+      "description": "Collection of editorial overrides for anime entries"
+    },
+    "/test/{testId}": {
+      "schema": "test_connection",
+      "description": "Collection used for connectivity verification"
+    }
+  }
+}

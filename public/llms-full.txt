@@ -1,0 +1,106 @@
+# Worsco — Índice Completo do Catálogo (llms-full.txt)
+
+> Documento estendido com metadados detalhados de livros, artigos científicos, webtoons, animes e notícias da plataforma Worsco (https://worsco.vercel.app).
+
+## 1. Livros Digitais Modernos (Bestsellers)
+
+1. **Hábitos Atômicos** (James Clear) — Estratégias práticas para construção de hábitos positivos e eliminação de comportamentos destrutivos através de melhorias de 1% ao dia.
+   - Rota: https://worsco.vercel.app/livros/mod-habitos-atomicos
+   - Leitura: https://worsco.vercel.app/ler/mod-habitos-atomicos
+
+2. **A Psicologia Financeira** (Morgan Housel) — Lições atemporais sobre riqueza, ganância e felicidade humana na gestão financeira pessoal.
+   - Rota: https://worsco.vercel.app/livros/mod-psicologia-financeira
+   - Leitura: https://worsco.vercel.app/ler/mod-psicologia-financeira
+
+3. **Pai Rico, Pai Pobre** (Robert T. Kiyosaki) — Educação financeira, fluxos de caixa, aquisição de ativos e mentalidade de independência econômica.
+   - Rota: https://worsco.vercel.app/livros/mod-pai-rico-pai-pobre
+   - Leitura: https://worsco.vercel.app/ler/mod-pai-rico-pai-pobre
+
+4. **1984** (George Orwell) — Distopia clássica sobre totalitarismo, manipulação da verdade e vigilância do Grande Irmão.
+   - Rota: https://worsco.vercel.app/livros/mod-1984-orwell
+   - Leitura: https://worsco.vercel.app/ler/mod-1984-orwell
+
+5. **O Homem Mais Rico da Babilônia** (George S. Clason) — Parábolas antigas com princípios sólidos de economia, investimento e multiplicação de bens.
+   - Rota: https://worsco.vercel.app/livros/mod-homem-mais-rico-babilonia
+   - Leitura: https://worsco.vercel.app/ler/mod-homem-mais-rico-babilonia
+
+6. **Antifrágil: Coisas que se Beneficiam com o Caos** (Nassim Nicholas Taleb) — Análise filosófica e matemática sobre sistemas que ganham força com a volatilidade e o estresse.
+   - Rota: https://worsco.vercel.app/livros/mod-antifragil
+   - Leitura: https://worsco.vercel.app/ler/mod-antifragil
+
+7. **Comece Pelo Porquê** (Simon Sinek) — Como grandes líderes e organizações inspiram ação através do Círculo Dourado.
+   - Rota: https://worsco.vercel.app/livros/mod-comece-pelo-porque
+   - Leitura: https://worsco.vercel.app/ler/mod-comece-pelo-porque
+
+8. **Em Busca de Sentido** (Viktor E. Frankl) — Memórias e princípios fundamentais da Logoterapia desenvolvida nos campos de concentração da Segunda Guerra.
+   - Rota: https://worsco.vercel.app/livros/mod-em-busca-de-sentido
+   - Leitura: https://worsco.vercel.app/ler/mod-em-busca-de-sentido
+
+9. **Essencialismo: A Disciplinada Busca por Menos** (Greg McKeown) — Método para discernir o vital do trivial e recuperar o controle do tempo.
+   - Rota: https://worsco.vercel.app/livros/mod-essencialismo
+   - Leitura: https://worsco.vercel.app/ler/mod-essencialismo
+
+10. **As 48 Leis do Poder** (Robert Greene) — Tratado histórico e tático sobre dinâmica de poder, influência e estratégia interpessoal.
+    - Rota: https://worsco.vercel.app/livros/mod-as-48-leis-do-poder
+    - Leitura: https://worsco.vercel.app/ler/mod-as-48-leis-do-poder
+
+11. **Manual de Epicteto (Enchiridion)** (Epicteto) — Guia prático da filosofia estoica para paz de espírito e foco no que está sob nosso controle.
+    - Rota: https://worsco.vercel.app/livros/mod-manual-de-epicteto
+    - Leitura: https://worsco.vercel.app/ler/mod-manual-de-epicteto
+
+12. **Meditações** (Marco Aurélio) — Diário íntimo do imperador filósofo sobre disciplina, virtude, impermanência e dever.
+    - Rota: https://worsco.vercel.app/livros/mod-meditacoes-marco-aurelio
+    - Leitura: https://worsco.vercel.app/ler/mod-meditacoes-marco-aurelio
+
+13. **Os Segredos da Mente Milionária** (T. Harv Eker) — Reprogramação de crenças financeiras e modelos mentais de prosperidade.
+    - Rota: https://worsco.vercel.app/livros/mod-os-segredos-da-mente-milionaria
+    - Leitura: https://worsco.vercel.app/ler/mod-os-segredos-da-mente-milionaria
+
+14. **Mindset: A Nova Psicologia do Sucesso** (Carol S. Dweck) — Mentalidade fixa versus mentalidade de crescimento e seu impacto na aprendizagem.
+    - Rota: https://worsco.vercel.app/livros/mod-mindset
+    - Leitura: https://worsco.vercel.app/ler/mod-mindset
+
+15. **Pedagogia da Autonomia** (Paulo Freire) — Saberes necessários à prática educativa democrática, reflexiva e transformadora.
+    - Rota: https://worsco.vercel.app/livros/mod-pedagogia-da-autonomia
+    - Leitura: https://worsco.vercel.app/ler/mod-pedagogia-da-autonomia
+
+16. **O Poder do Hábito** (Charles Duhigg) — Por que fazemos o que fazemos na vida e nos negócios e como transformar o loop do hábito.
+    - Rota: https://worsco.vercel.app/livros/mod-o-poder-do-habito
+    - Leitura: https://worsco.vercel.app/ler/mod-o-poder-do-habito
+
+17. **Rápido e Devagar: Duas Formas de Pensar** (Daniel Kahneman) — Heurísticas, vieses cognitivos e os dois sistemas da mente humana.
+    - Rota: https://worsco.vercel.app/livros/mod-rapido-e-devagar
+    - Leitura: https://worsco.vercel.app/ler/mod-rapido-e-devagar
+
+18. **Roube Como um Artista** (Austin Kleon) — 10 dicas sobre criatividade autêntica na era da internet.
+    - Rota: https://worsco.vercel.app/livros/mod-roube-como-um-artista
+    - Leitura: https://worsco.vercel.app/ler/mod-roube-como-um-artista
+
+19. **Sobre a Brevidade da Vida** (Sêneca) — Carta clássica estoica sobre como o tempo é o recurso mais valioso e como não desperdiçá-lo.
+    - Rota: https://worsco.vercel.app/livros/mod-sobre-a-brevidade-da-vida
+    - Leitura: https://worsco.vercel.app/ler/mod-sobre-a-brevidade-da-vida
+
+## 2. Acervo Curricular para o ENEM
+
+- **Matemática e Suas Tecnologias (ENEM)**: Álgebra, geometria, estatística e funções. (ID: cur-matematica-enem)
+- **Física Geral e Teórica (ENEM)**: Mecânica clássica, termodinâmica, ondulatória e óptica. (ID: cur-fisica-enem)
+- **Química Orgânica e Inorgânica (ENEM)**: Estequiometria, equilíbrio químico e reações orgânicas. (ID: cur-quimica-enem)
+- **Biologia Celular e Evolutiva (ENEM)**: Genética, ecologia e fisiologia humana. (ID: cur-biologia-enem)
+- **História Geral e do Brasil (ENEM)**: Processos históricos e transformações sociopolíticas. (ID: cur-historia-enem)
+- **Redação Nota 1000 e Argumentação (ENEM)**: Estrutura dissertativa-argumentativa e repertório sociocultural. (ID: cur-redacao-enem)
+
+## 3. Artigos Científicos
+
+- **Astrofísica Moderna: Observações com o James Webb** (ID: sci-astrofisica-jwst)
+- **Edição Genética com CRISPR-Cas9 na Medicina** (ID: sci-crispr-medicina)
+- **Neurociência da Tomada de Decisão** (ID: sci-neurociencia-decisao)
+- **Computação Quântica e Limites Criptográficos** (ID: sci-computacao-quantica)
+
+## 4. Webtoons & Animes
+
+- **Solo Leveling: ReAwakening** (Ação e fantasia de caçadores)
+- **O Ponto de Vista do Leitor Onisciente** (Ação e apocalipse)
+- **O Retorno da Seita do Monte Hua** (Murim e artes marciais)
+- **A Torre de Deus (Tower of God)** (Fantasia épica e mistério)
+- **O Maior Engenheiro Imobiliário** (Comédia e isekai)
+- Catálogo de Animes: https://worsco.vercel.app/animes
