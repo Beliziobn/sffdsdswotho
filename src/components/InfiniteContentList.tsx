@@ -3,6 +3,8 @@ import { useInView } from "react-intersection-observer";
 import { ContentList } from "./ContentSection";
 import type { Content } from "@/hooks/useContents";
 
+import { BookGridSkeleton } from "@/components/skeletons/AppSkeletons";
+
 interface Props {
   items: Content[];
   isLoading?: boolean;
@@ -29,16 +31,22 @@ const InfiniteContentList = ({
     if (inView && hasNextPage && !isFetchingNextPage) fetchNextPage();
   }, [inView, hasNextPage, isFetchingNextPage, fetchNextPage]);
 
-  if (isLoading) return <p className="text-center text-sm text-muted-foreground font-light py-16">Carregando…</p>;
-  if (items.length === 0)
+  if (isLoading) {
+    return <BookGridSkeleton count={8} />;
+  }
+
+  if (items.length === 0) {
     return <p className="text-center text-sm text-muted-foreground font-light py-16">{emptyLabel}</p>;
+  }
 
   return (
     <>
       <ContentList items={items} showProgress={showProgress} />
       <div ref={ref} className="h-12" />
       {isFetchingNextPage && (
-        <p className="text-center text-sm text-muted-foreground font-light">Carregando mais…</p>
+        <div className="pt-6">
+          <BookGridSkeleton count={4} />
+        </div>
       )}
       {!hasNextPage && items.length > 0 && (
         <p className="text-center text-[11px] uppercase tracking-wider text-muted-foreground font-light mt-6">

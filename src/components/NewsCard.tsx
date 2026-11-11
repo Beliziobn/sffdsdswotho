@@ -48,4 +48,5 @@ const NewsCard = ({ item }: { item: NewsItem }) => {
   );
 };
 
+export { NewsCardSkeleton } from "./skeletons/AppSkeletons";
 export default NewsCard;

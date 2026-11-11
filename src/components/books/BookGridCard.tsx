@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { BookOpen, Sparkles, ArrowRight, Microscope, GraduationCap, FileText } from "lucide-react";
 import { Card } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import ProtectedImage from "@/components/ProtectedImage";
 import { Content } from "@/hooks/useContents";
 import { formatPrice } from "@/lib/format";
@@ -123,5 +124,29 @@ const BookGridCard = ({ book, free }: { book: Content; free?: boolean }) => {
     </Card>
   );
 };
+
+export const BookGridCardSkeleton = () => (
+  <Card className="overflow-hidden border border-border bg-card shadow-soft flex flex-col justify-between h-56">
+    <div className="flex flex-1">
+      <div className="w-32 sm:w-40 shrink-0 aspect-[2/3] bg-accent/60 overflow-hidden relative">
+        <Skeleton className="w-full h-full rounded-none" />
+      </div>
+      <div className="p-4 sm:p-5 flex flex-col justify-between flex-1 min-w-0">
+        <div>
+          <Skeleton className="h-4 w-4/5 mb-2" />
+          <Skeleton className="h-3.5 w-1/2 mb-3" />
+          <div className="flex gap-1.5 mb-2">
+            <Skeleton className="h-4 w-16 rounded-sm" />
+            <Skeleton className="h-4 w-12 rounded-sm" />
+          </div>
+        </div>
+        <div className="pt-2 border-t border-border/50 flex items-center justify-between">
+          <Skeleton className="h-5 w-16" />
+          <Skeleton className="h-5 w-20 rounded-full" />
+        </div>
+      </div>
+    </div>
+  </Card>
+);
 
 export default BookGridCard;

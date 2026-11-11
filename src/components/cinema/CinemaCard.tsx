@@ -105,4 +105,5 @@ export const CinemaCard = ({ item, onPlay, showProgress }: CinemaCardProps) => {
   );
 };
 
+export { CinemaCardSkeleton } from "../skeletons/AppSkeletons";
 export default CinemaCard;

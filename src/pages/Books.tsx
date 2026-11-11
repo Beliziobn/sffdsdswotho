@@ -6,7 +6,7 @@ import { Search, Sparkles, BookOpen, X, Bot } from "lucide-react";
 import Navigation from "@/components/Navigation";
 import Footer from "@/components/Footer";
 import FreeBookHero from "@/components/books/FreeBookHero";
-import BookGridCard from "@/components/books/BookGridCard";
+import BookGridCard, { BookGridCardSkeleton } from "@/components/books/BookGridCard";
 import RecommendedCarousel from "@/components/books/RecommendedCarousel";
 import CategoryPills from "@/components/news/CategoryPills";
 import { Button } from "@/components/ui/button";
@@ -188,7 +188,7 @@ const Books = () => {
           {feed.isLoading && isAllLoading ? (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {Array.from({ length: 6 }).map((_, i) => (
-                <div key={i} className="h-56 rounded-lg bg-accent animate-pulse" />
+                <BookGridCardSkeleton key={i} />
               ))}
             </div>
           ) : combinedItems.length === 0 ? (

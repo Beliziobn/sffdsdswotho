@@ -86,4 +86,5 @@ const BookCard = (props: BookCardProps) => (
   </Card>
 );
 
+export { BookCardSkeleton } from "./skeletons/AppSkeletons";
 export default BookCard;

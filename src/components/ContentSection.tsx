@@ -4,6 +4,7 @@ import { ArrowRight } from "lucide-react";
 import BookCard from "./BookCard";
 import { Button } from "./ui/button";
 import { Content, contentHref, contentToBook, CONTENT_LABELS } from "@/hooks/useContents";
+import { BookGridSkeleton } from "@/components/skeletons/AppSkeletons";
 
 interface ContentListProps {
   items: Content[];
@@ -79,7 +80,7 @@ const ContentSection = ({
         </motion.div>
 
         {isLoading ? (
-          <p className="text-center text-sm text-muted-foreground font-light">Carregando…</p>
+          <BookGridSkeleton count={4} />
         ) : (
           <ContentList {...listProps} />
         )}

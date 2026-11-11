@@ -11,6 +11,7 @@ import NewsHero from "@/components/news/NewsHero";
 import CategoryPills from "@/components/news/CategoryPills";
 import EditorialCard from "@/components/news/EditorialCard";
 import MissedCarousel from "@/components/news/MissedCarousel";
+import { NewsGridSkeleton, NewsCardSkeleton } from "@/components/skeletons/AppSkeletons";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import bannerImage from "@/assets/hero-news.jpg";
@@ -396,7 +397,7 @@ const News = () => {
           </div>
 
           {feed.isLoading ? (
-            <p className="text-sm text-muted-foreground font-light text-center py-16">Carregando notícias...</p>
+            <NewsGridSkeleton count={6} />
           ) : gridItems.length === 0 ? (
             <p className="text-sm text-muted-foreground font-light text-center py-16">Nenhuma notícia encontrada.</p>
           ) : (
@@ -410,7 +411,10 @@ const News = () => {
               </div>
               <div ref={ref} className="h-12" />
               {feed.isFetchingNextPage && (
-                <p className="text-center text-sm text-muted-foreground font-light">Carregando mais…</p>
+                <div className="grid md:grid-cols-2 gap-6 lg:gap-8 pt-4">
+                  <NewsCardSkeleton />
+                  <NewsCardSkeleton />
+                </div>
               )}
             </>
           )}

@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import Navigation from "@/components/Navigation";
 import Footer from "@/components/Footer";
 import { ContentList } from "@/components/ContentSection";
+import { BookGridSkeleton } from "@/components/skeletons/AppSkeletons";
 import { Button } from "@/components/ui/button";
 import bannerImage from "@/assets/hero-library.jpg";
 import { useContinueReading } from "@/hooks/useRecommendations";
@@ -43,7 +44,7 @@ const ContinueReading = () => {
               </Button>
             </div>
           ) : isLoading ? (
-            <p className="text-center text-sm text-muted-foreground font-light">Carregando…</p>
+            <BookGridSkeleton count={8} />
           ) : items.length === 0 ? (
             <p className="text-center text-sm text-muted-foreground font-light">
               Você ainda não começou nenhuma leitura.

@@ -3,6 +3,7 @@ import { motion, useScroll, useTransform } from "framer-motion";
 import Navigation from "@/components/Navigation";
 import Footer from "@/components/Footer";
 import { ContentList } from "@/components/ContentSection";
+import { BookGridSkeleton } from "@/components/skeletons/AppSkeletons";
 import { Button } from "@/components/ui/button";
 import bannerImage from "@/assets/hero-reading.jpg";
 import { useForYou } from "@/hooks/useRecommendations";
@@ -58,7 +59,7 @@ const ForYou = () => {
           </div>
 
           {isLoading ? (
-            <p className="text-center text-sm text-muted-foreground font-light">Carregando recomendações…</p>
+            <BookGridSkeleton count={8} />
           ) : items.length === 0 ? (
             <p className="text-center text-sm text-muted-foreground font-light">
               Ainda não temos sinal suficiente. Explore o catálogo para melhorar suas recomendações.
