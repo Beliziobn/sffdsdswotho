@@ -99,43 +99,20 @@ export interface CinemaServerOption {
 export const CINEMA_SERVERS: CinemaServerOption[] = [
   {
     id: "native",
-    name: "Player Principal Worsco HD (Dublado PT-BR & EN · Zero Popups)",
-    shortName: "Player Principal (Dublado PT-BR / EN)",
+    name: "Player Unificado Worsco 1080p FHD (Dublado PT-BR · Legendado · Original)",
+    shortName: "Player Oficial Worsco",
     badge: "Dublado PT-BR",
     description:
-      "Reprodutor nativo HTML5 em 1080p FHD com Dublagem em Português (PT-BR), Áudio Original (EN) e bloqueio absoluto de redirecionamentos.",
+      "Reprodutor oficial unificado em 1080p FHD com áudio original do filme/série Dublado em Português (PT-BR), Legendado e Original, com bloqueio rigoroso anti-redirecionamento.",
     isFullContent: true,
-    supportsSandbox: true,
-  },
-  {
-    id: "vidsrc",
-    name: "Sinal Reserva Blindado (Sandbox Anti-Redirecionamento)",
-    shortName: "Sinal Reserva (Blindado)",
-    badge: "Zero Popups",
-    description:
-      "Player reserva com isolamento Sandbox estrito no navegador (impossível abrir novas abas ou redirecionar).",
-    isFullContent: true,
-    supportsSandbox: true,
-  },
-  {
-    id: "trailer",
-    name: "Trailer Oficial",
-    shortName: "Trailer Oficial",
-    badge: "Prévia",
-    description: "Apenas o trailer promocional oficial da obra.",
-    isFullContent: false,
     supportsSandbox: true,
   },
 ];
 
-const FALLBACK_SERVER_ORDER: CinemaServerId[] = ["native", "vidsrc"];
+const FALLBACK_SERVER_ORDER: CinemaServerId[] = ["native"];
 
-export function getNextFallbackServer(current: CinemaServerId): CinemaServerId {
-  const idx = FALLBACK_SERVER_ORDER.indexOf(current);
-  if (idx === -1 || idx === FALLBACK_SERVER_ORDER.length - 1) {
-    return FALLBACK_SERVER_ORDER[0];
-  }
-  return FALLBACK_SERVER_ORDER[idx + 1];
+export function getNextFallbackServer(_current: CinemaServerId): CinemaServerId {
+  return "native";
 }
 
 /**
@@ -148,15 +125,17 @@ export function getCinemaStreamUrl(
     seasonNumber?: number;
     episodeNumber?: number;
     language?: CinemaLanguage;
+    audioMode?: "dublado" | "legendado" | "original";
   }
 ): string {
-  const server = options?.server || "vidsrc";
+  const server = options?.server || "vidstuck";
   const season = options?.seasonNumber || 1;
   const episode = options?.episodeNumber || 1;
   const lang: CinemaLanguage = options?.language || getCinemaLanguagePreference();
+  const audioMode = options?.audioMode || (lang === "pt" ? "dublado" : "original");
   const tmdbId = item.tmdbId;
 
-  const isPt = lang === "pt";
+  const isPt = lang === "pt" || audioMode !== "original";
   const subCode = isPt ? "pt" : "en";
 
   if (server === "trailer") {
@@ -170,10 +149,13 @@ export function getCinemaStreamUrl(
     return `https://www.youtube.com/embed/${ytId}?autoplay=1&modestbranding=1&rel=0&playsinline=1&hl=${subCode}&cc_lang_pref=${subCode}&cc_load_policy=1`;
   }
 
+  const dubLang = audioMode === "dublado" ? "ptbr" : audioMode === "legendado" ? "pt" : "en";
+  const dubType = audioMode === "legendado" ? "1" : "0";
+
   if (item.type === "filme") {
-    return `https://vidsrc.pm/embed/movie/${tmdbId}?autoplay=true&theme=f59e0b&ds_lang=${subCode}&sub=${subCode}`;
+    return `https://vidstuck.cc/embed/movie/${tmdbId}?autoplay=true&server=orion&dubLang=${dubLang}&dubType=${dubType}&color=f59e0b`;
   } else {
-    return `https://vidsrc.pm/embed/tv/${tmdbId}/${season}/${episode}?autoplay=true&theme=f59e0b&ds_lang=${subCode}&sub=${subCode}`;
+    return `https://vidstuck.cc/embed/tv/${tmdbId}/${season}/${episode}?autoplay=true&server=orion&dubLang=${dubLang}&dubType=${dubType}&color=f59e0b`;
   }
 }
 

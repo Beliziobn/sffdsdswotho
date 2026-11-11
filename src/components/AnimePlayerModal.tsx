@@ -2,6 +2,7 @@ import { useRef, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "./ui/dialog";
 import { Anime } from "@/lib/animes";
 import { sanitizeTrailerEmbedUrl } from "@/lib/animeMetadataSync";
+import { usePlayerAdBlock } from "@/hooks/usePlayerAdBlock";
 import { Star, Tv, Calendar, Building2, ExternalLink, ShieldCheck, Play, Pause, Layers, Sparkles } from "lucide-react";
 import { Link } from "react-router-dom";
 import { WorscoiIntroPlayer } from "@/components/WorscoiIntroPlayer";
@@ -13,6 +14,7 @@ interface AnimePlayerModalProps {
 }
 
 export const AnimePlayerModal = ({ anime, isOpen, onClose }: AnimePlayerModalProps) => {
+  usePlayerAdBlock(isOpen);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [selectedSeasonIdx, setSelectedSeasonIdx] = useState(0);
   const [isPlaying, setIsPlaying] = useState(true);
@@ -125,6 +127,7 @@ export const AnimePlayerModal = ({ anime, isOpen, onClose }: AnimePlayerModalPro
             key={`${anime.id}-s${activeSeason?.seasonNumber || 1}-${trailerId}`}
             src={safeTrailerUrl}
             title={`Trailer Oficial de ${anime.title}`}
+            sandbox="allow-scripts allow-same-origin allow-forms allow-presentation"
             referrerPolicy="strict-origin-when-cross-origin"
             allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture; fullscreen"
             allowFullScreen

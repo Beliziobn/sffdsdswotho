@@ -1,6 +1,7 @@
 import type { Plugin } from 'vite';
 import crypto from 'crypto';
 import zlib from 'zlib';
+import { Readable } from 'stream';
 
 const VIDSTUCK_AES_PASSPHRASE = '7f4c9e2a81d63b05c4f7a9e8126d3b50e1a8c7f23d9465ab0c6e9f1d4a7b832c';
 
@@ -18,25 +19,38 @@ const K_DATE = 'e1649139e5814b3027';
 const K_LATEST_DATE = 'e95416ad739e5814b3027';
 const K_IMDB_ID = 'f35a814265e871c4933a725f';
 
-interface SubtitleCue {
+export interface SubtitleCue {
   id: number;
   start: number;
   end: number;
   text: string;
 }
 
-interface ResolvedStream {
+export interface ResolvedStream {
   id: string;
   server: string;
   label: string;
-  type: 'hls';
+  type: 'mp4' | 'hls';
+  audioMode: 'dublado' | 'legendado' | 'original' | 'multi';
+  langCode: string;
   quality: string;
   url: string;
   proxyUrl: string;
 }
 
+interface OrionDubOption {
+  type: number; // 0 = dub, 1 = sub
+  lanCode: string;
+  lanName: string;
+}
+
+interface OrionLinkItem {
+  link?: string;
+  type?: string;
+  resolution?: string | number | null;
+}
+
 const resolveCache = new Map<string, { expiresAt: number; payload: any }>();
-const ttsCache = new Map<string, { expiresAt: number; buffer: Buffer }>();
 const subtitleVttCache = new Map<string, { expiresAt: number; vtt: string; cues: SubtitleCue[] }>();
 
 function evpBytesToKey(password: string, salt: Buffer, keyLen = 32, ivLen = 16): { key: Buffer; iv: Buffer } {
@@ -92,6 +106,152 @@ async function fetchWithTimeout(url: string, options: RequestInit = {}, timeoutM
   }
 }
 
+async function fetchAndromedaToken(
+  commonHeaders: Record<string, string>,
+  tmdbId: string,
+  mediaType: 'movie' | 'tv',
+  serverKey: string,
+  season?: string,
+  episode?: string
+): Promise<{ token: string; ts: number } | null> {
+  try {
+    const tokenBody: Record<string, any> = {
+      [K_TMDB_ID]: String(tmdbId),
+      [K_MEDIA_TYPE]: mediaType,
+      [K_SERVER]: serverKey,
+    };
+    if (mediaType === 'tv') {
+      tokenBody[K_SEASON] = Number(season || '1');
+      tokenBody[K_EPISODE] = Number(episode || '1');
+    }
+
+    const tokRes = await fetchWithTimeout(
+      'https://vidstuck.cc/backend/andromeda',
+      {
+        method: 'POST',
+        headers: {
+          ...commonHeaders,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(tokenBody),
+      },
+      10000
+    );
+    if (!tokRes.ok) return null;
+    const tok = (await tokRes.json()) as { token?: string; ts?: number } | null;
+    if (!tok?.token || !tok?.ts) return null;
+    return { token: tok.token, ts: tok.ts };
+  } catch {
+    return null;
+  }
+}
+
+async function queryOrionVariant(params: {
+  commonHeaders: Record<string, string>;
+  tmdbId: string;
+  mediaType: 'movie' | 'tv';
+  title: string;
+  year: string;
+  date: string;
+  latestDate: string;
+  imdbId: string;
+  season?: string;
+  episode?: string;
+  dubCode: string;
+  dubType: '0' | '1';
+}): Promise<{ links: OrionLinkItem[]; dubs: OrionDubOption[] } | null> {
+  const tok = await fetchAndromedaToken(
+    params.commonHeaders,
+    params.tmdbId,
+    params.mediaType,
+    'orion',
+    params.season,
+    params.episode
+  );
+  if (!tok) return null;
+
+  const q = new URLSearchParams({
+    [K_TMDB_ID]: String(params.tmdbId),
+    [K_SERVER]: 'orion',
+    [K_MEDIA_TYPE]: params.mediaType,
+    [K_TS]: String(tok.ts),
+    [K_TOKEN]: tok.token,
+    [K_TITLE]: params.title,
+    [K_YEAR]: params.year,
+    [K_DATE]: params.date,
+    dubCode: params.dubCode,
+    dubType: params.dubType,
+  });
+
+  if (params.mediaType === 'tv') {
+    q.set(K_SEASON, String(params.season || '1'));
+    q.set(K_EPISODE, String(params.episode || '1'));
+    if (params.latestDate) {
+      q.set(K_LATEST_DATE, params.latestDate);
+    }
+  }
+  if (params.imdbId) {
+    q.set(K_IMDB_ID, params.imdbId);
+  }
+
+  try {
+    const srvRes = await fetchWithTimeout(
+      `https://vidstuck.cc/backend/servers/orion?${q.toString()}`,
+      { headers: params.commonHeaders },
+      11000
+    );
+    if (!srvRes.ok) return null;
+    const data = (await srvRes.json()) as {
+      links?: OrionLinkItem[];
+      dubs?: OrionDubOption[];
+    } | null;
+    if (!data || !Array.isArray(data.links) || data.links.length === 0) return null;
+    return {
+      links: data.links,
+      dubs: Array.isArray(data.dubs) ? data.dubs : [],
+    };
+  } catch {
+    return null;
+  }
+}
+
+function appendOrionLinksAsStreams(
+  streams: ResolvedStream[],
+  links: OrionLinkItem[],
+  audioMode: 'dublado' | 'legendado' | 'original',
+  langCode: string,
+  labelPrefix: string
+) {
+  const sorted = [...links].sort((a, b) => {
+    const resA = parseInt(String(a.resolution || '0'), 10) || 0;
+    const resB = parseInt(String(b.resolution || '0'), 10) || 0;
+    return resB - resA;
+  });
+
+  sorted.forEach((item, idx) => {
+    if (!item.link) return;
+    const decryptedUrl = decryptVidstuckLink(item.link);
+    if (!decryptedUrl || !decryptedUrl.startsWith('http')) return;
+    const resNum = parseInt(String(item.resolution || '1080'), 10) || 1080;
+    const qualityLabel = resNum >= 1080 ? '1080p FHD' : resNum >= 720 ? '720p HD' : `${resNum}p`;
+    const isHls = item.type === 'hls' || decryptedUrl.includes('.m3u8');
+
+    streams.push({
+      id: `orion-${audioMode}-${langCode}-${resNum}-${idx}`,
+      server: 'orion',
+      label: `${labelPrefix} (${qualityLabel})`,
+      type: isHls ? 'hls' : 'mp4',
+      audioMode,
+      langCode,
+      quality: qualityLabel,
+      url: decryptedUrl,
+      proxyUrl: isHls
+        ? `/api/cinema/hls-proxy?url=${encodeURIComponent(decryptedUrl)}`
+        : `/api/cinema/mp4-proxy?url=${encodeURIComponent(decryptedUrl)}`,
+    });
+  });
+}
+
 async function resolveVidstuckStreams(params: {
   tmdbId: string;
   imdbId: string;
@@ -100,13 +260,18 @@ async function resolveVidstuckStreams(params: {
   year: string;
   season?: string;
   episode?: string;
-}): Promise<{ streams: ResolvedStream[]; resolvedImdbId: string }> {
+}): Promise<{
+  streams: ResolvedStream[];
+  resolvedImdbId: string;
+  hasPtDub: boolean;
+  hasPtSub: boolean;
+}> {
   const refererUrl =
     params.type === 'tv'
       ? `https://vidstuck.cc/embed/tv/${params.tmdbId}/${params.season || '1'}/${params.episode || '1'}`
       : `https://vidstuck.cc/embed/movie/${params.tmdbId}`;
 
-  const commonHeaders = {
+  const commonHeaders: Record<string, string> = {
     'User-Agent':
       'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
     Referer: refererUrl,
@@ -125,7 +290,7 @@ async function resolveVidstuckStreams(params: {
     const detailsRes = await fetchWithTimeout(
       `https://vidstuck.cc/backend/tmdb/details/${params.type}/${params.tmdbId}?language=en-US`,
       { headers: commonHeaders },
-      6500
+      9500
     );
     if (detailsRes.ok) {
       const d = (await detailsRes.json()) as {
@@ -137,136 +302,291 @@ async function resolveVidstuckStreams(params: {
         imdb_id?: string;
       };
       if (d.title || d.name) canonicalTitle = (d.title || d.name)!;
+      // Note: vidstuck returns d.release_date for both movie and tv details
       const rel = d.release_date || d.first_air_date;
       if (rel) {
-        canonicalDate = rel;
+        canonicalDate = String(rel);
         const y = new Date(rel).getFullYear();
         if (!Number.isNaN(y)) canonicalYear = String(y);
       }
-      if (d.last_air_date) canonicalLatestDate = d.last_air_date;
+      if (d.last_air_date) canonicalLatestDate = String(d.last_air_date);
       if (d.imdb_id) canonicalImdbId = d.imdb_id;
     }
   } catch {
     // Fallback to passed params
   }
 
-  const servers = [
-    { key: 'berkas', label: 'Sinal Principal 1080p FHD' },
-    { key: 'milkyway', label: 'Sinal Turbo CDN 1080p' },
-    { key: 'atlas', label: 'Sinal Alternativo 1080p FHD' },
-    { key: 'daedalus', label: 'Sinal Redundante HD' },
+  const streams: ResolvedStream[] = [];
+  let hasPtDub = false;
+  let hasPtSub = false;
+
+  // Step 2: Query Orion Multi-Audio Server (Real PT-BR Dublado MP4, PT-BR Legendado MP4, and Original Audio MP4)
+  // and HLS Servers (atlas, milkyway, berkas, andromeda) in parallel
+  const orionPromise = (async () => {
+    // Request ptbr:0 first so if Brazilian Portuguese Dub exists, we get it immediately in 1 round-trip
+    let initialOrion = await queryOrionVariant({
+      commonHeaders,
+      tmdbId: params.tmdbId,
+      mediaType: params.type,
+      title: canonicalTitle,
+      year: canonicalYear,
+      date: canonicalDate,
+      latestDate: canonicalLatestDate,
+      imdbId: canonicalImdbId,
+      season: params.season,
+      episode: params.episode,
+      dubCode: 'ptbr',
+      dubType: '0',
+    });
+
+    // If canonicalTitle had special characters (e.g., 【OSHI NO KO】) and returned null, retry with ASCII title
+    if (!initialOrion && /[^\x20-\x7E]/.test(canonicalTitle)) {
+      const asciiTitle = canonicalTitle
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^\w\s:'-]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+      if (asciiTitle && asciiTitle !== canonicalTitle) {
+        initialOrion = await queryOrionVariant({
+          commonHeaders,
+          tmdbId: params.tmdbId,
+          mediaType: params.type,
+          title: asciiTitle,
+          year: canonicalYear,
+          date: canonicalDate,
+          latestDate: canonicalLatestDate,
+          imdbId: canonicalImdbId,
+          season: params.season,
+          episode: params.episode,
+          dubCode: 'ptbr',
+          dubType: '0',
+        });
+        if (initialOrion) {
+          canonicalTitle = asciiTitle;
+        }
+      }
+    }
+
+    if (!initialOrion) return;
+
+    const dubs = initialOrion.dubs;
+    const hasPtbrDub = dubs.some((d) => d.lanCode === 'ptbr' && d.type === 0);
+    const hasPtStdDub = dubs.some((d) => d.lanCode === 'pt' && d.type === 0);
+    const ptSubOption = dubs.find((d) => (d.lanCode === 'ptbr' || d.lanCode === 'pt') && d.type === 1);
+    const origOption =
+      dubs.find((d) => /original/i.test(d.lanName) && d.type === 0) ||
+      dubs.find((d) => (d.lanCode === 'en' || d.lanCode === 'ja' || d.lanCode === 'ko') && d.type === 0);
+
+    if (hasPtbrDub) {
+      hasPtDub = true;
+      appendOrionLinksAsStreams(
+        streams,
+        initialOrion.links,
+        'dublado',
+        'ptbr',
+        'Português Dublado (PT-BR)'
+      );
+    } else {
+      // When ptbr:0 is not in dubs, Orion returns the default/original audio links in initialOrion.links
+      appendOrionLinksAsStreams(
+        streams,
+        initialOrion.links,
+        'original',
+        origOption?.lanCode || 'en',
+        'Áudio Original'
+      );
+    }
+
+    const followUpTasks: Promise<void>[] = [];
+
+    // If pt:0 exists (and not ptbr:0), fetch Portuguese Dub
+    if (!hasPtbrDub && hasPtStdDub) {
+      followUpTasks.push(
+        (async () => {
+          const ptDubRes = await queryOrionVariant({
+            commonHeaders,
+            tmdbId: params.tmdbId,
+            mediaType: params.type,
+            title: canonicalTitle,
+            year: canonicalYear,
+            date: canonicalDate,
+            latestDate: canonicalLatestDate,
+            imdbId: canonicalImdbId,
+            season: params.season,
+            episode: params.episode,
+            dubCode: 'pt',
+            dubType: '0',
+          });
+          if (ptDubRes && ptDubRes.links.length > 0) {
+            hasPtDub = true;
+            appendOrionLinksAsStreams(
+              streams,
+              ptDubRes.links,
+              'dublado',
+              'pt',
+              'Português Dublado'
+            );
+          }
+        })()
+      );
+    }
+
+    // If pt:1 / ptbr:1 (Portuguese Subtitled MP4) exists, fetch it so Legendado mode has burned/native PT subtitles
+    if (ptSubOption) {
+      followUpTasks.push(
+        (async () => {
+          const ptSubRes = await queryOrionVariant({
+            commonHeaders,
+            tmdbId: params.tmdbId,
+            mediaType: params.type,
+            title: canonicalTitle,
+            year: canonicalYear,
+            date: canonicalDate,
+            latestDate: canonicalLatestDate,
+            imdbId: canonicalImdbId,
+            season: params.season,
+            episode: params.episode,
+            dubCode: ptSubOption.lanCode,
+            dubType: '1',
+          });
+          if (ptSubRes && ptSubRes.links.length > 0) {
+            hasPtSub = true;
+            appendOrionLinksAsStreams(
+              streams,
+              ptSubRes.links,
+              'legendado',
+              ptSubOption.lanCode,
+              'Português Legendado (PT-BR)'
+            );
+          }
+        })()
+      );
+    }
+
+    // If initialOrion returned ptbr:0 (Dublado), also fetch Original Audio (en:0 / ja:0) so user can switch to Original
+    if (hasPtbrDub && origOption && origOption.lanCode !== 'ptbr') {
+      followUpTasks.push(
+        (async () => {
+          const origRes = await queryOrionVariant({
+            commonHeaders,
+            tmdbId: params.tmdbId,
+            mediaType: params.type,
+            title: canonicalTitle,
+            year: canonicalYear,
+            date: canonicalDate,
+            latestDate: canonicalLatestDate,
+            imdbId: canonicalImdbId,
+            season: params.season,
+            episode: params.episode,
+            dubCode: origOption.lanCode,
+            dubType: '0',
+          });
+          if (origRes && origRes.links.length > 0) {
+            appendOrionLinksAsStreams(
+              streams,
+              origRes.links,
+              'original',
+              origOption.lanCode,
+              'Áudio Original'
+            );
+          }
+        })()
+      );
+    }
+
+    await Promise.all(followUpTasks);
+  })();
+
+  // HLS Servers (atlas, milkyway, berkas, andromeda)
+  const hlsServers = [
+    { key: 'atlas', label: 'Stream 1080p FHD (Atlas)' },
+    { key: 'milkyway', label: 'Stream 1080p FHD (Milkyway)' },
+    { key: 'berkas', label: 'Stream 1080p FHD (Berkas)' },
+    { key: 'andromeda', label: 'Stream 1080p FHD (Andromeda)' },
   ];
 
-  const streams: ResolvedStream[] = [];
+  const hlsPromises = hlsServers.map(async (srv, idx) => {
+    try {
+      const tok = await fetchAndromedaToken(
+        commonHeaders,
+        params.tmdbId,
+        params.type,
+        srv.key,
+        params.season,
+        params.episode
+      );
+      if (!tok) return;
 
-  await Promise.all(
-    servers.map(async (srv, idx) => {
-      try {
-        const tokenBody: Record<string, any> = {
-          [K_TMDB_ID]: String(params.tmdbId),
-          [K_MEDIA_TYPE]: params.type,
-          [K_SERVER]: srv.key,
-        };
-        if (params.type === 'tv') {
-          tokenBody[K_SEASON] = Number(params.season || '1');
-          tokenBody[K_EPISODE] = Number(params.episode || '1');
+      const q = new URLSearchParams({
+        [K_TMDB_ID]: String(params.tmdbId),
+        [K_SERVER]: srv.key,
+        [K_MEDIA_TYPE]: params.type,
+        [K_TS]: String(tok.ts),
+        [K_TOKEN]: tok.token,
+        [K_TITLE]: canonicalTitle,
+        [K_YEAR]: canonicalYear,
+        [K_DATE]: canonicalDate,
+      });
+      if (params.type === 'tv') {
+        q.set(K_SEASON, String(params.season || '1'));
+        q.set(K_EPISODE, String(params.episode || '1'));
+        if (canonicalLatestDate) {
+          q.set(K_LATEST_DATE, canonicalLatestDate);
         }
-
-        const tokRes = await fetchWithTimeout(
-          'https://vidstuck.cc/backend/tokenv2',
-          {
-            method: 'POST',
-            headers: {
-              ...commonHeaders,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(tokenBody),
-          },
-          6500
-        );
-        if (!tokRes.ok) return;
-        const tok = (await tokRes.json()) as { token?: string; ts?: number } | null;
-        if (!tok?.token || !tok?.ts) return;
-
-        const q = new URLSearchParams({
-          [K_TMDB_ID]: String(params.tmdbId),
-          [K_SERVER]: srv.key,
-          [K_MEDIA_TYPE]: params.type,
-          [K_TS]: String(tok.ts),
-          [K_TOKEN]: tok.token,
-          [K_TITLE]: canonicalTitle,
-          [K_YEAR]: canonicalYear,
-          [K_DATE]: canonicalDate,
-        });
-        if (params.type === 'tv') {
-          q.set(K_SEASON, String(params.season || '1'));
-          q.set(K_EPISODE, String(params.episode || '1'));
-          if (canonicalLatestDate) {
-            q.set(K_LATEST_DATE, canonicalLatestDate);
-          }
-        }
-        if (canonicalImdbId) {
-          q.set(K_IMDB_ID, canonicalImdbId);
-        }
-
-        const srvRes = await fetchWithTimeout(
-          `https://vidstuck.cc/backend/servers/${srv.key}?${q.toString()}`,
-          { headers: commonHeaders },
-          8500
-        );
-        if (!srvRes.ok) return;
-        const data = (await srvRes.json()) as {
-          links?: Array<{ link?: string; type?: string; resolution?: string | number | null }>;
-        } | null;
-        if (!Array.isArray(data?.links) || data!.links.length === 0) return;
-
-        const firstHls = data!.links.find((l) => l.type === 'hls' && l.link) || data!.links[0];
-        if (!firstHls?.link) return;
-
-        const decryptedUrl = decryptVidstuckLink(firstHls.link);
-        if (!decryptedUrl || !decryptedUrl.startsWith('http')) return;
-
-        // Verify that the upstream HLS manifest actually returns a valid #EXTM3U playlist
-        // so the client HLS.js player never errors out into an English-only iframe fallback
-        try {
-          const probeRes = await fetchWithTimeout(
-            decryptedUrl,
-            {
-              headers: {
-                'User-Agent': commonHeaders['User-Agent'],
-                Referer: 'https://vidstuck.cc/',
-                Origin: 'https://vidstuck.cc',
-                Accept: '*/*',
-              },
-            },
-            4500
-          );
-          if (!probeRes.ok) return;
-          const probeBuf = Buffer.from(await probeRes.arrayBuffer());
-          const firstChars = probeBuf.subarray(0, 16).toString('utf8').trim();
-          if (!firstChars.startsWith('#EXTM3U')) return;
-        } catch {
-          return;
-        }
-
-        streams.push({
-          id: `native-${srv.key}-${idx}`,
-          server: srv.key,
-          label: srv.label,
-          type: 'hls',
-          quality: '1080p FHD',
-          url: decryptedUrl,
-          proxyUrl: `/api/cinema/hls-proxy?url=${encodeURIComponent(decryptedUrl)}`,
-        });
-      } catch {
-        // Ignore single server error
       }
-    })
-  );
+      if (canonicalImdbId) {
+        q.set(K_IMDB_ID, canonicalImdbId);
+      }
 
-  const order = ['berkas', 'milkyway', 'atlas', 'daedalus'];
-  streams.sort((a, b) => order.indexOf(a.server) - order.indexOf(b.server));
-  return { streams, resolvedImdbId: canonicalImdbId };
+      const srvRes = await fetchWithTimeout(
+        `https://vidstuck.cc/backend/servers/${srv.key}?${q.toString()}`,
+        { headers: commonHeaders },
+        8500
+      );
+      if (!srvRes.ok) return;
+      const data = (await srvRes.json()) as {
+        links?: OrionLinkItem[];
+      } | null;
+      if (!Array.isArray(data?.links) || data!.links.length === 0) return;
+
+      const firstLink = data!.links.find((l) => l.type === 'hls' && l.link) || data!.links[0];
+      if (!firstLink?.link) return;
+
+      const decryptedUrl = decryptVidstuckLink(firstLink.link);
+      if (!decryptedUrl || !decryptedUrl.startsWith('http')) return;
+
+      const isMp4 = firstLink.type === 'mp4' || /\.mp4($|\?)/i.test(decryptedUrl);
+      streams.push({
+        id: `hls-${srv.key}-${idx}`,
+        server: srv.key,
+        label: srv.label,
+        type: isMp4 ? 'mp4' : 'hls',
+        audioMode: 'multi',
+        langCode: 'en',
+        quality: '1080p FHD',
+        url: decryptedUrl,
+        proxyUrl: isMp4
+          ? `/api/cinema/mp4-proxy?url=${encodeURIComponent(decryptedUrl)}`
+          : `/api/cinema/hls-proxy?url=${encodeURIComponent(decryptedUrl)}`,
+      });
+    } catch {
+      // Ignore single server error
+    }
+  });
+
+  await Promise.all([orionPromise, ...hlsPromises]);
+
+  // Sort streams: Orion Dublado PT-BR first, then Orion Legendado PT-BR, then Orion Original, then HLS servers
+  const modePriority: Record<ResolvedStream['audioMode'], number> = {
+    dublado: 0,
+    legendado: 1,
+    original: 2,
+    multi: 3,
+  };
+  streams.sort((a, b) => modePriority[a.audioMode] - modePriority[b.audioMode]);
+
+  return { streams, resolvedImdbId: canonicalImdbId, hasPtDub, hasPtSub };
 }
 
 function parseSrtTimeToSeconds(timeStr: string): number {
@@ -451,103 +771,17 @@ async function translateCuesToPortuguese(cues: SubtitleCue[]): Promise<SubtitleC
       }
     } catch {}
 
-    // Fallback: keep original cue if translation request timed out
     batch.forEach((c) => translated.push({ ...c }));
   }
 
   return translated;
 }
 
-function generateCanonicalDialogueCues(title: string, type: string, season?: string, episode?: string): { vtt: string; cues: SubtitleCue[] } {
-  const cues: SubtitleCue[] = [];
-  const vttLines: string[] = ['WEBVTT', ''];
-  const epLabel = type === 'tv' ? ` (Temporada ${season || 1}, Episódio ${episode || 1})` : '';
-  const baseIntervals = [
-    { start: 1, end: 7, text: `Transmissão oficial Worsco Cinema: ${title}${epLabel} — Áudio e legendas em Português (PT-BR).` },
-    { start: 8, end: 15, text: 'Atenção a todos os setores. Iniciando os preparativos para a operação imediata.' },
-    { start: 16, end: 24, text: 'Não temos muito tempo. Precisamos agir antes que o sinal de alerta seja acionado.' },
-    { start: 25, end: 33, text: 'Confie na equipe e mantenha a posição. O plano continua exatamente como combinado.' },
-    { start: 35, end: 43, text: 'Você viu aquilo? Algo acabou de cruzar o perímetro principal.' },
-    { start: 45, end: 54, text: 'Mantenham a calma e fiquem em alerta máximo. Nós vamos superar esse desafio.' },
-    { start: 56, end: 65, text: 'Isso é muito maior do que imaginávamos. Todo o destino desta jornada depende de nós.' },
-    { start: 68, end: 77, text: 'Preparem o equipamento principal. Vamos avançar juntos agora mesmo.' },
-    { start: 80, end: 90, text: 'A verdade finalmente veio à tona. Não há mais como voltar atrás.' },
-  ];
-
-  // Repeat cues across the timeline so any seek position has synchronized PT-BR dubbing and subtitles
-  let id = 1;
-  for (let cycle = 0; cycle < 60; cycle++) {
-    const offset = cycle * 95;
-    for (const item of baseIntervals) {
-      const start = item.start + offset;
-      const end = item.end + offset;
-      cues.push({ id, start, end, text: item.text });
-      const startH = Math.floor(start / 3600);
-      const startM = Math.floor((start % 3600) / 60);
-      const startS = Math.floor(start % 60);
-      const endH = Math.floor(end / 3600);
-      const endM = Math.floor((end % 3600) / 60);
-      const endS = Math.floor(end % 60);
-      vttLines.push(`${id}`);
-      vttLines.push(
-        `${String(startH).padStart(2, '0')}:${String(startM).padStart(2, '0')}:${String(startS).padStart(2, '0')}.000 --> ${String(endH).padStart(2, '0')}:${String(endM).padStart(2, '0')}:${String(endS).padStart(2, '0')}.000`
-      );
-      vttLines.push(item.text);
-      vttLines.push('');
-      id++;
-    }
-  }
-
-  return { vtt: vttLines.join('\n'), cues };
-}
-
-function generateCanonicalEnglishDialogueCues(title: string, type: string, season?: string, episode?: string): { vtt: string; cues: SubtitleCue[] } {
-  const cues: SubtitleCue[] = [];
-  const vttLines: string[] = ['WEBVTT', ''];
-  const epLabel = type === 'tv' ? ` (Season ${season || 1}, Episode ${episode || 1})` : '';
-  const baseIntervals = [
-    { start: 1, end: 7, text: `Worsco Cinema Official Stream: ${title}${epLabel} — Original English Audio & Subtitles (EN).` },
-    { start: 8, end: 15, text: 'All stations on standby. Initiating preparations for the primary mission now.' },
-    { start: 16, end: 24, text: 'We do not have much time left. We need to move before the security grid locks down.' },
-    { start: 25, end: 33, text: 'Trust the team and hold your position. The plan remains exactly as we agreed.' },
-    { start: 35, end: 43, text: 'Did you see that? Something just crossed the outer perimeter.' },
-    { start: 45, end: 54, text: 'Stay focused and remain on high alert. We are going to make it through this together.' },
-    { start: 56, end: 65, text: 'This goes much deeper than we ever imagined. Everything depends on our next move.' },
-    { start: 68, end: 77, text: 'Get the main equipment ready. We are pushing forward right now.' },
-    { start: 80, end: 90, text: 'The truth is finally out in the open. There is no turning back from here.' },
-  ];
-
-  let id = 1;
-  for (let cycle = 0; cycle < 60; cycle++) {
-    const offset = cycle * 95;
-    for (const item of baseIntervals) {
-      const start = item.start + offset;
-      const end = item.end + offset;
-      cues.push({ id, start, end, text: item.text });
-      const startH = Math.floor(start / 3600);
-      const startM = Math.floor((start % 3600) / 60);
-      const startS = Math.floor(start % 60);
-      const endH = Math.floor(end / 3600);
-      const endM = Math.floor((end % 3600) / 60);
-      const endS = Math.floor(end % 60);
-      vttLines.push(`${id}`);
-      vttLines.push(
-        `${String(startH).padStart(2, '0')}:${String(startM).padStart(2, '0')}:${String(startS).padStart(2, '0')}.000 --> ${String(endH).padStart(2, '0')}:${String(endM).padStart(2, '0')}:${String(endS).padStart(2, '0')}.000`
-      );
-      vttLines.push(item.text);
-      vttLines.push('');
-      id++;
-    }
-  }
-
-  return { vtt: vttLines.join('\n'), cues };
-}
-
 export function cinemaStreamingPlugin(): Plugin {
   return {
     name: 'worsco-cinema-streaming-plugin',
     configureServer(server) {
-      // 1. Resolve direct HLS 1080p stream + PT-BR / EN subtitles & dubbing cues
+      // 1. Resolve authentic multi-audio MP4 & HLS 1080p streams + real PT-BR / EN subtitles
       server.middlewares.use('/api/cinema/resolve', async (req, res) => {
         try {
           const urlObj = new URL(req.url || '/', 'http://localhost:3000');
@@ -575,7 +809,7 @@ export function cinemaStreamingPlugin(): Plugin {
             return;
           }
 
-          const { streams, resolvedImdbId } = await resolveVidstuckStreams({
+          const { streams, resolvedImdbId, hasPtDub, hasPtSub } = await resolveVidstuckStreams({
             tmdbId,
             imdbId,
             type,
@@ -583,34 +817,6 @@ export function cinemaStreamingPlugin(): Plugin {
             year,
             season,
             episode,
-          });
-
-          // Guaranteed high-availability HLS streams so native multi-language player never fails into external English iframe
-          const fallbackHlsSources = [
-            {
-              url: 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8',
-              label: 'Servidor Principal Worsco 1080p FHD (Multi-Idioma)',
-            },
-            {
-              url: 'https://bitdash-a.akamaihd.net/content/sintel/hls/playlist.m3u8',
-              label: 'Servidor Redundante Worsco 1080p FHD (PT-BR / EN)',
-            },
-          ];
-          const primaryIdx = Number(tmdbId || 0) % fallbackHlsSources.length;
-          const orderedFallbacks = [
-            fallbackHlsSources[primaryIdx],
-            fallbackHlsSources[(primaryIdx + 1) % fallbackHlsSources.length],
-          ];
-          orderedFallbacks.forEach((fb, idx) => {
-            streams.push({
-              id: `native-worsco-fhd-${tmdbId}-${idx}`,
-              server: `worsco-cdn-${idx + 1}`,
-              label: fb.label,
-              type: 'hls',
-              quality: '1080p FHD',
-              url: fb.url,
-              proxyUrl: `/api/cinema/hls-proxy?url=${encodeURIComponent(fb.url)}`,
-            });
           });
 
           const effectiveImdbId = resolvedImdbId || imdbId;
@@ -624,7 +830,7 @@ export function cinemaStreamingPlugin(): Plugin {
             ptTrackPob ||
             (await fetchOpenSubtitlesTrack({ imdbId: effectiveImdbId, lang3: 'por', type, season, episode }));
 
-          // If Portuguese subtitles are missing, auto-translate English cues to Brazilian Portuguese (PT-BR)
+          // If Portuguese subtitles are missing, translate authentic English subtitle cues to PT-BR
           if (!ptTrack && enTrackRaw && enTrackRaw.cues.length > 0) {
             try {
               const translatedCues = await translateCuesToPortuguese(enTrackRaw.cues);
@@ -646,54 +852,13 @@ export function cinemaStreamingPlugin(): Plugin {
                 });
                 ptTrack = { vtt: vttLines.join('\n'), cues: translatedCues };
               }
-            } catch (err) {
-              console.warn('[CinemaServer] Failed translating English cues:', err);
+            } catch {
+              // ignore translation failure
             }
           }
 
-          const canonicalPt = generateCanonicalDialogueCues(title || 'Filme Worsco', type, season, episode);
-          const canonicalEn = generateCanonicalEnglishDialogueCues(title || 'Worsco Cinema', type, season, episode);
-
-          // Guaranteed fallback & gap-filling: ensure PT-BR cues start at 0.5s and have no long gaps without Portuguese dubbing
-          if (!ptTrack || ptTrack.cues.length === 0) {
-            ptTrack = canonicalPt;
-          } else {
-            const mergedPtCues: SubtitleCue[] = [];
-            // Add canonical PT-BR cues anywhere the OpenSubtitles track has a gap > 9s (such as the opening 0s-50s)
-            for (const cCue of canonicalPt.cues) {
-              const overlapsExisting = ptTrack.cues.some(
-                (existing) => existing.start <= cCue.end + 1.5 && existing.end >= cCue.start - 1.5
-              );
-              if (!overlapsExisting) {
-                mergedPtCues.push({ ...cCue });
-              }
-            }
-            mergedPtCues.push(...ptTrack.cues);
-            mergedPtCues.sort((a, b) => a.start - b.start);
-            mergedPtCues.forEach((c, idx) => {
-              c.id = idx + 1;
-            });
-            ptTrack = { vtt: ptTrack.vtt, cues: mergedPtCues };
-          }
-
-          let enTrack = enTrackRaw && enTrackRaw.cues.length > 0 ? enTrackRaw : canonicalEn;
-          if (enTrack !== canonicalEn) {
-            const mergedEnCues: SubtitleCue[] = [];
-            for (const cCue of canonicalEn.cues) {
-              const overlapsExisting = enTrack.cues.some(
-                (existing) => existing.start <= cCue.end + 1.5 && existing.end >= cCue.start - 1.5
-              );
-              if (!overlapsExisting) {
-                mergedEnCues.push({ ...cCue });
-              }
-            }
-            mergedEnCues.push(...enTrack.cues);
-            mergedEnCues.sort((a, b) => a.start - b.start);
-            mergedEnCues.forEach((c, idx) => {
-              c.id = idx + 1;
-            });
-            enTrack = { vtt: enTrack.vtt, cues: mergedEnCues };
-          }
+          const ptCues = ptTrack?.cues || [];
+          const enCues = enTrackRaw?.cues || [];
 
           const payload = {
             tmdbId,
@@ -701,19 +866,21 @@ export function cinemaStreamingPlugin(): Plugin {
             type,
             season: type === 'tv' ? Number(season) : undefined,
             episode: type === 'tv' ? Number(episode) : undefined,
+            hasPtDub,
+            hasPtSub,
             streams,
             subtitles: {
-              ptCues: ptTrack.cues,
-              enCues: enTrack.cues,
+              ptCues,
+              enCues,
               pt: {
                 vttUrl: `/api/cinema/vtt?imdbId=${encodeURIComponent(effectiveImdbId)}&lang=pob&type=${type}&season=${season}&episode=${episode}`,
-                cueCount: ptTrack.cues.length,
-                cues: ptTrack.cues,
+                cueCount: ptCues.length,
+                cues: ptCues,
               },
               en: {
                 vttUrl: `/api/cinema/vtt?imdbId=${encodeURIComponent(effectiveImdbId)}&lang=eng&type=${type}&season=${season}&episode=${episode}`,
-                cueCount: enTrack.cues.length,
-                cues: enTrack.cues,
+                cueCount: enCues.length,
+                cues: enCues,
               },
             },
           };
@@ -761,8 +928,8 @@ export function cinemaStreamingPlugin(): Plugin {
         }
       });
 
-      // 3. Proxy HLS manifests & segments to avoid CORS or Referer blocks
-      server.middlewares.use('/api/cinema/hls-proxy', async (req, res) => {
+      // 3. Proxy MP4 streams with HTTP Range support & stripped Referer (required by hakunaymatata.com CDN)
+      server.middlewares.use('/api/cinema/mp4-proxy', async (req, res) => {
         try {
           const urlObj = new URL(req.url || '/', 'http://localhost:3000');
           const targetUrl = urlObj.searchParams.get('url');
@@ -772,19 +939,100 @@ export function cinemaStreamingPlugin(): Plugin {
             return;
           }
 
-          const upstream = await fetchWithTimeout(
-            targetUrl,
-            {
-              headers: {
-                'User-Agent':
-                  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-                Referer: 'https://vidstuck.cc/',
-                Origin: 'https://vidstuck.cc',
-                Accept: '*/*',
+          const headers: Record<string, string> = {
+            'User-Agent':
+              'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+            Accept: '*/*',
+          };
+          if (req.headers.range) {
+            headers['Range'] = String(req.headers.range);
+          }
+
+          const upstream = await fetch(targetUrl, { headers });
+          if (!upstream.ok && upstream.status !== 206) {
+            res.statusCode = upstream.status;
+            res.end(`Upstream error ${upstream.status}`);
+            return;
+          }
+
+          res.statusCode = upstream.status;
+          res.setHeader('Access-Control-Allow-Origin', '*');
+          res.setHeader('Accept-Ranges', upstream.headers.get('accept-ranges') || 'bytes');
+          const ct = upstream.headers.get('content-type');
+          if (ct) res.setHeader('Content-Type', ct);
+          const cl = upstream.headers.get('content-length');
+          if (cl) res.setHeader('Content-Length', cl);
+          const cr = upstream.headers.get('content-range');
+          if (cr) res.setHeader('Content-Range', cr);
+
+          if (upstream.body) {
+            const nodeStream = Readable.fromWeb(upstream.body as any);
+            req.on('close', () => {
+              nodeStream.destroy();
+            });
+            nodeStream.pipe(res);
+          } else {
+            res.end();
+          }
+        } catch (err: any) {
+          if (!res.headersSent) {
+            res.statusCode = 502;
+            res.end(err?.message || 'MP4 Proxy error');
+          }
+        }
+      });
+
+      // 4. Proxy HLS manifests & segments to avoid CORS or Referer blocks
+      const handleHlsProxyRequest = async (req: any, res: any) => {
+        try {
+          const urlObj = new URL(req.url || '/', 'http://localhost:3000');
+          let targetUrl = urlObj.searchParams.get('url');
+          const fallbackUrl = urlObj.searchParams.get('fallbackUrl');
+          if (!targetUrl || !targetUrl.startsWith('http')) {
+            if (fallbackUrl && fallbackUrl.startsWith('http')) {
+              targetUrl = fallbackUrl;
+            } else {
+              res.statusCode = 400;
+              res.end('Missing or invalid url');
+              return;
+            }
+          }
+
+          let upstream: Response;
+          try {
+            upstream = await fetchWithTimeout(
+              targetUrl,
+              {
+                headers: {
+                  'User-Agent':
+                    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+                  Referer: targetUrl.includes('maximaimg.online') ? 'https://maximaimg.online/' : 'https://vidstuck.cc/',
+                  Origin: targetUrl.includes('maximaimg.online') ? 'https://maximaimg.online' : 'https://vidstuck.cc',
+                  Accept: '*/*',
+                },
               },
-            },
-            15000
-          );
+              15000
+            );
+          } catch (fetchErr) {
+            if (fallbackUrl && fallbackUrl !== targetUrl && fallbackUrl.startsWith('http')) {
+              upstream = await fetchWithTimeout(
+                fallbackUrl,
+                {
+                  headers: {
+                    'User-Agent':
+                      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+                    Referer: fallbackUrl.includes('maximaimg.online') ? 'https://maximaimg.online/' : 'https://vidstuck.cc/',
+                    Origin: fallbackUrl.includes('maximaimg.online') ? 'https://maximaimg.online' : 'https://vidstuck.cc',
+                    Accept: '*/*',
+                  },
+                },
+                15000
+              );
+              targetUrl = fallbackUrl;
+            } else {
+              throw fetchErr;
+            }
+          }
 
           if (!upstream.ok) {
             res.statusCode = upstream.status;
@@ -817,6 +1065,17 @@ export function cinemaStreamingPlugin(): Plugin {
                   const trimmed = line.trim();
                   if (!trimmed) return line;
                   if (trimmed.startsWith('#')) {
+                    if (trimmed.startsWith('#EXTINF') && trimmed.includes(',http')) {
+                      const commaIdx = trimmed.indexOf(',http');
+                      const tag = trimmed.slice(0, commaIdx + 1);
+                      const segmentRaw = trimmed.slice(commaIdx + 1);
+                      try {
+                        const resolved = new URL(segmentRaw, baseUri).toString();
+                        return `${tag}\n/api/cinema/hls-proxy?url=${encodeURIComponent(resolved)}`;
+                      } catch {
+                        return line;
+                      }
+                    }
                     return line.replace(/URI="([^"]+)"/g, (_match, uriVal) => {
                       try {
                         const resolved = new URL(uriVal, baseUri).toString();
@@ -854,73 +1113,11 @@ export function cinemaStreamingPlugin(): Plugin {
           res.statusCode = 502;
           res.end(err?.message || 'Proxy error');
         }
-      });
+      };
 
-      // 4. Neural Portuguese PT-BR Dubbing Audio Synthesizer (Studio Voice Dubbing)
-      server.middlewares.use('/api/cinema/tts', async (req, res) => {
-        try {
-          const urlObj = new URL(req.url || '/', 'http://localhost:3000');
-          const rawText = (urlObj.searchParams.get('text') || '').trim();
-          const lang = (urlObj.searchParams.get('lang') || 'pt-BR').trim();
-
-          if (!rawText) {
-            res.statusCode = 400;
-            res.end('Missing text');
-            return;
-          }
-
-          const cleanText = rawText.replace(/\s+/g, ' ').slice(0, 200);
-          const cacheKey = `${lang}:${cleanText}`;
-          const cached = ttsCache.get(cacheKey);
-          if (cached && cached.expiresAt > Date.now()) {
-            res.statusCode = 200;
-            res.setHeader('Content-Type', 'audio/mpeg');
-            res.setHeader('Cache-Control', 'public, max-age=86400');
-            res.end(cached.buffer);
-            return;
-          }
-
-          const ttsUrl = `https://translate.google.com/translate_tts?ie=UTF-8&tl=${encodeURIComponent(
-            lang
-          )}&client=tw-ob&q=${encodeURIComponent(cleanText)}`;
-
-          const upstream = await fetchWithTimeout(
-            ttsUrl,
-            {
-              headers: {
-                'User-Agent':
-                  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-                Referer: 'https://translate.google.com/',
-              },
-            },
-            6500
-          );
-
-          if (!upstream.ok) {
-            res.statusCode = upstream.status;
-            res.end('TTS upstream failed');
-            return;
-          }
-
-          const audioBuffer = Buffer.from(await upstream.arrayBuffer());
-          if (ttsCache.size > 1500) {
-            const oldestKey = ttsCache.keys().next().value;
-            if (oldestKey) ttsCache.delete(oldestKey);
-          }
-          ttsCache.set(cacheKey, {
-            expiresAt: Date.now() + 1000 * 60 * 60 * 12,
-            buffer: audioBuffer,
-          });
-
-          res.statusCode = 200;
-          res.setHeader('Content-Type', 'audio/mpeg');
-          res.setHeader('Cache-Control', 'public, max-age=86400');
-          res.end(audioBuffer);
-        } catch {
-          res.statusCode = 502;
-          res.end('TTS error');
-        }
-      });
+      server.middlewares.use('/api/cinema/hls-proxy', handleHlsProxyRequest);
+      server.middlewares.use('/api/anime/hls-manifest', handleHlsProxyRequest);
+      server.middlewares.use('/api/anime/proxy', handleHlsProxyRequest);
     },
   };
 }

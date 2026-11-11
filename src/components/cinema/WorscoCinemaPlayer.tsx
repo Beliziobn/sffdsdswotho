@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import Hls from "hls.js";
 import {
   Play,
@@ -10,14 +10,9 @@ import {
   RotateCcw,
   RotateCw,
   Subtitles,
-  Globe,
   ShieldCheck,
-  Sparkles,
-  RefreshCw,
-  Film,
   Mic,
-  ChevronLeft,
-  ChevronRight,
+  Globe,
   Loader2,
 } from "lucide-react";
 import {
@@ -26,6 +21,7 @@ import {
   getCinemaStreamUrl,
   saveCinemaProgress,
 } from "@/lib/cinema";
+import { usePlayerAdBlock } from "@/hooks/usePlayerAdBlock";
 import { toast } from "sonner";
 
 interface SubtitleCue {
@@ -39,12 +35,15 @@ interface ResolvedStream {
   id: string;
   server: string;
   label: string;
-  type: string;
+  type: "mp4" | "hls";
+  audioMode: "dublado" | "legendado" | "original" | "multi";
+  langCode: string;
   quality: string;
+  url: string;
   proxyUrl: string;
 }
 
-interface WorscoCinemaPlayerProps {
+export interface WorscoCinemaPlayerProps {
   item: CinemaItem;
   language: CinemaLanguage;
   onLanguageChange: (lang: CinemaLanguage) => void;
@@ -61,29 +60,33 @@ export const WorscoCinemaPlayer: React.FC<WorscoCinemaPlayerProps> = ({
   onLanguageChange,
   seasonNumber = 1,
   episodeNumber = 1,
-  totalEpisodes = 1,
-  episodeTitle,
-  onSelectEpisode,
 }) => {
+  // Rigorously enforce anti-redirect & anti-popup protection
+  const { blockedCount } = usePlayerAdBlock(true);
+
   const containerRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
-  const dubAudioRef = useRef<HTMLAudioElement | null>(null);
   const hlsRef = useRef<Hls | null>(null);
+  const savedTimeRef = useRef<number>(0);
+  const wasPlayingRef = useRef<boolean>(false);
+  const hideControlsTimerRef = useRef<number | null>(null);
 
-  // Playback mode: "movie" (full movie/episode) or "trailer"
-  const [contentMode, setContentMode] = useState<"movie" | "trailer">("movie");
-  // Portuguese sub-mode: "dublado" (spoken PT-BR voice + ducked original audio) or "legendado" (original audio + PT-BR subtitles)
-  const [ptMode, setPtMode] = useState<"dublado" | "legendado">("dublado");
+  // Audio mode: "dublado" (Português Dublado PT-BR - Default!), "legendado" (Português Legendado), or "original" (Áudio Original EN)
+  const [audioMode, setAudioMode] = useState<"dublado" | "legendado" | "original">(
+    language === "en" ? "original" : "dublado"
+  );
   const [showSubtitles, setShowSubtitles] = useState<boolean>(true);
 
   // Resolved streams & subtitles from our server plugin
   const [isResolving, setIsResolving] = useState<boolean>(true);
-  const [streams, setStreams] = useState<ResolvedStream[]>([]);
-  const [activeStreamIdx, setActiveStreamIdx] = useState<number>(0);
+  const [allStreams, setAllStreams] = useState<ResolvedStream[]>([]);
+  const [hasPtDub, setHasPtDub] = useState<boolean>(true);
+  const [hasPtSub, setHasPtSub] = useState<boolean>(true);
+  const [candidateIdx, setCandidateIdx] = useState<number>(0);
+  const [useProxyForMp4, setUseProxyForMp4] = useState<boolean>(false);
   const [useSandboxFallback, setUseSandboxFallback] = useState<boolean>(false);
   const [ptCues, setPtCues] = useState<SubtitleCue[]>([]);
   const [enCues, setEnCues] = useState<SubtitleCue[]>([]);
-  const [hasNativePtAudioTrack, setHasNativePtAudioTrack] = useState<boolean>(false);
 
   // Video player state
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
@@ -94,49 +97,28 @@ export const WorscoCinemaPlayer: React.FC<WorscoCinemaPlayerProps> = ({
   const [isMuted, setIsMuted] = useState<boolean>(false);
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
   const [activeCueText, setActiveCueText] = useState<string>("");
-  const [isDubSpeaking, setIsDubSpeaking] = useState<boolean>(false);
   const [controlsVisible, setControlsVisible] = useState<boolean>(true);
 
-  // Cache for pre-fetched PT-BR TTS audio blobs
-  const ttsBlobCacheRef = useRef<Map<number, string>>(new Map());
-  const ttsFetchingSetRef = useRef<Set<number>>(new Set());
-  const lastSpokenCueIdRef = useRef<number>(-1);
-  const hideControlsTimerRef = useRef<number | null>(null);
-
-  const isDubladoActive =
-    language === "pt" && ptMode === "dublado" && contentMode === "movie" && !useSandboxFallback;
-
-  // Clean up dubbing audio and speech synthesis on unmount
+  // Keep audioMode synced if external language prop changes
   useEffect(() => {
-    return () => {
-      if (dubAudioRef.current) {
-        dubAudioRef.current.pause();
-        dubAudioRef.current.src = "";
-      }
-      if ("speechSynthesis" in window) {
-        window.speechSynthesis.cancel();
-      }
-    };
-  }, []);
+    if (language === "en" && audioMode !== "original") {
+      setAudioMode("original");
+    } else if (language === "pt" && audioMode === "original") {
+      setAudioMode("dublado");
+    }
+  }, [language]);
 
-  // Resolve 1080p HLS streams and PT-BR/EN subtitles whenever item/season/episode changes
+  // Resolve real MP4 & HLS streams and subtitles whenever item/season/episode changes
   useEffect(() => {
     let cancelled = false;
     setIsResolving(true);
     setIsBuffering(true);
     setUseSandboxFallback(false);
-    setActiveStreamIdx(0);
+    setCandidateIdx(0);
+    setUseProxyForMp4(false);
     setActiveCueText("");
-    lastSpokenCueIdRef.current = -1;
-
-    // Clear previous TTS blob cache
-    ttsBlobCacheRef.current.forEach((blobUrl) => URL.revokeObjectURL(blobUrl));
-    ttsBlobCacheRef.current.clear();
-    ttsFetchingSetRef.current.clear();
-    if (dubAudioRef.current) {
-      dubAudioRef.current.pause();
-      dubAudioRef.current.src = "";
-    }
+    savedTimeRef.current = 0;
+    wasPlayingRef.current = false;
 
     const mediaType = item.type === "serie" ? "tv" : "movie";
     const params = new URLSearchParams({
@@ -145,7 +127,7 @@ export const WorscoCinemaPlayer: React.FC<WorscoCinemaPlayerProps> = ({
       type: mediaType,
       season: String(seasonNumber),
       episode: String(episodeNumber),
-      title: item.title,
+      title: item.originalTitle || item.title,
       year: String(item.year),
     });
 
@@ -156,7 +138,12 @@ export const WorscoCinemaPlayer: React.FC<WorscoCinemaPlayerProps> = ({
         const resolvedStreams: ResolvedStream[] = Array.isArray(data.streams)
           ? data.streams
           : [];
-        setStreams(resolvedStreams);
+        setAllStreams(resolvedStreams);
+        const resolvedHasPtDub = Boolean(data.hasPtDub);
+        const resolvedHasPtSub = Boolean(data.hasPtSub);
+        setHasPtDub(resolvedHasPtDub);
+        setHasPtSub(resolvedHasPtSub);
+
         const resolvedPtCues = Array.isArray(data.subtitles?.pt?.cues)
           ? data.subtitles.pt.cues
           : Array.isArray(data.subtitles?.ptCues)
@@ -169,6 +156,12 @@ export const WorscoCinemaPlayer: React.FC<WorscoCinemaPlayerProps> = ({
           : [];
         setPtCues(resolvedPtCues);
         setEnCues(resolvedEnCues);
+
+        // If dub is not available upstream, automatically activate Portuguese subtitles
+        if (!resolvedHasPtDub && audioMode === "dublado") {
+          setShowSubtitles(true);
+        }
+
         if (resolvedStreams.length === 0) {
           setUseSandboxFallback(true);
         }
@@ -176,7 +169,8 @@ export const WorscoCinemaPlayer: React.FC<WorscoCinemaPlayerProps> = ({
       })
       .catch(() => {
         if (cancelled) return;
-        setStreams([]);
+        setAllStreams([]);
+        setHasPtDub(false);
         setUseSandboxFallback(true);
         setIsResolving(false);
       });
@@ -184,25 +178,99 @@ export const WorscoCinemaPlayer: React.FC<WorscoCinemaPlayerProps> = ({
     return () => {
       cancelled = true;
     };
-  }, [item.id, item.tmdbId, item.imdbId, item.type, item.originalTitle, item.title, item.year, seasonNumber, episodeNumber]);
+  }, [
+    item.id,
+    item.tmdbId,
+    item.imdbId,
+    item.type,
+    item.originalTitle,
+    item.title,
+    item.year,
+    seasonNumber,
+    episodeNumber,
+  ]);
 
-  // Attach HLS.js to video element when active stream changes
+  // Rank streams based on user's selected audioMode ("dublado" | "legendado" | "original")
+  const orderedCandidates = useMemo(() => {
+    if (allStreams.length === 0) return [];
+    const dubStreams = allStreams.filter((s) => s.audioMode === "dublado");
+    const legStreams = allStreams.filter((s) => s.audioMode === "legendado");
+    const origStreams = allStreams.filter((s) => s.audioMode === "original");
+    const multiStreams = allStreams.filter((s) => s.audioMode === "multi");
+
+    if (audioMode === "dublado") {
+      return [...dubStreams, ...multiStreams, ...legStreams, ...origStreams];
+    }
+    if (audioMode === "legendado") {
+      return [...legStreams, ...origStreams, ...multiStreams, ...dubStreams];
+    }
+    return [...origStreams, ...multiStreams, ...legStreams, ...dubStreams];
+  }, [allStreams, audioMode]);
+
+  const currentStream = orderedCandidates[candidateIdx] || orderedCandidates[0] || null;
+
+  // Attach MP4 or HLS.js to video element when currentStream changes
   useEffect(() => {
-    if (contentMode !== "movie" || useSandboxFallback || isResolving) return;
-    const currentStream = streams[activeStreamIdx];
+    if (useSandboxFallback || isResolving || !currentStream) return;
     const video = videoRef.current;
-    if (!currentStream || !video) return;
+    if (!video) return;
 
     setIsBuffering(true);
-    setHasNativePtAudioTrack(false);
 
     if (hlsRef.current) {
       hlsRef.current.destroy();
       hlsRef.current = null;
     }
 
-    const savedTime = video.currentTime > 5 ? video.currentTime : 0;
+    const restorePositionAndPlay = () => {
+      setIsBuffering(false);
+      if (savedTimeRef.current > 2) {
+        try {
+          video.currentTime = savedTimeRef.current;
+        } catch {}
+      }
+      video.volume = isMuted ? 0 : userVolume;
+      video.play().catch(() => {
+        // Autoplay may wait for user click
+      });
+    };
 
+    const advanceToNextCandidate = () => {
+      if (currentStream.type === "mp4" && !useProxyForMp4) {
+        setUseProxyForMp4(true);
+        return;
+      }
+      setUseProxyForMp4(false);
+      if (candidateIdx + 1 < orderedCandidates.length) {
+        setCandidateIdx((prev) => prev + 1);
+      } else {
+        setUseSandboxFallback(true);
+      }
+    };
+
+    if (currentStream.type === "mp4") {
+      // Use backend MP4 Range proxy first so Referer is stripped for hakunaymatata.com CDN
+      const mp4Source = useProxyForMp4 ? currentStream.url : currentStream.proxyUrl;
+      video.src = mp4Source;
+      video.load();
+
+      const onLoadedMetadata = () => {
+        restorePositionAndPlay();
+      };
+      const onError = () => {
+        advanceToNextCandidate();
+      };
+
+      video.addEventListener("loadedmetadata", onLoadedMetadata);
+      video.addEventListener("error", onError);
+
+      return () => {
+        video.removeEventListener("loadedmetadata", onLoadedMetadata);
+        video.removeEventListener("error", onError);
+      };
+    }
+
+    // HLS stream handling
     if (Hls.isSupported()) {
       const hls = new Hls({
         enableWorker: true,
@@ -216,13 +284,7 @@ export const WorscoCinemaPlayer: React.FC<WorscoCinemaPlayerProps> = ({
       hls.attachMedia(video);
 
       hls.on(Hls.Events.MANIFEST_PARSED, () => {
-        setIsBuffering(false);
-        if (savedTime > 0) {
-          video.currentTime = savedTime;
-        }
-        video.play().catch(() => {
-          // Autoplay may wait for user click
-        });
+        restorePositionAndPlay();
       });
 
       hls.on(Hls.Events.AUDIO_TRACKS_UPDATED, (_, data) => {
@@ -233,23 +295,16 @@ export const WorscoCinemaPlayer: React.FC<WorscoCinemaPlayerProps> = ({
         const enIdx = tracks.findIndex((t) =>
           /eng|en|english|orig/i.test(`${t.lang || ""} ${t.name || ""}`)
         );
-        if (ptIdx !== -1) {
-          setHasNativePtAudioTrack(true);
-          if (language === "pt" && ptMode === "dublado") {
-            hls.audioTrack = ptIdx;
-          } else if (enIdx !== -1) {
-            hls.audioTrack = enIdx;
-          }
+        if (audioMode === "dublado" && ptIdx !== -1) {
+          hls.audioTrack = ptIdx;
+        } else if (enIdx !== -1) {
+          hls.audioTrack = enIdx;
         }
       });
 
       hls.on(Hls.Events.ERROR, (_, errData) => {
         if (errData.fatal) {
-          if (activeStreamIdx + 1 < streams.length) {
-            setActiveStreamIdx((prev) => prev + 1);
-          } else if (language !== "pt") {
-            setUseSandboxFallback(true);
-          }
+          advanceToNextCandidate();
         }
       });
 
@@ -259,169 +314,51 @@ export const WorscoCinemaPlayer: React.FC<WorscoCinemaPlayerProps> = ({
       };
     } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
       video.src = currentStream.proxyUrl;
-      video.addEventListener("loadedmetadata", () => {
-        setIsBuffering(false);
-        if (savedTime > 0) video.currentTime = savedTime;
-        video.play().catch(() => {});
-      });
+      const onLoaded = () => restorePositionAndPlay();
+      const onErr = () => advanceToNextCandidate();
+      video.addEventListener("loadedmetadata", onLoaded);
+      video.addEventListener("error", onErr);
+      return () => {
+        video.removeEventListener("loadedmetadata", onLoaded);
+        video.removeEventListener("error", onErr);
+      };
     }
-  }, [streams, activeStreamIdx, contentMode, useSandboxFallback, isResolving, language, ptMode]);
+  }, [currentStream, useProxyForMp4, useSandboxFallback, isResolving, audioMode]);
 
-  // Switch native HLS audio track if available when user switches PT/EN
+  // Keep native video volume at 100% of user's setting (never ducked, zero artificial TTS)
   useEffect(() => {
-    const hls = hlsRef.current;
-    if (!hls || !hls.audioTracks || hls.audioTracks.length <= 1) return;
-    const tracks = hls.audioTracks;
-    const ptIdx = tracks.findIndex((t) =>
-      /por|pt|portug|brazil/i.test(`${t.lang || ""} ${t.name || ""}`)
-    );
-    const enIdx = tracks.findIndex((t) =>
-      /eng|en|english/i.test(`${t.lang || ""} ${t.name || ""}`)
-    );
-
-    if (language === "pt" && ptMode === "dublado" && ptIdx !== -1) {
-      hls.audioTrack = ptIdx;
-    } else if (enIdx !== -1) {
-      hls.audioTrack = enIdx;
-    }
-  }, [language, ptMode]);
-
-  // Pre-fetch upcoming PT-BR TTS audio cues (20 seconds ahead of currentTime)
-  useEffect(() => {
-    if (!isDubladoActive || hasNativePtAudioTrack || ptCues.length === 0) return;
-
-    const upcoming = ptCues.filter(
-      (c) => c.start >= currentTime - 1 && c.start <= currentTime + 20
-    );
-
-    for (const cue of upcoming.slice(0, 5)) {
-      if (
-        ttsBlobCacheRef.current.has(cue.id) ||
-        ttsFetchingSetRef.current.has(cue.id)
-      ) {
-        continue;
-      }
-      ttsFetchingSetRef.current.add(cue.id);
-      const ttsUrl = `/api/cinema/tts?lang=pt-BR&text=${encodeURIComponent(cue.text)}`;
-      fetch(ttsUrl)
-        .then((r) => (r.ok ? r.blob() : Promise.reject()))
-        .then((blob) => {
-          const objUrl = URL.createObjectURL(blob);
-          ttsBlobCacheRef.current.set(cue.id, objUrl);
-        })
-        .catch(() => {
-          // fallback handled at speak time
-        })
-        .finally(() => {
-          ttsFetchingSetRef.current.delete(cue.id);
-        });
-    }
-  }, [currentTime, isDubladoActive, hasNativePtAudioTrack, ptCues]);
-
-  // Synchronize subtitles & PT-BR studio voice dubbing with video currentTime
-  useEffect(() => {
-    const activeCueList = language === "pt" ? ptCues : enCues;
-    const currentCue =
-      activeCueList.find(
-        (c) => currentTime >= c.start - 0.25 && currentTime <= c.end + 0.35
-      ) ||
-      (isDubladoActive && currentTime < 8 ? activeCueList[0] : undefined);
-
-    setActiveCueText(currentCue ? currentCue.text : "");
-
     const video = videoRef.current;
-    const dubAudio = dubAudioRef.current;
-
-    if (!isDubladoActive || hasNativePtAudioTrack) {
-      if (video) {
-        video.volume = isMuted ? 0 : userVolume;
-      }
-      setIsDubSpeaking(false);
-      return;
-    }
-
-    // Keep original English video audio continuously ducked at 10% in Português Dublado mode
-    // so the movie never jumps back to loud English speech between dialogue cues!
     if (video) {
-      video.volume = isMuted ? 0 : Math.min(0.12, userVolume * 0.1);
+      video.volume = isMuted ? 0 : userVolume;
+      video.muted = isMuted;
     }
+  }, [isMuted, userVolume]);
 
-    if (!isPlaying) {
-      setIsDubSpeaking(false);
+  // Synchronize authentic subtitles with video currentTime
+  useEffect(() => {
+    // If playing an Orion stream that already has burned-in PT subtitles (audioMode === "legendado" & currentStream.audioMode === "legendado")
+    // or if playing Dublado with subtitles turned off, avoid duplicate overlay unless requested
+    if (!showSubtitles) {
+      setActiveCueText("");
+      return;
+    }
+    if (currentStream?.audioMode === "legendado" && audioMode === "legendado") {
+      // Orion pt:1 streams already include Portuguese subtitles in the video stream; only show overlay if user wants extra captions
+      setActiveCueText("");
+      return;
+    }
+    if (currentStream?.audioMode === "dublado" && audioMode === "dublado") {
+      // In Dublado mode, the movie itself speaks Portuguese directly
+      setActiveCueText("");
       return;
     }
 
-    if (currentCue && language === "pt") {
-      if (lastSpokenCueIdRef.current !== currentCue.id) {
-        lastSpokenCueIdRef.current = currentCue.id;
-        setIsDubSpeaking(true);
-
-        const cachedBlobUrl = ttsBlobCacheRef.current.get(currentCue.id);
-        const directTtsUrl =
-          cachedBlobUrl ||
-          `/api/cinema/tts?lang=pt-BR&text=${encodeURIComponent(currentCue.text)}`;
-
-        const speakViaWebSpeech = () => {
-          if ("speechSynthesis" in window && !isMuted) {
-            window.speechSynthesis.cancel();
-            const utter = new SpeechSynthesisUtterance(currentCue.text);
-            utter.lang = "pt-BR";
-            utter.rate = 1.12;
-            utter.volume = Math.min(1, userVolume);
-            utter.onend = () => setIsDubSpeaking(false);
-            window.speechSynthesis.speak(utter);
-          }
-        };
-
-        if (dubAudio) {
-          dubAudio.pause();
-          dubAudio.src = directTtsUrl;
-          dubAudio.volume = isMuted ? 0 : Math.min(1, userVolume * 1.0);
-          const cueDuration = Math.max(1.2, currentCue.end - currentCue.start);
-          const estimatedSpeechDuration = Math.max(1.2, currentCue.text.length / 13.5);
-          const rate = Math.min(
-            1.35,
-            Math.max(1.0, estimatedSpeechDuration / cueDuration)
-          );
-          dubAudio.playbackRate = rate;
-          dubAudio.onended = () => {
-            setIsDubSpeaking(false);
-          };
-          dubAudio.onerror = () => {
-            speakViaWebSpeech();
-          };
-          dubAudio.play().catch(() => {
-            speakViaWebSpeech();
-          });
-        } else {
-          speakViaWebSpeech();
-        }
-      }
-    }
-  }, [
-    currentTime,
-    language,
-    ptCues,
-    enCues,
-    isDubladoActive,
-    hasNativePtAudioTrack,
-    isPlaying,
-    isMuted,
-    userVolume,
-    isDubSpeaking,
-  ]);
-
-  // Pause dubbing audio immediately when video pauses or seeks
-  useEffect(() => {
-    const dubAudio = dubAudioRef.current;
-    if (!isPlaying) {
-      dubAudio?.pause();
-      if ("speechSynthesis" in window) {
-        window.speechSynthesis.cancel();
-      }
-      setIsDubSpeaking(false);
-    }
-  }, [isPlaying]);
+    const activeCueList = audioMode === "original" ? enCues : ptCues;
+    const currentCue = activeCueList.find(
+      (c) => currentTime >= c.start - 0.2 && currentTime <= c.end + 0.25
+    );
+    setActiveCueText(currentCue ? currentCue.text : "");
+  }, [currentTime, audioMode, showSubtitles, ptCues, enCues, currentStream]);
 
   // Fullscreen listener
   useEffect(() => {
@@ -442,23 +379,38 @@ export const WorscoCinemaPlayer: React.FC<WorscoCinemaPlayerProps> = ({
     }, 3500);
   }, [isPlaying]);
 
+  const handleSelectAudioMode = (nextMode: "dublado" | "legendado" | "original") => {
+    if (videoRef.current && videoRef.current.currentTime > 1) {
+      savedTimeRef.current = videoRef.current.currentTime;
+      wasPlayingRef.current = !videoRef.current.paused;
+    }
+    setAudioMode(nextMode);
+    setCandidateIdx(0);
+    setUseProxyForMp4(false);
+    if (allStreams.length > 0) {
+      setUseSandboxFallback(false);
+    }
+
+    if (nextMode === "original") {
+      onLanguageChange("en");
+      toast.success("Áudio alterado para Original (Inglês)");
+    } else if (nextMode === "legendado") {
+      onLanguageChange("pt");
+      setShowSubtitles(true);
+      toast.success("Alterado para Áudio Original com Legendas em Português (PT-BR)");
+    } else {
+      onLanguageChange("pt");
+      toast.success("Áudio alterado para Dublado em Português (PT-BR)");
+    }
+  };
+
   const togglePlay = () => {
     const video = videoRef.current;
     if (!video) return;
     if (video.paused) {
       video.play().catch(() => {});
-      if (dubAudioRef.current) {
-        dubAudioRef.current.play().then(() => {
-          dubAudioRef.current?.pause();
-        }).catch(() => {});
-      }
     } else {
       video.pause();
-      dubAudioRef.current?.pause();
-      if ("speechSynthesis" in window) {
-        window.speechSynthesis.cancel();
-      }
-      setIsDubSpeaking(false);
     }
     showControlsTemporarily();
   };
@@ -468,9 +420,8 @@ export const WorscoCinemaPlayer: React.FC<WorscoCinemaPlayerProps> = ({
     if (!video) return;
     const clamped = Math.max(0, Math.min(duration || 0, newTime));
     video.currentTime = clamped;
+    savedTimeRef.current = clamped;
     setCurrentTime(clamped);
-    lastSpokenCueIdRef.current = -1;
-    dubAudioRef.current?.pause();
     showControlsTemporarily();
   };
 
@@ -481,25 +432,6 @@ export const WorscoCinemaPlayer: React.FC<WorscoCinemaPlayerProps> = ({
       el.requestFullscreen().catch(() => {});
     } else {
       document.exitFullscreen().catch(() => {});
-    }
-  };
-
-  const handleSwitchSignal = () => {
-    if (contentMode === "trailer") {
-      setContentMode("movie");
-      return;
-    }
-    if (!useSandboxFallback && activeStreamIdx + 1 < streams.length) {
-      const nextIdx = activeStreamIdx + 1;
-      setActiveStreamIdx(nextIdx);
-      toast.success(`Alternando para ${streams[nextIdx].label}`);
-    } else if (!useSandboxFallback) {
-      setUseSandboxFallback(true);
-      toast.success("Alternando para Player Blindado (Sandbox Anti-Redirecionamento)");
-    } else if (streams.length > 0) {
-      setUseSandboxFallback(false);
-      setActiveStreamIdx(0);
-      toast.success(`Retornando ao ${streams[0].label}`);
     }
   };
 
@@ -515,112 +447,68 @@ export const WorscoCinemaPlayer: React.FC<WorscoCinemaPlayerProps> = ({
   };
 
   const displayTitle =
-    language === "en" && item.originalTitle ? item.originalTitle : item.title;
-
-  const trailerEmbedUrl = getCinemaStreamUrl(item, {
-    server: "trailer",
-    seasonNumber,
-    episodeNumber,
-    language,
-  });
+    audioMode === "original" && item.originalTitle ? item.originalTitle : item.title;
 
   const sandboxBackupUrl = getCinemaStreamUrl(item, {
-    server: "vidsrc",
+    server: "vidstuck",
     seasonNumber,
     episodeNumber,
-    language,
+    language: audioMode === "original" ? "en" : "pt",
+    audioMode,
   });
 
   return (
     <div className="rounded-2xl overflow-hidden border border-white/15 bg-zinc-950 shadow-2xl">
-      {/* Unified, Clean Control Header */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-end gap-3 px-4 sm:px-6 py-3.5 bg-zinc-900/95 border-b border-white/10">
-        {/* Simple 3-Way Audio/Language Selector (Português Dublado | Português Legendado | Inglês Original) */}
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="flex items-center bg-black/80 border border-white/15 rounded-xl p-1 gap-1">
-            {/* Option 1: Português Dublado (PT-BR) */}
-            <button
-              type="button"
-              onClick={() => {
-                lastSpokenCueIdRef.current = -1;
-                onLanguageChange("pt");
-                setPtMode("dublado");
-                setShowSubtitles(true);
-                setContentMode("movie");
-                if (streams.length > 0) setUseSandboxFallback(false);
-                toast.success("Áudio alterado para Português Dublado (PT-BR)");
-              }}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
-                language === "pt" && ptMode === "dublado"
-                  ? "bg-amber-500 text-black shadow-sm"
-                  : "text-zinc-300 hover:text-white hover:bg-white/5"
-              }`}
-            >
-              <Mic className="w-3.5 h-3.5" />
-              <span>Português (Dublado)</span>
-            </button>
+      {/* Single Unified Control Header — Direct Language Selection & Anti-Redirect Shield */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 sm:px-6 py-3.5 bg-zinc-900/95 border-b border-white/10">
+        <div className="flex items-center gap-2 text-xs text-emerald-400 font-medium">
+          <ShieldCheck className="w-4 h-4 shrink-0" />
+          <span>
+            Servidor Unificado 1080p FHD · Anti-Redirecionamento Ativo
+            {blockedCount > 0 ? ` (${blockedCount} bloqueados)` : ""}
+          </span>
+        </div>
 
-            {/* Option 2: Português Legendado (PT-BR) */}
-            <button
-              type="button"
-              onClick={() => {
-                dubAudioRef.current?.pause();
-                if ("speechSynthesis" in window) window.speechSynthesis.cancel();
-                setIsDubSpeaking(false);
-                if (videoRef.current) videoRef.current.volume = isMuted ? 0 : userVolume;
-                onLanguageChange("pt");
-                setPtMode("legendado");
-                setShowSubtitles(true);
-                setContentMode("movie");
-                if (streams.length > 0) setUseSandboxFallback(false);
-                toast.success("Idioma alterado para Português Legendado (PT-BR)");
-              }}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
-                language === "pt" && ptMode === "legendado"
-                  ? "bg-amber-500 text-black shadow-sm"
-                  : "text-zinc-300 hover:text-white hover:bg-white/5"
-              }`}
-            >
-              <Subtitles className="w-3.5 h-3.5" />
-              <span>Português (Legendado)</span>
-            </button>
+        {/* Direct 3-Way Language Switcher */}
+        <div className="flex flex-wrap items-center gap-1.5 bg-black/80 border border-white/15 rounded-xl p-1">
+          <button
+            type="button"
+            onClick={() => handleSelectAudioMode("dublado")}
+            className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
+              audioMode === "dublado"
+                ? "bg-amber-500 text-black shadow-sm"
+                : "text-zinc-300 hover:text-white hover:bg-white/5"
+            }`}
+          >
+            <Mic className="w-3.5 h-3.5" />
+            <span>Dublado em Português</span>
+          </button>
 
-            {/* Option 3: Inglês Original (EN) */}
-            <button
-              type="button"
-              onClick={() => {
-                dubAudioRef.current?.pause();
-                if ("speechSynthesis" in window) window.speechSynthesis.cancel();
-                setIsDubSpeaking(false);
-                if (videoRef.current) videoRef.current.volume = isMuted ? 0 : userVolume;
-                onLanguageChange("en");
-                setShowSubtitles(true);
-                setContentMode("movie");
-                if (streams.length > 0) setUseSandboxFallback(false);
-                toast.success("Language set to Original English (EN)");
-              }}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
-                language === "en"
-                  ? "bg-amber-500 text-black shadow-sm"
-                  : "text-zinc-300 hover:text-white hover:bg-white/5"
-              }`}
-            >
-              <span>Inglês (Original EN)</span>
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={() => handleSelectAudioMode("legendado")}
+            className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
+              audioMode === "legendado"
+                ? "bg-amber-500 text-black shadow-sm"
+                : "text-zinc-300 hover:text-white hover:bg-white/5"
+            }`}
+          >
+            <Subtitles className="w-3.5 h-3.5" />
+            <span>Português (Legendado)</span>
+          </button>
 
-          {/* Discreet Single Signal Switcher */}
-          <div className="flex items-center gap-1.5">
-            <button
-              type="button"
-              onClick={handleSwitchSignal}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-medium text-zinc-200 transition cursor-pointer"
-              title="Trocar sinal automaticamente caso sua conexão esteja lenta"
-            >
-              <RefreshCw className="w-3.5 h-3.5 text-amber-400" />
-              <span>Trocar Sinal</span>
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={() => handleSelectAudioMode("original")}
+            className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
+              audioMode === "original"
+                ? "bg-amber-500 text-black shadow-sm"
+                : "text-zinc-300 hover:text-white hover:bg-white/5"
+            }`}
+          >
+            <Globe className="w-3.5 h-3.5" />
+            <span>Áudio Original (EN)</span>
+          </button>
         </div>
       </div>
 
@@ -628,25 +516,15 @@ export const WorscoCinemaPlayer: React.FC<WorscoCinemaPlayerProps> = ({
       <div
         ref={containerRef}
         onMouseMove={showControlsTemporarily}
+        onContextMenu={(e) => e.preventDefault()}
         className="relative aspect-video w-full bg-black select-none overflow-hidden group"
       >
-        {contentMode === "trailer" ? (
-          /* Sandboxed Official Trailer (100% Zero Redirects) */
+        {useSandboxFallback ? (
+          /* Strictly Sandboxed Multi-Audio Player (Zero Popups / Zero Redirects Guaranteed by Browser Sandbox) */
           <iframe
-            key={`trailer-${item.id}-${seasonNumber}-${episodeNumber}-${language}`}
-            src={trailerEmbedUrl}
-            title={`${displayTitle} — Trailer Oficial`}
-            className="w-full h-full border-0"
-            sandbox="allow-scripts allow-same-origin allow-forms allow-presentation"
-            allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture; fullscreen"
-            allowFullScreen
-          />
-        ) : useSandboxFallback ? (
-          /* Strictly Sandboxed Backup Player (Kernel-Level Popup/Redirect Block) */
-          <iframe
-            key={`backup-${item.id}-${seasonNumber}-${episodeNumber}-${language}`}
+            key={`sandbox-${item.id}-${seasonNumber}-${episodeNumber}-${audioMode}`}
             src={sandboxBackupUrl}
-            title={`${displayTitle} — Player Blindado`}
+            title={`${displayTitle} — Reprodução Protegida`}
             className="w-full h-full border-0"
             sandbox="allow-scripts allow-same-origin allow-forms allow-presentation"
             referrerPolicy="no-referrer"
@@ -654,13 +532,12 @@ export const WorscoCinemaPlayer: React.FC<WorscoCinemaPlayerProps> = ({
             allowFullScreen
           />
         ) : (
-          /* Primary Native Worsco 1080p HLS Video Player (Zero Iframes, Zero Popups, PT-BR Dublado + Subtitles) */
+          /* Primary Native HTML5 1080p MP4 / HLS Video Player (Zero Iframes, Zero Popups, Real Original/Dubbed Audio) */
           <>
             <video
               ref={videoRef}
               poster={item.backdropUrl}
               playsInline
-              crossOrigin="anonymous"
               onClick={togglePlay}
               onDoubleClick={toggleFullscreen}
               onPlay={() => {
@@ -670,9 +547,11 @@ export const WorscoCinemaPlayer: React.FC<WorscoCinemaPlayerProps> = ({
               onPause={() => setIsPlaying(false)}
               onWaiting={() => setIsBuffering(true)}
               onPlaying={() => setIsBuffering(false)}
+              onCanPlay={() => setIsBuffering(false)}
               onTimeUpdate={(e) => {
                 const t = e.currentTarget.currentTime;
                 setCurrentTime(t);
+                if (t > 1) savedTimeRef.current = t;
                 if (duration > 0 && Math.floor(t) % 15 === 0) {
                   const pct = Math.min(98, Math.max(5, Math.round((t / duration) * 100)));
                   saveCinemaProgress(item.id, pct, seasonNumber, episodeNumber);
@@ -685,29 +564,21 @@ export const WorscoCinemaPlayer: React.FC<WorscoCinemaPlayerProps> = ({
               className="w-full h-full object-contain bg-black cursor-pointer"
             />
 
-            {/* Neural Portuguese Dubbing Audio Node */}
-            <audio
-              ref={dubAudioRef}
-              className="hidden"
-              preload="auto"
-              playsInline
-            />
-
             {/* Loading / Resolving Spinner Overlay */}
             {(isResolving || isBuffering) && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 backdrop-blur-xs pointer-events-none z-20">
+              <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/65 backdrop-blur-xs pointer-events-none z-20">
                 <Loader2 className="w-11 h-11 text-amber-400 animate-spin mb-3" />
                 <p className="text-xs sm:text-sm font-medium text-white tracking-wide">
                   {isResolving
-                    ? "Conectando ao servidor Worsco 1080p FHD..."
-                    : "Carregando transmissão em alta definição..."}
+                    ? `Carregando ${displayTitle} em 1080p FHD...`
+                    : "Iniciando reprodução em alta definição..."}
                 </p>
                 <p className="text-[11px] text-amber-400/90 mt-1">
-                  {language === "pt" && ptMode === "dublado"
-                    ? "Dublagem em Português (PT-BR) Sincronizada Ativa"
-                    : language === "pt"
-                      ? "Legendas em Português (PT-BR) Sincronizadas"
-                      : "Original English Audio (EN)"}
+                  {audioMode === "dublado"
+                    ? "Áudio Original Dublado em Português (PT-BR)"
+                    : audioMode === "legendado"
+                    ? "Áudio Original com Legendas em Português (PT-BR)"
+                    : "Áudio Original em Inglês (EN)"}
                 </p>
               </div>
             )}
@@ -724,7 +595,7 @@ export const WorscoCinemaPlayer: React.FC<WorscoCinemaPlayerProps> = ({
               </div>
             )}
 
-            {/* Active PT-BR / EN Subtitle & Dubbing Caption Overlay */}
+            {/* Active Subtitle Overlay (when in Legendado/Original mode with VTT cues) */}
             {showSubtitles && activeCueText && (
               <div className="absolute inset-x-4 bottom-20 sm:bottom-24 flex justify-center pointer-events-none z-20">
                 <div className="max-w-3xl px-4 py-2 rounded-lg bg-black/80 border border-white/10 text-center shadow-xl backdrop-blur-xs">
@@ -735,20 +606,29 @@ export const WorscoCinemaPlayer: React.FC<WorscoCinemaPlayerProps> = ({
               </div>
             )}
 
-            {/* Top-Left Status Pill inside Video Stage */}
+            {/* Top-Left Status Badge inside Video Stage */}
             <div
-              className={`absolute top-4 left-4 z-20 flex items-center gap-2 pointer-events-none transition-opacity duration-300 ${
+              className={`absolute top-4 left-4 z-20 flex flex-col gap-1.5 pointer-events-none transition-opacity duration-300 ${
                 controlsVisible || !isPlaying ? "opacity-100" : "opacity-0"
               }`}
             >
-              <span className="px-2.5 py-1 rounded-full bg-black/75 border border-white/15 text-[11px] font-medium text-zinc-200 backdrop-blur-md flex items-center gap-1.5">
+              <span className="px-3 py-1 rounded-full bg-black/80 border border-white/15 text-[11px] font-medium text-zinc-200 backdrop-blur-md flex items-center gap-1.5 shadow-md">
                 <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                {language === "pt" && ptMode === "dublado"
-                  ? "🇧🇷 Áudio Dublado PT-BR Ativo"
-                  : language === "pt"
-                    ? "🇧🇷 Legendado PT-BR Ativo"
-                    : "🇺🇸 Inglês Original (EN)"}
+                {audioMode === "dublado" && hasPtDub
+                  ? "🇧🇷 Áudio Oficial Dublado em Português (PT-BR)"
+                  : audioMode === "dublado" && !hasPtDub
+                  ? "🇺🇸 Áudio Original · Legendas em Português (PT-BR)"
+                  : audioMode === "legendado"
+                  ? "🇧🇷 Áudio Original · Português (Legendado)"
+                  : "🇺🇸 Áudio Original em Inglês (EN)"}
+                {currentStream?.quality ? ` · ${currentStream.quality}` : ""}
               </span>
+
+              {audioMode === "dublado" && !hasPtDub && (
+                <span className="px-2.5 py-1 rounded-md bg-amber-500/20 border border-amber-500/40 text-[10px] text-amber-200 backdrop-blur-md">
+                  Faixa dublada indisponível no servidor para este título. Legendas em Português ativadas.
+                </span>
+              )}
             </div>
 
             {/* Bottom Custom Native Video Controls */}
@@ -759,7 +639,7 @@ export const WorscoCinemaPlayer: React.FC<WorscoCinemaPlayerProps> = ({
             >
               {/* Interactive Timeline Progress Bar */}
               <div className="mb-3 flex items-center gap-3">
-                <span className="text-[11px] font-mono text-zinc-300 w-12 text-right">
+                <span className="text-[11px] font-mono text-zinc-300 w-14 text-right">
                   {formatTime(currentTime)}
                 </span>
                 <input
@@ -771,7 +651,7 @@ export const WorscoCinemaPlayer: React.FC<WorscoCinemaPlayerProps> = ({
                   onChange={(e) => handleSeek(Number(e.target.value))}
                   className="flex-1 h-1.5 bg-zinc-700 rounded-lg appearance-none cursor-pointer accent-amber-500"
                 />
-                <span className="text-[11px] font-mono text-zinc-400 w-12">
+                <span className="text-[11px] font-mono text-zinc-400 w-14">
                   {formatTime(duration)}
                 </span>
               </div>
@@ -877,10 +757,6 @@ export const WorscoCinemaPlayer: React.FC<WorscoCinemaPlayerProps> = ({
       </div>
     </div>
   );
-
-  function setShowSubtitlesSafe(val: boolean) {
-    setShowSubtitles(val);
-  }
 };
 
 export default WorscoCinemaPlayer;

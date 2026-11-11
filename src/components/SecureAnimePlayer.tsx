@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
+import Hls from "hls.js";
 import { usePlayerAdBlock } from "@/hooks/usePlayerAdBlock";
 import {
   Play,
@@ -8,23 +9,16 @@ import {
   Maximize,
   SkipForward,
   SkipBack,
-  AlertCircle,
   FastForward,
-  Server,
   Languages,
   RotateCcw,
   Loader2,
-  Film,
+  ShieldCheck,
+  Subtitles,
+  Globe,
 } from "lucide-react";
 import { AnimeEpisode, AnimeSeason } from "@/lib/animes";
-import { sanitizeTrailerEmbedUrl, extractYoutubeId } from "@/lib/animeMetadataSync";
-import { WorscoiIntroPlayer } from "@/components/WorscoiIntroPlayer";
-
-declare global {
-  interface Window {
-    Hls?: any;
-  }
-}
+import { toast } from "sonner";
 
 interface SecureAnimePlayerProps {
   animeTitle: string;
@@ -37,36 +31,57 @@ interface SecureAnimePlayerProps {
   hasPreviousEpisode?: boolean;
 }
 
-type ServerMode = "hls-native" | "anivideo-embed" | "season-trailer";
 type AudioTrackMode = "dub" | "sub" | "en";
 
-let hlsScriptPromise: Promise<any> | null = null;
-function loadHlsJs(): Promise<any> {
-  if (typeof window === "undefined") return Promise.resolve(null);
-  if (window.Hls) return Promise.resolve(window.Hls);
-  if (hlsScriptPromise) return hlsScriptPromise;
-
-  hlsScriptPromise = new Promise((resolve, reject) => {
-    const existing = document.querySelector('script[data-hls-js="true"]') as HTMLScriptElement | null;
-    if (existing) {
-      existing.addEventListener("load", () => resolve(window.Hls));
-      existing.addEventListener("error", (err) => reject(err));
-      return;
-    }
-    const script = document.createElement("script");
-    script.src = "https://cdn.jsdelivr.net/npm/hls.js@1.5.15/dist/hls.min.js";
-    script.async = true;
-    script.setAttribute("data-hls-js", "true");
-    script.onload = () => resolve(window.Hls);
-    script.onerror = (err) => {
-      hlsScriptPromise = null;
-      reject(err);
-    };
-    document.head.appendChild(script);
-  });
-
-  return hlsScriptPromise;
+interface ResolvedOrionStream {
+  id: string;
+  type: "mp4" | "hls";
+  audioMode: "dublado" | "legendado" | "original" | "multi";
+  url: string;
+  proxyUrl: string;
 }
+
+const ANIME_TMDB_MAP: Record<string, number> = {
+  "solo-leveling": 127532,
+  "frieren-beyond-journeys-end": 209867,
+  "orb-movements-of-the-earth": 204635,
+  "dandadan": 240411,
+  "attack-on-titan": 1429,
+  "vinland-saga": 88803,
+  "demon-slayer-infinity-castle": 85937,
+  "jujutsu-kaisen-culling-game": 95479,
+  "bleach-tybw": 30984,
+  "monster": 30981,
+  "apothecary-diaries": 220542,
+  "re-zero": 65942,
+  "kaiju-no-8": 207468,
+  "chainsaw-man": 114410,
+  "oshi-no-ko": 203737,
+  "blue-lock": 131041,
+  "cyberpunk-edgerunners": 105248,
+  "dungeon-meshi": 207784,
+  "spy-x-family": 120089,
+  "tower-of-god": 97860,
+  "black-clover": 73223,
+  "jojos-bizarre-adventure": 45790,
+  "steel-ball-run": 45790,
+  "dragon-ball": 12971,
+  "naruto": 46260,
+  "boruto": 70881,
+  "one-piece": 37854,
+  "hunter-x-hunter": 46298,
+  "my-hero-academia": 65930,
+  "death-note": 13916,
+  "fullmetal-alchemist-brotherhood": 31911,
+  "sakamoto-days": 240411,
+  "dr-stone": 86031,
+  "mob-psycho-100": 67075,
+  "shangri-la-frontier": 205908,
+  "mashle": 205366,
+  "wind-breaker": 223500,
+  "jigokuraku": 117465,
+  "classroom-of-the-elite": 72517,
+};
 
 function formatSeconds(sec: number): string {
   if (!Number.isFinite(sec) || sec < 0) return "00:00";
@@ -85,225 +100,107 @@ export const SecureAnimePlayer: React.FC<SecureAnimePlayerProps> = ({
   hasNextEpisode = false,
   hasPreviousEpisode = false,
 }) => {
-  usePlayerAdBlock(true);
+  // Rigorously enforce anti-redirect and popup blocking
+  const { blockedCount } = usePlayerAdBlock(true);
+
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
-  const [selectedQuality, setSelectedQuality] = useState<"1080p" | "720p">("1080p");
-  const [activeServer, setActiveServer] = useState<ServerMode>("hls-native");
   const [audioTrack, setAudioTrack] = useState<AudioTrackMode>("dub");
-  const [blockedRedirectsCount, setBlockedRedirectsCount] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
   const [durationSec, setDurationSec] = useState(1420);
   const [isBuffering, setIsBuffering] = useState(false);
-  const [hlsErrorMsg, setHlsErrorMsg] = useState<string | null>(null);
-  const [showIntro, setShowIntro] = useState(false);
-  const [introPlayed, setIntroPlayed] = useState(false);
+  const [orionStreams, setOrionStreams] = useState<ResolvedOrionStream[]>([]);
+  const [useEmbedFallback, setUseEmbedFallback] = useState(false);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
-  const iframeRef = useRef<HTMLIFrameElement>(null);
-  const hlsInstanceRef = useRef<any>(null);
-  const dubAudioRef = useRef<HTMLAudioElement | null>(null);
+  const hlsInstanceRef = useRef<Hls | null>(null);
   const savedTimeRef = useRef<number>(0);
   const wasPlayingRef = useRef<boolean>(false);
-  const lastSpokenCueIdRef = useRef<number>(-1);
-  const [activeSubtitleText, setActiveSubtitleText] = useState<string>("");
 
-  // Resolve real episode HLS or direct MP4 URLs from verified catalog
-  // Keep activeRawHlsUrl 100% stable across audioTrack changes so switching languages NEVER interrupts or reloads the video player!
+  // Extract authentic Dublado (PT-BR) and Legendado (PT-BR) URLs from the verified anime episode catalog
   const cleanStreamUrl = (episode.streamUrl || "").split("?")[0];
-  const dubHlsUrl =
-    episode.hlsStreamUrl ||
-    episode.sources?.find((s) => s.id.includes("dub"))?.streamUrl ||
-    (cleanStreamUrl.includes(".m3u8") || cleanStreamUrl.endsWith(".mp4") ? cleanStreamUrl : "");
-  const subHlsUrl =
-    episode.subHlsStreamUrl ||
-    episode.sources?.find((s) => s.id.includes("sub") || s.id.includes("legendado"))?.streamUrl ||
-    dubHlsUrl;
+  const catalogDubUrl =
+    (episode.hlsStreamUrl || "").split("?")[0] ||
+    episode.sources?.find((s) => s.id.includes("dub"))?.streamUrl?.split("?")[0] ||
+    cleanStreamUrl;
+  const catalogSubUrl =
+    (episode.subHlsStreamUrl || "").split("?")[0] ||
+    episode.sources?.find((s) => s.id.includes("sub") || s.id.includes("legendado"))?.streamUrl?.split("?")[0] ||
+    catalogDubUrl;
 
-  const activeRawHlsUrl =
-    dubHlsUrl ||
-    subHlsUrl ||
-    "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8";
-  const fallbackRawHlsUrl =
-    subHlsUrl ||
-    dubHlsUrl ||
-    "https://bitdash-a.akamaihd.net/content/sintel/hls/playlist.m3u8";
-  const isDirectMp4Stream =
-    Boolean(activeRawHlsUrl) &&
-    /\.mp4($|\?)/i.test(activeRawHlsUrl) &&
-    !activeRawHlsUrl.toLowerCase().includes(".m3u8");
+  const isCatalogDubExplicit = /-dublado|-dub\b/i.test(catalogDubUrl);
 
-  // Initialize dedicated <audio> element for studio voice dubbing (PT-BR / EN)
+  // Also resolve multi-audio streams from Orion (/api/cinema/resolve) for animes
   useEffect(() => {
-    const audio = new Audio();
-    audio.preload = "auto";
-    dubAudioRef.current = audio;
-    return () => {
-      audio.pause();
-      audio.src = "";
-      dubAudioRef.current = null;
-      if ("speechSynthesis" in window) {
-        window.speechSynthesis.cancel();
-      }
-    };
-  }, []);
+    let cancelled = false;
+    setOrionStreams([]);
+    const tmdbId = ANIME_TMDB_MAP[episode.animeId || season.animeId];
+    if (!tmdbId) return;
 
-  // Build synchronized trilingual dialogue cues (PT-BR, EN, and JA->PT-BR) for the current anime episode
-  // with continuous coverage (no gaps) so switching languages immediately speaks in the chosen language
-  const episodeDialogueCues = React.useMemo(() => {
-    const epTitle = episode.title || `Episódio ${episode.number}`;
-    const baseIntervals = [
-      {
-        start: 0,
-        end: 7,
-        pt: `${animeTitle} — ${epTitle}. Transmissão com dublagem oficial em Português.`,
-        en: `${animeTitle} — ${epTitle}. Official English dubbed broadcast active.`,
-      },
-      {
-        start: 7,
-        end: 15,
-        pt: "Não importa o quão forte seja o inimigo, eu não vou recuar agora!",
-        en: "No matter how strong the enemy is, I will not back down now!",
-      },
-      {
-        start: 15,
-        end: 24,
-        pt: "A energia espiritual está aumentando rapidamente ao redor de toda a arena.",
-        en: "The spiritual energy is rising rapidly all around the entire arena.",
-      },
-      {
-        start: 24,
-        end: 33,
-        pt: "Mantenham a formação! Esse ataque inicial é apenas uma distração!",
-        en: "Hold your formation! That initial attack is just a distraction!",
-      },
-      {
-        start: 33,
-        end: 43,
-        pt: "Então esse é o verdadeiro poder que estava oculto desde o início...",
-        en: "So this is the true power that was hidden from the very beginning...",
-      },
-      {
-        start: 43,
-        end: 54,
-        pt: "Eu fiz uma promessa aos meus companheiros e vou cumpri-la até o fim!",
-        en: "I made a promise to my comrades, and I will see it through to the end!",
-      },
-      {
-        start: 54,
-        end: 65,
-        pt: "Prepare-se! O próximo golpe vai decidir o destino desta batalha!",
-        en: "Get ready! The next strike will decide the fate of this battle!",
-      },
-      {
-        start: 65,
-        end: 77,
-        pt: "Incrível... Ele conseguiu superar seus próprios limites em um único instante!",
-        en: "Incredible... He managed to surpass his own limits in a single instant!",
-      },
-      {
-        start: 77,
-        end: 90,
-        pt: "Ainda não acabou. Vamos avançar juntos para o próximo nível!",
-        en: "It is not over yet. Let us push forward together to the next level!",
-      },
-    ];
-    const list: Array<{ id: number; start: number; end: number; pt: string; en: string }> = [];
-    let id = 1;
-    for (let cycle = 0; cycle < 30; cycle++) {
-      const offset = cycle * 90;
-      for (const item of baseIntervals) {
-        list.push({
-          id: id++,
-          start: item.start + offset,
-          end: item.end + offset,
-          pt: item.pt,
-          en: item.en,
-        });
-      }
-    }
-    return list;
-  }, [animeTitle, episode.title, episode.number]);
+    const params = new URLSearchParams({
+      tmdbId: String(tmdbId),
+      type: "tv",
+      season: String(season.seasonNumber || 1),
+      episode: String(episode.number || 1),
+      title: animeTitle,
+      year: String(season.year || 2024),
+    });
 
-  // Synchronize subtitles and voice dubbing when playing in Dublado (PT-BR), Japonês (Leg. PT), or Inglês (EN)
-  useEffect(() => {
-    const video = videoRef.current;
-    const dubAudio = dubAudioRef.current;
-    if (activeServer !== "hls-native") {
-      setActiveSubtitleText("");
-      return;
-    }
-
-    const activeCue =
-      episodeDialogueCues.find(
-        (c) => currentTime >= c.start && currentTime <= c.end
-      ) || episodeDialogueCues[0];
-
-    if (!activeCue) {
-      setActiveSubtitleText("");
-      return;
-    }
-
-    const cueText = audioTrack === "en" ? activeCue.en : activeCue.pt;
-    setActiveSubtitleText(cueText);
-
-    // If user selected Japonês (Leg. PT), keep original audio at 100% and show PT-BR subtitles
-    if (audioTrack === "sub") {
-      dubAudio?.pause();
-      if ("speechSynthesis" in window) window.speechSynthesis.cancel();
-      if (video) video.volume = isMuted ? 0 : 1;
-      return;
-    }
-
-    // In Dublado (PT-BR) or Inglês (EN), keep background video audio ducked at 12% continuously
-    if (video) {
-      video.volume = isMuted ? 0 : 0.12;
-    }
-
-    if (!isPlaying || isMuted) {
-      return;
-    }
-
-    if (lastSpokenCueIdRef.current !== activeCue.id) {
-      lastSpokenCueIdRef.current = activeCue.id;
-      const ttsLang = audioTrack === "en" ? "en" : "pt-BR";
-      const ttsUrl = `/api/cinema/tts?lang=${ttsLang}&text=${encodeURIComponent(cueText)}`;
-
-      const speakFallback = () => {
-        if ("speechSynthesis" in window && !isMuted) {
-          window.speechSynthesis.cancel();
-          const utter = new SpeechSynthesisUtterance(cueText);
-          utter.lang = audioTrack === "en" ? "en-US" : "pt-BR";
-          utter.rate = 1.1;
-          window.speechSynthesis.speak(utter);
+    fetch(`/api/cinema/resolve?${params.toString()}`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (cancelled) return;
+        if (Array.isArray(data?.streams)) {
+          setOrionStreams(data.streams);
         }
-      };
+      })
+      .catch(() => {});
 
-      if (dubAudio) {
-        dubAudio.pause();
-        dubAudio.src = ttsUrl;
-        dubAudio.volume = 1;
-        dubAudio.playbackRate = 1.12;
-        dubAudio.onerror = () => speakFallback();
-        dubAudio.play().catch(() => {
-          speakFallback();
-        });
-      } else {
-        speakFallback();
-      }
-    }
-  }, [currentTime, audioTrack, activeServer, episodeDialogueCues, isPlaying, isMuted]);
+    return () => {
+      cancelled = true;
+    };
+  }, [episode.id, episode.animeId, episode.number, season.animeId, season.seasonNumber, season.year, animeTitle]);
 
-  // Pause dubbing audio when video pauses
-  useEffect(() => {
-    if (!isPlaying) {
-      dubAudioRef.current?.pause();
-      if ("speechSynthesis" in window) {
-        window.speechSynthesis.cancel();
+  // Select the authentic video stream matching the user's selected audioTrack ("dub" | "sub" | "en")
+  const selectedStreamTarget = useMemo(() => {
+    const orionDub = orionStreams.find((s) => s.audioMode === "dublado");
+    const orionSub = orionStreams.find((s) => s.audioMode === "legendado");
+    const orionOrig = orionStreams.find((s) => s.audioMode === "original");
+
+    if (audioTrack === "dub") {
+      if (isCatalogDubExplicit && catalogDubUrl) {
+        return { url: catalogDubUrl, fallbackUrl: orionDub?.url || catalogSubUrl };
       }
+      if (orionDub) {
+        return { url: orionDub.url, fallbackUrl: catalogDubUrl || catalogSubUrl };
+      }
+      return { url: catalogDubUrl || catalogSubUrl, fallbackUrl: catalogSubUrl };
     }
-  }, [isPlaying]);
+
+    if (audioTrack === "sub") {
+      if (catalogSubUrl && !/-dublado|-dub\b/i.test(catalogSubUrl)) {
+        return { url: catalogSubUrl, fallbackUrl: orionSub?.url || catalogDubUrl };
+      }
+      if (orionSub) {
+        return { url: orionSub.url, fallbackUrl: catalogSubUrl || catalogDubUrl };
+      }
+      return { url: catalogSubUrl || catalogDubUrl, fallbackUrl: catalogDubUrl };
+    }
+
+    // audioTrack === "en" (Original / English)
+    if (orionOrig) {
+      return { url: orionOrig.url, fallbackUrl: catalogSubUrl || catalogDubUrl };
+    }
+    return { url: catalogSubUrl || catalogDubUrl, fallbackUrl: catalogDubUrl };
+  }, [audioTrack, isCatalogDubExplicit, catalogDubUrl, catalogSubUrl, orionStreams]);
+
+  const activeRawUrl = selectedStreamTarget.url;
+  const fallbackRawUrl = selectedStreamTarget.fallbackUrl;
+  const isDirectMp4Stream =
+    Boolean(activeRawUrl) &&
+    /\.mp4($|\?)/i.test(activeRawUrl) &&
+    !activeRawUrl.toLowerCase().includes(".m3u8");
 
   // Reset state when switching episode or season
   useEffect(() => {
@@ -311,43 +208,29 @@ export const SecureAnimePlayer: React.FC<SecureAnimePlayerProps> = ({
     setCurrentTime(0);
     savedTimeRef.current = 0;
     wasPlayingRef.current = false;
-    lastSpokenCueIdRef.current = -1;
-    setHlsErrorMsg(null);
-    setActiveServer("hls-native");
-    setShowIntro(false);
-    setIntroPlayed(false);
+    setUseEmbedFallback(false);
   }, [episode.id, season.id]);
 
-  // Handle seamless language track switching without stopping playback
+  // Handle seamless language track switching preserving timestamp
   const handleSelectAudioTrack = (nextTrack: AudioTrackMode) => {
-    if (videoRef.current) {
-      savedTimeRef.current = videoRef.current.currentTime || currentTime;
+    if (videoRef.current && videoRef.current.currentTime > 1) {
+      savedTimeRef.current = videoRef.current.currentTime;
       wasPlayingRef.current = !videoRef.current.paused || isPlaying;
     }
-    lastSpokenCueIdRef.current = -1;
-    dubAudioRef.current?.pause();
-    if ("speechSynthesis" in window) {
-      window.speechSynthesis.cancel();
-    }
-    if (activeServer === "anivideo-embed") {
-      setActiveServer("hls-native");
-    }
+    setUseEmbedFallback(false);
     setAudioTrack(nextTrack);
-    setHlsErrorMsg(null);
-    // Ensure video continues playing without interruption when switching languages
-    if (videoRef.current) {
-      setIntroPlayed(true);
-      setShowIntro(false);
-      videoRef.current.play().then(() => {
-        setIsPlaying(true);
-        wasPlayingRef.current = true;
-      }).catch(() => {});
+    if (nextTrack === "dub") {
+      toast.success("Áudio alterado para Dublado em Português (PT-BR)");
+    } else if (nextTrack === "sub") {
+      toast.success("Alterado para Áudio Original Japonês (Legendado PT-BR)");
+    } else {
+      toast.success("Alterado para Áudio Original / Inglês");
     }
   };
 
-  // Initialize HLS.js or native MP4 stream when in "hls-native" mode
+  // Attach native MP4 or HLS.js stream
   useEffect(() => {
-    if (activeServer !== "hls-native") {
+    if (useEmbedFallback) {
       if (hlsInstanceRef.current) {
         hlsInstanceRef.current.destroy();
         hlsInstanceRef.current = null;
@@ -356,23 +239,27 @@ export const SecureAnimePlayer: React.FC<SecureAnimePlayerProps> = ({
     }
 
     const videoEl = videoRef.current;
-    if (!videoEl || !activeRawHlsUrl) return;
+    if (!videoEl || !activeRawUrl) return;
 
     let isCancelled = false;
     setIsBuffering(true);
-    setHlsErrorMsg(null);
 
     const restorePlaybackState = () => {
       if (isCancelled || !videoRef.current) return;
+      videoRef.current.volume = isMuted ? 0 : 1;
+      videoRef.current.muted = isMuted;
       if (savedTimeRef.current > 1) {
         try {
           videoRef.current.currentTime = savedTimeRef.current;
         } catch {}
       }
       if (wasPlayingRef.current) {
-        videoRef.current.play().then(() => {
-          setIsPlaying(true);
-        }).catch(() => {});
+        videoRef.current
+          .play()
+          .then(() => {
+            setIsPlaying(true);
+          })
+          .catch(() => {});
       }
     };
 
@@ -381,8 +268,11 @@ export const SecureAnimePlayer: React.FC<SecureAnimePlayerProps> = ({
         hlsInstanceRef.current.destroy();
         hlsInstanceRef.current = null;
       }
-      let triedMp4Fallback = false;
-      videoEl.src = activeRawHlsUrl;
+      let triedDirectFallback = false;
+      const initialMp4Src = activeRawUrl.includes("hakunaymatata.com")
+        ? `/api/cinema/mp4-proxy?url=${encodeURIComponent(activeRawUrl)}`
+        : activeRawUrl;
+      videoEl.src = initialMp4Src;
       videoEl.load();
 
       const handleLoaded = () => {
@@ -393,14 +283,18 @@ export const SecureAnimePlayer: React.FC<SecureAnimePlayerProps> = ({
 
       const handleError = () => {
         if (isCancelled) return;
-        if (!triedMp4Fallback && fallbackRawHlsUrl && fallbackRawHlsUrl !== activeRawHlsUrl) {
-          triedMp4Fallback = true;
-          videoEl.src = fallbackRawHlsUrl;
+        if (!triedDirectFallback) {
+          triedDirectFallback = true;
+          videoEl.src =
+            initialMp4Src === activeRawUrl
+              ? `/api/cinema/mp4-proxy?url=${encodeURIComponent(activeRawUrl)}`
+              : activeRawUrl;
           videoEl.load();
+        } else if (fallbackRawUrl && fallbackRawUrl !== activeRawUrl) {
+          setUseEmbedFallback(true);
         } else {
           setIsBuffering(false);
-          setHlsErrorMsg("Alternando automaticamente para o Servidor 2...");
-          setActiveServer("anivideo-embed");
+          setUseEmbedFallback(true);
         }
       };
 
@@ -414,71 +308,55 @@ export const SecureAnimePlayer: React.FC<SecureAnimePlayerProps> = ({
     }
 
     const manifestProxyUrl = `/api/anime/hls-manifest?url=${encodeURIComponent(
-      activeRawHlsUrl
-    )}&fallbackUrl=${encodeURIComponent(fallbackRawHlsUrl || activeRawHlsUrl)}`;
+      activeRawUrl
+    )}&fallbackUrl=${encodeURIComponent(fallbackRawUrl || activeRawUrl)}`;
 
-    async function attachStream() {
-      try {
-        const HlsClass = await loadHlsJs();
-        if (isCancelled || !videoRef.current) return;
-
-        if (hlsInstanceRef.current) {
-          hlsInstanceRef.current.destroy();
-          hlsInstanceRef.current = null;
-        }
-
-        if (HlsClass && HlsClass.isSupported()) {
-          const hls = new HlsClass({
-            enableWorker: true,
-            lowLatencyMode: false,
-            backBufferLength: 90,
-          });
-          hlsInstanceRef.current = hls;
-
-          let triedDirectFallback = false;
-
-          hls.loadSource(manifestProxyUrl);
-          hls.attachMedia(videoRef.current);
-
-          hls.on(HlsClass.Events.MANIFEST_PARSED, () => {
-            if (isCancelled) return;
-            setIsBuffering(false);
-            restorePlaybackState();
-          });
-
-          hls.on(HlsClass.Events.ERROR, (_event: any, data: any) => {
-            if (isCancelled) return;
-            if (data?.fatal) {
-              if (data.type === HlsClass.ErrorTypes.NETWORK_ERROR && !triedDirectFallback) {
-                triedDirectFallback = true;
-                hls.loadSource(fallbackRawHlsUrl || activeRawHlsUrl);
-                hls.startLoad();
-              } else if (data.type === HlsClass.ErrorTypes.MEDIA_ERROR) {
-                hls.recoverMediaError();
-              } else {
-                // Switch automatically to Server 2 (Anivideo JWPlayer HD) if native HLS fails
-                setIsBuffering(false);
-                setHlsErrorMsg("Alternando automaticamente para o Servidor 2 (JWPlayer HD)...");
-                setActiveServer("anivideo-embed");
-              }
-            }
-          });
-        } else if (videoRef.current.canPlayType("application/vnd.apple.mpegurl")) {
-          videoRef.current.src = manifestProxyUrl;
-          setIsBuffering(false);
-          restorePlaybackState();
-        } else {
-          setActiveServer("anivideo-embed");
-        }
-      } catch {
-        if (!isCancelled) {
-          setIsBuffering(false);
-          setActiveServer("anivideo-embed");
-        }
-      }
+    if (hlsInstanceRef.current) {
+      hlsInstanceRef.current.destroy();
+      hlsInstanceRef.current = null;
     }
 
-    attachStream();
+    if (Hls.isSupported()) {
+      const hls = new Hls({
+        enableWorker: true,
+        lowLatencyMode: false,
+        backBufferLength: 90,
+      });
+      hlsInstanceRef.current = hls;
+
+      let triedDirectFallback = false;
+
+      hls.loadSource(manifestProxyUrl);
+      hls.attachMedia(videoEl);
+
+      hls.on(Hls.Events.MANIFEST_PARSED, () => {
+        if (isCancelled) return;
+        setIsBuffering(false);
+        restorePlaybackState();
+      });
+
+      hls.on(Hls.Events.ERROR, (_event, data) => {
+        if (isCancelled) return;
+        if (data?.fatal) {
+          if (data.type === Hls.ErrorTypes.NETWORK_ERROR && !triedDirectFallback) {
+            triedDirectFallback = true;
+            hls.loadSource(fallbackRawUrl || activeRawUrl);
+            hls.startLoad();
+          } else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
+            hls.recoverMediaError();
+          } else {
+            setIsBuffering(false);
+            setUseEmbedFallback(true);
+          }
+        }
+      });
+    } else if (videoEl.canPlayType("application/vnd.apple.mpegurl")) {
+      videoEl.src = manifestProxyUrl;
+      setIsBuffering(false);
+      restorePlaybackState();
+    } else {
+      setUseEmbedFallback(true);
+    }
 
     return () => {
       isCancelled = true;
@@ -487,124 +365,53 @@ export const SecureAnimePlayer: React.FC<SecureAnimePlayerProps> = ({
         hlsInstanceRef.current = null;
       }
     };
-  }, [activeServer, activeRawHlsUrl, fallbackRawHlsUrl, isDirectMp4Stream, episode.id, season.id]);
+  }, [useEmbedFallback, activeRawUrl, fallbackRawUrl, isDirectMp4Stream, episode.id, season.id]);
 
-  // Global Security Layer: Block window.open popups, popunders & unwanted external redirects
+  // Keep native video volume at 100% (never ducked, zero artificial TTS)
   useEffect(() => {
-    const originalOpen = window.open;
-    window.open = function (...args) {
-      console.warn("[SecureAnimePlayer] Popup/Redirecionamento externo bloqueado:", args);
-      setBlockedRedirectsCount((c) => c + 1);
-      return null;
-    };
-
-    const handleWindowBlur = () => {
-      if (document.activeElement === iframeRef.current) {
-        window.focus();
-      }
-    };
-
-    window.addEventListener("blur", handleWindowBlur);
-
-    return () => {
-      window.open = originalOpen;
-      window.removeEventListener("blur", handleWindowBlur);
-    };
-  }, []);
-
-  // Send safe postMessage commands when in YouTube Trailer fallback mode
-  const sendYoutubeCommand = useCallback((func: string, args: any[] = []) => {
-    if (!iframeRef.current?.contentWindow) return;
-    try {
-      iframeRef.current.contentWindow.postMessage(
-        JSON.stringify({
-          event: "command",
-          func,
-          args,
-        }),
-        "*"
-      );
-    } catch {
-      // Ignore cross-origin frame errors
+    if (videoRef.current) {
+      videoRef.current.volume = isMuted ? 0 : 1;
+      videoRef.current.muted = isMuted;
     }
-  }, []);
-
-  const startPlayingAfterIntro = () => {
-    setShowIntro(false);
-    setIntroPlayed(true);
-    if (activeServer === "hls-native" && videoRef.current) {
-      videoRef.current.play().catch(() => {});
-      setIsPlaying(true);
-    } else if (activeServer === "season-trailer") {
-      sendYoutubeCommand("playVideo");
-      setIsPlaying(true);
-    }
-  };
+  }, [isMuted]);
 
   const handleTogglePlay = () => {
-    if (!introPlayed && !isPlaying) {
-      setShowIntro(true);
-      return;
-    }
-
-    if (activeServer === "hls-native" && videoRef.current) {
+    if (!useEmbedFallback && videoRef.current) {
       if (videoRef.current.paused) {
         videoRef.current.play().catch(() => {});
         setIsPlaying(true);
+        wasPlayingRef.current = true;
       } else {
         videoRef.current.pause();
         setIsPlaying(false);
-      }
-      return;
-    }
-
-    if (activeServer === "season-trailer") {
-      if (isPlaying) {
-        sendYoutubeCommand("pauseVideo");
-        setIsPlaying(false);
-      } else {
-        sendYoutubeCommand("playVideo");
-        setIsPlaying(true);
+        wasPlayingRef.current = false;
       }
     }
   };
 
   const handleToggleMute = () => {
-    if (activeServer === "hls-native" && videoRef.current) {
+    if (!useEmbedFallback && videoRef.current) {
       videoRef.current.muted = !videoRef.current.muted;
       setIsMuted(videoRef.current.muted);
-      return;
-    }
-
-    if (activeServer === "season-trailer") {
-      if (isMuted) {
-        sendYoutubeCommand("unMute");
-        setIsMuted(false);
-      } else {
-        sendYoutubeCommand("mute");
-        setIsMuted(true);
-      }
     }
   };
 
   const handleSeekRelative = (deltaSeconds: number) => {
-    if (activeServer === "hls-native" && videoRef.current) {
-      const target = Math.max(0, Math.min(videoRef.current.duration || durationSec, videoRef.current.currentTime + deltaSeconds));
+    if (!useEmbedFallback && videoRef.current) {
+      const target = Math.max(
+        0,
+        Math.min(
+          videoRef.current.duration || durationSec,
+          videoRef.current.currentTime + deltaSeconds
+        )
+      );
       videoRef.current.currentTime = target;
+      savedTimeRef.current = target;
       setCurrentTime(target);
       if (videoRef.current.paused) {
         videoRef.current.play().catch(() => {});
         setIsPlaying(true);
       }
-      return;
-    }
-
-    if (activeServer === "season-trailer") {
-      const nextSec = Math.max(0, currentTime + deltaSeconds);
-      sendYoutubeCommand("seekTo", [nextSec, true]);
-      sendYoutubeCommand("playVideo");
-      setCurrentTime(nextSec);
-      setIsPlaying(true);
     }
   };
 
@@ -612,29 +419,12 @@ export const SecureAnimePlayer: React.FC<SecureAnimePlayerProps> = ({
     handleSeekRelative(85);
   };
 
-  const handleInterceptedHotzoneClick = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setBlockedRedirectsCount((c) => c + 1);
-    handleTogglePlay();
-  };
-
-  // Build iframe URLs for Server 2 (Anivideo JWPlayer HD / Archive Embed) and Server 3 (Season Official Trailer)
   const anivideoIframeUrl =
     episode.anivideoEmbedUrl && episode.anivideoEmbedUrl.startsWith("https://archive.org/embed/")
       ? episode.anivideoEmbedUrl
-      : isDirectMp4Stream
-      ? fallbackRawHlsUrl || activeRawHlsUrl
-      : `https://api.anivideo.net/videohls.php?d=${encodeURIComponent(activeRawHlsUrl)}`;
-
-  const trailerYoutubeId = extractYoutubeId(
-    season.trailerYoutubeId || episode.youtubeVideoId,
-    "HkIKAnwLZCw"
-  );
-  const baseTrailerEmbedUrl = sanitizeTrailerEmbedUrl(trailerYoutubeId, "HkIKAnwLZCw", false);
-  const trailerIframeUrl = `${baseTrailerEmbedUrl}&vq=${
-    selectedQuality === "1080p" ? "hd1080" : "hd720"
-  }`;
+      : `https://api.anivideo.net/videohls.php?d=${encodeURIComponent(
+          catalogDubUrl || catalogSubUrl
+        )}`;
 
   const toggleFullscreen = () => {
     if (!containerRef.current) return;
@@ -650,120 +440,57 @@ export const SecureAnimePlayer: React.FC<SecureAnimePlayerProps> = ({
       ref={containerRef}
       className="rounded-2xl overflow-hidden border border-neutral-200 bg-white text-neutral-900 shadow-2xl transition-all duration-300 w-full"
     >
-      {/* Barra Superior de Segurança, Servidor, Áudio (Dub/Leg) e Qualidade */}
-      <div className="px-4 py-2.5 bg-white border-b border-neutral-200 flex flex-wrap items-center justify-between gap-3 text-xs">
-        <div className="flex items-center gap-2 min-w-0" />
+      {/* Unified Control Header: Anti-Redirect Status & Direct Language Selector */}
+      <div className="px-4 py-3 bg-white border-b border-neutral-200 flex flex-wrap items-center justify-between gap-3 text-xs">
+        <div className="flex items-center gap-2 text-emerald-700 font-medium">
+          <ShieldCheck className="h-4 w-4 shrink-0" />
+          <span>
+            Servidor Unificado HD · Anti-Redirecionamento Ativo
+            {blockedCount > 0 ? ` (${blockedCount} bloqueados)` : ""}
+          </span>
+        </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          {blockedRedirectsCount > 0 && (
-            <span className="px-2 py-0.5 rounded bg-amber-500/15 text-amber-700 font-mono text-[10px] flex items-center gap-1">
-              <AlertCircle className="h-3 w-3" />
-              {blockedRedirectsCount} Redirecionamento(s) Bloqueado(s)
-            </span>
-          )}
-
-          {/* Seletor de Faixa de Áudio: Dublado PT-BR vs Legendado PT-BR vs Inglês EN */}
-          {activeServer !== "season-trailer" && (
-            <div className="flex items-center gap-1 bg-neutral-100 border border-neutral-200 rounded-lg p-0.5">
-              <button
-                type="button"
-                onClick={() => handleSelectAudioTrack("dub")}
-                className={`px-2 py-0.5 rounded text-[11px] font-medium transition-colors flex items-center gap-1 cursor-pointer ${
-                  audioTrack === "dub"
-                    ? "bg-primary text-white"
-                    : "text-neutral-600 hover:text-neutral-900"
-                }`}
-                title="Reproduzir com Áudio Dublado em Português (PT-BR)"
-              >
-                <Languages className="h-3 w-3" />
-                <span>Dublado (PT-BR)</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => handleSelectAudioTrack("sub")}
-                className={`px-2 py-0.5 rounded text-[11px] font-medium transition-colors cursor-pointer ${
-                  audioTrack === "sub"
-                    ? "bg-primary text-white"
-                    : "text-neutral-600 hover:text-neutral-900"
-                }`}
-                title="Reproduzir com Áudio Original Japonês e Legendas em Português"
-              >
-                <span>Japonês (Leg. PT)</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => handleSelectAudioTrack("en")}
-                className={`px-2 py-0.5 rounded text-[11px] font-medium transition-colors cursor-pointer ${
-                  audioTrack === "en"
-                    ? "bg-primary text-white"
-                    : "text-neutral-600 hover:text-neutral-900"
-                }`}
-                title="Reproduzir com Áudio e Legendas em Inglês (EN)"
-              >
-                <span>Inglês (EN)</span>
-              </button>
-            </div>
-          )}
-
-          {/* Seletor de Servidor de Vídeo */}
-          <div className="flex items-center gap-1 bg-neutral-100 border border-neutral-200 rounded-lg p-0.5">
-            <button
-              type="button"
-              onClick={() => setActiveServer("hls-native")}
-              className={`px-2 py-0.5 rounded text-[11px] font-medium transition-colors flex items-center gap-1 ${
-                activeServer === "hls-native"
-                  ? "bg-emerald-500 text-white"
-                  : "text-neutral-600 hover:text-neutral-900"
-              }`}
-              title="Player Nativo HLS (Episódio Completo Sem Anúncios)"
-            >
-              <Server className="h-3 w-3" />
-              <span>Player HLS (Ep. Completo)</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveServer("anivideo-embed")}
-              className={`px-2 py-0.5 rounded text-[11px] font-medium transition-colors flex items-center gap-1 ${
-                activeServer === "anivideo-embed"
-                  ? "bg-emerald-500 text-white"
-                  : "text-neutral-600 hover:text-neutral-900"
-              }`}
-              title="Servidor 2 JWPlayer HD (Episódio Completo)"
-            >
-              <span>Servidor 2 (JWPlayer)</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveServer("season-trailer")}
-              className={`px-2 py-0.5 rounded text-[11px] font-medium transition-colors flex items-center gap-1 ${
-                activeServer === "season-trailer"
-                  ? "bg-emerald-500 text-white"
-                  : "text-neutral-600 hover:text-neutral-900"
-              }`}
-              title="Assistir ao Trailer Oficial da Temporada"
-            >
-              <Film className="h-3 w-3" />
-              <span>Trailer</span>
-            </button>
-          </div>
-
-          {/* Seletor de Resolução */}
-          <div className="flex items-center gap-1 bg-neutral-100 border border-neutral-200 rounded-lg p-0.5">
-            {(["1080p", "720p"] as const).map((q) => (
-              <button
-                key={q}
-                type="button"
-                onClick={() => setSelectedQuality(q)}
-                className={`px-2 py-0.5 rounded text-[11px] font-medium transition-colors ${
-                  selectedQuality === q
-                    ? "bg-primary text-white"
-                    : "text-neutral-600 hover:text-neutral-900"
-                }`}
-              >
-                {q}
-              </button>
-            ))}
-          </div>
+        {/* Direct 3-Way Language Switcher (Dublado PT-BR | Japonês Leg. PT | Original/EN) */}
+        <div className="flex flex-wrap items-center gap-1 bg-neutral-100 border border-neutral-200 rounded-xl p-1">
+          <button
+            type="button"
+            onClick={() => handleSelectAudioTrack("dub")}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 cursor-pointer ${
+              audioTrack === "dub"
+                ? "bg-primary text-white shadow-sm"
+                : "text-neutral-600 hover:text-neutral-900"
+            }`}
+            title="Reproduzir episódio com Áudio Original Dublado em Português (PT-BR)"
+          >
+            <Languages className="h-3.5 w-3.5" />
+            <span>Dublado em Português</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => handleSelectAudioTrack("sub")}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 cursor-pointer ${
+              audioTrack === "sub"
+                ? "bg-primary text-white shadow-sm"
+                : "text-neutral-600 hover:text-neutral-900"
+            }`}
+            title="Reproduzir com Áudio Original Japonês e Legendas em Português"
+          >
+            <Subtitles className="h-3.5 w-3.5" />
+            <span>Português (Legendado)</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => handleSelectAudioTrack("en")}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 cursor-pointer ${
+              audioTrack === "en"
+                ? "bg-primary text-white shadow-sm"
+                : "text-neutral-600 hover:text-neutral-900"
+            }`}
+            title="Reproduzir com Áudio Original / Inglês"
+          >
+            <Globe className="h-3.5 w-3.5" />
+            <span>Áudio Original / EN</span>
+          </button>
         </div>
       </div>
 
@@ -772,20 +499,11 @@ export const SecureAnimePlayer: React.FC<SecureAnimePlayerProps> = ({
         className="relative aspect-video w-full bg-black overflow-hidden flex items-center justify-center group"
         onContextMenu={(e) => e.preventDefault()}
       >
-        {/* Fullscreen Intro Animation */}
-        {showIntro && (
-          <WorscoiIntroPlayer
-            title={`${animeTitle} • Ep. ${episode.number}`}
-            subtitle="Abertura Oficial Worscoi"
-            onComplete={startPlayingAfterIntro}
-          />
-        )}
-
-        {activeServer === "hls-native" ? (
+        {!useEmbedFallback ? (
           <>
             <video
               ref={videoRef}
-              key={episode.id}
+              key={`${episode.id}-${audioTrack}`}
               poster={episode.thumbnail || season.banner || season.poster}
               controls
               playsInline
@@ -804,7 +522,7 @@ export const SecureAnimePlayer: React.FC<SecureAnimePlayerProps> = ({
               onTimeUpdate={(e) => {
                 const t = e.currentTarget.currentTime;
                 setCurrentTime(t);
-                savedTimeRef.current = t;
+                if (t > 1) savedTimeRef.current = t;
               }}
               onLoadedMetadata={(e) => {
                 if (e.currentTarget.duration && Number.isFinite(e.currentTarget.duration)) {
@@ -827,30 +545,19 @@ export const SecureAnimePlayer: React.FC<SecureAnimePlayerProps> = ({
               <span className="px-2.5 py-1 rounded-full bg-black/75 border border-white/15 text-[11px] font-medium text-white backdrop-blur-md flex items-center gap-1.5 shadow">
                 <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
                 {audioTrack === "dub"
-                  ? "🇧🇷 Áudio Dublado PT-BR Ativo"
+                  ? "🇧🇷 Dublado em Português (PT-BR)"
                   : audioTrack === "sub"
-                  ? "🇯🇵 Áudio Japonês • Legendas PT-BR"
-                  : "🇺🇸 Inglês (EN) Audio & Subtitles"}
+                  ? "🇯🇵 Japonês · Legendado em Português (PT-BR)"
+                  : "🌐 Áudio Original / Inglês"}
               </span>
             </div>
-
-            {/* Synchronized Subtitle / Dubbing Caption Overlay */}
-            {activeSubtitleText && (
-              <div className="absolute inset-x-4 bottom-16 sm:bottom-20 flex justify-center pointer-events-none z-20">
-                <div className="max-w-2xl px-4 py-1.5 rounded-lg bg-black/80 border border-white/15 text-center shadow-xl backdrop-blur-xs">
-                  <p className="text-xs sm:text-base font-medium text-amber-50 leading-snug drop-shadow">
-                    {activeSubtitleText}
-                  </p>
-                </div>
-              </div>
-            )}
 
             {/* Indicador de carregamento / Play inicial sobre o vídeo */}
             {!isPlaying && (
               <button
                 type="button"
                 onClick={handleTogglePlay}
-                className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-white/80 hover:bg-white/70 backdrop-blur-[2px] transition-all cursor-pointer group/play"
+                className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-black/45 hover:bg-black/35 backdrop-blur-[1px] transition-all cursor-pointer group/play"
               >
                 <div className="h-16 w-16 sm:h-20 sm:w-20 rounded-full bg-primary text-white flex items-center justify-center shadow-2xl shadow-primary/40 group-hover/play:scale-110 transition-transform">
                   {isBuffering ? (
@@ -859,68 +566,30 @@ export const SecureAnimePlayer: React.FC<SecureAnimePlayerProps> = ({
                     <Play className="h-8 w-8 fill-current ml-1" />
                   )}
                 </div>
-                <span className="mt-3 px-3.5 py-1 rounded-full bg-white border border-neutral-200 text-xs font-medium text-neutral-900 shadow-lg">
+                <span className="mt-3 px-4 py-1.5 rounded-full bg-black/80 border border-white/15 text-xs font-medium text-white shadow-lg">
                   Assistir Episódio {episode.number} Completo (
-                  {audioTrack === "sub"
-                    ? "Japonês • Legendado PT-BR"
-                    : audioTrack === "en"
-                    ? "Inglês / EN"
-                    : "Dublado / PT-BR"}
+                  {audioTrack === "dub"
+                    ? "Dublado em Português"
+                    : audioTrack === "sub"
+                    ? "Português Legendado"
+                    : "Áudio Original / EN"}
                   )
                 </span>
               </button>
             )}
-
-            {hlsErrorMsg && (
-              <div className="absolute bottom-14 left-4 right-4 z-20 px-3 py-2 rounded-lg bg-amber-500/20 border border-amber-500/40 text-amber-200 text-xs flex items-center gap-2">
-                <AlertCircle className="h-4 w-4 shrink-0" />
-                <span>{hlsErrorMsg}</span>
-              </div>
-            )}
           </>
-        ) : activeServer === "anivideo-embed" ? (
-          /* Servidor 2: JWPlayer HD Oficial com Sandbox Estrito Anti-Redirect */
+        ) : (
+          /* Sandboxed Fallback Player (Zero Redirects Guaranteed) */
           <iframe
-            ref={iframeRef}
-            key={`${episode.id}-anivideo-${audioTrack}`}
+            key={`${episode.id}-sandbox-${audioTrack}`}
             src={anivideoIframeUrl}
-            title={`${animeTitle} - T${season.seasonNumber}:E${episode.number} (JWPlayer HD)`}
+            title={`${animeTitle} - T${season.seasonNumber}:E${episode.number}`}
+            sandbox="allow-scripts allow-same-origin allow-forms allow-presentation"
             referrerPolicy="no-referrer"
             allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture; fullscreen"
             allowFullScreen
             className="w-full h-full border-0 select-none"
           />
-        ) : (
-          /* Servidor 3: Trailer Oficial da Temporada (YouTube Embed Protegido) */
-          <>
-            <iframe
-              ref={iframeRef}
-              key={`${episode.id}-trailer-${selectedQuality}`}
-              src={trailerIframeUrl}
-              title={`${animeTitle} - Trailer Oficial T${season.seasonNumber}`}
-              referrerPolicy="strict-origin-when-cross-origin"
-              allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture; fullscreen"
-              allowFullScreen
-              className="w-full h-full border-0 select-none"
-            />
-            <div
-              onClick={handleInterceptedHotzoneClick}
-              title="Reprodução protegida dentro da plataforma"
-              className="absolute top-0 left-0 right-0 h-16 z-20 cursor-pointer bg-gradient-to-b from-black/60 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-between px-4 pointer-events-auto"
-            >
-              <span className="text-xs font-medium text-white/90 truncate drop-shadow">
-                {animeTitle} • Trailer Oficial da Temporada {season.seasonNumber}
-              </span>
-              <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-black/70 text-emerald-400 border border-emerald-500/30">
-                Reprodução Interna Protegida
-              </span>
-            </div>
-            <div
-              onClick={handleInterceptedHotzoneClick}
-              title="Redirecionamento externo bloqueado"
-              className="absolute bottom-0 right-10 w-44 h-12 z-20 cursor-pointer pointer-events-auto"
-            />
-          </>
         )}
       </div>
 
@@ -930,7 +599,7 @@ export const SecureAnimePlayer: React.FC<SecureAnimePlayerProps> = ({
           <button
             type="button"
             onClick={handleTogglePlay}
-            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-primary hover:bg-primary/90 text-white font-medium transition-colors shadow-sm"
+            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-primary hover:bg-primary/90 text-white font-medium transition-colors shadow-sm cursor-pointer"
           >
             {isPlaying ? (
               <Pause className="h-3.5 w-3.5" />
@@ -943,7 +612,7 @@ export const SecureAnimePlayer: React.FC<SecureAnimePlayerProps> = ({
           <button
             type="button"
             onClick={handleToggleMute}
-            className="p-1.5 rounded-lg bg-neutral-100 hover:bg-neutral-200 border border-neutral-200 text-neutral-700 transition-colors"
+            className="p-1.5 rounded-lg bg-neutral-100 hover:bg-neutral-200 border border-neutral-200 text-neutral-700 transition-colors cursor-pointer"
             title={isMuted ? "Ativar Som" : "Silenciar"}
           >
             {isMuted ? (
@@ -953,11 +622,11 @@ export const SecureAnimePlayer: React.FC<SecureAnimePlayerProps> = ({
             )}
           </button>
 
-          {activeServer === "hls-native" && (
+          {!useEmbedFallback && (
             <button
               type="button"
               onClick={() => handleSeekRelative(-10)}
-              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-neutral-100 hover:bg-neutral-200 border border-neutral-200 text-neutral-700 hover:text-neutral-900 transition-colors"
+              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-neutral-100 hover:bg-neutral-200 border border-neutral-200 text-neutral-700 hover:text-neutral-900 transition-colors cursor-pointer"
               title="Voltar 10 segundos"
             >
               <RotateCcw className="h-3.5 w-3.5" />
@@ -968,7 +637,7 @@ export const SecureAnimePlayer: React.FC<SecureAnimePlayerProps> = ({
           <button
             type="button"
             onClick={handleSkipIntro}
-            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-neutral-100 hover:bg-neutral-200 border border-neutral-200 text-neutral-700 hover:text-neutral-900 transition-colors"
+            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-neutral-100 hover:bg-neutral-200 border border-neutral-200 text-neutral-700 hover:text-neutral-900 transition-colors cursor-pointer"
             title="Avançar abertura (+85s)"
           >
             <FastForward className="h-3.5 w-3.5 text-primary" />
@@ -977,7 +646,7 @@ export const SecureAnimePlayer: React.FC<SecureAnimePlayerProps> = ({
         </div>
 
         <div className="flex items-center gap-2 text-[11px] text-neutral-600 font-mono">
-          {activeServer === "hls-native" && (
+          {!useEmbedFallback && (
             <span className="text-neutral-800">
               {formatSeconds(currentTime)} / {formatSeconds(durationSec)}
             </span>
@@ -1003,7 +672,7 @@ export const SecureAnimePlayer: React.FC<SecureAnimePlayerProps> = ({
             disabled={!hasPreviousEpisode}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-all ${
               hasPreviousEpisode
-                ? "bg-neutral-100 border-neutral-200 text-neutral-800 hover:bg-neutral-200"
+                ? "bg-neutral-100 border-neutral-200 text-neutral-800 hover:bg-neutral-200 cursor-pointer"
                 : "opacity-40 border-neutral-200 text-neutral-400 cursor-not-allowed"
             }`}
           >
@@ -1017,7 +686,7 @@ export const SecureAnimePlayer: React.FC<SecureAnimePlayerProps> = ({
             disabled={!hasNextEpisode}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
               hasNextEpisode
-                ? "bg-primary hover:bg-primary/90 text-white shadow-md shadow-primary/25"
+                ? "bg-primary hover:bg-primary/90 text-white shadow-md shadow-primary/25 cursor-pointer"
                 : "opacity-40 bg-neutral-200 text-neutral-500 cursor-not-allowed"
             }`}
           >
@@ -1028,7 +697,7 @@ export const SecureAnimePlayer: React.FC<SecureAnimePlayerProps> = ({
           <button
             type="button"
             onClick={toggleFullscreen}
-            className="p-2 rounded-lg bg-neutral-100 border border-neutral-200 text-neutral-700 hover:text-neutral-900 hover:bg-neutral-200 transition-colors"
+            className="p-2 rounded-lg bg-neutral-100 border border-neutral-200 text-neutral-700 hover:text-neutral-900 hover:bg-neutral-200 transition-colors cursor-pointer"
             title="Tela Cheia"
           >
             <Maximize className="h-3.5 w-3.5" />

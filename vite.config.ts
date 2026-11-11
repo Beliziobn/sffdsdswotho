@@ -2046,40 +2046,6 @@ function officialWebtoonIntegrationPlugin(): Plugin {
             } catch {}
           }
 
-          // Guaranteed high-availability 1080p HLS fallback so anime episodes never fail to play in any language
-          const guaranteedFallbacks = [
-            'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8',
-            'https://bitdash-a.akamaihd.net/content/sintel/hls/playlist.m3u8',
-          ];
-          for (const fbUrl of guaranteedFallbacks) {
-            try {
-              const fbRes = await fetch(fbUrl, { signal: AbortSignal.timeout(5000) });
-              if (fbRes.ok) {
-                const rawM3u8 = await fbRes.text();
-                if (rawM3u8.includes('#EXTM3U')) {
-                  const baseObj = new URL(fbUrl);
-                  const rewritten = rawM3u8
-                    .split('\n')
-                    .map((line) => {
-                      const trimmed = line.trim();
-                      if (!trimmed || trimmed.startsWith('#')) return line;
-                      try {
-                        return new URL(trimmed, baseObj).toString();
-                      } catch {
-                        return line;
-                      }
-                    })
-                    .join('\n');
-                  res.statusCode = 200;
-                  res.setHeader('Content-Type', 'application/vnd.apple.mpegurl');
-                  res.setHeader('Cache-Control', 'public, max-age=600');
-                  res.end(rewritten);
-                  return;
-                }
-              }
-            } catch {}
-          }
-
           res.statusCode = 404;
           res.end('HLS Manifest not found');
         } catch (err: any) {
