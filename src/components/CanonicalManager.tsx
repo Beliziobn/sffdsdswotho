@@ -117,6 +117,7 @@ const KNOWN_DYNAMIC_PREFIXES = [
   "/noticias/",
   "/cinema/",
   "/animes/",
+  "/webtoons/",
   "/webtoon/",
   "/conteudo/",
   "/leitura/",

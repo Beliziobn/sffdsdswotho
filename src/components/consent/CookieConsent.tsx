@@ -6,11 +6,20 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { useCookieConsent } from "@/hooks/useConsent";
 
+const isSearchBot = (): boolean => {
+  if (typeof navigator === "undefined") return false;
+  const ua = navigator.userAgent || "";
+  return /Googlebot|bingbot|Baiduspider|DuckDuckBot|YandexBot|Sogou|Slurp|ia_archiver/i.test(ua);
+};
+
 const CookieConsent = () => {
   const { decided, save } = useCookieConsent();
   const [showSettings, setShowSettings] = useState(false);
   const [analytics, setAnalytics] = useState(false);
   const [marketing, setMarketing] = useState(false);
+
+  // Never render modal overlays for search engine crawlers
+  if (isSearchBot()) return null;
 
   return (
     <AnimatePresence>

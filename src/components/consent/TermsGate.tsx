@@ -6,10 +6,18 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { useTermsConsent } from "@/hooks/useConsent";
 import { useAuth } from "@/hooks/useAuth";
 
+const isSearchBot = (): boolean => {
+  if (typeof navigator === "undefined") return false;
+  const ua = navigator.userAgent || "";
+  return /Googlebot|bingbot|Baiduspider|DuckDuckBot|YandexBot|Sogou|Slurp|ia_archiver/i.test(ua);
+};
+
 const TermsGate = () => {
   const { needsAcceptance, accept, saving } = useTermsConsent();
   const { signOut } = useAuth();
   const [checked, setChecked] = useState(false);
+
+  if (isSearchBot()) return null;
 
   return (
     <Dialog open={needsAcceptance}>
