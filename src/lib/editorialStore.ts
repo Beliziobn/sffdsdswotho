@@ -123,9 +123,14 @@ function safeWriteJson<T>(key: string, value: T): void {
   if (typeof window === "undefined") return;
   try {
     localStorage.setItem(key, JSON.stringify(value));
-    window.dispatchEvent(new Event("worscoi_editorial_updated"));
-  } catch {
-    // Ignore storage quota errors
+  } catch (err) {
+    console.warn("[EditorialStore] localStorage write notice:", err);
+  } finally {
+    try {
+      window.dispatchEvent(new Event("worscoi_editorial_updated"));
+    } catch {
+      // Ignore
+    }
   }
 }
 

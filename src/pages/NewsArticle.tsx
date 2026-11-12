@@ -91,9 +91,10 @@ const NewsArticle = () => {
 
     const currentParagraphs = (article.content || "").split(/\n\s*\n+/).filter(Boolean);
     const isBrief = currentParagraphs.length < 3 || (article.content || "").length < 400;
+    const isCustomUpload = article.cover_url?.startsWith("data:");
     const isUnsplashCover = !article.cover_url || article.cover_url.includes("images.unsplash.com");
 
-    if (isBrief || isUnsplashCover) {
+    if ((isBrief || isUnsplashCover) && !isCustomUpload) {
       attemptedUrlRef.current = sourceUrl;
       fetch(`/api/news/extract?url=${encodeURIComponent(sourceUrl)}`)
         .then((res) => res.json())
@@ -203,10 +204,12 @@ const NewsArticle = () => {
         <img
           src={
             (
-              liveCover ||
-              (article.cover_url && !article.cover_url.includes("images.unsplash.com")
+              (article.cover_url?.startsWith("data:")
                 ? article.cover_url
-                : getSmartNewsCover(article.title, article.category, article.cover_url))
+                : (liveCover ||
+                  (article.cover_url && !article.cover_url.includes("images.unsplash.com")
+                    ? article.cover_url
+                    : getSmartNewsCover(article.title, article.category, article.cover_url))))
             ).replace(/&amp;/g, "&")
           }
           alt={article.title}

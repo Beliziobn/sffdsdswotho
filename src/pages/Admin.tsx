@@ -1,9 +1,10 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useSearchParams, Link } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   BarChart3,
   BookOpen,
+  Check,
   CheckCircle2,
   Compass,
   Edit3,
@@ -13,6 +14,7 @@ import {
   Film,
   Image as ImageIcon,
   Layers,
+  Loader2,
   Lock,
   LogOut,
   Newspaper,
@@ -25,8 +27,10 @@ import {
   TrendingUp,
   Upload,
   Wand2,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
+import { compressImageFile, formatBytes } from "@/lib/imageUploadUtils";
 import Navigation from "@/components/Navigation";
 import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
@@ -117,6 +121,47 @@ const Admin = () => {
   const [editNewsContent, setEditNewsContent] = useState("");
   const [editNewsAuthor, setEditNewsAuthor] = useState("Miguel Worscoi (Editor-Chefe)");
   const [lastImprovements, setLastImprovements] = useState<string[]>([]);
+  const [isUploadingNewsCover, setIsUploadingNewsCover] = useState(false);
+  const [newsCoverMeta, setNewsCoverMeta] = useState<{
+    width?: number;
+    height?: number;
+    sizeBytes?: number;
+    format?: string;
+    fileName?: string;
+  } | null>(null);
+  const [isDraggingNewsCover, setIsDraggingNewsCover] = useState(false);
+  const [newsCoverInputMode, setNewsCoverInputMode] = useState<"upload" | "url">("upload");
+  const newsFileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const handleNewsCoverFileSelect = async (file: File) => {
+    if (!file) return;
+    setIsUploadingNewsCover(true);
+    try {
+      const result = await compressImageFile(file, {
+        maxWidth: 1280,
+        maxHeight: 720,
+        quality: 0.82,
+      });
+      setEditNewsCover(result.dataUrl);
+      setNewsCoverMeta({
+        width: result.width,
+        height: result.height,
+        sizeBytes: result.sizeBytes,
+        format: result.format,
+        fileName: result.fileName,
+      });
+      toast.success(
+        `Capa otimizada com sucesso (${result.width}x${result.height} · ${formatBytes(result.sizeBytes)})! Pronta para sincronizar na nuvem para todos os leitores.`
+      );
+    } catch (err: any) {
+      toast.error(err?.message || "Erro ao processar imagem de capa.");
+    } finally {
+      setIsUploadingNewsCover(false);
+      if (newsFileInputRef.current) {
+        newsFileInputRef.current.value = "";
+      }
+    }
+  };
 
   // ==========================================================================
   // DIVERSE PUBLICATIONS DISCOVERY STATE
@@ -225,9 +270,18 @@ const Admin = () => {
     setEditNewsTitle(item.title || "");
     setEditNewsSlug(item.slug || slugifyEditorial(item.title || ""));
     setEditNewsCategory(item.category || "Geral");
-    setEditNewsCover(
-      item.cover_url || getSmartNewsCover(item.title, item.category)
-    );
+    const cover = item.cover_url || getSmartNewsCover(item.title, item.category);
+    setEditNewsCover(cover);
+    if (cover && cover.startsWith("data:")) {
+      const b64 = cover.split(",")[1] || "";
+      setNewsCoverMeta({
+        sizeBytes: Math.round((b64.length * 3) / 4),
+        format: cover.includes("webp") ? "webp" : "jpeg",
+      });
+      setNewsCoverInputMode("upload");
+    } else {
+      setNewsCoverMeta(null);
+    }
     setEditNewsExcerpt(item.excerpt || "");
     setEditNewsContent(item.content || "");
     setEditNewsAuthor((item as any).author || "Miguel Worscoi (Editor-Chefe)");
@@ -241,6 +295,8 @@ const Admin = () => {
     setEditNewsSlug("");
     setEditNewsCategory(prefillCategory);
     setEditNewsCover("");
+    setNewsCoverMeta(null);
+    setNewsCoverInputMode("upload");
     setEditNewsExcerpt("");
     setEditNewsContent("");
     setEditNewsAuthor("Miguel Worscoi (Editor-Chefe)");
@@ -1385,41 +1441,264 @@ const Admin = () => {
                       </div>
                     </div>
 
-                    {/* Cover URL + Live Preview */}
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <Label className="text-xs uppercase tracking-wider text-muted-foreground">
-                          URL da Imagem de Capa (HD)
-                        </Label>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setEditNewsCover(getSmartNewsCover(editNewsTitle || editNewsCategory, editNewsCategory))
-                          }
-                          className="text-[11px] text-primary hover:underline flex items-center gap-1"
-                        >
-                          <ImageIcon className="h-3 w-3" />
-                          Sugerir Capa HD Temática
-                        </button>
+                    {/* Cover Image Upload (Device File / Drag & Drop or Custom URL) */}
+                    <div className="space-y-3 p-4 rounded-xl border border-border/80 bg-secondary/20">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-border/60">
+                        <div>
+                          <Label className="text-xs uppercase tracking-wider text-muted-foreground font-semibold flex items-center gap-1.5">
+                            <ImageIcon className="h-3.5 w-3.5 text-primary" />
+                            Capa da Notícia
+                          </Label>
+                          <span className="text-[11px] text-muted-foreground font-light">
+                            Faça upload de uma foto do seu dispositivo ou informe uma URL externa. A imagem será sincronizada na nuvem para todos os leitores.
+                          </span>
+                        </div>
+
+                        {/* Mode Switcher */}
+                        <div className="flex items-center gap-1 bg-background p-1 rounded-lg border border-border shrink-0 self-start sm:self-auto">
+                          <button
+                            type="button"
+                            onClick={() => setNewsCoverInputMode("upload")}
+                            className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors flex items-center gap-1 ${
+                              newsCoverInputMode === "upload"
+                                ? "bg-primary text-primary-foreground shadow-xs"
+                                : "text-muted-foreground hover:text-foreground"
+                            }`}
+                          >
+                            <Upload className="h-3 w-3" />
+                            Upload do Dispositivo
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setNewsCoverInputMode("url")}
+                            className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors flex items-center gap-1 ${
+                              newsCoverInputMode === "url"
+                                ? "bg-primary text-primary-foreground shadow-xs"
+                                : "text-muted-foreground hover:text-foreground"
+                            }`}
+                          >
+                            <ExternalLink className="h-3 w-3" />
+                            Link / URL
+                          </button>
+                        </div>
                       </div>
-                      <div className="flex gap-3 items-center">
-                        <Input
-                          value={editNewsCover}
-                          onChange={(e) => setEditNewsCover(e.target.value)}
-                          placeholder="https://images.unsplash.com/..."
-                          className="flex-1"
-                        />
-                        {editNewsCover && (
-                          <img
-                            src={editNewsCover}
-                            alt="Preview da capa"
-                            onError={(e) => {
-                              e.currentTarget.src = getSmartNewsCover(editNewsTitle, editNewsCategory);
+
+                      {/* Hidden File Input */}
+                      <input
+                        ref={newsFileInputRef}
+                        type="file"
+                        accept="image/png,image/jpeg,image/webp,image/avif,image/gif"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) void handleNewsCoverFileSelect(file);
+                        }}
+                        className="hidden"
+                      />
+
+                      {/* Mode A: Upload from Device */}
+                      {newsCoverInputMode === "upload" && (
+                        <div className="space-y-3">
+                          {/* Drag & Drop Zone */}
+                          <div
+                            onDragOver={(e) => {
+                              e.preventDefault();
+                              setIsDraggingNewsCover(true);
                             }}
-                            className="h-10 w-16 rounded-md object-cover border border-border shrink-0"
-                          />
-                        )}
-                      </div>
+                            onDragLeave={() => setIsDraggingNewsCover(false)}
+                            onDrop={(e) => {
+                              e.preventDefault();
+                              setIsDraggingNewsCover(false);
+                              const file = e.dataTransfer.files?.[0];
+                              if (file) void handleNewsCoverFileSelect(file);
+                            }}
+                            onClick={() => newsFileInputRef.current?.click()}
+                            className={`relative cursor-pointer rounded-xl border-2 border-dashed p-6 text-center transition-all ${
+                              isDraggingNewsCover
+                                ? "border-primary bg-primary/10 scale-[1.005]"
+                                : "border-border hover:border-primary/50 hover:bg-secondary/40"
+                            }`}
+                          >
+                            {isUploadingNewsCover ? (
+                              <div className="flex flex-col items-center justify-center gap-2 py-4">
+                                <Loader2 className="h-7 w-7 animate-spin text-primary" />
+                                <div className="text-xs font-medium text-foreground">
+                                  Otimizando imagem para alta resolução (WebP)...
+                                </div>
+                                <div className="text-[11px] text-muted-foreground">
+                                  Ajustando proporção e reduzindo peso para carregamento instantâneo.
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="flex flex-col items-center justify-center gap-2">
+                                <div className="w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center shadow-xs">
+                                  <Upload className="h-5 w-5" />
+                                </div>
+                                <div className="text-xs font-medium text-foreground">
+                                  Clique para escolher uma imagem ou arraste o arquivo até aqui
+                                </div>
+                                <div className="text-[11px] text-muted-foreground max-w-md">
+                                  Aceita PNG, JPEG, WEBP ou AVIF até 20MB. A foto é convertida automaticamente em alta definição (1280x720) para rápida exibição.
+                                </div>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Live Preview & Metadata Details */}
+                          {editNewsCover ? (
+                            <div className="p-3.5 rounded-xl border border-border bg-background space-y-3">
+                              <div className="flex items-center justify-between text-xs">
+                                <span className="font-medium text-foreground flex items-center gap-1.5">
+                                  <Check className="h-3.5 w-3.5 text-emerald-500" />
+                                  Capa Atual Selecionada
+                                </span>
+                                <div className="flex items-center gap-2">
+                                  {newsCoverMeta?.sizeBytes && (
+                                    <span className="text-[11px] px-2 py-0.5 rounded-md bg-secondary text-muted-foreground font-mono">
+                                      {newsCoverMeta.width && `${newsCoverMeta.width}x${newsCoverMeta.height} · `}
+                                      {formatBytes(newsCoverMeta.sizeBytes)}
+                                      {newsCoverMeta.format && ` · ${newsCoverMeta.format.toUpperCase()}`}
+                                    </span>
+                                  )}
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setEditNewsCover("");
+                                      setNewsCoverMeta(null);
+                                      if (newsFileInputRef.current) newsFileInputRef.current.value = "";
+                                    }}
+                                    className="text-[11px] text-red-500 hover:text-red-600 flex items-center gap-1 transition-colors"
+                                  >
+                                    <X className="h-3 w-3" />
+                                    Remover
+                                  </button>
+                                </div>
+                              </div>
+
+                              <div className="relative rounded-lg overflow-hidden border border-border bg-black/40 h-44 sm:h-56 group">
+                                <img
+                                  src={editNewsCover}
+                                  alt="Preview da capa da notícia"
+                                  className="w-full h-full object-cover object-center transition-transform duration-300 group-hover:scale-102"
+                                  onError={(e) => {
+                                    e.currentTarget.src = getSmartNewsCover(editNewsTitle, editNewsCategory);
+                                  }}
+                                />
+                                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent pointer-events-none" />
+                                <div className="absolute bottom-2.5 left-3 right-3 flex items-center justify-between text-[11px] text-white">
+                                  <span className="truncate max-w-[70%] font-medium drop-shadow-sm">
+                                    {newsCoverMeta?.fileName || editNewsTitle || "Pré-visualização da Capa"}
+                                  </span>
+                                  <span className="px-2 py-0.5 rounded bg-black/60 backdrop-blur text-[10px] uppercase font-semibold">
+                                    {editNewsCover.startsWith("data:") ? "Upload Local" : "URL Externa"}
+                                  </span>
+                                </div>
+                              </div>
+
+                              <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => newsFileInputRef.current?.click()}
+                                  className="h-7 text-xs font-normal"
+                                >
+                                  <Upload className="h-3 w-3 mr-1.5" />
+                                  Substituir por Outra Foto
+                                </Button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const smart = getSmartNewsCover(editNewsTitle || editNewsCategory, editNewsCategory);
+                                    setEditNewsCover(smart);
+                                    setNewsCoverMeta(null);
+                                  }}
+                                  className="text-[11px] text-primary hover:underline flex items-center gap-1"
+                                >
+                                  <Sparkles className="h-3 w-3" />
+                                  Usar Capa Temática de Acervo
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="flex items-center justify-between text-xs text-muted-foreground pt-1">
+                              <span>Nenhuma imagem própria carregada no momento.</span>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const smart = getSmartNewsCover(editNewsTitle || editNewsCategory, editNewsCategory);
+                                  setEditNewsCover(smart);
+                                  setNewsCoverMeta(null);
+                                }}
+                                className="text-[11px] text-primary hover:underline flex items-center gap-1"
+                              >
+                                <Sparkles className="h-3 w-3" />
+                                Sugerir Capa Temática HD
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Mode B: Manual URL Input */}
+                      {newsCoverInputMode === "url" && (
+                        <div className="space-y-3">
+                          <div className="flex gap-2 items-center">
+                            <Input
+                              value={editNewsCover}
+                              onChange={(e) => {
+                                setEditNewsCover(e.target.value);
+                                setNewsCoverMeta(null);
+                              }}
+                              placeholder="https://images.unsplash.com/... ou https://..."
+                              className="flex-1 text-xs"
+                            />
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                const smart = getSmartNewsCover(editNewsTitle || editNewsCategory, editNewsCategory);
+                                setEditNewsCover(smart);
+                                setNewsCoverMeta(null);
+                              }}
+                              className="h-9 text-xs shrink-0"
+                            >
+                              <Sparkles className="h-3 w-3 mr-1 text-primary" />
+                              Sugerir Temática
+                            </Button>
+                          </div>
+
+                          {editNewsCover && (
+                            <div className="flex items-center gap-3 p-2.5 rounded-lg border border-border bg-background">
+                              <img
+                                src={editNewsCover}
+                                alt="Preview da capa"
+                                onError={(e) => {
+                                  e.currentTarget.src = getSmartNewsCover(editNewsTitle, editNewsCategory);
+                                }}
+                                className="h-16 w-28 rounded-md object-cover border border-border shrink-0 bg-secondary"
+                              />
+                              <div className="min-w-0 flex-1 space-y-1">
+                                <div className="text-xs font-medium text-foreground truncate">
+                                  Preview da Imagem Externa
+                                </div>
+                                <div className="text-[11px] text-muted-foreground truncate font-mono">
+                                  {editNewsCover}
+                                </div>
+                              </div>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setEditNewsCover("")}
+                                className="h-8 text-xs text-muted-foreground hover:text-red-500"
+                              >
+                                Limpar
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
 
                     {/* Excerpt / Resumo Editorial */}

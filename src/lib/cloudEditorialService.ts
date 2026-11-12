@@ -149,7 +149,7 @@ export async function publishNewsToCloud(item: NewsItem): Promise<boolean> {
     slug: (item.slug || docId).trim().slice(0, 150),
     excerpt: (item.excerpt || "").trim().slice(0, 2000),
     content: (item.content || "").trim().slice(0, 50000),
-    cover_url: (item.cover_url || "").trim().slice(0, 1000),
+    cover_url: (item.cover_url || "").trim().slice(0, 500000),
     category: (item.category || "Geral").trim().slice(0, 100),
     published: item.published ?? true,
     published_at: item.published_at || new Date().toISOString(),
@@ -163,6 +163,7 @@ export async function publishNewsToCloud(item: NewsItem): Promise<boolean> {
     await ensureFirestoreOnline();
     const docRef = doc(db, NEWS_COLLECTION, docId);
     await setDoc(docRef, payload, { merge: true });
+    cachedNewsResult = null;
     return true;
   } catch (err: any) {
     if (err?.code === "permission-denied" || String(err).includes("permission")) {
@@ -182,6 +183,7 @@ export async function deleteNewsFromCloud(idOrSlug: string): Promise<boolean> {
     const docRef = doc(db, NEWS_COLLECTION, docId);
     // Mark as unpublished to avoid race conditions
     await setDoc(docRef, { published: false, updated_at: new Date().toISOString() }, { merge: true });
+    cachedNewsResult = null;
     return true;
   } catch (err: any) {
     if (err?.code === "permission-denied" || String(err).includes("permission")) {
