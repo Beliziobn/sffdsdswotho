@@ -2355,6 +2355,18 @@ export default defineConfig(() => {
     },
     build: {
       chunkSizeWarningLimit: 8000,
+      rollupOptions: {
+        output: {
+          manualChunks: {
+            'vendor-react': ['react', 'react-dom', 'react-router-dom'],
+            'vendor-motion': ['framer-motion', 'motion'],
+            'vendor-firebase': ['firebase/app', 'firebase/auth', 'firebase/firestore'],
+            'vendor-supabase': ['@supabase/supabase-js'],
+            'vendor-pdf': ['pdfjs-dist', 'pdf-lib'],
+            'vendor-charts': ['recharts'],
+          },
+        },
+      },
     },
     server: {
       host: '0.0.0.0',

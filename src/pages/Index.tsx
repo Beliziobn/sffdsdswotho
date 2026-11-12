@@ -82,6 +82,7 @@ const Index = () => {
   return (
     <div className="min-h-screen overflow-x-hidden">
       <Navigation />
+      <h1 className="sr-only">Wotho — Livros, notícias globais, streaming e webtoons</h1>
       <Hero />
 
       {user && continueItems.length > 0 && (

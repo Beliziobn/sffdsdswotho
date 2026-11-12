@@ -3,6 +3,9 @@
 # Domain: https://wotho.vercel.app
 # ==============================================================================
 
+User-agent: Googlebot
+Allow: /
+
 User-agent: *
 Allow: /
 

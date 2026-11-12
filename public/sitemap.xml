@@ -67,6 +67,12 @@
     <priority>0.4</priority>
   </url>
   <url>
+    <loc>https://wotho.vercel.app/livros/mod-1984-orwell</loc>
+    <lastmod>2026-11-12</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
     <loc>https://wotho.vercel.app/livros/mod-habitos-atomicos</loc>
     <lastmod>2026-11-12</lastmod>
     <changefreq>weekly</changefreq>
@@ -79,19 +85,25 @@
     <priority>0.8</priority>
   </url>
   <url>
+    <loc>https://wotho.vercel.app/livros/mod-a-psicologia-financeira</loc>
+    <lastmod>2026-11-12</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
     <loc>https://wotho.vercel.app/livros/mod-pai-rico-pai-pobre</loc>
     <lastmod>2026-11-12</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://wotho.vercel.app/livros/mod-1984-orwell</loc>
+    <loc>https://wotho.vercel.app/livros/mod-homem-mais-rico-babilonia</loc>
     <lastmod>2026-11-12</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://wotho.vercel.app/livros/mod-homem-mais-rico-babilonia</loc>
+    <loc>https://wotho.vercel.app/livros/mod-o-homem-mais-rico-da-babilonia</loc>
     <lastmod>2026-11-12</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
@@ -127,7 +139,19 @@
     <priority>0.8</priority>
   </url>
   <url>
+    <loc>https://wotho.vercel.app/livros/mod-leis-do-poder</loc>
+    <lastmod>2026-11-12</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
     <loc>https://wotho.vercel.app/livros/mod-manual-de-epicteto</loc>
+    <lastmod>2026-11-12</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://wotho.vercel.app/livros/mod-manual-epicteto</loc>
     <lastmod>2026-11-12</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
@@ -139,7 +163,19 @@
     <priority>0.8</priority>
   </url>
   <url>
+    <loc>https://wotho.vercel.app/livros/mod-meditacoes</loc>
+    <lastmod>2026-11-12</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
     <loc>https://wotho.vercel.app/livros/mod-os-segredos-da-mente-milionaria</loc>
+    <lastmod>2026-11-12</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://wotho.vercel.app/livros/mod-mente-milionaria</loc>
     <lastmod>2026-11-12</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
@@ -157,7 +193,19 @@
     <priority>0.8</priority>
   </url>
   <url>
+    <loc>https://wotho.vercel.app/livros/mod-pedagogia-autonomia</loc>
+    <lastmod>2026-11-12</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
     <loc>https://wotho.vercel.app/livros/mod-o-poder-do-habito</loc>
+    <lastmod>2026-11-12</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://wotho.vercel.app/livros/mod-poder-do-habito</loc>
     <lastmod>2026-11-12</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
@@ -175,67 +223,73 @@
     <priority>0.8</priority>
   </url>
   <url>
+    <loc>https://wotho.vercel.app/livros/mod-roube-como-artista</loc>
+    <lastmod>2026-11-12</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
     <loc>https://wotho.vercel.app/livros/mod-sobre-a-brevidade-da-vida</loc>
     <lastmod>2026-11-12</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://wotho.vercel.app/livros/cur-matematica-enem</loc>
+    <loc>https://wotho.vercel.app/livros/curr-matematica-ensino-medio-completo</loc>
     <lastmod>2026-11-12</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://wotho.vercel.app/livros/cur-fisica-enem</loc>
+    <loc>https://wotho.vercel.app/livros/curr-fisica-ensino-medio-completo</loc>
     <lastmod>2026-11-12</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://wotho.vercel.app/livros/cur-quimica-enem</loc>
+    <loc>https://wotho.vercel.app/livros/curr-quimica-geral-e-organica</loc>
     <lastmod>2026-11-12</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://wotho.vercel.app/livros/cur-biologia-enem</loc>
+    <loc>https://wotho.vercel.app/livros/curr-biologia-ecologia-genetica</loc>
     <lastmod>2026-11-12</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://wotho.vercel.app/livros/cur-historia-enem</loc>
+    <loc>https://wotho.vercel.app/livros/curr-historia-geral-e-do-brasil</loc>
     <lastmod>2026-11-12</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://wotho.vercel.app/livros/cur-redacao-enem</loc>
+    <loc>https://wotho.vercel.app/livros/curr-redacao-literatura-vestibulares</loc>
     <lastmod>2026-11-12</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://wotho.vercel.app/livros/sci-astrofisica-jwst</loc>
+    <loc>https://wotho.vercel.app/livros/sci-computacao-quantica-decoerencia</loc>
     <lastmod>2026-11-12</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://wotho.vercel.app/livros/sci-quantica-computacao</loc>
+    <loc>https://wotho.vercel.app/livros/sci-neurociencia-plasticidade-sinaptica</loc>
     <lastmod>2026-11-12</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://wotho.vercel.app/livros/sci-crispr-cas9</loc>
+    <loc>https://wotho.vercel.app/livros/sci-genetica-crispr-prime-editing</loc>
     <lastmod>2026-11-12</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://wotho.vercel.app/livros/sci-neurociencia-plasticidade</loc>
+    <loc>https://wotho.vercel.app/livros/sci-astrofisica-james-webb-galaxias</loc>
     <lastmod>2026-11-12</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>

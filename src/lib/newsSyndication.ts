@@ -91,69 +91,41 @@ export async function syncDailyNews(force = false): Promise<SyndicatedNewsItem[]
 
   inflightSyncPromise = (async () => {
     try {
+      const allItems: SyndicatedNewsItem[] = [];
+      const seen = new Set<string>();
 
-  const topics = [
-    { topic: "futebol", limit: 35 },
-    { topic: "basquete", limit: 35 },
-    { topic: "mercado", limit: 30 },
-    { topic: "politica", limit: 30 },
-    { topic: "ciencia", limit: 30 },
-    { topic: "geografia", limit: 25 },
-    { topic: "virais", limit: 25 },
-    { topic: "listas", limit: 25 },
-    { topic: "animes", limit: 30 },
-    { topic: "mangas", limit: 25 },
-    { topic: "webtoons", limit: 20 },
-    { topic: "games", limit: 30 },
-    { topic: "tecnologias", limit: 35 },
-    { topic: "cultura", limit: 25 },
-    { topic: "livros", limit: 25 },
-  ];
-
-  const allItems: SyndicatedNewsItem[] = [];
-  const seen = new Set<string>();
-
-  // 1. Try server /api/news/feed endpoint first
+      // 1. Try single unified /api/news/feed?topic=all endpoint with short timeout (avoids 15x serverless cold-start flood)
   try {
-    const fetchPromises = topics.map(async (t) => {
-      try {
-        const res = await fetch(`/api/news/feed?topic=${t.topic}&limit=${t.limit}`);
-        if (res.ok) {
-          const contentType = res.headers.get("content-type") || "";
-          if (contentType.includes("application/json")) {
-            const data = await res.json();
-            return (Array.isArray(data.items) ? data.items : []) as SyndicatedNewsItem[];
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 3500);
+    const res = await fetch(`/api/news/feed?topic=all&limit=45`, { signal: controller.signal });
+    clearTimeout(timer);
+    if (res.ok) {
+      const contentType = res.headers.get("content-type") || "";
+      if (contentType.includes("application/json")) {
+        const data = await res.json();
+        const batch = (Array.isArray(data.items) ? data.items : []) as SyndicatedNewsItem[];
+        for (const item of batch) {
+          const key = (item.title || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+          if (!seen.has(key) && key.length > 5) {
+            seen.add(key);
+            if (!isValidCoverUrl(item.cover_url)) {
+              item.cover_url = getSmartNewsCover(item.title, item.category);
+            }
+            allItems.push(item);
           }
-        }
-      } catch {
-        return [] as SyndicatedNewsItem[];
-      }
-      return [] as SyndicatedNewsItem[];
-    });
-
-    const results = await Promise.all(fetchPromises);
-
-    for (const batch of results) {
-      for (const item of batch) {
-        const key = (item.title || "").toLowerCase().replace(/[^a-z0-9]/g, "");
-        if (!seen.has(key) && key.length > 5) {
-          seen.add(key);
-          if (!isValidCoverUrl(item.cover_url)) {
-            item.cover_url = getSmartNewsCover(item.title, item.category);
-          }
-          allItems.push(item);
         }
       }
     }
   } catch {
-    // Continue to client-side live fetcher
+    // Fallback cleanly to local archive when API times out or is unavailable
   }
 
-  // 2. If server endpoint returned empty or low count (e.g. running on static Vercel hosting), fetch directly from live RSS!
-  if (allItems.length < 15) {
+  // 2. Only invoke direct client RSS proxy fetches on explicit manual refresh (avoids blocking Googlebot initial render)
+  if (force && allItems.length < 15) {
     try {
       const { fetchLiveNewsDirectFromRss } = await import("./liveNewsFetcher");
-      const liveRssItems = await fetchLiveNewsDirectFromRss(14);
+      const liveRssItems = await fetchLiveNewsDirectFromRss(8);
       for (const liveItem of liveRssItems) {
         const key = (liveItem.title || "").toLowerCase().replace(/[^a-z0-9]/g, "");
         if (!seen.has(key) && key.length > 5) {

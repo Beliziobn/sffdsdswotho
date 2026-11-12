@@ -1,16 +1,15 @@
 import {
   collection,
   doc,
-  getDoc,
   getDocs,
   setDoc,
-  deleteDoc,
   query,
   where,
   limit,
 } from "firebase/firestore";
-import { db, auth } from "./firebase";
+import { db, ensureFirestoreReady, ensureFirestoreOnline } from "./firebase";
 import { handleFirestoreError, OperationType } from "./firebaseErrors";
+import firebaseConfig from "../../firebase-applet-config.json";
 import type { Book, Chapter, NewsItem } from "@/hooks/useCatalog";
 
 const NEWS_COLLECTION = "news";
@@ -20,6 +19,74 @@ const ANIME_OVERRIDES_COLLECTION = "anime_overrides";
 
 const READ_CACHE_TTL_MS = 60_000;
 const FIRESTORE_READ_TIMEOUT_MS = 6_000;
+
+function decodeFirestoreValue(val: any): any {
+  if (!val || typeof val !== "object") return val;
+  if ("stringValue" in val) return val.stringValue;
+  if ("integerValue" in val) return Number(val.integerValue);
+  if ("doubleValue" in val) return Number(val.doubleValue);
+  if ("booleanValue" in val) return Boolean(val.booleanValue);
+  if ("nullValue" in val) return null;
+  if ("timestampValue" in val) return val.timestampValue;
+  if ("arrayValue" in val) {
+    return Array.isArray(val.arrayValue?.values)
+      ? val.arrayValue.values.map(decodeFirestoreValue)
+      : [];
+  }
+  if ("mapValue" in val) {
+    const out: Record<string, any> = {};
+    const fields = val.mapValue?.fields || {};
+    for (const k of Object.keys(fields)) {
+      out[k] = decodeFirestoreValue(fields[k]);
+    }
+    return out;
+  }
+  return undefined;
+}
+
+function decodeFirestoreDoc(docObj: any): { id: string; data: Record<string, any> } | null {
+  if (!docObj?.name) return null;
+  const parts = String(docObj.name).split("/");
+  const id = parts[parts.length - 1] || "";
+  const out: Record<string, any> = {};
+  const fields = docObj.fields || {};
+  for (const k of Object.keys(fields)) {
+    out[k] = decodeFirestoreValue(fields[k]);
+  }
+  return { id, data: out };
+}
+
+async function runRestQuery(structuredQuery: Record<string, any>): Promise<Array<{ id: string; data: Record<string, any> }>> {
+  if (typeof navigator !== "undefined" && navigator.onLine === false) return [];
+  if (typeof fetch !== "function") return [];
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 4000);
+  try {
+    const dbPath = `projects/${firebaseConfig.projectId}/databases/${firebaseConfig.firestoreDatabaseId}`;
+    const url = `https://firestore.googleapis.com/v1/${dbPath}/documents:runQuery?key=${encodeURIComponent(firebaseConfig.apiKey)}`;
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain" },
+      body: JSON.stringify({ structuredQuery }),
+      signal: controller.signal,
+    });
+    if (!res.ok) return [];
+    const rows = await res.json();
+    if (!Array.isArray(rows)) return [];
+    const docs: Array<{ id: string; data: Record<string, any> }> = [];
+    for (const row of rows) {
+      if (row?.document) {
+        const decoded = decodeFirestoreDoc(row.document);
+        if (decoded) docs.push(decoded);
+      }
+    }
+    return docs;
+  } catch {
+    return [];
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 let cachedNewsResult: { data: NewsItem[]; ts: number } | null = null;
 let inflightNewsPromise: Promise<NewsItem[]> | null = null;
@@ -93,6 +160,7 @@ export async function publishNewsToCloud(item: NewsItem): Promise<boolean> {
   };
 
   try {
+    await ensureFirestoreOnline();
     const docRef = doc(db, NEWS_COLLECTION, docId);
     await setDoc(docRef, payload, { merge: true });
     return true;
@@ -110,6 +178,7 @@ export async function deleteNewsFromCloud(idOrSlug: string): Promise<boolean> {
   if (!docId) return false;
 
   try {
+    await ensureFirestoreOnline();
     const docRef = doc(db, NEWS_COLLECTION, docId);
     // Mark as unpublished to avoid race conditions
     await setDoc(docRef, { published: false, updated_at: new Date().toISOString() }, { merge: true });
@@ -134,6 +203,23 @@ export async function fetchCloudNews(): Promise<NewsItem[]> {
   inflightNewsPromise = withTimeout(
     (async () => {
       try {
+        const ready = await ensureFirestoreReady();
+        if (!ready) {
+          const restDocs = await runRestQuery({
+            from: [{ collectionId: NEWS_COLLECTION }],
+            where: {
+              fieldFilter: {
+                field: { fieldPath: "published" },
+                op: "EQUAL",
+                value: { booleanValue: true },
+              },
+            },
+            limit: 200,
+          });
+          const items = restDocs.map((d) => d.data as NewsItem);
+          cachedNewsResult = { data: items, ts: Date.now() };
+          return items;
+        }
         const q = query(
           collection(db, NEWS_COLLECTION),
           where("published", "==", true),
@@ -206,6 +292,7 @@ export async function publishBookToCloud(book: Book & {
   }
 
   try {
+    await ensureFirestoreOnline();
     const docRef = doc(db, BOOKS_COLLECTION, docId);
     await setDoc(docRef, payload, { merge: true });
     return true;
@@ -223,6 +310,7 @@ export async function deleteBookFromCloud(bookId: string): Promise<boolean> {
   if (!docId) return false;
 
   try {
+    await ensureFirestoreOnline();
     const docRef = doc(db, BOOKS_COLLECTION, docId);
     await setDoc(docRef, { published: false, updated_at: new Date().toISOString() }, { merge: true });
     return true;
@@ -246,6 +334,23 @@ export async function fetchCloudBooks(): Promise<Book[]> {
   inflightBooksPromise = withTimeout(
     (async () => {
       try {
+        const ready = await ensureFirestoreReady();
+        if (!ready) {
+          const restDocs = await runRestQuery({
+            from: [{ collectionId: BOOKS_COLLECTION }],
+            where: {
+              fieldFilter: {
+                field: { fieldPath: "published" },
+                op: "EQUAL",
+                value: { booleanValue: true },
+              },
+            },
+            limit: 200,
+          });
+          const items = restDocs.map((d) => d.data as Book);
+          cachedBooksResult = { data: items, ts: Date.now() };
+          return items;
+        }
         const q = query(
           collection(db, BOOKS_COLLECTION),
           where("published", "==", true),
@@ -287,6 +392,7 @@ export async function publishChapterToCloud(chapter: Chapter): Promise<boolean> 
   };
 
   try {
+    await ensureFirestoreOnline();
     const docRef = doc(db, CHAPTERS_COLLECTION, docId);
     await setDoc(docRef, payload, { merge: true });
     return true;
@@ -312,6 +418,23 @@ export async function fetchCloudChapters(bookId: string): Promise<Chapter[]> {
   const req = withTimeout(
     (async () => {
       try {
+        const ready = await ensureFirestoreReady();
+        if (!ready) {
+          const restDocs = await runRestQuery({
+            from: [{ collectionId: CHAPTERS_COLLECTION }],
+            where: {
+              fieldFilter: {
+                field: { fieldPath: "book_id" },
+                op: "EQUAL",
+                value: { stringValue: bookId },
+              },
+            },
+          });
+          const list = restDocs.map((d) => d.data as Chapter);
+          list.sort((a, b) => (a.position || 0) - (b.position || 0));
+          cachedChaptersMap.set(bookId, { data: list, ts: Date.now() });
+          return list;
+        }
         const q = query(
           collection(db, CHAPTERS_COLLECTION),
           where("book_id", "==", bookId)
@@ -355,6 +478,7 @@ export async function publishAnimeOverrideToCloud(animeId: string, patch: Record
   };
 
   try {
+    await ensureFirestoreOnline();
     const docRef = doc(db, ANIME_OVERRIDES_COLLECTION, docId);
     await setDoc(docRef, payload, { merge: true });
     return true;
@@ -378,6 +502,19 @@ export async function fetchCloudAnimeOverrides(): Promise<Record<string, Record<
   inflightAnimePromise = withTimeout(
     (async () => {
       try {
+        const ready = await ensureFirestoreReady();
+        if (!ready) {
+          const restDocs = await runRestQuery({
+            from: [{ collectionId: ANIME_OVERRIDES_COLLECTION }],
+            limit: 200,
+          });
+          const result: Record<string, Record<string, any>> = {};
+          for (const d of restDocs) {
+            result[d.id] = d.data;
+          }
+          cachedAnimeResult = { data: result, ts: Date.now() };
+          return result;
+        }
         const snapshot = await getDocs(collection(db, ANIME_OVERRIDES_COLLECTION));
         const result: Record<string, Record<string, any>> = {};
         for (const d of snapshot.docs) {

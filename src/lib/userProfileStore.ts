@@ -1,5 +1,5 @@
 import { doc, getDoc, setDoc, deleteDoc, collection, query, where, getDocs } from "firebase/firestore";
-import { auth, db } from "./firebase";
+import { auth, db, ensureFirestoreOnline } from "./firebase";
 import { handleFirestoreError, OperationType } from "./firebaseErrors";
 import {
   CINEMA_CATALOG,
@@ -165,7 +165,10 @@ export async function saveUserProfile(
       updatedAt: next.updatedAt,
     };
     try {
-      await setDoc(doc(db, "user_profiles", uid), payload);
+      const online = await ensureFirestoreOnline();
+      if (online) {
+        await setDoc(doc(db, "user_profiles", uid), payload);
+      }
     } catch (error) {
       if (error instanceof Error && error.message.includes("Missing or insufficient permissions")) {
         handleFirestoreError(error, OperationType.WRITE, path);
@@ -181,6 +184,8 @@ export async function syncProfileFromCloud(): Promise<void> {
   if (!fbUser || fbUser.isAnonymous) return;
   const uid = sanitizeId(fbUser.uid);
   const profilePath = `user_profiles/${uid}`;
+  const online = await ensureFirestoreOnline();
+  if (!online) return;
   try {
     const snap = await getDoc(doc(db, "user_profiles", uid));
     if (snap.exists()) {
@@ -288,10 +293,13 @@ export function recordUserHistory(input: {
     if (typeof entry.progressPercent === "number") firestorePayload.progressPercent = entry.progressPercent;
     if (entry.detailLabel) firestorePayload.detailLabel = entry.detailLabel;
 
-    setDoc(doc(db, "user_profiles", uid, "history", entryId), firestorePayload).catch((error) => {
-      if (error instanceof Error && error.message.includes("Missing or insufficient permissions")) {
-        handleFirestoreError(error, OperationType.WRITE, path);
-      }
+    void ensureFirestoreOnline().then((online) => {
+      if (!online) return;
+      return setDoc(doc(db, "user_profiles", uid, "history", entryId), firestorePayload).catch((error) => {
+        if (error instanceof Error && error.message.includes("Missing or insufficient permissions")) {
+          handleFirestoreError(error, OperationType.WRITE, path);
+        }
+      });
     });
   }
 
@@ -436,7 +444,10 @@ export async function removeHistoryEntry(entryId: string): Promise<void> {
     const cleanEntryId = sanitizeId(entryId);
     const path = `user_profiles/${uid}/history/${cleanEntryId}`;
     try {
-      await deleteDoc(doc(db, "user_profiles", uid, "history", cleanEntryId));
+      const online = await ensureFirestoreOnline();
+      if (online) {
+        await deleteDoc(doc(db, "user_profiles", uid, "history", cleanEntryId));
+      }
     } catch (error) {
       if (error instanceof Error && error.message.includes("Missing or insufficient permissions")) {
         handleFirestoreError(error, OperationType.DELETE, path);

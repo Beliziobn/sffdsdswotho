@@ -113,8 +113,10 @@ export function buildSitemapXml(customOrigin = BASE_URL) {
     });
   }
 
-  // 2. Canonical Modern Bestsellers
-  for (const id of CANONICAL_MODERN_BOOK_IDS) {
+  // 2. Canonical Modern Bestsellers (extracted from source)
+  const modernBookIds = extractIds('src/lib/modernBooks.ts', /id:\s*"(mod-[a-z0-9-]+)"/g)
+    .filter((id) => !id.includes('/'));
+  for (const id of modernBookIds) {
     addEntry({
       loc: `${origin}/livros/${id}`,
       lastmod: TODAY,
@@ -123,8 +125,10 @@ export function buildSitemapXml(customOrigin = BASE_URL) {
     });
   }
 
-  // 3. Curricular Educational Textbooks
-  for (const id of CANONICAL_CURRICULAR_IDS) {
+  // 3. Curricular Educational Textbooks (extracted from source)
+  const curricularIds = extractIds('src/data/curricularBooks.ts', /id:\s*"(curr-[a-z0-9-]+)"/g)
+    .filter((id) => !id.includes('/'));
+  for (const id of curricularIds) {
     addEntry({
       loc: `${origin}/livros/${id}`,
       lastmod: TODAY,
@@ -133,8 +137,10 @@ export function buildSitemapXml(customOrigin = BASE_URL) {
     });
   }
 
-  // 4. Scientific Research Articles
-  for (const id of CANONICAL_SCIENTIFIC_IDS) {
+  // 4. Scientific Research Articles (extracted from source)
+  const scientificIds = extractIds('src/data/scientificArticles.ts', /id:\s*"(sci-[a-z0-9-]+)"/g)
+    .filter((id) => !id.includes('/'));
+  for (const id of scientificIds) {
     addEntry({
       loc: `${origin}/livros/${id}`,
       lastmod: TODAY,

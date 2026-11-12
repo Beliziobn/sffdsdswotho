@@ -87,10 +87,34 @@ export default async function handler(req: any, res: any) {
       return handleNewsExtractRequest(req, res);
     case '/api/news/image-proxy':
       return handleNewsImageProxyRequest(req, res);
+    case '/api/news/archive':
+      res.statusCode = 200;
+      res.setHeader('Content-Type', 'application/json; charset=utf-8');
+      res.setHeader('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=600');
+      res.end(JSON.stringify({ items: [], total: 0, page: 1, pageSize: 20, totalPages: 0 }));
+      return;
+    case '/api/news/timeline':
+      res.statusCode = 200;
+      res.setHeader('Content-Type', 'application/json; charset=utf-8');
+      res.setHeader('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=600');
+      res.end(JSON.stringify({ timeline: [] }));
+      return;
 
     // Books
     case '/api/books/pdf-proxy':
       return handlePdfProxyRequest(req, res);
+    case '/api/books/catalog':
+      res.statusCode = 200;
+      res.setHeader('Content-Type', 'application/json; charset=utf-8');
+      res.setHeader('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=600');
+      res.end(JSON.stringify({ books: [] }));
+      return;
+    case '/api/books/chapters':
+      res.statusCode = 200;
+      res.setHeader('Content-Type', 'application/json; charset=utf-8');
+      res.setHeader('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=600');
+      res.end(JSON.stringify({ chapters: [] }));
+      return;
 
     // Health check
     case '/api/health':
