@@ -1509,7 +1509,39 @@ function readCustomUploadedPdfMap(): Record<string, OriginalPdfBook> {
   if (typeof window === "undefined") return {};
   try {
     const raw = localStorage.getItem("wotho_custom_pdf_registry_v1");
-    return raw ? (JSON.parse(raw) as Record<string, OriginalPdfBook>) : {};
+    const map = raw ? (JSON.parse(raw) as Record<string, OriginalPdfBook>) : {};
+
+    // Also parse any custom books that have pdf_url or download_url
+    try {
+      const rawBooks = localStorage.getItem("worscoi_editorial_custom_books_v1");
+      const books = rawBooks ? JSON.parse(rawBooks) : [];
+      if (Array.isArray(books)) {
+        for (const b of books) {
+          if (b.id && (b.pdf_url || b.download_url) && !map[b.id]) {
+            const pdfUrl = b.pdf_url || b.download_url;
+            map[b.id] = {
+              id: b.id,
+              title: b.title || "Livro em PDF",
+              author: b.author || "Autor Editorial",
+              year: new Date().getFullYear(),
+              originalPagesCount: b.original_pages_count || 100,
+              fileSizeBytes: 2000000,
+              fileSizeFormatted: b.file_size_formatted || "PDF Completo",
+              pdfUrl,
+              directDownloadUrl: b.download_url || pdfUrl,
+              sourceRepository: (b.source_repository as any) || "Biblioteca Digital Luso-Brasileira",
+              editionNotes: b.edition_notes || `Edição completa em PDF (${b.file_size_formatted || "PDF"}) publicada na Wotho.`,
+              isPublicDomain: false,
+              coverUrl: b.cover_url || "/placeholder.svg",
+              category: b.category || "Literatura",
+              description: b.description || "",
+            };
+          }
+        }
+      }
+    } catch {}
+
+    return map;
   } catch {
     return {};
   }

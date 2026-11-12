@@ -610,6 +610,24 @@ const Admin = () => {
       toast.error("Informe o título e o autor da obra.");
       return;
     }
+    let pdfUrlToUse = editBookPdfUrl.trim();
+    let originalPagesCount = 200;
+    let fileSizeBytes = 2500000;
+    let fileSizeFormatted = "PDF Completo";
+    let editionNotes = "Edição digital em PDF publicada pela curadoria editorial da Wotho.";
+
+    if (uploadedPdfData) {
+      const generatedId = isCreatingNewBook
+        ? `book-editorial-${slugifyEditorial(editBookTitle)}-${Date.now().toString().slice(-4)}`
+        : selectedBookId || "";
+      const idbUri = await savePdfBytesToIndexedDB(generatedId, uploadedPdfData.arrayBuffer);
+      pdfUrlToUse = uploadedPdfData.inlineDataUrl || idbUri || editBookPdfUrl.trim();
+      originalPagesCount = uploadedPdfData.pagesCount;
+      fileSizeBytes = uploadedPdfData.fileSizeBytes;
+      fileSizeFormatted = uploadedPdfData.fileSizeFormatted;
+      editionNotes = `Edição integral em PDF (${uploadedPdfData.pagesCount} páginas · ${uploadedPdfData.fileSizeFormatted}) publicada pela curadoria editorial da Wotho.`;
+    }
+
     const saved = saveBookPublication({
       id: isCreatingNewBook ? undefined : selectedBookId || undefined,
       title: editBookTitle,
@@ -618,57 +636,45 @@ const Admin = () => {
       cover_url: editBookCover,
       description: editBookDescription,
       isNew: isCreatingNewBook,
+      pdf_url: pdfUrlToUse || undefined,
+      download_url: pdfUrlToUse || undefined,
+      original_pages_count: originalPagesCount,
+      file_size_formatted: fileSizeFormatted,
+      edition_notes: editionNotes,
+      source_repository: "Biblioteca Digital Luso-Brasileira",
     });
 
-    // If a PDF file was uploaded from device or external PDF URL was provided, register it
-    if (uploadedPdfData) {
-      const idbUri = await savePdfBytesToIndexedDB(saved.id, uploadedPdfData.arrayBuffer);
-      const pdfUrlToUse = uploadedPdfData.inlineDataUrl || idbUri || editBookPdfUrl.trim();
+    // If a PDF file was uploaded from device or external PDF URL was provided, register it locally
+    if (pdfUrlToUse) {
       saveCustomUploadedPdfEntry({
         id: saved.id,
         title: saved.title,
         author: saved.author,
         year: new Date().getFullYear(),
-        originalPagesCount: uploadedPdfData.pagesCount,
-        fileSizeBytes: uploadedPdfData.fileSizeBytes,
-        fileSizeFormatted: uploadedPdfData.fileSizeFormatted,
+        originalPagesCount,
+        fileSizeBytes,
+        fileSizeFormatted,
         pdfUrl: pdfUrlToUse,
         directDownloadUrl: pdfUrlToUse,
         sourceRepository: "Biblioteca Digital Luso-Brasileira",
-        editionNotes: `Edição integral em PDF (${uploadedPdfData.pagesCount} páginas · ${uploadedPdfData.fileSizeFormatted}) publicada pela curadoria editorial da Wotho.`,
+        editionNotes,
         isPublicDomain: false,
-        coverUrl: saved.cover_url || uploadedPdfData.coverDataUrl,
+        coverUrl: saved.cover_url || (uploadedPdfData ? uploadedPdfData.coverDataUrl : "/placeholder.svg"),
         category: saved.category,
         description: saved.description,
       });
 
       // Also save all extracted chapters so the book is readable in both PDF and Text mode across all devices
-      for (const ch of uploadedPdfData.extractedChapters) {
-        saveCustomBookChapter({
-          book_id: saved.id,
-          title: ch.title,
-          content: ch.content,
-          position: ch.position,
-        });
+      if (uploadedPdfData?.extractedChapters) {
+        for (const ch of uploadedPdfData.extractedChapters) {
+          saveCustomBookChapter({
+            book_id: saved.id,
+            title: ch.title,
+            content: ch.content,
+            position: ch.position,
+          });
+        }
       }
-    } else if (editBookPdfUrl.trim()) {
-      saveCustomUploadedPdfEntry({
-        id: saved.id,
-        title: saved.title,
-        author: saved.author,
-        year: new Date().getFullYear(),
-        originalPagesCount: 200,
-        fileSizeBytes: 2500000,
-        fileSizeFormatted: "PDF Completo",
-        pdfUrl: editBookPdfUrl.trim(),
-        directDownloadUrl: editBookPdfUrl.trim(),
-        sourceRepository: "Biblioteca Digital Luso-Brasileira",
-        editionNotes: "Edição digital em PDF publicada pela curadoria editorial da Wotho.",
-        isPublicDomain: false,
-        coverUrl: saved.cover_url || "/placeholder.svg",
-        category: saved.category,
-        description: saved.description,
-      });
     }
 
     void queryClient.invalidateQueries({ queryKey: ["books"] });

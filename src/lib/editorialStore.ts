@@ -32,7 +32,7 @@ const ANIME_OVERRIDES_KEY = "worscoi_editorial_anime_overrides_v1";
 
 let isCloudSyncing = false;
 export async function initCloudEditorialSync(): Promise<void> {
-  if (typeof window === "undefined" || isCloudSyncing || !auth.currentUser) return;
+  if (typeof window === "undefined" || isCloudSyncing) return;
   isCloudSyncing = true;
   try {
     const [cloudNews, cloudBooks, cloudAnimes] = await Promise.all([
@@ -98,10 +98,13 @@ export async function initCloudEditorialSync(): Promise<void> {
 }
 
 if (typeof window !== "undefined") {
-  onAuthStateChanged(auth, (user) => {
-    if (user) {
-      void initCloudEditorialSync();
-    }
+  // Sync immediately on app load for all visitors
+  setTimeout(() => {
+    void initCloudEditorialSync();
+  }, 200);
+
+  onAuthStateChanged(auth, () => {
+    void initCloudEditorialSync();
   });
 }
 
@@ -940,11 +943,27 @@ export function getSingleBookWithOverrides(id: string, baseBook: Book | null): B
 }
 
 export function saveBookPublication(
-  input: Partial<Book> & { id?: string; isNew?: boolean }
+  input: Partial<Book> & {
+    id?: string;
+    isNew?: boolean;
+    pdf_url?: string;
+    download_url?: string;
+    original_pages_count?: number;
+    file_size_formatted?: string;
+    edition_notes?: string;
+    source_repository?: string;
+  }
 ): Book {
   const title = (input.title || "Nova Obra Literária").trim();
   const id = (input.id || `book-editorial-${slugifyEditorial(title)}-${Date.now().toString().slice(-4)}`).trim();
-  const fullBook: Book = {
+  const fullBook: Book & {
+    pdf_url?: string;
+    download_url?: string;
+    original_pages_count?: number;
+    file_size_formatted?: string;
+    edition_notes?: string;
+    source_repository?: string;
+  } = {
     id,
     title,
     author: (input.author || "Miguel Worscoi").trim(),
@@ -956,6 +975,12 @@ export function saveBookPublication(
     published: input.published ?? true,
     featured: input.featured ?? true,
     created_at: input.created_at || new Date().toISOString(),
+    ...(input.pdf_url ? { pdf_url: input.pdf_url } : {}),
+    ...(input.download_url ? { download_url: input.download_url } : {}),
+    ...(input.original_pages_count ? { original_pages_count: input.original_pages_count } : {}),
+    ...(input.file_size_formatted ? { file_size_formatted: input.file_size_formatted } : {}),
+    ...(input.edition_notes ? { edition_notes: input.edition_notes } : {}),
+    ...(input.source_repository ? { source_repository: input.source_repository } : {}),
   };
 
   const overrides = getBookOverrides();

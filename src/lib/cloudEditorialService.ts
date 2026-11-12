@@ -82,9 +82,6 @@ export async function deleteNewsFromCloud(idOrSlug: string): Promise<boolean> {
 }
 
 export async function fetchCloudNews(): Promise<NewsItem[]> {
-  if (!auth.currentUser) {
-    return [];
-  }
   try {
     const q = query(
       collection(db, NEWS_COLLECTION),
@@ -103,11 +100,18 @@ export async function fetchCloudNews(): Promise<NewsItem[]> {
 // 2. BOOKS CLOUD PERSISTENCE
 // ============================================================================
 
-export async function publishBookToCloud(book: Book): Promise<boolean> {
+export async function publishBookToCloud(book: Book & {
+  pdf_url?: string;
+  download_url?: string;
+  original_pages_count?: number;
+  file_size_formatted?: string;
+  edition_notes?: string;
+  source_repository?: string;
+}): Promise<boolean> {
   const docId = sanitizeDocId(book.id);
   if (!docId) return false;
 
-  const payload = {
+  const payload: Record<string, any> = {
     id: book.id,
     title: (book.title || "").trim().slice(0, 300),
     author: (book.author || "Autor Editorial").trim().slice(0, 150),
@@ -120,6 +124,25 @@ export async function publishBookToCloud(book: Book): Promise<boolean> {
     featured: book.featured ?? true,
     created_at: book.created_at || new Date().toISOString(),
   };
+
+  if ((book as any).pdf_url) {
+    payload.pdf_url = String((book as any).pdf_url).trim().slice(0, 500000);
+  }
+  if ((book as any).download_url) {
+    payload.download_url = String((book as any).download_url).trim().slice(0, 500000);
+  }
+  if ((book as any).original_pages_count) {
+    payload.original_pages_count = Number((book as any).original_pages_count);
+  }
+  if ((book as any).file_size_formatted) {
+    payload.file_size_formatted = String((book as any).file_size_formatted).trim().slice(0, 50);
+  }
+  if ((book as any).edition_notes) {
+    payload.edition_notes = String((book as any).edition_notes).trim().slice(0, 1000);
+  }
+  if ((book as any).source_repository) {
+    payload.source_repository = String((book as any).source_repository).trim().slice(0, 200);
+  }
 
   try {
     const docRef = doc(db, BOOKS_COLLECTION, docId);
@@ -152,9 +175,6 @@ export async function deleteBookFromCloud(bookId: string): Promise<boolean> {
 }
 
 export async function fetchCloudBooks(): Promise<Book[]> {
-  if (!auth.currentUser) {
-    return [];
-  }
   try {
     const q = query(
       collection(db, BOOKS_COLLECTION),
@@ -200,9 +220,6 @@ export async function publishChapterToCloud(chapter: Chapter): Promise<boolean> 
 }
 
 export async function fetchCloudChapters(bookId: string): Promise<Chapter[]> {
-  if (!auth.currentUser) {
-    return [];
-  }
   try {
     const q = query(
       collection(db, CHAPTERS_COLLECTION),
@@ -250,9 +267,6 @@ export async function publishAnimeOverrideToCloud(animeId: string, patch: Record
 }
 
 export async function fetchCloudAnimeOverrides(): Promise<Record<string, Record<string, any>>> {
-  if (!auth.currentUser) {
-    return {};
-  }
   try {
     const snapshot = await getDocs(collection(db, ANIME_OVERRIDES_COLLECTION));
     const result: Record<string, Record<string, any>> = {};

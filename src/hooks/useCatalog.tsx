@@ -285,6 +285,17 @@ export const useBook = (id?: string) =>
         return directCustom;
       }
 
+      // Check Cloud Books in Firestore if not cached locally
+      if (id.startsWith("book-editorial-") || !directCustom) {
+        try {
+          const cloudList = await fetchCloudBooks();
+          const match = cloudList.find((b) => b.id === id);
+          if (match) {
+            return getSingleBookWithOverrides(id, match);
+          }
+        } catch {}
+      }
+
       // Check if it is a Scientific Article
       if (id.startsWith("sci-")) {
         try {
@@ -477,6 +488,13 @@ export const useChapters = (bookId?: string) =>
       const customChaps = getCustomBookChapters(bookId);
       if (bookId.startsWith("book-editorial-") && customChaps.length > 0) {
         return customChaps;
+      }
+
+      if (bookId.startsWith("book-editorial-")) {
+        try {
+          const cloudChaps = await fetchCloudChapters(bookId);
+          if (cloudChaps && cloudChaps.length > 0) return cloudChaps;
+        } catch {}
       }
 
       // Check Scientific Articles chapters

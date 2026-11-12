@@ -122,7 +122,8 @@ const BookDetail = () => {
   }
 
   const isModern = book.id.startsWith("mod-");
-  const isFree = book.price_cents === 0 || book.id.startsWith("guten-") || isModern;
+  const isEditorial = book.id.startsWith("book-editorial-");
+  const isFree = book.price_cents === 0 || book.id.startsWith("guten-") || isModern || isEditorial;
   const canRead = isFree || owned;
 
   return (
@@ -373,7 +374,7 @@ const BookDetail = () => {
                     </Link>
                   </Button>
 
-                  {originalPdf && (
+                  {originalPdf ? (
                     <div className="pt-2">
                       <a
                         href={getDownloadPdfUrl(originalPdf.pdfUrl, `${originalPdf.title}-${originalPdf.author}.pdf`, originalPdf.id)}
@@ -396,6 +397,21 @@ const BookDetail = () => {
                           {originalPdf.editionNotes}
                         </p>
                       </div>
+                    </div>
+                  ) : (
+                    <div className="pt-2">
+                      <a
+                        href={getDownloadPdfUrl(
+                          (book as any).pdf_url || (book as any).download_url || undefined,
+                          `${book.title}-${book.author}.pdf`,
+                          book.id
+                        )}
+                        download={`${book.title.replace(/[^\w\s-]/g, "")}-${book.author.replace(/[^\w\s-]/g, "")}.pdf`}
+                        className="w-full py-2 px-3 border border-border/80 hover:border-border rounded-md text-xs font-light text-muted-foreground hover:text-foreground transition-colors flex items-center justify-center gap-2 bg-secondary/30"
+                      >
+                        <Download className="h-3.5 w-3.5 text-rose-500" />
+                        <span>Baixar Edição em PDF Completa</span>
+                      </a>
                     </div>
                   )}
                 </div>

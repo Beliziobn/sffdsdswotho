@@ -638,15 +638,32 @@ const Reader = () => {
               </p>
             </div>
           ) : chapters.length === 0 ? (
-            <div className="py-20 text-center">
-              <BookOpen className="mx-auto h-8 w-8 text-muted-foreground" />
-              <h1 className="mt-4 text-2xl font-display">Texto em processamento</h1>
-              <p className="mx-auto mt-3 max-w-sm text-sm opacity-70">
-                Não foi possível carregar os capítulos desta obra no momento.
+            <div className="py-16 text-center max-w-md mx-auto">
+              <BookOpen className="mx-auto h-8 w-8 text-emerald-500 mb-4 animate-bounce" />
+              <h1 className="text-2xl font-serif">{book?.title || "Obra Literária"}</h1>
+              <p className="mt-2 text-xs text-muted-foreground font-light">
+                Por {book?.author || "Autor Editorial"} · Categoria {book?.category || "Literatura"}
               </p>
-              <Button asChild className="mt-6 rounded-full">
-                <Link to={`/livros/${id}`}>Voltar ao detalhe</Link>
-              </Button>
+              <div className="mt-6 p-4 rounded-xl border border-border/70 bg-card text-left text-sm leading-relaxed whitespace-pre-wrap">
+                {book?.description || "Edição digital completa disponível para leitura."}
+              </div>
+              <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+                <a
+                  href={getDownloadPdfUrl(
+                    (book as any)?.pdf_url || (book as any)?.download_url || undefined,
+                    `${book?.title || "livro"}-${book?.author || "autor"}.pdf`,
+                    book?.id
+                  )}
+                  download={`${(book?.title || "livro").replace(/[^\w\s-]/g, "")}.pdf`}
+                  className="px-4 py-2 rounded-full bg-rose-600 hover:bg-rose-500 text-white text-xs font-medium inline-flex items-center gap-1.5 shadow-md"
+                >
+                  <Download className="h-3.5 w-3.5" />
+                  Baixar Edição em PDF
+                </a>
+                <Button asChild variant="outline" className="rounded-full text-xs">
+                  <Link to={`/livros/${id}`}>Voltar ao detalhe</Link>
+                </Button>
+              </div>
             </div>
           ) : (
             <article className={fontFamily === "serif" ? "font-serif" : "font-sans"}>
