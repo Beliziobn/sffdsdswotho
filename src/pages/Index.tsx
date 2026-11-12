@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { ArrowRight, BookOpen, Film, Layers, Newspaper, Tv } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import Navigation from "@/components/Navigation";
 import Hero from "@/components/Hero";
 import FeaturedBooks from "@/components/FeaturedBooks";
@@ -17,44 +17,6 @@ import { ANIMES_DATA } from "@/lib/animes";
 import AnimeCard from "@/components/AnimeCard";
 import { CINEMA_CATALOG } from "@/lib/cinema";
 import CinemaCard from "@/components/cinema/CinemaCard";
-
-const EDITORIAL_PILLARS = [
-  {
-    icon: BookOpen,
-    title: "Livros Digitais",
-    desc: "Bestsellers modernos, filosofia, literatura clássica e apostilas completas para o ENEM direto no navegador.",
-    to: "/livros",
-    cta: "Abrir biblioteca",
-  },
-  {
-    icon: Newspaper,
-    title: "Notícias Globais",
-    desc: "Cobertura contínua em tecnologia, ciência, economia, esportes e cultura com reportagens completas.",
-    to: "/noticias",
-    cta: "Ler notícias",
-  },
-  {
-    icon: Film,
-    title: "Cinema & Séries",
-    desc: "Filmes consagrados e séries em streaming com player em alta definição, dublagem e legendas em português.",
-    to: "/cinema",
-    cta: "Assistir streaming",
-  },
-  {
-    icon: Tv,
-    title: "Animes & Mangás",
-    desc: "Temporadas selecionadas com trailers, fichas técnicas e capítulos de mangá integrados na mesma página.",
-    to: "/animes",
-    cta: "Explorar animes",
-  },
-  {
-    icon: Layers,
-    title: "Webtoons Verticais",
-    desc: "Histórias ilustradas em scroll vertical contínuo otimizado para leitura fluida em qualquer tela.",
-    to: "/webtoons",
-    cta: "Ler webtoons",
-  },
-];
 
 const FALLBACK_NEWS: NewsItem[] = [
   {
@@ -121,58 +83,6 @@ const Index = () => {
     <div className="min-h-screen overflow-x-hidden">
       <Navigation />
       <Hero />
-
-      {/* Pilares Editoriais Imediatos da Wotho (indexáveis sem depender de APIs) */}
-      <section aria-label="Secções principais da Wotho" className="py-14 bg-card border-b border-border">
-        <div className="container mx-auto px-6 lg:px-12">
-          <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-8">
-            <div>
-              <span className="text-[11px] uppercase tracking-wider text-primary font-medium block mb-1">
-                Acervo Integrado Wotho
-              </span>
-              <h2 className="text-xl md:text-2xl font-light tracking-tight text-foreground">
-                Explore cada dimensão da plataforma
-              </h2>
-            </div>
-            <Link
-              to="/sobre"
-              className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1.5 transition-colors"
-            >
-              Conheça o manifesto Wotho
-              <ArrowRight className="h-3.5 w-3.5" />
-            </Link>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-            {EDITORIAL_PILLARS.map((pillar) => {
-              const Icon = pillar.icon;
-              return (
-                <Link
-                  key={pillar.to}
-                  to={pillar.to}
-                  className="group rounded-xl border border-border bg-background/70 p-5 hover:border-primary/50 hover:bg-background transition-all flex flex-col justify-between"
-                >
-                  <div>
-                    <div className="w-9 h-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center mb-3">
-                      <Icon className="h-4 w-4" />
-                    </div>
-                    <h3 className="text-sm font-medium text-foreground group-hover:text-primary transition-colors">
-                      {pillar.title}
-                    </h3>
-                    <p className="mt-1.5 text-xs text-muted-foreground font-light leading-relaxed">
-                      {pillar.desc}
-                    </p>
-                  </div>
-                  <span className="mt-4 inline-flex items-center gap-1 text-[11px] uppercase tracking-wider text-primary font-medium">
-                    {pillar.cta}
-                    <ArrowRight className="h-3 w-3 transition-transform group-hover:translate-x-0.5" />
-                  </span>
-                </Link>
-              );
-            })}
-          </div>
-        </div>
-      </section>
 
       {user && continueItems.length > 0 && (
         <ContentSection

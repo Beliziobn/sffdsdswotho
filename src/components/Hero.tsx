@@ -1,7 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Link } from "react-router-dom";
-import { ArrowRight, BookOpen } from "lucide-react";
 import heroLibrary from "@/assets/hero-library.jpg";
 import heroReading from "@/assets/hero-reading.jpg";
 import heroNews from "@/assets/hero-news.jpg";
@@ -64,58 +62,6 @@ const Hero = () => {
           <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/40 to-black/25" />
         </motion.div>
       </AnimatePresence>
-
-      <div className="absolute bottom-20 left-6 right-6 md:left-12 lg:left-16 md:right-12 lg:right-16 z-10 text-white max-w-3xl">
-        <div className="mb-4 flex items-center gap-2.5 text-white/90">
-          <BookOpen className="w-5 h-5 text-white stroke-[1.5]" />
-          <span className="text-[11px] uppercase tracking-[0.2em] font-medium">
-            Plataforma Cultural Wotho
-          </span>
-        </div>
-
-        <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-light tracking-tight text-left leading-[1.1]">
-          Wotho — Livros, notícias globais, streaming e webtoons
-        </h1>
-
-        <p className="mt-4 text-sm sm:text-base text-white/85 font-light max-w-2xl leading-relaxed">
-          Leia livros digitais completos no navegador, acompanhe a cobertura jornalística global em tempo real, assista a filmes, séries e animes em streaming e explore webtoons em leitura vertical.
-        </p>
-
-        <div className="mt-6 flex flex-wrap items-center gap-3">
-          <Link
-            to="/livros"
-            className="inline-flex items-center gap-2.5 bg-white text-zinc-950 px-5 py-2.5 rounded-full text-xs sm:text-sm font-medium tracking-wide hover:bg-white/90 transition-colors"
-          >
-            Explorar Livros
-            <ArrowRight className="w-4 h-4" />
-          </Link>
-          <Link
-            to="/noticias"
-            className="inline-flex items-center gap-2 bg-white/15 backdrop-blur-sm text-white border border-white/25 px-4 py-2.5 rounded-full text-xs sm:text-sm font-light hover:bg-white/25 transition-colors"
-          >
-            Notícias Globais
-          </Link>
-          <Link
-            to="/cinema"
-            className="inline-flex items-center gap-2 bg-white/15 backdrop-blur-sm text-white border border-white/25 px-4 py-2.5 rounded-full text-xs sm:text-sm font-light hover:bg-white/25 transition-colors"
-          >
-            Streaming
-          </Link>
-          <Link
-            to="/webtoons"
-            className="inline-flex items-center gap-2 bg-white/15 backdrop-blur-sm text-white border border-white/25 px-4 py-2.5 rounded-full text-xs sm:text-sm font-light hover:bg-white/25 transition-colors"
-          >
-            Webtoons
-          </Link>
-          <button
-            type="button"
-            onClick={() => document.getElementById("booking")?.scrollIntoView({ behavior: "smooth" })}
-            className="inline-flex items-center gap-2 text-white/90 hover:text-white px-3 py-2.5 text-xs sm:text-sm font-light underline underline-offset-4 transition-colors"
-          >
-            Reservar para ler
-          </button>
-        </div>
-      </div>
 
       <div className="absolute bottom-8 left-6 md:left-12 lg:left-16 right-6 md:right-12 lg:right-16 z-10 flex gap-2">
         {slides.map((_, index) => (
