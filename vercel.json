@@ -2,11 +2,19 @@
   "trailingSlash": false,
   "rewrites": [
     {
+      "source": "/sitemap.xml",
+      "destination": "/sitemap.xml"
+    },
+    {
+      "source": "/robots.txt",
+      "destination": "/robots.txt"
+    },
+    {
       "source": "/api/(.*)",
       "destination": "/api/[...route]?route=$1"
     },
     {
-      "source": "/((?!api/|assets/|chapters/|pdf/|.*\\..*).*)",
+      "source": "/((?!api/|assets/|chapters/|pdf/|sitemap\\.xml|robots\\.txt|.*\\..*).*)",
       "destination": "/index.html"
     }
   ],

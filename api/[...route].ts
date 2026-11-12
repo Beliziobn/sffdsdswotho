@@ -116,6 +116,22 @@ export default async function handler(req: any, res: any) {
       res.end(JSON.stringify({ chapters: [] }));
       return;
 
+    // Sitemaps & Feeds
+    case '/api/sitemap.xml':
+    case '/sitemap.xml': {
+      res.statusCode = 200;
+      res.setHeader('Content-Type', 'application/xml; charset=utf-8');
+      res.setHeader('Cache-Control', 'public, max-age=3600, s-maxage=3600');
+      try {
+        const { buildSitemapXml } = await import('../scripts/generate_sitemap.js');
+        const { xml } = buildSitemapXml('https://wotho.vercel.app');
+        res.end(xml);
+      } catch {
+        res.end('<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n  <url><loc>https://wotho.vercel.app/</loc></url>\n</urlset>');
+      }
+      return;
+    }
+
     // Health check
     case '/api/health':
       res.statusCode = 200;
