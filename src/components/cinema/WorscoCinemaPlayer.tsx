@@ -130,13 +130,22 @@ export const WorscoCinemaPlayer: React.FC<WorscoCinemaPlayerProps> = ({
       audioMode,
     });
 
-    fetch(`/api/cinema/resolve?${params.toString()}`)
-      .then((r) => r.json())
-      .then((data) => {
+    const fetchStreams = async (attempt = 1) => {
+      try {
+        const r = await fetch(`/api/cinema/resolve?${params.toString()}`);
+        if (!r.ok && attempt < 2) {
+          await new Promise((res) => setTimeout(res, 700));
+          return fetchStreams(attempt + 1);
+        }
+        const data = await r.json();
         if (cancelled) return;
         const resolvedStreams: ResolvedStream[] = Array.isArray(data.streams)
           ? data.streams
           : [];
+        if (resolvedStreams.length === 0 && attempt < 2) {
+          await new Promise((res) => setTimeout(res, 700));
+          return fetchStreams(attempt + 1);
+        }
         setAllStreams(resolvedStreams);
         const resolvedHasPtDub = Boolean(data.hasPtDub);
         const resolvedHasPtSub = Boolean(data.hasPtSub);
@@ -165,14 +174,20 @@ export const WorscoCinemaPlayer: React.FC<WorscoCinemaPlayerProps> = ({
           setUseSandboxFallback(true);
         }
         setIsResolving(false);
-      })
-      .catch(() => {
+      } catch {
         if (cancelled) return;
+        if (attempt < 2) {
+          await new Promise((res) => setTimeout(res, 700));
+          return fetchStreams(attempt + 1);
+        }
         setAllStreams([]);
         setHasPtDub(false);
         setUseSandboxFallback(true);
         setIsResolving(false);
-      });
+      }
+    };
+
+    void fetchStreams(1);
 
     return () => {
       cancelled = true;
@@ -249,9 +264,24 @@ export const WorscoCinemaPlayer: React.FC<WorscoCinemaPlayerProps> = ({
     };
 
     if (currentStream.type === "mp4") {
-      // With meta referrer="no-referrer", direct CDN URL (currentStream.url) streams 206 Partial Content at full speed on both Vercel & preview; proxyUrl is used as fallback
+      // Always use backend proxyUrl first because hakunaymatata CDN tokens (?sign=...) are bound to the server IP
       video.setAttribute("referrerpolicy", "no-referrer");
-      const mp4Source = useProxyForMp4 ? currentStream.proxyUrl : currentStream.url;
+      const mediaType = item.type === "serie" ? "tv" : "movie";
+      const selfHealParams = new URLSearchParams({
+        tmdbId: String(item.tmdbId),
+        imdbId: item.imdbId || "",
+        type: mediaType,
+        season: String(seasonNumber),
+        episode: String(episodeNumber),
+        title: item.originalTitle || item.title,
+        year: String(item.year),
+        audioMode: currentStream.audioMode === "dublado" ? "dublado" : audioMode,
+        quality: currentStream.quality || "1080p",
+      });
+      const enrichedProxyUrl = currentStream.proxyUrl.includes("tmdbId=")
+        ? currentStream.proxyUrl
+        : `${currentStream.proxyUrl}&${selfHealParams.toString()}`;
+      const mp4Source = useProxyForMp4 ? currentStream.url : enrichedProxyUrl;
       video.src = mp4Source;
       video.load();
 
@@ -521,17 +551,75 @@ export const WorscoCinemaPlayer: React.FC<WorscoCinemaPlayerProps> = ({
         className="relative aspect-video w-full bg-black select-none overflow-hidden group"
       >
         {useSandboxFallback ? (
-          /* Strictly Sandboxed Multi-Audio Player (Zero Popups / Zero Redirects Guaranteed by Browser Sandbox) */
-          <iframe
-            key={`sandbox-${item.id}-${seasonNumber}-${episodeNumber}-${audioMode}`}
-            src={sandboxBackupUrl}
-            title={`${displayTitle} — Reprodução Protegida`}
-            className="w-full h-full border-0"
-            sandbox="allow-scripts allow-same-origin allow-forms allow-presentation"
-            referrerPolicy="no-referrer"
-            allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture; fullscreen"
-            allowFullScreen
-          />
+          <div className="relative w-full h-full flex flex-col items-center justify-center bg-zinc-950 text-center p-6">
+            {item.backdropUrl && (
+              <img
+                src={item.backdropUrl}
+                alt={displayTitle}
+                className="absolute inset-0 w-full h-full object-cover opacity-25 blur-xs pointer-events-none"
+              />
+            )}
+            <div className="relative z-10 max-w-md flex flex-col items-center">
+              <div className="w-14 h-14 rounded-full bg-amber-500/20 border border-amber-500/40 flex items-center justify-center mb-4">
+                <RotateCcw className="w-6 h-6 text-amber-400" />
+              </div>
+              <h3 className="text-base sm:text-lg font-bold text-white mb-1.5">
+                Sincronizando Stream 1080p FHD — {displayTitle}
+              </h3>
+              <p className="text-xs sm:text-sm text-zinc-300 mb-5">
+                O servidor principal está preparando a faixa de áudio{" "}
+                {audioMode === "dublado"
+                  ? "Dublado em Português (PT-BR)"
+                  : audioMode === "legendado"
+                  ? "Legendado em Português (PT-BR)"
+                  : "Original (EN)"}
+                . Clique abaixo para iniciar imediatamente.
+              </p>
+              <button
+                type="button"
+                onClick={() => {
+                  setUseSandboxFallback(false);
+                  setCandidateIdx(0);
+                  setUseProxyForMp4(false);
+                  if (allStreams.length === 0) {
+                    setIsResolving(true);
+                    const mediaType = item.type === "serie" ? "tv" : "movie";
+                    const retryParams = new URLSearchParams({
+                      tmdbId: String(item.tmdbId),
+                      imdbId: item.imdbId || "",
+                      type: mediaType,
+                      season: String(seasonNumber),
+                      episode: String(episodeNumber),
+                      title: item.originalTitle || item.title,
+                      year: String(item.year),
+                      audioMode,
+                      t: String(Date.now()),
+                    });
+                    fetch(`/api/cinema/resolve?${retryParams.toString()}`)
+                      .then((r) => r.json())
+                      .then((data) => {
+                        const resolved: ResolvedStream[] = Array.isArray(data.streams)
+                          ? data.streams
+                          : [];
+                        setAllStreams(resolved);
+                        setHasPtDub(Boolean(data.hasPtDub));
+                        setHasPtSub(Boolean(data.hasPtSub));
+                        if (resolved.length === 0) setUseSandboxFallback(true);
+                        setIsResolving(false);
+                      })
+                      .catch(() => {
+                        setUseSandboxFallback(true);
+                        setIsResolving(false);
+                      });
+                  }
+                }}
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-semibold text-xs sm:text-sm shadow-lg shadow-amber-500/25 transition cursor-pointer"
+              >
+                <Play className="w-4 h-4 fill-black" />
+                <span>Reproduzir Agora em 1080p FHD</span>
+              </button>
+            </div>
+          </div>
         ) : (
           /* Primary Native HTML5 1080p MP4 / HLS Video Player (Zero Iframes, Zero Popups, Real Original/Dubbed Audio) */
           <>

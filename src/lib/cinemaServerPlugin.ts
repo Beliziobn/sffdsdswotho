@@ -3,7 +3,8 @@ import crypto from 'crypto';
 import zlib from 'zlib';
 import { Readable } from 'stream';
 
-const VIDSTUCK_AES_PASSPHRASE = '7f4c9e2a81d63b05c4f7a9e8126d3b50e1a8c7f23d9465ab0c6e9f1d4a7b832c';
+let activeAesPassphrase = '7f4c9e2a81d63b05c4f7a9e8126d3b50e1a8c7f23d9465ab0c6e9f1d4a7b832c';
+let activePayloadKey = 'meow';
 
 // Vidstuck backend obfuscated parameter keys
 const K_TMDB_ID = 'a7f39c821d604e5b9157b';
@@ -51,6 +52,7 @@ interface OrionLinkItem {
 }
 
 const resolveCache = new Map<string, { expiresAt: number; payload: any }>();
+const tmdbDetailsCache = new Map<string, { expiresAt: number; data: any }>();
 const subtitleVttCache = new Map<string, { expiresAt: number; vtt: string; cues: SubtitleCue[] }>();
 
 function sleep(ms: number): Promise<void> {
@@ -76,7 +78,7 @@ function evpBytesToKey(password: string, salt: Buffer, keyLen = 32, ivLen = 16):
 
 function encryptVidstuckPayload(obj: Record<string, any>): string {
   const salt = crypto.randomBytes(8);
-  const { key, iv } = evpBytesToKey(VIDSTUCK_AES_PASSPHRASE, salt, 32, 16);
+  const { key, iv } = evpBytesToKey(activeAesPassphrase, salt, 32, 16);
   const cipher = crypto.createCipheriv('aes-256-cbc', key, iv);
   const ct = Buffer.concat([cipher.update(JSON.stringify(obj), 'utf8'), cipher.final()]);
   return Buffer.concat([Buffer.from('Salted__', 'utf8'), salt, ct]).toString('base64');
@@ -92,7 +94,7 @@ function decryptVidstuckLink(enc: string): string | null {
     if (raw.length < 17) return null;
     const salt = raw.subarray(8, 16);
     const ct = raw.subarray(16);
-    const { key, iv } = evpBytesToKey(VIDSTUCK_AES_PASSPHRASE, salt);
+    const { key, iv } = evpBytesToKey(activeAesPassphrase, salt);
     const decipher = crypto.createDecipheriv('aes-256-cbc', key, iv);
     const decrypted = Buffer.concat([decipher.update(ct), decipher.final()]).toString('utf8').trim();
     if (!decrypted) return null;
@@ -118,6 +120,49 @@ async function fetchWithTimeout(url: string, options: RequestInit = {}, timeoutM
   }
 }
 
+let lastDiscoveryAt = 0;
+async function discoverVidstuckPayloadKey(): Promise<void> {
+  if (Date.now() - lastDiscoveryAt < 30000) return;
+  lastDiscoveryAt = Date.now();
+  try {
+    const htmlRes = await fetchWithTimeout(
+      'https://vidstuck.cc/embed/movie/693134',
+      {
+        headers: {
+          'User-Agent':
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+        },
+      },
+      6000
+    );
+    if (!htmlRes.ok) return;
+    const html = await htmlRes.text();
+    const scripts = [...html.matchAll(/src="([^"]+\.js[^"]*)"/g)].map((m) => m[1]);
+    for (const s of scripts) {
+      const u = s.startsWith('http') ? s : `https://vidstuck.cc${s.startsWith('/') ? s : `/${s}`}`;
+      const jsRes = await fetchWithTimeout(
+        u,
+        { headers: { 'User-Agent': 'Mozilla/5.0' } },
+        6000
+      );
+      if (!jsRes.ok) continue;
+      const js = await jsRes.text();
+      if (!js.includes('/backend/andromeda')) continue;
+      const keyMatch = js.match(/\/backend\/andromeda",\{[^}]*,([a-zA-Z0-9_$]+):[a-zA-Z0-9_$]+\(\{id:/);
+      if (keyMatch?.[1]) {
+        activePayloadKey = keyMatch[1];
+      }
+      const aesMatch = js.match(/AES\.encrypt\(JSON\.stringify\([^)]+\),"([a-f0-9]{64})"\)/i);
+      if (aesMatch?.[1]) {
+        activeAesPassphrase = aesMatch[1];
+      }
+      break;
+    }
+  } catch {
+    // Keep defaults
+  }
+}
+
 async function fetchAndromedaToken(
   commonHeaders: Record<string, string>,
   tmdbId: string,
@@ -138,11 +183,14 @@ async function fetchAndromedaToken(
 
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
+      const encrypted = encryptVidstuckPayload(abcdPayload);
       const tokenBody: Record<string, any> = {
         [K_TMDB_ID]: String(tmdbId),
         [K_MEDIA_TYPE]: mediaType,
         [K_SERVER]: serverKey,
-        abcd: encryptVidstuckPayload(abcdPayload),
+        [activePayloadKey]: encrypted,
+        meow: encrypted,
+        abcd: encrypted,
       };
       if (mediaType === 'tv') {
         tokenBody[K_SEASON] = Number(season || '1');
@@ -162,6 +210,10 @@ async function fetchAndromedaToken(
         9500
       );
 
+      if (tokRes.status === 400 && attempt === 0) {
+        await discoverVidstuckPayloadKey();
+        continue;
+      }
       if (tokRes.status === 429 && attempt === 0) {
         await sleep(650);
         continue;
@@ -193,8 +245,8 @@ async function queryOrionVariant(params: {
   imdbId: string;
   season?: string;
   episode?: string;
-  dubCode: string;
-  dubType: '0' | '1';
+  dubCode?: string;
+  dubType?: '0' | '1' | '';
 }): Promise<{ links: OrionLinkItem[]; dubs: OrionDubOption[] } | null> {
   const tok = await fetchAndromedaToken(
     params.commonHeaders,
@@ -215,9 +267,12 @@ async function queryOrionVariant(params: {
     [K_TITLE]: params.title,
     [K_YEAR]: params.year,
     [K_DATE]: params.date,
-    dubCode: params.dubCode,
-    dubType: params.dubType,
   });
+
+  if (params.dubCode && params.dubType) {
+    q.set('dubCode', params.dubCode);
+    q.set('dubType', params.dubType);
+  }
 
   if (params.mediaType === 'tv') {
     q.set(K_SEASON, String(params.season || '1'));
@@ -258,7 +313,16 @@ function appendOrionLinksAsStreams(
   links: OrionLinkItem[],
   audioMode: 'dublado' | 'legendado' | 'original',
   langCode: string,
-  labelPrefix: string
+  labelPrefix: string,
+  metaParams?: {
+    tmdbId: string;
+    imdbId: string;
+    type: 'movie' | 'tv';
+    title: string;
+    year: string;
+    season?: string;
+    episode?: string;
+  }
 ) {
   const sorted = [...links].sort((a, b) => {
     const resA = parseInt(String(a.resolution || '0'), 10) || 0;
@@ -274,6 +338,10 @@ function appendOrionLinksAsStreams(
     const qualityLabel = resNum >= 1080 ? '1080p FHD' : resNum >= 720 ? '720p HD' : `${resNum}p`;
     const isHls = item.type === 'hls' || decryptedUrl.includes('.m3u8');
 
+    const extraQuery = metaParams
+      ? `&tmdbId=${encodeURIComponent(metaParams.tmdbId)}&imdbId=${encodeURIComponent(metaParams.imdbId || '')}&type=${metaParams.type}&season=${encodeURIComponent(metaParams.season || '1')}&episode=${encodeURIComponent(metaParams.episode || '1')}&title=${encodeURIComponent(metaParams.title)}&year=${encodeURIComponent(metaParams.year)}&audioMode=${audioMode}&quality=${encodeURIComponent(qualityLabel)}`
+      : '';
+
     streams.push({
       id: `orion-${audioMode}-${langCode}-${resNum}-${idx}`,
       server: 'orion',
@@ -285,12 +353,12 @@ function appendOrionLinksAsStreams(
       url: decryptedUrl,
       proxyUrl: isHls
         ? `/api/cinema/hls-proxy?url=${encodeURIComponent(decryptedUrl)}`
-        : `/api/cinema/mp4-proxy?url=${encodeURIComponent(decryptedUrl)}`,
+        : `/api/cinema/mp4-proxy?url=${encodeURIComponent(decryptedUrl)}${extraQuery}`,
     });
   });
 }
 
-async function resolveVidstuckStreams(params: {
+export async function resolveVidstuckStreams(params: {
   tmdbId: string;
   imdbId: string;
   type: 'movie' | 'tv';
@@ -318,40 +386,51 @@ async function resolveVidstuckStreams(params: {
     Accept: 'application/json',
   };
 
-  // Step 1: Fetch canonical TMDb details from vidstuck backend so title/release_date/imdb_id match
+  // Step 1: Fetch canonical TMDb details from vidstuck backend (cached in memory)
   let canonicalTitle = params.title;
   let canonicalDate = params.year ? `${params.year}-01-01` : '2024-01-01';
   let canonicalLatestDate = '';
   let canonicalYear = params.year || '2024';
   let canonicalImdbId = params.imdbId;
 
-  try {
-    const detailsRes = await fetchWithTimeout(
-      `https://vidstuck.cc/backend/tmdb/details/${params.type}/${params.tmdbId}?language=en-US`,
-      { headers: commonHeaders },
-      9000
-    );
-    if (detailsRes.ok) {
-      const d = (await detailsRes.json()) as {
-        title?: string;
-        name?: string;
-        release_date?: string;
-        first_air_date?: string;
-        last_air_date?: string;
-        imdb_id?: string;
-      };
-      if (d.title || d.name) canonicalTitle = (d.title || d.name)!;
-      const rel = d.release_date || d.first_air_date;
-      if (rel) {
-        canonicalDate = String(rel);
-        const y = new Date(rel).getFullYear();
-        if (!Number.isNaN(y)) canonicalYear = String(y);
+  const detailsCacheKey = `${params.type}:${params.tmdbId}`;
+  let detailsData = tmdbDetailsCache.get(detailsCacheKey)?.data;
+
+  if (!detailsData) {
+    try {
+      const detailsRes = await fetchWithTimeout(
+        `https://vidstuck.cc/backend/tmdb/details/${params.type}/${params.tmdbId}?language=en-US`,
+        { headers: commonHeaders },
+        9000
+      );
+      if (detailsRes.ok) {
+        detailsData = await detailsRes.json();
+        tmdbDetailsCache.set(detailsCacheKey, {
+          expiresAt: Date.now() + 1000 * 60 * 60 * 12,
+          data: detailsData,
+        });
       }
-      if (d.last_air_date) canonicalLatestDate = String(d.last_air_date);
-      if (d.imdb_id) canonicalImdbId = d.imdb_id;
+    } catch {
+      // Fallback to passed params
     }
-  } catch {
-    // Fallback to passed params
+  }
+
+  if (detailsData) {
+    if (detailsData.title || detailsData.name) {
+      canonicalTitle = (detailsData.title || detailsData.name)!;
+    }
+    const rel = detailsData.release_date || detailsData.first_air_date;
+    if (rel) {
+      canonicalDate = String(rel);
+      const y = new Date(rel).getFullYear();
+      if (!Number.isNaN(y)) canonicalYear = String(y);
+    }
+    if (detailsData.last_air_date) {
+      canonicalLatestDate = String(detailsData.last_air_date);
+    }
+    if (detailsData.imdb_id) {
+      canonicalImdbId = detailsData.imdb_id;
+    }
   }
 
   // Strip special unicode brackets (e.g. 【OSHI NO KO】) that break Orion title matching
@@ -365,25 +444,62 @@ async function resolveVidstuckStreams(params: {
     if (cleaned) canonicalTitle = cleaned;
   }
 
+  // If latestDate is in 2025/2026 (future seasons on TMDb), prefer canonicalDate if Orion fails on 2026
+  const safeLatestDate =
+    canonicalLatestDate && /^202[5-9]/.test(canonicalLatestDate)
+      ? canonicalDate
+      : canonicalLatestDate || canonicalDate;
+
+  const metaParams = {
+    tmdbId: params.tmdbId,
+    imdbId: canonicalImdbId,
+    type: params.type,
+    title: canonicalTitle,
+    year: canonicalYear,
+    season: params.season,
+    episode: params.episode,
+  };
+
   const streams: ResolvedStream[] = [];
   let hasPtDub = false;
   let hasPtSub = false;
 
-  // Step 2: Query Orion sequentially (starting with ptbr:0 Dublado) to avoid 429 Too Many Requests
-  const initialOrion = await queryOrionVariant({
+  // Step 2: Query Orion sequentially (starting with ptbr:0 Dublado)
+  let initialOrion = await queryOrionVariant({
     commonHeaders,
     tmdbId: params.tmdbId,
     mediaType: params.type,
     title: canonicalTitle,
     year: canonicalYear,
     date: canonicalDate,
-    latestDate: canonicalLatestDate,
+    latestDate: canonicalLatestDate || canonicalDate,
     imdbId: canonicalImdbId,
     season: params.season,
     episode: params.episode,
     dubCode: 'ptbr',
     dubType: '0',
   });
+
+  // If TV show failed with canonicalLatestDate (e.g. 2026 last_air_date) or didn't match ptbr:0 directly, retry without dubCode + safeLatestDate
+  let queriedWithPtbr = true;
+  if (!initialOrion && params.type === 'tv') {
+    await sleep(200);
+    queriedWithPtbr = false;
+    initialOrion = await queryOrionVariant({
+      commonHeaders,
+      tmdbId: params.tmdbId,
+      mediaType: params.type,
+      title: canonicalTitle,
+      year: canonicalYear,
+      date: canonicalDate,
+      latestDate: safeLatestDate,
+      imdbId: canonicalImdbId,
+      season: params.season,
+      episode: params.episode,
+      dubCode: '',
+      dubType: '',
+    });
+  }
 
   if (initialOrion) {
     const dubs = initialOrion.dubs;
@@ -398,28 +514,30 @@ async function resolveVidstuckStreams(params: {
       hasPtSub = true;
     }
 
-    if (hasPtbrDub) {
+    if (queriedWithPtbr && hasPtbrDub) {
       hasPtDub = true;
       appendOrionLinksAsStreams(
         streams,
         initialOrion.links,
         'dublado',
         'ptbr',
-        'Português Dublado (PT-BR)'
+        'Português Dublado (PT-BR)',
+        metaParams
       );
     } else {
-      // When ptbr:0 is not in dubs, Orion returns the default/original audio links in initialOrion.links
+      // When ptbr:0 was not the active response, initialOrion.links are Original audio
       appendOrionLinksAsStreams(
         streams,
         initialOrion.links,
         'original',
         origOption?.lanCode || 'en',
-        'Áudio Original'
+        'Áudio Original',
+        metaParams
       );
     }
 
     // If pt:0 exists (and not ptbr:0), fetch Portuguese Dub sequentially
-    if (!hasPtbrDub && hasPtStdDub) {
+    if (!hasPtDub && hasPtStdDub) {
       await sleep(250);
       const ptDubRes = await queryOrionVariant({
         commonHeaders,
@@ -428,7 +546,7 @@ async function resolveVidstuckStreams(params: {
         title: canonicalTitle,
         year: canonicalYear,
         date: canonicalDate,
-        latestDate: canonicalLatestDate,
+        latestDate: safeLatestDate,
         imdbId: canonicalImdbId,
         season: params.season,
         episode: params.episode,
@@ -442,7 +560,8 @@ async function resolveVidstuckStreams(params: {
           ptDubRes.links,
           'dublado',
           'pt',
-          'Português Dublado'
+          'Português Dublado',
+          metaParams
         );
       }
     }
@@ -457,7 +576,7 @@ async function resolveVidstuckStreams(params: {
         title: canonicalTitle,
         year: canonicalYear,
         date: canonicalDate,
-        latestDate: canonicalLatestDate,
+        latestDate: safeLatestDate,
         imdbId: canonicalImdbId,
         season: params.season,
         episode: params.episode,
@@ -471,13 +590,14 @@ async function resolveVidstuckStreams(params: {
           ptSubRes.links,
           'legendado',
           ptSubOption.lanCode,
-          'Português Legendado (PT-BR)'
+          'Português Legendado (PT-BR)',
+          metaParams
         );
       }
     }
 
     // Fetch Original Audio MP4 if user requested original and initialOrion was ptbr:0
-    if (hasPtbrDub && origOption && origOption.lanCode !== 'ptbr' && params.preferredAudioMode === 'original') {
+    if (hasPtDub && origOption && origOption.lanCode !== 'ptbr' && params.preferredAudioMode === 'original') {
       await sleep(250);
       const origRes = await queryOrionVariant({
         commonHeaders,
@@ -486,7 +606,7 @@ async function resolveVidstuckStreams(params: {
         title: canonicalTitle,
         year: canonicalYear,
         date: canonicalDate,
-        latestDate: canonicalLatestDate,
+        latestDate: safeLatestDate,
         imdbId: canonicalImdbId,
         season: params.season,
         episode: params.episode,
@@ -499,7 +619,8 @@ async function resolveVidstuckStreams(params: {
           origRes.links,
           'original',
           origOption.lanCode,
-          'Áudio Original'
+          'Áudio Original',
+          metaParams
         );
       }
     }
@@ -540,8 +661,8 @@ async function resolveVidstuckStreams(params: {
         if (params.type === 'tv') {
           q.set(K_SEASON, String(params.season || '1'));
           q.set(K_EPISODE, String(params.episode || '1'));
-          if (canonicalLatestDate) {
-            q.set(K_LATEST_DATE, canonicalLatestDate);
+          if (safeLatestDate) {
+            q.set(K_LATEST_DATE, safeLatestDate);
           }
         }
         if (canonicalImdbId) {
@@ -807,6 +928,7 @@ export async function handleCinemaResolveRequest(req: any, res: any) {
     const rawMode = (urlObj.searchParams.get('audioMode') || 'dublado').trim();
     const preferredAudioMode =
       rawMode === 'legendado' || rawMode === 'original' ? rawMode : 'dublado';
+    const forceBust = Boolean(urlObj.searchParams.get('t'));
 
     if (!tmdbId) {
       res.statusCode = 400;
@@ -816,8 +938,8 @@ export async function handleCinemaResolveRequest(req: any, res: any) {
     }
 
     const cacheKey = `${type}:${tmdbId}:${imdbId}:${season}:${episode}:${preferredAudioMode}`;
-    const cached = resolveCache.get(cacheKey);
-    if (cached && cached.expiresAt > Date.now()) {
+    const cached = !forceBust ? resolveCache.get(cacheKey) : undefined;
+    if (cached && cached.expiresAt > Date.now() && Array.isArray(cached.payload?.streams) && cached.payload.streams.length > 0) {
       res.statusCode = 200;
       res.setHeader('Content-Type', 'application/json');
       res.end(JSON.stringify(cached.payload));
@@ -846,7 +968,6 @@ export async function handleCinemaResolveRequest(req: any, res: any) {
       ptTrackPob ||
       (await fetchOpenSubtitlesTrack({ imdbId: effectiveImdbId, lang3: 'por', type, season, episode }));
 
-    // If Portuguese subtitles are missing and we don't have PT dub or user wants subtitles, translate English subtitle cues
     if (!ptTrack && enTrackRaw && enTrackRaw.cues.length > 0 && (!hasPtDub || preferredAudioMode !== 'dublado')) {
       try {
         const translatedCues = await translateCuesToPortuguese(enTrackRaw.cues);
@@ -946,7 +1067,7 @@ export async function handleCinemaVttRequest(req: any, res: any) {
 export async function handleCinemaMp4ProxyRequest(req: any, res: any) {
   try {
     const urlObj = new URL(req.url || '/', 'http://localhost:3000');
-    const targetUrl = urlObj.searchParams.get('url');
+    let targetUrl = urlObj.searchParams.get('url');
     if (!targetUrl || !targetUrl.startsWith('http')) {
       res.statusCode = 400;
       res.end('Missing or invalid url');
@@ -959,7 +1080,6 @@ export async function handleCinemaMp4ProxyRequest(req: any, res: any) {
       Accept: '*/*',
     };
 
-    // Cap range chunks on serverless environments (e.g. Vercel) to 3.5MB per request while keeping full streaming in Node
     const isVercel = Boolean(process.env.VERCEL);
     const incomingRange = req.headers?.range ? String(req.headers.range) : '';
     if (isVercel) {
@@ -972,7 +1092,44 @@ export async function handleCinemaMp4ProxyRequest(req: any, res: any) {
       headers['Range'] = incomingRange;
     }
 
-    const upstream = await fetch(targetUrl, { headers });
+    let upstream = await fetch(targetUrl, { headers });
+
+    // Self-healing IP-bound token refresh: if serverless lambda IP differs from resolve lambda IP (403/410), re-resolve on THIS lambda IP!
+    if ((upstream.status === 403 || upstream.status === 410 || upstream.status === 429) && urlObj.searchParams.get('tmdbId')) {
+      const tmdbId = urlObj.searchParams.get('tmdbId') || '';
+      const imdbId = urlObj.searchParams.get('imdbId') || '';
+      const type = urlObj.searchParams.get('type') === 'tv' ? 'tv' : 'movie';
+      const title = urlObj.searchParams.get('title') || '';
+      const year = urlObj.searchParams.get('year') || '';
+      const season = urlObj.searchParams.get('season') || '1';
+      const episode = urlObj.searchParams.get('episode') || '1';
+      const rawAudio = urlObj.searchParams.get('audioMode') || 'dublado';
+      const preferredAudioMode =
+        rawAudio === 'legendado' || rawAudio === 'original' ? rawAudio : 'dublado';
+      const reqQuality = urlObj.searchParams.get('quality') || '';
+
+      const refreshed = await resolveVidstuckStreams({
+        tmdbId,
+        imdbId,
+        type,
+        title,
+        year,
+        season,
+        episode,
+        preferredAudioMode,
+      });
+
+      const matchingStream =
+        refreshed.streams.find((s) => s.audioMode === preferredAudioMode && (!reqQuality || s.quality === reqQuality)) ||
+        refreshed.streams.find((s) => s.audioMode === preferredAudioMode) ||
+        refreshed.streams[0];
+
+      if (matchingStream?.url) {
+        targetUrl = matchingStream.url;
+        upstream = await fetch(targetUrl, { headers });
+      }
+    }
+
     if (!upstream.ok && upstream.status !== 206) {
       res.statusCode = upstream.status;
       res.end(`Upstream error ${upstream.status}`);
@@ -1009,57 +1166,75 @@ export async function handleCinemaMp4ProxyRequest(req: any, res: any) {
 export async function handleCinemaHlsProxyRequest(req: any, res: any) {
   try {
     const urlObj = new URL(req.url || '/', 'http://localhost:3000');
-    let targetUrl = urlObj.searchParams.get('url');
-    const fallbackUrl = urlObj.searchParams.get('fallbackUrl');
-    if (!targetUrl || !targetUrl.startsWith('http')) {
-      if (fallbackUrl && fallbackUrl.startsWith('http')) {
-        targetUrl = fallbackUrl;
-      } else {
-        res.statusCode = 400;
-        res.end('Missing or invalid url');
-        return;
+    const primaryUrl = (urlObj.searchParams.get('url') || '').trim();
+    const fallbackUrl = (urlObj.searchParams.get('fallbackUrl') || '').trim();
+
+    const candidates: string[] = [];
+    if (primaryUrl && primaryUrl.startsWith('http')) {
+      candidates.push(primaryUrl);
+      if (primaryUrl.includes('maximaimg.online')) {
+        const cleanPrimary = primaryUrl.split('?')[0];
+        const v2Variant = cleanPrimary.replace(/\/(\d+)\.mp4\//, '/$1v2.mp4/');
+        if (v2Variant !== cleanPrimary && !candidates.includes(v2Variant)) {
+          candidates.push(v2Variant);
+        }
       }
     }
+    if (fallbackUrl && fallbackUrl.startsWith('http') && !candidates.includes(fallbackUrl)) {
+      candidates.push(fallbackUrl);
+      if (fallbackUrl.includes('maximaimg.online')) {
+        const cleanFallback = fallbackUrl.split('?')[0];
+        const v2Fallback = cleanFallback.replace(/\/(\d+)\.mp4\//, '/$1v2.mp4/');
+        if (v2Fallback !== cleanFallback && !candidates.includes(v2Fallback)) {
+          candidates.push(v2Fallback);
+        }
+      }
+    }
+    if (primaryUrl && primaryUrl.includes('maximaimg.online')) {
+      const cleanPrimary = primaryUrl.split('?')[0];
+      const ep1Primary = cleanPrimary.replace(/\/\d+(?:v2)?\.mp4\//, '/01.mp4/');
+      const ep1V2Primary = cleanPrimary.replace(/\/\d+(?:v2)?\.mp4\//, '/01v2.mp4/');
+      if (!candidates.includes(ep1Primary)) candidates.push(ep1Primary);
+      if (!candidates.includes(ep1V2Primary)) candidates.push(ep1V2Primary);
+    }
 
-    let upstream: Response;
-    try {
-      upstream = await fetchWithTimeout(
-        targetUrl,
-        {
-          headers: {
-            'User-Agent':
-              'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-            Referer: targetUrl.includes('maximaimg.online') ? 'https://maximaimg.online/' : 'https://vidstuck.cc/',
-            Origin: targetUrl.includes('maximaimg.online') ? 'https://maximaimg.online' : 'https://vidstuck.cc',
-            Accept: '*/*',
-          },
-        },
-        15000
-      );
-    } catch (fetchErr) {
-      if (fallbackUrl && fallbackUrl !== targetUrl && fallbackUrl.startsWith('http')) {
-        upstream = await fetchWithTimeout(
-          fallbackUrl,
+    if (candidates.length === 0) {
+      res.statusCode = 400;
+      res.end('Missing or invalid url');
+      return;
+    }
+
+    let upstream: Response | null = null;
+    let targetUrl = candidates[0];
+
+    for (const cand of candidates) {
+      try {
+        const r = await fetchWithTimeout(
+          cand,
           {
             headers: {
               'User-Agent':
                 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-              Referer: fallbackUrl.includes('maximaimg.online') ? 'https://maximaimg.online/' : 'https://vidstuck.cc/',
-              Origin: fallbackUrl.includes('maximaimg.online') ? 'https://maximaimg.online' : 'https://vidstuck.cc',
+              Referer: cand.includes('maximaimg.online') ? 'https://maximaimg.online/' : 'https://vidstuck.cc/',
+              Origin: cand.includes('maximaimg.online') ? 'https://maximaimg.online' : 'https://vidstuck.cc',
               Accept: '*/*',
             },
           },
-          15000
+          12000
         );
-        targetUrl = fallbackUrl;
-      } else {
-        throw fetchErr;
+        if (r.ok) {
+          upstream = r;
+          targetUrl = cand;
+          break;
+        }
+      } catch {
+        // Try next candidate
       }
     }
 
-    if (!upstream.ok) {
-      res.statusCode = upstream.status;
-      res.end(`Upstream error ${upstream.status}`);
+    if (!upstream || !upstream.ok) {
+      res.statusCode = 404;
+      res.end('Upstream HLS stream not found');
       return;
     }
 
@@ -1095,7 +1270,6 @@ export async function handleCinemaHlsProxyRequest(req: any, res: any) {
                 const segmentRaw = trimmed.slice(commaIdx + 1);
                 try {
                   const resolved = new URL(segmentRaw, baseUri).toString();
-                  // maximaimg.online segments already have Access-Control-Allow-Origin: *, so let browser fetch segments directly at CDN speed!
                   if (isMaximaImg || resolved.includes('maximaimg.online')) {
                     return `${tag}\n${resolved}`;
                   }
@@ -1118,7 +1292,7 @@ export async function handleCinemaHlsProxyRequest(req: any, res: any) {
             }
             try {
               const resolved = new URL(trimmed, baseUri).toString();
-              if (isMaximaImg || resolved.includes('maximaimg.online') && !resolved.includes('.m3u8')) {
+              if (isMaximaImg || (resolved.includes('maximaimg.online') && !resolved.includes('.m3u8'))) {
                 return resolved;
               }
               return `/api/cinema/hls-proxy?url=${encodeURIComponent(resolved)}`;
@@ -1150,15 +1324,22 @@ export async function handleCinemaHlsProxyRequest(req: any, res: any) {
 }
 
 export function cinemaStreamingPlugin(): Plugin {
+  const registerMiddlewares = (server: any) => {
+    server.middlewares.use('/api/cinema/resolve', handleCinemaResolveRequest);
+    server.middlewares.use('/api/cinema/vtt', handleCinemaVttRequest);
+    server.middlewares.use('/api/cinema/mp4-proxy', handleCinemaMp4ProxyRequest);
+    server.middlewares.use('/api/cinema/hls-proxy', handleCinemaHlsProxyRequest);
+    server.middlewares.use('/api/anime/hls-manifest', handleCinemaHlsProxyRequest);
+    server.middlewares.use('/api/anime/proxy', handleCinemaHlsProxyRequest);
+  };
+
   return {
     name: 'wotho-cinema-streaming-plugin',
     configureServer(server) {
-      server.middlewares.use('/api/cinema/resolve', handleCinemaResolveRequest);
-      server.middlewares.use('/api/cinema/vtt', handleCinemaVttRequest);
-      server.middlewares.use('/api/cinema/mp4-proxy', handleCinemaMp4ProxyRequest);
-      server.middlewares.use('/api/cinema/hls-proxy', handleCinemaHlsProxyRequest);
-      server.middlewares.use('/api/anime/hls-manifest', handleCinemaHlsProxyRequest);
-      server.middlewares.use('/api/anime/proxy', handleCinemaHlsProxyRequest);
+      registerMiddlewares(server);
+    },
+    configurePreviewServer(server) {
+      registerMiddlewares(server);
     },
   };
 }

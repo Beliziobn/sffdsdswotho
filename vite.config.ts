@@ -1999,61 +1999,6 @@ function officialWebtoonIntegrationPlugin(): Plugin {
         return payload;
       };
 
-      // HLS Episode Stream Manifest Resolver with Automatic Multi-Source Fallback
-      server.middlewares.use('/api/anime/hls-manifest', async (req, res) => {
-        try {
-          res.setHeader('Access-Control-Allow-Origin', '*');
-          const urlObj = new URL(req.url || '', `http://${req.headers.host || 'localhost:3000'}`);
-          const primaryUrl = (urlObj.searchParams.get('url') || '').split('?')[0];
-          const fallbackUrl = (urlObj.searchParams.get('fallbackUrl') || '').split('?')[0];
-
-          const candidates: string[] = [];
-          if (primaryUrl && primaryUrl.startsWith('http')) {
-            candidates.push(primaryUrl);
-            const v2Variant = primaryUrl.replace(/\/(\d+)\.mp4\//, '/$1v2.mp4/');
-            if (v2Variant !== primaryUrl) candidates.push(v2Variant);
-          }
-          if (fallbackUrl && fallbackUrl.startsWith('http') && !candidates.includes(fallbackUrl)) {
-            candidates.push(fallbackUrl);
-            const v2Fallback = fallbackUrl.replace(/\/(\d+)\.mp4\//, '/$1v2.mp4/');
-            if (v2Fallback !== fallbackUrl) candidates.push(v2Fallback);
-          }
-          if (primaryUrl && primaryUrl.startsWith('http')) {
-            const ep1Primary = primaryUrl.replace(/\/\d+(?:v2)?\.mp4\//, '/01.mp4/');
-            const ep1V2Primary = primaryUrl.replace(/\/\d+(?:v2)?\.mp4\//, '/01v2.mp4/');
-            if (!candidates.includes(ep1Primary)) candidates.push(ep1Primary);
-            if (!candidates.includes(ep1V2Primary)) candidates.push(ep1V2Primary);
-          }
-
-          for (const candidate of candidates) {
-            try {
-              const upRes = await fetch(candidate, {
-                headers: {
-                  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/122.0.0.0 Safari/537.36',
-                },
-                signal: AbortSignal.timeout(6000),
-              });
-              if (upRes.ok) {
-                const text = await upRes.text();
-                if (text.includes('#EXTM3U')) {
-                  res.statusCode = 200;
-                  res.setHeader('Content-Type', 'application/vnd.apple.mpegurl');
-                  res.setHeader('Cache-Control', 'public, max-age=3600');
-                  res.end(text);
-                  return;
-                }
-              }
-            } catch {}
-          }
-
-          res.statusCode = 404;
-          res.end('HLS Manifest not found');
-        } catch (err: any) {
-          res.statusCode = 500;
-          res.end(err?.message || 'HLS Resolver error');
-        }
-      });
-
       server.middlewares.use('/api/manga/chapters', async (req, res) => {
         try {
           const urlObj = new URL(req.url || '', `http://${req.headers.host || 'localhost:3000'}`);

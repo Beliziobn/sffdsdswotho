@@ -110,6 +110,7 @@ export const SecureAnimePlayer: React.FC<SecureAnimePlayerProps> = ({
   const [durationSec, setDurationSec] = useState(1420);
   const [isBuffering, setIsBuffering] = useState(false);
   const [orionStreams, setOrionStreams] = useState<ResolvedOrionStream[]>([]);
+  const [isResolvingOrion, setIsResolvingOrion] = useState(false);
   const [useEmbedFallback, setUseEmbedFallback] = useState(false);
 
   const containerRef = useRef<HTMLDivElement>(null);
@@ -129,14 +130,21 @@ export const SecureAnimePlayer: React.FC<SecureAnimePlayerProps> = ({
     episode.sources?.find((s) => s.id.includes("sub") || s.id.includes("legendado"))?.streamUrl?.split("?")[0] ||
     catalogDubUrl;
 
-  const isCatalogDubExplicit = /-dublado|-dub\b/i.test(catalogDubUrl);
+  const isCatalogDubExplicit = /-dublado|-dub\b|op-cn|dublado|-pt\.mp4/i.test(catalogDubUrl);
 
   // Also resolve multi-audio streams from Orion (/api/cinema/resolve) for animes
   useEffect(() => {
     let cancelled = false;
     setOrionStreams([]);
     const tmdbId = ANIME_TMDB_MAP[episode.animeId || season.animeId];
-    if (!tmdbId) return;
+    if (!tmdbId) {
+      setIsResolvingOrion(false);
+      return;
+    }
+
+    if (!isCatalogDubExplicit) {
+      setIsResolvingOrion(true);
+    }
 
     const params = new URLSearchParams({
       tmdbId: String(tmdbId),
@@ -154,13 +162,16 @@ export const SecureAnimePlayer: React.FC<SecureAnimePlayerProps> = ({
         if (Array.isArray(data?.streams)) {
           setOrionStreams(data.streams);
         }
+        setIsResolvingOrion(false);
       })
-      .catch(() => {});
+      .catch(() => {
+        if (!cancelled) setIsResolvingOrion(false);
+      });
 
     return () => {
       cancelled = true;
     };
-  }, [episode.id, episode.animeId, episode.number, season.animeId, season.seasonNumber, season.year, animeTitle]);
+  }, [episode.id, episode.animeId, episode.number, season.animeId, season.seasonNumber, season.year, animeTitle, isCatalogDubExplicit]);
 
   // Select the authentic video stream matching the user's selected audioTrack ("dub" | "sub" | "en")
   const selectedStreamTarget = useMemo(() => {
@@ -175,15 +186,18 @@ export const SecureAnimePlayer: React.FC<SecureAnimePlayerProps> = ({
       if (orionDub) {
         return { url: orionDub.url, fallbackUrl: catalogDubUrl || catalogSubUrl };
       }
+      if (orionSub) {
+        return { url: orionSub.url, fallbackUrl: catalogDubUrl || catalogSubUrl };
+      }
       return { url: catalogDubUrl || catalogSubUrl, fallbackUrl: catalogSubUrl };
     }
 
     if (audioTrack === "sub") {
-      if (catalogSubUrl && !/-dublado|-dub\b/i.test(catalogSubUrl)) {
-        return { url: catalogSubUrl, fallbackUrl: orionSub?.url || catalogDubUrl };
-      }
       if (orionSub) {
         return { url: orionSub.url, fallbackUrl: catalogSubUrl || catalogDubUrl };
+      }
+      if (catalogSubUrl && !/-dublado|-dub\b|op-cn|dublado/i.test(catalogSubUrl)) {
+        return { url: catalogSubUrl, fallbackUrl: orionSub?.url || catalogDubUrl };
       }
       return { url: catalogSubUrl || catalogDubUrl, fallbackUrl: catalogDubUrl };
     }
@@ -238,6 +252,11 @@ export const SecureAnimePlayer: React.FC<SecureAnimePlayerProps> = ({
       return;
     }
 
+    if (isResolvingOrion && !isCatalogDubExplicit) {
+      setIsBuffering(true);
+      return;
+    }
+
     const videoEl = videoRef.current;
     if (!videoEl || !activeRawUrl) return;
 
@@ -269,9 +288,24 @@ export const SecureAnimePlayer: React.FC<SecureAnimePlayerProps> = ({
         hlsInstanceRef.current.destroy();
         hlsInstanceRef.current = null;
       }
-      let triedProxyFallback = false;
+      const tmdbId = ANIME_TMDB_MAP[episode.animeId || season.animeId] || "";
+      const selfHealParams = new URLSearchParams({
+        url: activeRawUrl,
+        tmdbId: String(tmdbId),
+        type: "tv",
+        season: String(season.seasonNumber || 1),
+        episode: String(episode.number || 1),
+        title: animeTitle,
+        year: String(season.year || 2024),
+        audioMode: audioTrack === "dub" ? "dublado" : audioTrack === "sub" ? "legendado" : "original",
+      });
+      const proxyMp4Url = `/api/cinema/mp4-proxy?${selfHealParams.toString()}`;
+      const isArchiveOrg = activeRawUrl.includes("archive.org");
+      let triedSecondCandidate = false;
       videoEl.setAttribute("referrerpolicy", "no-referrer");
-      const initialMp4Src = activeRawUrl;
+      // For hakunaymatata (Orion), always use proxyMp4Url first because ?sign= is IP-bound to the server
+      const initialMp4Src = isArchiveOrg ? activeRawUrl : proxyMp4Url;
+      const secondaryMp4Src = isArchiveOrg ? proxyMp4Url : activeRawUrl;
       videoEl.src = initialMp4Src;
       videoEl.load();
 
@@ -283,12 +317,10 @@ export const SecureAnimePlayer: React.FC<SecureAnimePlayerProps> = ({
 
       const handleError = () => {
         if (isCancelled) return;
-        if (!triedProxyFallback) {
-          triedProxyFallback = true;
-          videoEl.src = `/api/cinema/mp4-proxy?url=${encodeURIComponent(activeRawUrl)}`;
+        if (!triedSecondCandidate) {
+          triedSecondCandidate = true;
+          videoEl.src = secondaryMp4Src;
           videoEl.load();
-        } else if (fallbackRawUrl && fallbackRawUrl !== activeRawUrl) {
-          setUseEmbedFallback(true);
         } else {
           setIsBuffering(false);
           setUseEmbedFallback(true);
@@ -313,7 +345,7 @@ export const SecureAnimePlayer: React.FC<SecureAnimePlayerProps> = ({
       hlsInstanceRef.current = null;
     }
 
-    // Helper that normalizes maximaimg.online #EXTINF:...,http lines directly in browser so HLS works even without backend proxy
+    // Helper that normalizes maximaimg.online #EXTINF:...,http lines directly in browser as backup
     const buildClientNormalizedManifestUrl = async (targetM3u8: string): Promise<string> => {
       try {
         const res = await fetch(targetM3u8);
@@ -360,12 +392,9 @@ export const SecureAnimePlayer: React.FC<SecureAnimePlayerProps> = ({
 
       let fallbackStep = 0;
 
-      void (async () => {
-        const initialSource = await buildClientNormalizedManifestUrl(activeRawUrl);
-        if (isCancelled) return;
-        hls.loadSource(initialSource);
-        hls.attachMedia(videoEl);
-      })();
+      // Always load from /api/anime/hls-manifest first (which tries v2 and fallback variants automatically)
+      hls.loadSource(manifestProxyUrl);
+      hls.attachMedia(videoEl);
 
       hls.on(Hls.Events.MANIFEST_PARSED, () => {
         if (isCancelled) return;
@@ -378,8 +407,12 @@ export const SecureAnimePlayer: React.FC<SecureAnimePlayerProps> = ({
         if (data?.fatal) {
           if (data.type === Hls.ErrorTypes.NETWORK_ERROR && fallbackStep === 0) {
             fallbackStep = 1;
-            hls.loadSource(manifestProxyUrl);
-            hls.startLoad();
+            void buildClientNormalizedManifestUrl(activeRawUrl).then((clientUrl) => {
+              if (!isCancelled) {
+                hls.loadSource(clientUrl);
+                hls.startLoad();
+              }
+            });
           } else if (data.type === Hls.ErrorTypes.NETWORK_ERROR && fallbackStep === 1 && fallbackRawUrl && fallbackRawUrl !== activeRawUrl) {
             fallbackStep = 2;
             void buildClientNormalizedManifestUrl(fallbackRawUrl).then((fbSource) => {
@@ -414,7 +447,7 @@ export const SecureAnimePlayer: React.FC<SecureAnimePlayerProps> = ({
         hlsInstanceRef.current = null;
       }
     };
-  }, [useEmbedFallback, activeRawUrl, fallbackRawUrl, isDirectMp4Stream, episode.id, season.id]);
+  }, [useEmbedFallback, activeRawUrl, fallbackRawUrl, isDirectMp4Stream, episode.id, season.id, isResolvingOrion, isCatalogDubExplicit]);
 
   // Keep native video volume at 100% (never ducked, zero artificial TTS)
   useEffect(() => {
