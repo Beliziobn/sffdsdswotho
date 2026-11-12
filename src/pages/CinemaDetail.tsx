@@ -85,7 +85,21 @@ export default function CinemaDetail() {
       } else {
         setSelectedEpisodeNumber(1);
       }
-      document.title = `${found.title} (${found.year}) — Cinema Worsco`;
+      const pageTitle = `${found.title} (${found.year}) — Cinema Wotho`;
+      document.title = pageTitle;
+      const desc =
+        found.synopsis ||
+        `Assista ${found.title} (${found.year}) em alta definição na Wotho.`;
+      const metaDesc = document.querySelector('meta[name="description"]');
+      if (metaDesc) metaDesc.setAttribute("content", desc);
+      const ogTitle = document.querySelector('meta[property="og:title"]');
+      if (ogTitle) ogTitle.setAttribute("content", pageTitle);
+      const ogDesc = document.querySelector('meta[property="og:description"]');
+      if (ogDesc) ogDesc.setAttribute("content", desc);
+      const twTitle = document.querySelector('meta[name="twitter:title"]');
+      if (twTitle) twTitle.setAttribute("content", pageTitle);
+      const twDesc = document.querySelector('meta[name="twitter:description"]');
+      if (twDesc) twDesc.setAttribute("content", desc);
       window.scrollTo(0, 0);
     } else {
       setItem(null);

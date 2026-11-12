@@ -57,9 +57,9 @@ export const AnimeDetail = () => {
   // Dynamic SEO Synchronization
   useEffect(() => {
     if (!anime) return;
-    const pageTitle = `${anime.title} — Streaming de Anime & Mangá | Worsco`;
+    const pageTitle = `${anime.title} — Streaming de Anime & Mangá | Wotho`;
     document.title = pageTitle;
-    const desc = anime.synopsis || `Assista ${anime.title} e leia mangás vinculados na plataforma Worsco.`;
+    const desc = anime.synopsis || `Assista ${anime.title} e leia mangás vinculados na plataforma Wotho.`;
     const metaDesc = document.querySelector('meta[name="description"]');
     if (metaDesc) metaDesc.setAttribute("content", desc);
     const ogTitle = document.querySelector('meta[property="og:title"]');
@@ -933,8 +933,8 @@ export const AnimeDetail = () => {
       <ShareDialog
         open={isShareModalOpen}
         onOpenChange={setIsShareModalOpen}
-        title={`${anime.title} — Streaming de Anime & Mangá | Worsco`}
-        text={anime.synopsis || `Assista ${anime.title} na plataforma Worsco.`}
+        title={`${anime.title} — Streaming de Anime & Mangá | Wotho`}
+        text={anime.synopsis || `Assista ${anime.title} na plataforma Wotho.`}
       />
 
       {/* Schema.org TVSeries Structured Data */}
@@ -948,7 +948,7 @@ export const AnimeDetail = () => {
             description: anime.synopsis,
             image: anime.cover || anime.banner || "https://wotho.vercel.app/og-image.jpg",
             inLanguage: "pt-BR",
-            url: window.location.href,
+            url: `https://wotho.vercel.app${window.location.pathname}`,
             genre: anime.genres,
             publisher: {
               "@type": "Organization",

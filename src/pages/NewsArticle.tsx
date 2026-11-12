@@ -448,7 +448,7 @@ const NewsArticle = () => {
         open={isShareModalOpen}
         onOpenChange={setIsShareModalOpen}
         title={article.title}
-        text={article.excerpt || "Leia esta reportagem completa na Worsco:"}
+        text={article.excerpt || "Leia esta reportagem completa na Wotho:"}
       />
 
       {/* Schema.org NewsArticle Structured Data */}
@@ -483,7 +483,7 @@ const NewsArticle = () => {
             description: article.excerpt || article.title,
             mainEntityOfPage: {
               "@type": "WebPage",
-              "@id": window.location.href,
+              "@id": `https://wotho.vercel.app${window.location.pathname}`,
             },
           }),
         }}

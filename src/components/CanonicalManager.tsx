@@ -6,94 +6,107 @@ interface RouteMeta {
   description: string;
 }
 
+const CANONICAL_BASE_URL = (
+  import.meta.env.VITE_APP_URL || "https://wotho.vercel.app"
+).replace(/\/+$/, "");
+
+const DEFAULT_OG_IMAGE = `${CANONICAL_BASE_URL}/og-image.jpg`;
+
 const ROUTE_META_MAP: Record<string, RouteMeta> = {
   "/": {
-    title: "Worsco - streaming e notícias",
+    title: "Wotho - Livros, notícias globais, streaming e webtoons",
     description:
       "Livros, notícias globais, streaming e webtoons, com um espaço para acompanhar as últimas novidades sobre cultura, literatura e grandes ideias.",
   },
   "/livros": {
-    title: "Catálogo de Livros Digitais — Worsco",
+    title: "Catálogo de Livros Digitais — Wotho",
     description:
-      "Explore bestsellers modernos, obras preparatórias para o ENEM e artigos científicos para ler diretamente no navegador.",
+      "Explore bestsellers modernos, obras preparatórias para o ENEM e artigos científicos para ler diretamente no navegador na Wotho.",
   },
   "/noticias": {
-    title: "Portal de Notícias Globais — Worsco",
+    title: "Portal de Notícias Globais — Wotho",
     description:
-      "Acompanhe as últimas notícias e reportagens aprofundadas sobre cultura, tecnologia, futebol, negócios e grandes ideias.",
+      "Acompanhe as últimas notícias e reportagens aprofundadas sobre cultura, tecnologia, futebol, negócios e grandes ideias na Wotho.",
   },
   "/webtoons": {
-    title: "Webtoons & Quadrinhos Online — Worsco",
+    title: "Webtoons & Quadrinhos Online — Wotho",
     description:
-      "Leia histórias em quadrinhos e webtoons em formato scroll vertical de alta definição diretamente no navegador.",
+      "Leia histórias em quadrinhos e webtoons em formato scroll vertical de alta definição diretamente no navegador na Wotho.",
   },
   "/animes": {
-    title: "Portal de Animes e Mangás — Worsco",
+    title: "Portal de Animes e Mangás — Wotho",
     description:
-      "Catálogo de animes, episódios, trailers, fichas técnicas completas e capítulos de mangá vinculados.",
+      "Catálogo de animes dublados em português, episódios, trailers, fichas técnicas completas e capítulos de mangá vinculados na Wotho.",
   },
   "/cinema": {
-    title: "Cinema & Séries — Filmes e Séries Online — Worsco",
+    title: "Cinema & Séries — Streaming Online — Wotho",
     description:
-      "Assista a filmes e séries aclamados com player cinematográfico, seleção de episódios em alta definição e catálogo completo na Worsco.",
+      "Assista a filmes e séries aclamados dublados em português com player cinematográfico em alta definição e catálogo completo na Wotho.",
   },
   "/biblioteca": {
-    title: "Minha Estante — Worsco",
+    title: "Minha Estante — Wotho",
     description:
-      "Acesse seus livros digitais salvos, títulos adquiridos e histórico de leitura na plataforma Worsco.",
+      "Acesse seus livros digitais salvos, títulos adquiridos e histórico de leitura na plataforma Wotho.",
   },
   "/para-voce": {
-    title: "Recomendações Para Você — Worsco",
+    title: "Recomendações Para Você — Wotho",
     description:
-      "Descubra novos livros, webtoons e notícias selecionados com base no seu perfil de leitura.",
+      "Descubra novos livros, webtoons, séries e notícias selecionados com base no seu perfil de leitura na Wotho.",
   },
   "/continuar-lendo": {
-    title: "Continuar Leitura — Worsco",
-    description: "Retome a leitura dos seus livros e webtoons exatamente de onde você parou.",
+    title: "Continuar Leitura — Wotho",
+    description:
+      "Retome a leitura dos seus livros e webtoons exatamente de onde você parou na Wotho.",
   },
   "/buscar": {
-    title: "Busca Global no Acervo — Worsco",
+    title: "Busca Global no Acervo — Wotho",
     description:
-      "Pesquise por títulos, autores, tópicos científicos, webtoons e notícias na Worsco.",
+      "Pesquise por livros, filmes, séries, animes, webtoons, tópicos científicos e notícias na Wotho.",
   },
   "/sobre": {
-    title: "Sobre a Worsco — Streaming, Notícias e Leitura",
+    title: "Sobre a Wotho — Plataforma de Streaming, Notícias e Leitura",
     description:
-      "Conheça a Worsco: plataforma digital de streaming de animes, portal de notícias globais, webtoons e livros digitais para ler online.",
+      "Conheça a Wotho: plataforma digital de streaming de cinema e animes, portal de notícias globais, webtoons e livros digitais.",
   },
   "/contato": {
-    title: "Contato — Fale com a Worsco",
+    title: "Contato — Fale com a Wotho",
     description:
-      "Entre em contato com a equipe da Worsco para dúvidas, sugestões de conteúdo, parcerias editoriais ou suporte técnico.",
+      "Entre em contato com a equipe da Wotho para dúvidas, sugestões de conteúdo, parcerias editoriais ou suporte técnico.",
   },
   "/contacto": {
-    title: "Contato — Fale com a Worsco",
+    title: "Contato — Fale com a Wotho",
     description:
-      "Entre em contato com a equipe da Worsco para dúvidas, sugestões de conteúdo, parcerias editoriais ou suporte técnico.",
+      "Entre em contato com a equipe da Wotho para dúvidas, sugestões de conteúdo, parcerias editoriais ou suporte técnico.",
   },
   "/mapa-do-site": {
-    title: "Mapa do Site (Sitemap) — Worsco",
+    title: "Mapa do Site (Sitemap) — Wotho",
     description:
-      "Índice estruturado com todas as páginas canônicas, catálogos e acervo da plataforma Worsco.",
+      "Índice estruturado com todas as páginas canônicas, catálogos e acervo completo da plataforma Wotho.",
   },
   "/sitemap": {
-    title: "Mapa do Site (Sitemap) — Worsco",
+    title: "Mapa do Site (Sitemap) — Wotho",
     description:
-      "Índice estruturado com todas as páginas canônicas, catálogos e acervo da plataforma Worsco.",
+      "Índice estruturado com todas as páginas canônicas, catálogos e acervo completo da plataforma Wotho.",
   },
   "/termos": {
-    title: "Termos de Uso — Worsco",
+    title: "Termos de Uso — Wotho",
     description:
-      "Condições gerais de navegação, leitura digital e uso dos serviços da plataforma Worsco.",
+      "Condições gerais de navegação, leitura digital e uso dos serviços da plataforma Wotho.",
   },
   "/privacidade": {
-    title: "Política de Privacidade — Worsco",
+    title: "Política de Privacidade — Wotho",
     description:
-      "Diretrizes de proteção de dados, conformidade LGPD e privacidade dos leitores da Worsco.",
+      "Diretrizes de proteção de dados, conformidade LGPD e privacidade dos usuários da Wotho.",
   },
 };
 
-const setMetaTag = (selector: string, attr: string, value: string, createAttr: string, createVal: string) => {
+const setMetaTag = (
+  selector: string,
+  attr: string,
+  value: string,
+  createAttr: string,
+  createVal: string
+) => {
   let element = document.querySelector(selector) as HTMLMetaElement | null;
   if (!element) {
     element = document.createElement("meta");
@@ -104,9 +117,9 @@ const setMetaTag = (selector: string, attr: string, value: string, createAttr: s
 };
 
 /**
- * Dynamically synchronizes <link rel="canonical">, <title>, and OpenGraph meta tags
- * on every client-side page transition, guaranteeing rich snippets for crawlers,
- * social media previews and search consoles.
+ * Dynamically synchronizes <link rel="canonical">, <title>, and OpenGraph/Twitter meta tags
+ * on every client-side page transition, ensuring all canonical and social URLs point
+ * exclusively to https://wotho.vercel.app.
  */
 export const CanonicalManager = () => {
   const location = useLocation();
@@ -114,11 +127,10 @@ export const CanonicalManager = () => {
   useEffect(() => {
     if (typeof window === "undefined") return;
 
-    const origin = window.location.origin;
     const pathname = location.pathname;
-    const canonicalUrl = `${origin}${pathname === "/" ? "/" : pathname}`;
+    const canonicalUrl = `${CANONICAL_BASE_URL}${pathname === "/" ? "/" : pathname}`;
 
-    // 1. Update or create canonical link
+    // 1. Update or create canonical link pointing exclusively to https://wotho.vercel.app
     let link = document.querySelector('link[rel="canonical"]') as HTMLLinkElement | null;
     if (!link) {
       link = document.createElement("link");
@@ -127,8 +139,18 @@ export const CanonicalManager = () => {
     }
     link.setAttribute("href", canonicalUrl);
 
-    // 2. Update og:url and twitter:url
+    // 2. Update og:url, twitter:url, og:image, twitter:image
     setMetaTag('meta[property="og:url"]', "content", canonicalUrl, "property", "og:url");
+    setMetaTag('meta[name="twitter:url"]', "content", canonicalUrl, "name", "twitter:url");
+    setMetaTag('meta[property="og:image"]', "content", DEFAULT_OG_IMAGE, "property", "og:image");
+    setMetaTag(
+      'meta[property="og:image:secure_url"]',
+      "content",
+      DEFAULT_OG_IMAGE,
+      "property",
+      "og:image:secure_url"
+    );
+    setMetaTag('meta[name="twitter:image"]', "content", DEFAULT_OG_IMAGE, "name", "twitter:image");
 
     // 3. Update route-specific Title & Description if matching a top-level route
     const meta = ROUTE_META_MAP[pathname];
@@ -136,9 +158,21 @@ export const CanonicalManager = () => {
       document.title = meta.title;
       setMetaTag('meta[name="description"]', "content", meta.description, "name", "description");
       setMetaTag('meta[property="og:title"]', "content", meta.title, "property", "og:title");
-      setMetaTag('meta[property="og:description"]', "content", meta.description, "property", "og:description");
+      setMetaTag(
+        'meta[property="og:description"]',
+        "content",
+        meta.description,
+        "property",
+        "og:description"
+      );
       setMetaTag('meta[name="twitter:title"]', "content", meta.title, "name", "twitter:title");
-      setMetaTag('meta[name="twitter:description"]', "content", meta.description, "name", "twitter:description");
+      setMetaTag(
+        'meta[name="twitter:description"]',
+        "content",
+        meta.description,
+        "name",
+        "twitter:description"
+      );
     }
   }, [location.pathname]);
 

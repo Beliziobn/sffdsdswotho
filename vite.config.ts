@@ -2260,7 +2260,11 @@ function sitemapPlugin(): Plugin {
         `<meta property="og:description" content="${meta.desc}" />`
       );
 
-      // 5. Rewrite twitter:title, twitter:description
+      // 5. Rewrite twitter:url, twitter:title, twitter:description
+      transformed = transformed.replace(
+        /<meta\s+name="twitter:url"\s+content="[^"]*"\s*\/?>/i,
+        `<meta name="twitter:url" content="${canonicalUrl}" />`
+      );
       transformed = transformed.replace(
         /<meta\s+name="twitter:title"\s+content="[^"]*"\s*\/?>/i,
         `<meta name="twitter:title" content="${meta.title}" />`
@@ -2318,7 +2322,7 @@ function sitemapPlugin(): Plugin {
             return;
           }
 
-          const robotsContent = `User-agent: *\nAllow: /\nDisallow: /admin\nDisallow: /biblioteca\nDisallow: /continuar-lendo\n\nSitemap: https://wotho.vercel.app/sitemap.xml\n`;
+          const robotsContent = `User-agent: *\nAllow: /\n\nSitemap: https://wotho.vercel.app/sitemap.xml\n`;
           res.statusCode = 200;
           res.setHeader('Content-Type', 'text/plain; charset=utf-8');
           res.setHeader('Cache-Control', 'public, max-age=3600');

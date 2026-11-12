@@ -460,8 +460,8 @@ const BookDetail = () => {
       <ShareDialog
         open={isShareOpen}
         onOpenChange={setIsShareOpen}
-        title={`${book.title} — ${book.author} | Worsco Livros`}
-        text={book.description || `Confira a obra "${book.title}" para leitura online na Worsco.`}
+        title={`${book.title} — ${book.author} | Wotho Livros`}
+        text={book.description || `Confira a obra "${book.title}" para leitura online na Wotho.`}
       />
 
       {/* Schema.org Book Structured Data */}
@@ -479,7 +479,7 @@ const BookDetail = () => {
             description: book.description,
             image: book.cover_url || "https://wotho.vercel.app/og-image.jpg",
             inLanguage: "pt-BR",
-            url: window.location.href,
+            url: `https://wotho.vercel.app${window.location.pathname}`,
             publisher: {
               "@type": "Organization",
               name: "Wotho",

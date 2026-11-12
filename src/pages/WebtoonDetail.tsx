@@ -550,8 +550,8 @@ const WebtoonDetail = () => {
       <ShareDialog
         open={isShareOpen}
         onOpenChange={setIsShareOpen}
-        title={`${item.title} — Webtoon Online | Worsco`}
-        text={item.description || `Confira o webtoon "${item.title}" para leitura vertical na Worsco.`}
+        title={`${item.title} — Webtoon Online | Wotho`}
+        text={item.description || `Confira o webtoon "${item.title}" para leitura vertical na Wotho.`}
       />
 
       {/* Schema.org CreativeWorkSeries Structured Data */}
@@ -565,7 +565,7 @@ const WebtoonDetail = () => {
             description: item.description,
             image: item.cover || "https://wotho.vercel.app/og-image.jpg",
             inLanguage: "pt-BR",
-            url: window.location.href,
+            url: `https://wotho.vercel.app${window.location.pathname}`,
             genre: item.category,
             publisher: {
               "@type": "Organization",

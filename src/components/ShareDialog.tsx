@@ -53,8 +53,8 @@ const FacebookIcon = () => (
 );
 
 export const ShareDialog: React.FC<ShareDialogProps> = ({
-  title = "Worsco — Livros Digitais, Notícias e Webtoons",
-  text = "Confira este conteúdo imperdível na Worsco:",
+  title = "Wotho — Livros Digitais, Notícias e Webtoons",
+  text = "Confira este conteúdo imperdível na Wotho:",
   url,
   trigger,
   open: controlledOpen,
