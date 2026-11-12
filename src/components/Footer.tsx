@@ -105,23 +105,23 @@ const Footer = () => {
                 Formulário de Contato
               </Link>
               <a
-                href="mailto:ola@worscoi.com"
+                href="mailto:contato@wotho.vercel.app"
                 className="text-background/70 hover:text-background smooth-hover text-xs font-light flex items-center gap-2"
               >
                 <Mail className="h-3 w-3" />
-                ola@worscoi.com
+                contato@wotho.vercel.app
               </a>
               <p className="text-background/70 text-xs font-light">Seg - Sex: 9h - 18h</p>
             </div>
 
-            <h4 className="text-sm font-medium mb-4">Siga-nos</h4>
-            <div className="flex items-center gap-4">
-              <a href="#" className="text-background/70 hover:text-background smooth-hover" aria-label="Instagram">
-                <Instagram className="h-4 w-4" />
-              </a>
-              <a href="#" className="text-background/70 hover:text-background smooth-hover" aria-label="Facebook">
-                <Facebook className="h-4 w-4" />
-              </a>
+            <h4 className="text-sm font-medium mb-4">Institucional</h4>
+            <div className="flex items-center gap-4 text-xs font-light">
+              <Link to="/sobre" className="text-background/70 hover:text-background smooth-hover" aria-label="Sobre a Wotho">
+                Sobre a Wotho
+              </Link>
+              <Link to="/mapa-do-site" className="text-background/70 hover:text-background smooth-hover" aria-label="Mapa do site">
+                Mapa do Site
+              </Link>
             </div>
           </div>
         </div>

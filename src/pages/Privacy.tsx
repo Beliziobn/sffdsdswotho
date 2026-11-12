@@ -48,7 +48,7 @@ const Privacy = () => (
     </ul>
 
     <h2>8. Contacto</h2>
-    <p>Encarregado de proteção de dados: ola@worscoi.com</p>
+    <p>Encarregado de proteção de dados: contato@wotho.vercel.app</p>
   </LegalLayout>
 );
 

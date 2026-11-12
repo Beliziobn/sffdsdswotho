@@ -74,10 +74,10 @@ export const AnimePlayerModal = ({ anime, isOpen, onClose }: AnimePlayerModalPro
               type="button"
               onClick={() => setShowIntro(true)}
               className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium bg-white/10 hover:bg-white/20 text-white transition-colors"
-              title="Abertura Oficial Worscoi"
+              title="Abertura Oficial Wotho"
             >
               <Sparkles className="h-3 w-3 text-primary" />
-              <span>Intro Worscoi</span>
+              <span>Intro Wotho</span>
             </button>
 
             {seasons.length > 1 && (
@@ -114,7 +114,7 @@ export const AnimePlayerModal = ({ anime, isOpen, onClose }: AnimePlayerModalPro
           {showIntro && (
             <WorscoiIntroPlayer
               title={`${anime.title} • Trailer Oficial`}
-              subtitle="Abertura Oficial Worscoi"
+              subtitle="Abertura Oficial Wotho"
               onComplete={() => {
                 setShowIntro(false);
                 setIsPlaying(true);

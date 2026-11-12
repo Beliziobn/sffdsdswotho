@@ -14,37 +14,37 @@ const DEFAULT_OG_IMAGE = `${CANONICAL_BASE_URL}/og-image.jpg`;
 
 const ROUTE_META_MAP: Record<string, RouteMeta> = {
   "/": {
-    title: "Wotho - Livros, notícias globais, streaming e webtoons",
+    title: "Wotho — Livros Digitais, Notícias Globais, Streaming e Webtoons",
     description:
-      "Livros, notícias globais, streaming e webtoons, com um espaço para acompanhar as últimas novidades sobre cultura, literatura e grandes ideias.",
+      "Explore a Wotho: biblioteca digital no navegador, jornalismo global em tempo real, streaming de cinema e animes em HD e webtoons em leitura vertical.",
   },
   "/livros": {
-    title: "Catálogo de Livros Digitais — Wotho",
+    title: "Biblioteca de Livros Digitais no Navegador — Wotho",
     description:
-      "Explore bestsellers modernos, obras preparatórias para o ENEM e artigos científicos para ler diretamente no navegador na Wotho.",
+      "Leia bestsellers modernos, filosofia, clássicos universais, conteúdos do ENEM e artigos científicos completos diretamente no navegador na Wotho.",
   },
   "/noticias": {
-    title: "Portal de Notícias Globais — Wotho",
+    title: "Notícias Globais em Tempo Real — Wotho",
     description:
-      "Acompanhe as últimas notícias e reportagens aprofundadas sobre cultura, tecnologia, futebol, negócios e grandes ideias na Wotho.",
+      "Cobertura jornalística independente e atualizada sobre tecnologia, ciência, economia, política, futebol, cultura e grandes ideias na Wotho.",
   },
   "/webtoons": {
-    title: "Webtoons & Quadrinhos Online — Wotho",
+    title: "Webtoons & Quadrinhos em Leitura Vertical — Wotho",
     description:
       "Leia histórias em quadrinhos e webtoons em formato scroll vertical de alta definição diretamente no navegador na Wotho.",
   },
   "/animes": {
-    title: "Portal de Animes e Mangás — Wotho",
+    title: "Animes e Mangás em Streaming — Wotho",
     description:
-      "Catálogo de animes dublados em português, episódios, trailers, fichas técnicas completas e capítulos de mangá vinculados na Wotho.",
+      "Catálogo selecionado de animes dublados e legendados em português, episódios, trailers e capítulos de mangá integrados na Wotho.",
   },
   "/cinema": {
-    title: "Cinema & Séries — Streaming Online — Wotho",
+    title: "Cinema & Séries em Streaming HD — Wotho",
     description:
-      "Assista a filmes e séries aclamados dublados em português com player cinematográfico em alta definição e catálogo completo na Wotho.",
+      "Assista a filmes e séries aclamados com player em alta definição, áudio dublado em português (PT-BR) e legendas completas na Wotho.",
   },
   "/biblioteca": {
-    title: "Minha Estante — Wotho",
+    title: "Minha Estante Pessoal — Wotho",
     description:
       "Acesse seus livros digitais salvos, títulos adquiridos e histórico de leitura na plataforma Wotho.",
   },
@@ -64,19 +64,19 @@ const ROUTE_META_MAP: Record<string, RouteMeta> = {
       "Pesquise por livros, filmes, séries, animes, webtoons, tópicos científicos e notícias na Wotho.",
   },
   "/sobre": {
-    title: "Sobre a Wotho — Plataforma de Streaming, Notícias e Leitura",
+    title: "Sobre a Wotho — Plataforma de Cultura, Streaming e Leitura",
     description:
-      "Conheça a Wotho: plataforma digital de streaming de cinema e animes, portal de notícias globais, webtoons e livros digitais.",
+      "Conheça a Wotho: plataforma digital de livros no navegador, jornalismo global, webtoons e streaming de cinema e animes.",
   },
   "/contato": {
-    title: "Contato — Fale com a Wotho",
+    title: "Contato e Atendimento — Wotho",
     description:
-      "Entre em contato com a equipe da Wotho para dúvidas, sugestões de conteúdo, parcerias editoriais ou suporte técnico.",
+      "Entre em contato com a equipe da Wotho para dúvidas, sugestões de obras, pautas jornalísticas, parcerias editoriais ou suporte.",
   },
   "/contacto": {
-    title: "Contato — Fale com a Wotho",
+    title: "Contato e Atendimento — Wotho",
     description:
-      "Entre em contato com a equipe da Wotho para dúvidas, sugestões de conteúdo, parcerias editoriais ou suporte técnico.",
+      "Entre em contato com a equipe da Wotho para dúvidas, sugestões de obras, pautas jornalísticas, parcerias editoriais ou suporte.",
   },
   "/mapa-do-site": {
     title: "Mapa do Site (Sitemap) — Wotho",
@@ -100,6 +100,41 @@ const ROUTE_META_MAP: Record<string, RouteMeta> = {
   },
 };
 
+const KNOWN_EXACT_ROUTES = new Set([
+  ...Object.keys(ROUTE_META_MAP),
+  "/auth",
+  "/admin",
+  "/perfil",
+  "/meu-perfil",
+  "/redefinir-senha",
+  "/compra/sucesso",
+  "/compra/cancelada",
+]);
+
+const KNOWN_DYNAMIC_PREFIXES = [
+  "/livros/",
+  "/ler/",
+  "/noticias/",
+  "/cinema/",
+  "/animes/",
+  "/webtoon/",
+  "/conteudo/",
+  "/leitura/",
+];
+
+const PRIVATE_NOINDEX_PREFIXES = [
+  "/auth",
+  "/admin",
+  "/perfil",
+  "/meu-perfil",
+  "/redefinir-senha",
+  "/compra/",
+  "/biblioteca",
+  "/continuar-lendo",
+  "/para-voce",
+  "/buscar",
+];
+
 const setMetaTag = (
   selector: string,
   attr: string,
@@ -117,9 +152,9 @@ const setMetaTag = (
 };
 
 /**
- * Dynamically synchronizes <link rel="canonical">, <title>, and OpenGraph/Twitter meta tags
- * on every client-side page transition, ensuring all canonical and social URLs point
- * exclusively to https://wotho.vercel.app.
+ * Dynamically synchronizes <link rel="canonical">, <meta name="robots">, <title>, and
+ * OpenGraph/Twitter meta tags on every client-side page transition, ensuring all canonical
+ * and social URLs point exclusively to https://wotho.vercel.app.
  */
 export const CanonicalManager = () => {
   const location = useLocation();
@@ -128,7 +163,19 @@ export const CanonicalManager = () => {
     if (typeof window === "undefined") return;
 
     const pathname = location.pathname;
-    const canonicalUrl = `${CANONICAL_BASE_URL}${pathname === "/" ? "/" : pathname}`;
+    const normalizedPath = pathname === "/" ? "/" : pathname.replace(/\/+$/, "");
+    const isKnownRoute =
+      KNOWN_EXACT_ROUTES.has(normalizedPath) ||
+      KNOWN_DYNAMIC_PREFIXES.some((prefix) => normalizedPath.startsWith(prefix));
+
+    if (!isKnownRoute) {
+      const staleCanonical = document.querySelector('link[rel="canonical"]');
+      if (staleCanonical) staleCanonical.remove();
+      setMetaTag('meta[name="robots"]', "content", "noindex, nofollow", "name", "robots");
+      return;
+    }
+
+    const canonicalUrl = normalizedPath === "/" ? `${CANONICAL_BASE_URL}/` : `${CANONICAL_BASE_URL}${normalizedPath}`;
 
     // 1. Update or create canonical link pointing exclusively to https://wotho.vercel.app
     let link = document.querySelector('link[rel="canonical"]') as HTMLLinkElement | null;
@@ -139,7 +186,21 @@ export const CanonicalManager = () => {
     }
     link.setAttribute("href", canonicalUrl);
 
-    // 2. Update og:url, twitter:url, og:image, twitter:image
+    // 2. Restore indexability on public routes, keep noindex on private/utility routes
+    const isPrivateRoute = PRIVATE_NOINDEX_PREFIXES.some(
+      (prefix) => normalizedPath === prefix || normalizedPath.startsWith(prefix.endsWith("/") ? prefix : `${prefix}/`)
+    );
+    setMetaTag(
+      'meta[name="robots"]',
+      "content",
+      isPrivateRoute
+        ? "noindex, follow"
+        : "index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1",
+      "name",
+      "robots"
+    );
+
+    // 3. Update og:url, twitter:url, og:image, twitter:image
     setMetaTag('meta[property="og:url"]', "content", canonicalUrl, "property", "og:url");
     setMetaTag('meta[name="twitter:url"]', "content", canonicalUrl, "name", "twitter:url");
     setMetaTag('meta[property="og:image"]', "content", DEFAULT_OG_IMAGE, "property", "og:image");
@@ -152,8 +213,8 @@ export const CanonicalManager = () => {
     );
     setMetaTag('meta[name="twitter:image"]', "content", DEFAULT_OG_IMAGE, "name", "twitter:image");
 
-    // 3. Update route-specific Title & Description if matching a top-level route
-    const meta = ROUTE_META_MAP[pathname];
+    // 4. Update route-specific Title & Description if matching a top-level route
+    const meta = ROUTE_META_MAP[normalizedPath];
     if (meta) {
       document.title = meta.title;
       setMetaTag('meta[name="description"]', "content", meta.description, "name", "description");

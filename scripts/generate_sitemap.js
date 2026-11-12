@@ -9,25 +9,21 @@ const rootDir = path.resolve(__dirname, '..');
 const BASE_URL = process.env.VITE_APP_URL || 'https://wotho.vercel.app';
 const TODAY = new Date().toISOString().split('T')[0];
 
+// Only primary, stable public routes (excludes user-private/utility pages and search query routes)
 const STATIC_ROUTES = [
   { path: '/', changefreq: 'daily', priority: '1.0' },
   { path: '/livros', changefreq: 'daily', priority: '0.9' },
-  { path: '/webtoons', changefreq: 'daily', priority: '0.9' },
-  { path: '/animes', changefreq: 'daily', priority: '0.9' },
-  { path: '/cinema', changefreq: 'daily', priority: '0.9' },
   { path: '/noticias', changefreq: 'hourly', priority: '0.9' },
-  { path: '/para-voce', changefreq: 'daily', priority: '0.8' },
-  { path: '/biblioteca', changefreq: 'weekly', priority: '0.7' },
-  { path: '/continuar-lendo', changefreq: 'weekly', priority: '0.6' },
-  { path: '/buscar', changefreq: 'weekly', priority: '0.7' },
-  { path: '/mapa-do-site', changefreq: 'weekly', priority: '0.6' },
+  { path: '/cinema', changefreq: 'daily', priority: '0.9' },
+  { path: '/animes', changefreq: 'daily', priority: '0.9' },
+  { path: '/webtoons', changefreq: 'daily', priority: '0.9' },
   { path: '/sobre', changefreq: 'monthly', priority: '0.7' },
   { path: '/contato', changefreq: 'monthly', priority: '0.7' },
+  { path: '/mapa-do-site', changefreq: 'weekly', priority: '0.6' },
   { path: '/termos', changefreq: 'monthly', priority: '0.4' },
   { path: '/privacidade', changefreq: 'monthly', priority: '0.4' },
 ];
 
-// 19 Primary Canonical Modern Bestsellers (deduplicating aliases)
 const CANONICAL_MODERN_BOOK_IDS = [
   'mod-habitos-atomicos',
   'mod-psicologia-financeira',
@@ -97,11 +93,19 @@ function extractIds(filePath, regex) {
 
 export function buildSitemapXml(customOrigin = BASE_URL) {
   const origin = (customOrigin || BASE_URL).replace(/\/+$/, '');
+  const seenLocs = new Set();
   const urlEntries = [];
 
-  // 1. Static Core Landing Pages
+  const addEntry = (entry) => {
+    if (!entry.loc || seenLocs.has(entry.loc)) return;
+    if (/test|draft|preview|undefined|null/i.test(entry.loc)) return;
+    seenLocs.add(entry.loc);
+    urlEntries.push(entry);
+  };
+
+  // 1. Core Static Public Landing Pages
   for (const route of STATIC_ROUTES) {
-    urlEntries.push({
+    addEntry({
       loc: `${origin}${route.path}`,
       lastmod: TODAY,
       changefreq: route.changefreq,
@@ -111,7 +115,7 @@ export function buildSitemapXml(customOrigin = BASE_URL) {
 
   // 2. Canonical Modern Bestsellers
   for (const id of CANONICAL_MODERN_BOOK_IDS) {
-    urlEntries.push({
+    addEntry({
       loc: `${origin}/livros/${id}`,
       lastmod: TODAY,
       changefreq: 'weekly',
@@ -121,7 +125,7 @@ export function buildSitemapXml(customOrigin = BASE_URL) {
 
   // 3. Curricular Educational Textbooks
   for (const id of CANONICAL_CURRICULAR_IDS) {
-    urlEntries.push({
+    addEntry({
       loc: `${origin}/livros/${id}`,
       lastmod: TODAY,
       changefreq: 'weekly',
@@ -131,7 +135,7 @@ export function buildSitemapXml(customOrigin = BASE_URL) {
 
   // 4. Scientific Research Articles
   for (const id of CANONICAL_SCIENTIFIC_IDS) {
-    urlEntries.push({
+    addEntry({
       loc: `${origin}/livros/${id}`,
       lastmod: TODAY,
       changefreq: 'monthly',
@@ -139,11 +143,11 @@ export function buildSitemapXml(customOrigin = BASE_URL) {
     });
   }
 
-  // 5. Canonical Webtoons (excluding chapter reader sub-paths)
+  // 5. Canonical Webtoons
   const webtoonIds = extractIds('src/lib/webtoons.ts', /id:\s*"(wt-[a-z0-9-]+)"/g)
     .filter((id) => !id.includes('-ep-') && !id.includes('/'));
   for (const id of webtoonIds) {
-    urlEntries.push({
+    addEntry({
       loc: `${origin}/webtoon/${id}`,
       lastmod: TODAY,
       changefreq: 'weekly',
@@ -151,11 +155,11 @@ export function buildSitemapXml(customOrigin = BASE_URL) {
     });
   }
 
-  // 6. Verified Animes (excluding manga reader sub-paths)
+  // 6. Verified Animes
   const animeIds = extractIds('src/lib/animes.ts', /id:\s*"([a-z0-9-]+)"/g)
     .filter((id) => !id.includes('/'));
   for (const id of animeIds) {
-    urlEntries.push({
+    addEntry({
       loc: `${origin}/animes/${id}`,
       lastmod: TODAY,
       changefreq: 'weekly',
@@ -163,13 +167,13 @@ export function buildSitemapXml(customOrigin = BASE_URL) {
     });
   }
 
-  // 6.1 Cinema & Series (canonical movies and TV productions)
+  // 7. Stable Cinema & Series Catalog
   const baseCinemaIds = extractIds('src/lib/cinema.ts', /"?id"?:\s*"([a-z0-9-]+)"/g);
   const expandedCinemaIds = extractIds('src/lib/cinemaExpandedCatalog.ts', /"?id"?:\s*"([a-z0-9-]+)"/g);
   const cinemaIds = Array.from(new Set([...baseCinemaIds, ...expandedCinemaIds]))
     .filter((id) => !id.includes('/') && !id.startsWith('ep-') && id !== 'pt' && id !== 'en' && id !== 'native' && id !== 'vidsrc' && id !== 'trailer');
   for (const id of cinemaIds) {
-    urlEntries.push({
+    addEntry({
       loc: `${origin}/cinema/${id}`,
       lastmod: TODAY,
       changefreq: 'weekly',
@@ -177,40 +181,8 @@ export function buildSitemapXml(customOrigin = BASE_URL) {
     });
   }
 
-  // 7. Canonical Permanent News Articles from newsArchive.json
-  try {
-    const archivePath = path.resolve(rootDir, 'src/data/newsArchive.json');
-    if (fs.existsSync(archivePath)) {
-      const data = JSON.parse(fs.readFileSync(archivePath, 'utf8'));
-      const articles = Array.isArray(data.articles) ? data.articles : [];
-      const seenSlugs = new Set();
-
-      for (const article of articles) {
-        if (!article.slug || seenSlugs.has(article.slug)) continue;
-        seenSlugs.add(article.slug);
-
-        const modDate = article.published_at
-          ? article.published_at.split('T')[0]
-          : TODAY;
-
-        urlEntries.push({
-          loc: `${origin}/noticias/${encodeURIComponent(article.slug)}`,
-          lastmod: modDate,
-          changefreq: 'weekly',
-          priority: '0.7',
-          image: article.cover_url && !article.cover_url.startsWith('/covers/') ? article.cover_url : null,
-          title: article.title || null,
-        });
-      }
-    }
-  } catch (e) {
-    console.error('Error loading newsArchive.json:', e);
-  }
-
-  // Generate standard-compliant XML with image extension
   let xml = '<?xml version="1.0" encoding="UTF-8"?>\n';
-  xml += '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"\n';
-  xml += '        xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">\n';
+  xml += '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n';
 
   for (const item of urlEntries) {
     xml += '  <url>\n';
@@ -218,14 +190,6 @@ export function buildSitemapXml(customOrigin = BASE_URL) {
     xml += `    <lastmod>${item.lastmod}</lastmod>\n`;
     xml += `    <changefreq>${item.changefreq}</changefreq>\n`;
     xml += `    <priority>${item.priority}</priority>\n`;
-    if (item.image && typeof item.image === 'string' && item.image.startsWith('http')) {
-      xml += '    <image:image>\n';
-      xml += `      <image:loc>${escapeXml(item.image)}</image:loc>\n`;
-      if (item.title) {
-        xml += `      <image:title>${escapeXml(item.title)}</image:title>\n`;
-      }
-      xml += '    </image:image>\n';
-    }
     xml += '  </url>\n';
   }
 
@@ -233,11 +197,10 @@ export function buildSitemapXml(customOrigin = BASE_URL) {
   return { xml, count: urlEntries.length };
 }
 
-// When executed directly via node
 const isDirectRun = process.argv[1] && process.argv[1].endsWith('generate_sitemap.js');
 if (isDirectRun) {
   const result = buildSitemapXml();
   const outputPath = path.resolve(rootDir, 'public/sitemap.xml');
   fs.writeFileSync(outputPath, result.xml, 'utf8');
-  console.log(`[Sitemap] Generated ${result.count} canonical URLs in ${outputPath}`);
+  console.log(`[Sitemap] Generated ${result.count} clean canonical URLs in ${outputPath}`);
 }

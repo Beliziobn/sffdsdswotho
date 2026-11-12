@@ -161,7 +161,7 @@ export default function CinemaDetail() {
 
   const handleShare = async () => {
     const shareData = {
-      title: `${item.title} — Cinema Worsco`,
+      title: `${item.title} — Cinema Wotho`,
       text: item.synopsis,
       url: window.location.href,
     };

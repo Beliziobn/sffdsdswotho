@@ -2142,48 +2142,48 @@ function sitemapPlugin(): Plugin {
 
   const ROUTE_SEO: Record<string, { title: string; desc: string }> = {
     '/': {
-      title: 'Wotho - Livros, notícias globais, streaming e webtoons',
-      desc: 'Livros, notícias globais, streaming e webtoons, com um espaço para acompanhar as últimas novidades sobre cultura, literatura e grandes ideias.',
+      title: 'Wotho — Livros Digitais, Notícias Globais, Streaming e Webtoons',
+      desc: 'Explore a Wotho: biblioteca digital no navegador, jornalismo global em tempo real, streaming de cinema e animes em HD e webtoons em leitura vertical.',
     },
     '/livros': {
-      title: 'Catálogo de Livros Digitais — Wotho',
-      desc: 'Explore bestsellers modernos, obras preparatórias para o ENEM e artigos científicos para ler diretamente no navegador.',
+      title: 'Biblioteca de Livros Digitais no Navegador — Wotho',
+      desc: 'Leia bestsellers modernos, filosofia, clássicos universais, conteúdos do ENEM e artigos científicos completos diretamente no navegador na Wotho.',
     },
     '/webtoons': {
-      title: 'Webtoons & Quadrinhos Online — Wotho',
-      desc: 'Leia histórias em quadrinhos e webtoons em formato scroll vertical de alta definição diretamente no navegador.',
+      title: 'Webtoons & Quadrinhos em Leitura Vertical — Wotho',
+      desc: 'Leia histórias em quadrinhos e webtoons em formato scroll vertical de alta definição diretamente no navegador na Wotho.',
     },
     '/animes': {
-      title: 'Portal de Animes e Mangás — Wotho',
-      desc: 'Catálogo de animes dublados em português, episódios, trailers, fichas técnicas completas e capítulos de mangá vinculados.',
+      title: 'Animes e Mangás em Streaming — Wotho',
+      desc: 'Catálogo selecionado de animes dublados e legendados em português, episódios, trailers e capítulos de mangá integrados na Wotho.',
     },
     '/cinema': {
-      title: 'Cinema & Séries Dublados em Português — Wotho',
-      desc: 'Assista a filmes e séries aclamados dublados em português (PT-BR) com player cinematográfico em alta definição na Wotho.',
+      title: 'Cinema & Séries em Streaming HD — Wotho',
+      desc: 'Assista a filmes e séries aclamados com player em alta definição, áudio dublado em português (PT-BR) e legendas completas na Wotho.',
     },
     '/noticias': {
-      title: 'Portal de Notícias Globais — Wotho',
-      desc: 'Acompanhe as últimas notícias e reportagens aprofundadas sobre cultura, tecnologia, futebol, negócios e grandes ideias.',
+      title: 'Notícias Globais em Tempo Real — Wotho',
+      desc: 'Cobertura jornalística independente e atualizada sobre tecnologia, ciência, economia, política, futebol, cultura e grandes ideias na Wotho.',
     },
     '/sobre': {
-      title: 'Sobre a Wotho — Manifesto e Proposta Editorial',
-      desc: 'Conheça a história, missão e pilares editoriais da Wotho na democratização do acesso à cultura e literatura digital.',
+      title: 'Sobre a Wotho — Plataforma de Cultura, Streaming e Leitura',
+      desc: 'Conheça a Wotho: plataforma digital de livros no navegador, jornalismo global, webtoons e streaming de cinema e animes.',
     },
     '/contato': {
       title: 'Contato e Atendimento — Wotho',
-      desc: 'Fale com a equipe da Wotho para dúvidas, parcerias, sugestões e suporte editorial.',
+      desc: 'Entre em contato com a equipe da Wotho para dúvidas, sugestões de obras, pautas jornalísticas, parcerias editoriais ou suporte.',
     },
     '/mapa-do-site': {
       title: 'Mapa do Site (Sitemap) — Wotho',
-      desc: 'Navegue por todas as páginas canônicas, catálogos e acervo estruturado da Wotho.',
+      desc: 'Índice estruturado com todas as páginas canônicas, catálogos e acervo completo da plataforma Wotho.',
     },
     '/termos': {
       title: 'Termos de Uso — Wotho',
-      desc: 'Condições gerais de navegação, direitos e diretrizes de uso da plataforma Wotho.',
+      desc: 'Condições gerais de navegação, leitura digital e uso dos serviços da plataforma Wotho.',
     },
     '/privacidade': {
       title: 'Política de Privacidade — Wotho',
-      desc: 'Práticas de privacidade, segurança de dados e conformidade da Wotho.',
+      desc: 'Diretrizes de proteção de dados, conformidade LGPD e privacidade dos usuários da Wotho.',
     },
   };
 
@@ -2206,23 +2206,23 @@ function sitemapPlugin(): Plugin {
           };
         } else if (cleanPath.startsWith('/cinema/')) {
           meta = {
-            title: 'Cinema Wotho — Filme ou Série Dublado em Português',
-            desc: 'Assista a produções consagradas com áudio dublado em português (PT-BR) ou original com legendas completas e qualidade premium.',
+            title: 'Cinema Wotho — Filme ou Série em Streaming',
+            desc: 'Assista a produções consagradas com áudio dublado em português (PT-BR) ou original com legendas completas na Wotho.',
           };
         } else if (cleanPath.startsWith('/animes/')) {
           meta = {
-            title: 'Anime & Mangá Dublado em Português — Wotho',
-            desc: 'Episódios dublados em português, ficha técnica, sinopse detalhada e capítulos de mangá vinculados para leitura direta.',
+            title: 'Anime & Mangá em Streaming — Wotho',
+            desc: 'Episódios em português, ficha técnica, sinopse detalhada e capítulos de mangá vinculados para leitura direta na Wotho.',
           };
         } else if (cleanPath.startsWith('/webtoon/')) {
           meta = {
-            title: 'Webtoon Oficial — Leitura Vertical em Alta Definição — Wotho',
-            desc: 'Acompanhe episódios ilustrados em scroll contínuo e painéis oficiais de alta resolução.',
+            title: 'Webtoon — Leitura Vertical em Alta Definição — Wotho',
+            desc: 'Acompanhe episódios ilustrados em scroll contínuo e painéis de alta resolução na Wotho.',
           };
         } else if (cleanPath.startsWith('/noticias/')) {
           meta = {
             title: 'Notícia — Cobertura Especial Wotho',
-            desc: 'Reportagem aprofundada sobre cultura, tecnologia, mercado, entretenimento e grandes ideias.',
+            desc: 'Reportagem aprofundada sobre cultura, tecnologia, mercado, entretenimento e grandes ideias na Wotho.',
           };
         } else {
           meta = ROUTE_SEO['/'];

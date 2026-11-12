@@ -141,7 +141,7 @@ export const CommunityReviews = ({
       const displayName =
         user.user_metadata?.display_name ||
         user.email?.split("@")[0] ||
-        "Leitor Worscoi";
+        "Leitor Wotho";
 
       await saveUserReview({
         itemId,
@@ -222,7 +222,7 @@ export const CommunityReviews = ({
           <div className="flex items-center gap-2 mb-1.5">
             <span className="text-[11px] uppercase tracking-widest text-primary font-semibold flex items-center gap-1.5">
               <Sparkles className="h-3 w-3" />
-              Comunidade & Crítica Worscoi
+              Comunidade & Crítica Wotho
             </span>
           </div>
           <h2 className="text-2xl sm:text-3xl font-light tracking-tight text-foreground">

@@ -106,8 +106,8 @@ const ActionButtons = ({ item, readHref, readLabel = "Ler agora" }: ActionButton
       <ShareDialog
         open={isShareOpen}
         onOpenChange={setIsShareOpen}
-        title={`${item.title} — Leitura Online na Worsco`}
-        text={item.description || `Leia "${item.title}" online na íntegra na Worsco.`}
+        title={`${item.title} — Leitura Online na Wotho`}
+        text={item.description || `Leia "${item.title}" online na íntegra na Wotho.`}
       />
     </div>
   );

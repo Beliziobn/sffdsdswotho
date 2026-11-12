@@ -98,13 +98,14 @@ export async function initCloudEditorialSync(): Promise<void> {
 }
 
 if (typeof window !== "undefined") {
-  // Sync immediately on app load for all visitors
-  setTimeout(() => {
-    void initCloudEditorialSync();
-  }, 200);
-
+  let hasTriggeredInitialSync = false;
   onAuthStateChanged(auth, () => {
-    void initCloudEditorialSync();
+    if (!hasTriggeredInitialSync) {
+      hasTriggeredInitialSync = true;
+      void initCloudEditorialSync();
+    } else {
+      void initCloudEditorialSync();
+    }
   });
 }
 

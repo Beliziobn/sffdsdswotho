@@ -10,11 +10,11 @@ export const readingTime = (item: Pick<NewsItem, "content" | "excerpt">) => {
 
 /** Newsroom byline — falls back to the house name when no author is stored. */
 export const byline = (item: Partial<NewsItem> & { author?: string | null }) =>
-  item.author?.trim() || "Redação Worscoi";
+  item.author?.trim() || "Redação Wotho";
 
 /** Photo credit line, kept optional in the data model. */
 export const photoCredit = (item: Partial<NewsItem> & { cover_credit?: string | null }) =>
-  item.cover_credit?.trim() || "Foto: Acervo Worscoi";
+  item.cover_credit?.trim() || "Foto: Acervo Wotho";
 
 export const NEWS_CATEGORIES = [
   "Animes",

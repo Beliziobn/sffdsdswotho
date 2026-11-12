@@ -17,7 +17,7 @@ const TermsGate = () => {
         <DialogHeader>
           <DialogTitle className="text-lg font-normal">Termos e privacidade</DialogTitle>
           <DialogDescription className="text-xs font-light leading-relaxed">
-            Para continuar a usar a Worscoi precisa de aceitar os nossos Termos de Uso e a Política de
+            Para continuar a usar a Wotho precisa de aceitar os nossos Termos de Uso e a Política de
             Privacidade. Este aceite fica registado com data e hora.
           </DialogDescription>
         </DialogHeader>

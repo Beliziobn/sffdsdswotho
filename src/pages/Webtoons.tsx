@@ -412,7 +412,7 @@ export const Webtoons = () => {
         </div>
       </section>
 
-      {/* 4. Top 10 Ranking do Worscoi */}
+      {/* 4. Top 10 Ranking da Wotho */}
       <section className="py-20 lg:py-24 bg-background">
         <div className="container mx-auto px-6 lg:px-12">
           <div className="text-center max-w-xl mx-auto mb-14">

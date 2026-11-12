@@ -93,7 +93,7 @@ export const Contact = () => {
     setTimeout(() => {
       setIsSubmitting(false);
       setIsSubmitted(true);
-      toast.success("Mensagem enviada com sucesso! A equipe Worsco responderá em até 24 horas.");
+      toast.success("Mensagem enviada com sucesso! A equipe Wotho responderá em até 24 horas.");
     }, 700);
   };
 
@@ -114,7 +114,7 @@ export const Contact = () => {
         <div className="container mx-auto px-6 lg:px-12 text-center space-y-4 max-w-2xl">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-primary/30 bg-primary/10 text-primary text-xs uppercase tracking-wider font-medium">
             <MessageSquare className="h-3.5 w-3.5" />
-            Central de Atendimento Worsco
+            Central de Atendimento Wotho
           </div>
           <h1 className="text-3xl sm:text-5xl font-light tracking-tight text-white">
             Fale Conosco
@@ -155,10 +155,10 @@ export const Contact = () => {
                     Para todas as dúvidas e correspondências:
                   </p>
                   <a
-                    href="mailto:ola@worscoi.com"
+                    href="mailto:contato@wotho.vercel.app"
                     className="text-xs text-primary font-medium hover:underline mt-1 inline-block"
                   >
-                    ola@worscoi.com
+                    contato@wotho.vercel.app
                   </a>
                 </div>
               </Card>
@@ -290,7 +290,7 @@ export const Contact = () => {
                     ) : (
                       <>
                         <Send className="mr-2 h-3.5 w-3.5" />
-                        Enviar Mensagem para a Worsco
+                        Enviar Mensagem para a Wotho
                       </>
                     )}
                   </Button>

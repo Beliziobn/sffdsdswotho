@@ -18,6 +18,48 @@ const BOOKS_COLLECTION = "books";
 const CHAPTERS_COLLECTION = "chapters";
 const ANIME_OVERRIDES_COLLECTION = "anime_overrides";
 
+const READ_CACHE_TTL_MS = 60_000;
+const FIRESTORE_READ_TIMEOUT_MS = 6_000;
+
+let cachedNewsResult: { data: NewsItem[]; ts: number } | null = null;
+let inflightNewsPromise: Promise<NewsItem[]> | null = null;
+
+let cachedBooksResult: { data: Book[]; ts: number } | null = null;
+let inflightBooksPromise: Promise<Book[]> | null = null;
+
+const cachedChaptersMap = new Map<string, { data: Chapter[]; ts: number }>();
+const inflightChaptersMap = new Map<string, Promise<Chapter[]>>();
+
+let cachedAnimeResult: { data: Record<string, Record<string, any>>; ts: number } | null = null;
+let inflightAnimePromise: Promise<Record<string, Record<string, any>>> | null = null;
+
+function withTimeout<T>(promise: Promise<T>, ms: number, fallback: T): Promise<T> {
+  return new Promise((resolve) => {
+    let settled = false;
+    const timer = setTimeout(() => {
+      if (!settled) {
+        settled = true;
+        resolve(fallback);
+      }
+    }, ms);
+    promise
+      .then((val) => {
+        if (!settled) {
+          settled = true;
+          clearTimeout(timer);
+          resolve(val);
+        }
+      })
+      .catch(() => {
+        if (!settled) {
+          settled = true;
+          clearTimeout(timer);
+          resolve(fallback);
+        }
+      });
+  });
+}
+
 // Sanitize string keys to ensure valid Firestore document IDs
 export function sanitizeDocId(rawId: string): string {
   return rawId
@@ -82,18 +124,37 @@ export async function deleteNewsFromCloud(idOrSlug: string): Promise<boolean> {
 }
 
 export async function fetchCloudNews(): Promise<NewsItem[]> {
-  try {
-    const q = query(
-      collection(db, NEWS_COLLECTION),
-      where("published", "==", true),
-      limit(200)
-    );
-    const snapshot = await getDocs(q);
-    return snapshot.docs.map((d) => d.data() as NewsItem);
-  } catch (err: any) {
-    console.warn("[CloudEditorial] Could not list cloud news:", err?.message || err);
-    return [];
+  if (cachedNewsResult && Date.now() - cachedNewsResult.ts < READ_CACHE_TTL_MS) {
+    return cachedNewsResult.data;
   }
+  if (inflightNewsPromise) {
+    return inflightNewsPromise;
+  }
+
+  inflightNewsPromise = withTimeout(
+    (async () => {
+      try {
+        const q = query(
+          collection(db, NEWS_COLLECTION),
+          where("published", "==", true),
+          limit(200)
+        );
+        const snapshot = await getDocs(q);
+        const items = snapshot.docs.map((d) => d.data() as NewsItem);
+        cachedNewsResult = { data: items, ts: Date.now() };
+        return items;
+      } catch (err: any) {
+        console.warn("[CloudEditorial] Could not list cloud news:", err?.message || err);
+        return cachedNewsResult?.data ?? [];
+      } finally {
+        inflightNewsPromise = null;
+      }
+    })(),
+    FIRESTORE_READ_TIMEOUT_MS,
+    cachedNewsResult?.data ?? []
+  );
+
+  return inflightNewsPromise;
 }
 
 // ============================================================================
@@ -175,18 +236,37 @@ export async function deleteBookFromCloud(bookId: string): Promise<boolean> {
 }
 
 export async function fetchCloudBooks(): Promise<Book[]> {
-  try {
-    const q = query(
-      collection(db, BOOKS_COLLECTION),
-      where("published", "==", true),
-      limit(200)
-    );
-    const snapshot = await getDocs(q);
-    return snapshot.docs.map((d) => d.data() as Book);
-  } catch (err: any) {
-    console.warn("[CloudEditorial] Could not list cloud books:", err?.message || err);
-    return [];
+  if (cachedBooksResult && Date.now() - cachedBooksResult.ts < READ_CACHE_TTL_MS) {
+    return cachedBooksResult.data;
   }
+  if (inflightBooksPromise) {
+    return inflightBooksPromise;
+  }
+
+  inflightBooksPromise = withTimeout(
+    (async () => {
+      try {
+        const q = query(
+          collection(db, BOOKS_COLLECTION),
+          where("published", "==", true),
+          limit(200)
+        );
+        const snapshot = await getDocs(q);
+        const items = snapshot.docs.map((d) => d.data() as Book);
+        cachedBooksResult = { data: items, ts: Date.now() };
+        return items;
+      } catch (err: any) {
+        console.warn("[CloudEditorial] Could not list cloud books:", err?.message || err);
+        return cachedBooksResult?.data ?? [];
+      } finally {
+        inflightBooksPromise = null;
+      }
+    })(),
+    FIRESTORE_READ_TIMEOUT_MS,
+    cachedBooksResult?.data ?? []
+  );
+
+  return inflightBooksPromise;
 }
 
 // ============================================================================
@@ -220,19 +300,40 @@ export async function publishChapterToCloud(chapter: Chapter): Promise<boolean> 
 }
 
 export async function fetchCloudChapters(bookId: string): Promise<Chapter[]> {
-  try {
-    const q = query(
-      collection(db, CHAPTERS_COLLECTION),
-      where("book_id", "==", bookId)
-    );
-    const snapshot = await getDocs(q);
-    const list = snapshot.docs.map((d) => d.data() as Chapter);
-    list.sort((a, b) => (a.position || 0) - (b.position || 0));
-    return list;
-  } catch (err: any) {
-    console.warn("[CloudEditorial] Could not list cloud chapters:", err?.message || err);
-    return [];
+  const cached = cachedChaptersMap.get(bookId);
+  if (cached && Date.now() - cached.ts < READ_CACHE_TTL_MS) {
+    return cached.data;
   }
+  const existing = inflightChaptersMap.get(bookId);
+  if (existing) {
+    return existing;
+  }
+
+  const req = withTimeout(
+    (async () => {
+      try {
+        const q = query(
+          collection(db, CHAPTERS_COLLECTION),
+          where("book_id", "==", bookId)
+        );
+        const snapshot = await getDocs(q);
+        const list = snapshot.docs.map((d) => d.data() as Chapter);
+        list.sort((a, b) => (a.position || 0) - (b.position || 0));
+        cachedChaptersMap.set(bookId, { data: list, ts: Date.now() });
+        return list;
+      } catch (err: any) {
+        console.warn("[CloudEditorial] Could not list cloud chapters:", err?.message || err);
+        return cached?.data ?? [];
+      } finally {
+        inflightChaptersMap.delete(bookId);
+      }
+    })(),
+    FIRESTORE_READ_TIMEOUT_MS,
+    cached?.data ?? []
+  );
+
+  inflightChaptersMap.set(bookId, req);
+  return req;
 }
 
 // ============================================================================
@@ -267,17 +368,35 @@ export async function publishAnimeOverrideToCloud(animeId: string, patch: Record
 }
 
 export async function fetchCloudAnimeOverrides(): Promise<Record<string, Record<string, any>>> {
-  try {
-    const snapshot = await getDocs(collection(db, ANIME_OVERRIDES_COLLECTION));
-    const result: Record<string, Record<string, any>> = {};
-    for (const d of snapshot.docs) {
-      result[d.id] = d.data();
-    }
-    return result;
-  } catch (err: any) {
-    console.warn("[CloudEditorial] Could not list cloud anime overrides:", err?.message || err);
-    return {};
+  if (cachedAnimeResult && Date.now() - cachedAnimeResult.ts < READ_CACHE_TTL_MS) {
+    return cachedAnimeResult.data;
   }
+  if (inflightAnimePromise) {
+    return inflightAnimePromise;
+  }
+
+  inflightAnimePromise = withTimeout(
+    (async () => {
+      try {
+        const snapshot = await getDocs(collection(db, ANIME_OVERRIDES_COLLECTION));
+        const result: Record<string, Record<string, any>> = {};
+        for (const d of snapshot.docs) {
+          result[d.id] = d.data();
+        }
+        cachedAnimeResult = { data: result, ts: Date.now() };
+        return result;
+      } catch (err: any) {
+        console.warn("[CloudEditorial] Could not list cloud anime overrides:", err?.message || err);
+        return cachedAnimeResult?.data ?? {};
+      } finally {
+        inflightAnimePromise = null;
+      }
+    })(),
+    FIRESTORE_READ_TIMEOUT_MS,
+    cachedAnimeResult?.data ?? {}
+  );
+
+  return inflightAnimePromise;
 }
 
 // ============================================================================

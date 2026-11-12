@@ -441,7 +441,7 @@ export const Animes = () => {
                 Gosta de ler a história original?
               </h3>
               <p className="text-xs text-muted-foreground font-light">
-                Explore também os Webtoons e Mangás que inspiraram essas grandes animações na Worscoi.
+                Explore também os Webtoons e Mangás que inspiraram essas grandes animações na Wotho.
               </p>
             </div>
           </div>

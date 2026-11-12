@@ -165,7 +165,7 @@ const News = () => {
               </span>
               <span>Feeds Diários Automáticos • Imprensa Oficial</span>
             </div>
-            <h1 className="text-2xl md:text-3xl font-light tracking-tight text-foreground mb-3">Portal de Notícias Worscoi</h1>
+            <h1 className="text-2xl md:text-3xl font-light tracking-tight text-foreground mb-3">Portal de Notícias Wotho</h1>
             <p className="text-sm text-muted-foreground font-light max-w-xl mx-auto">
               Cobertura contínua e aprofundada: futebol, mercado, tendências virais, listas, política, geografia, ciência, literatura e entretenimento global
             </p>

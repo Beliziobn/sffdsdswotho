@@ -44,7 +44,7 @@ const Terms = () => (
     </p>
 
     <h2>8. Contacto</h2>
-    <p>Dúvidas: ola@worscoi.com</p>
+    <p>Dúvidas: contato@wotho.vercel.app</p>
   </LegalLayout>
 );
 

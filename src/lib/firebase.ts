@@ -8,13 +8,14 @@ const app = !getApps().length ? initializeApp(firebaseConfig) : getApps()[0];
 export const auth = getAuth(app);
 export const googleProvider = new GoogleAuthProvider();
 
-// Initialize Firestore with resilient long-polling to prevent 10s proxy timeouts in sandboxes
+// Initialize Firestore with forced long-polling to avoid 10s WebChannel streaming stalls behind proxies/iframes
 let dbInstance;
 try {
   dbInstance = initializeFirestore(
     app,
     {
-      experimentalAutoDetectLongPolling: true,
+      experimentalForceLongPolling: true,
+      ignoreUndefinedProperties: true,
     },
     firebaseConfig.firestoreDatabaseId
   );
@@ -33,20 +34,18 @@ export const signInWithGoogle = async () => {
   }
 };
 
-// Connection test on boot: only executed when authenticated to prevent 10s backend timeout
+// Connection test on boot per firebase-integration-rpc skill
 async function testConnection() {
-  if (!auth.currentUser) {
+  if (typeof navigator !== "undefined" && navigator.onLine === false) {
     return;
   }
   try {
     await getDocFromServer(doc(db, "test", "connection"));
   } catch (error) {
-    // Graceful non-fatal handling; client operates in offline mode
     if (error instanceof Error && error.message.includes("the client is offline")) {
-      console.warn("Firestore running in offline mode.");
+      console.warn("Firestore operating in offline fallback mode.");
     }
   }
 }
 
-testConnection();
-
+void testConnection();

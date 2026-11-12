@@ -497,7 +497,7 @@ export const AnimeMangaReader = () => {
       {showIntro && (
         <WorscoiIntroPlayer
           title={`${anime.title} • Cap. ${currentChapter?.number || ""}`}
-          subtitle="Abertura Oficial Worscoi"
+          subtitle="Abertura Oficial Wotho"
           onComplete={() => setShowIntro(false)}
         />
       )}
