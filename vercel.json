@@ -2,7 +2,7 @@
   "rewrites": [
     {
       "source": "/api/(.*)",
-      "destination": "/api/$1"
+      "destination": "/api/[...route]?route=$1"
     },
     {
       "source": "/((?!api/|assets/|chapters/|pdf/|.*\\..*).*)",

@@ -1,11 +1,6 @@
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
 
-async function synthesizeCleanBookPdf(meta: {
-  title: string;
-  author: string;
-  category: string;
-  description: string;
-}): Promise<Buffer> {
+async function synthesizeCleanBookPdf(meta) {
   const pdfDoc = await PDFDocument.create();
   const serifBold = await pdfDoc.embedFont(StandardFonts.TimesRomanBold);
   const serifRegular = await pdfDoc.embedFont(StandardFonts.TimesRoman);
@@ -29,7 +24,7 @@ async function synthesizeCleanBookPdf(meta: {
     color: rgb(0.55, 0.42, 0.15),
   });
 
-  page.drawText(meta.title.slice(0, 65), {
+  page.drawText((meta.title || 'Livro Digital').slice(0, 65), {
     x: 60,
     y: height - 160,
     size: 24,
@@ -37,7 +32,7 @@ async function synthesizeCleanBookPdf(meta: {
     color: rgb(0.1, 0.1, 0.12),
   });
 
-  page.drawText(`Por ${meta.author}`, {
+  page.drawText(`Por ${meta.author || 'Acervo Wotho'}`, {
     x: 60,
     y: height - 200,
     size: 15,
@@ -45,7 +40,7 @@ async function synthesizeCleanBookPdf(meta: {
     color: rgb(0.3, 0.3, 0.35),
   });
 
-  page.drawText(`Categoria: ${meta.category}`, {
+  page.drawText(`Categoria: ${meta.category || 'Literatura'}`, {
     x: 60,
     y: height - 235,
     size: 12,
@@ -90,7 +85,7 @@ async function synthesizeCleanBookPdf(meta: {
   return Buffer.from(bytes);
 }
 
-export default async function handler(req: any, res: any) {
+export async function handlePdfProxyRequest(req, res) {
   try {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
@@ -126,7 +121,7 @@ export default async function handler(req: any, res: any) {
       cleanAsciiFilename += '.pdf';
     }
 
-    let pdfBuffer: Buffer | null = null;
+    let pdfBuffer = null;
 
     if (targetPdf && targetPdf.startsWith('http')) {
       try {
