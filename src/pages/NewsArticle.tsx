@@ -62,6 +62,19 @@ const NewsArticle = () => {
 
     const twDesc = document.querySelector('meta[name="twitter:description"]');
     if (twDesc) twDesc.setAttribute("content", desc);
+
+    import("@/lib/userProfileStore").then(({ recordUserHistory }) => {
+      recordUserHistory({
+        itemId: article.slug || article.id,
+        type: "news",
+        title: article.title,
+        subtitle: article.category || "Reportagem Especial",
+        cover: getSmartNewsCover(article.title, article.category, article.cover_url || undefined),
+        href: `/noticias/${article.slug}`,
+        progressPercent: 100,
+        detailLabel: article.source_name || "Editorial Wotho",
+      });
+    }).catch(() => {});
   }, [article]);
 
   // Reset live content and cover on slug change

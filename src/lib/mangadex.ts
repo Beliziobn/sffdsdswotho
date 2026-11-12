@@ -1732,7 +1732,9 @@ export async function fetchAnimeMangaPages(
 
   if (mangadexId || searchTitle) {
     try {
-      const resolveUrl = `/api/mangadex/resolve-chapter?mangaId=${encodeURIComponent(
+      const resolveUrl = `/api/mangadex/resolve-chapter?animeId=${encodeURIComponent(
+        animeId || ""
+      )}&mangaId=${encodeURIComponent(
         mangadexId
       )}&title=${encodeURIComponent(searchTitle)}&chapter=${effectiveChapterNum}&lang=${langParam}&quality=${quality}`;
       const resolveRes = await fetch(resolveUrl);

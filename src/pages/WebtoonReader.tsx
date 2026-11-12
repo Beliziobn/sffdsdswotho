@@ -121,6 +121,21 @@ export const WebtoonReader = () => {
 
   useEffect(() => {
     loadPanels();
+    if (webtoon && activeEpisode) {
+      const pct = episodes.length > 0 ? Math.round(((currentIndex + 1) / episodes.length) * 100) : 30;
+      import("@/lib/userProfileStore").then(({ recordUserHistory }) => {
+        recordUserHistory({
+          itemId: String(webtoon.id),
+          type: "webtoon",
+          title: webtoon.title,
+          subtitle: webtoon.author || "Webtoon Oficial",
+          cover: webtoon.cover,
+          href: `/webtoon/${webtoon.id}/ep/${activeEpisode.id}`,
+          progressPercent: pct,
+          detailLabel: `Episódio ${activeEpisode.number}: ${activeEpisode.title}`,
+        });
+      }).catch(() => {});
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeEpisode?.id, (activeEpisode as any)?.viewer_url, activeEpisode?.number, id, webtoonLanguage]);
 

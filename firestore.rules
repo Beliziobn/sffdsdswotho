@@ -42,6 +42,35 @@ service cloud.firestore {
         data.id is string && data.id.size() <= 128;
     }
 
+    function isValidUserProfile(data, userId) {
+      return data.keys().hasAll(['userId', 'displayName']) &&
+        data.keys().hasOnly(['userId', 'displayName', 'bio', 'avatarUrl', 'preferredLanguage', 'preferredReaderTheme', 'favoriteGenres', 'updatedAt']) &&
+        data.userId is string && data.userId == userId && data.userId.size() <= 128 &&
+        data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 100 &&
+        (!('bio' in data) || (data.bio is string && data.bio.size() <= 600)) &&
+        (!('avatarUrl' in data) || (data.avatarUrl is string && data.avatarUrl.size() <= 1000)) &&
+        (!('preferredLanguage' in data) || (data.preferredLanguage is string && data.preferredLanguage.size() <= 20)) &&
+        (!('preferredReaderTheme' in data) || (data.preferredReaderTheme is string && data.preferredReaderTheme.size() <= 20)) &&
+        (!('favoriteGenres' in data) || (data.favoriteGenres is string && data.favoriteGenres.size() <= 500)) &&
+        (!('updatedAt' in data) || (data.updatedAt is string && data.updatedAt.size() <= 100));
+    }
+
+    function isValidUserHistory(data, userId, entryId) {
+      return data.keys().hasAll(['id', 'userId', 'itemId', 'type', 'title', 'href', 'timestamp']) &&
+        data.keys().hasOnly(['id', 'userId', 'itemId', 'type', 'title', 'subtitle', 'cover', 'href', 'progressPercent', 'detailLabel', 'timestamp']) &&
+        data.id is string && data.id == entryId && data.id.size() <= 128 &&
+        data.userId is string && data.userId == userId && data.userId.size() <= 128 &&
+        data.itemId is string && data.itemId.size() <= 128 &&
+        data.type is string && data.type.size() <= 30 &&
+        data.title is string && data.title.size() <= 300 &&
+        data.href is string && data.href.size() <= 500 &&
+        data.timestamp is string && data.timestamp.size() <= 100 &&
+        (!('subtitle' in data) || (data.subtitle is string && data.subtitle.size() <= 300)) &&
+        (!('cover' in data) || (data.cover is string && data.cover.size() <= 1000)) &&
+        (!('progressPercent' in data) || (data.progressPercent is number && data.progressPercent >= 0 && data.progressPercent <= 100)) &&
+        (!('detailLabel' in data) || (data.detailLabel is string && data.detailLabel.size() <= 200));
+    }
+
     // Default deny catch-all
     match /{document=**} {
       allow read, write: if false;
@@ -58,7 +87,7 @@ service cloud.firestore {
       allow get, list: if true;
       allow create: if isSignedIn() && isValidId(newsId) && isValidNews(incoming());
       allow update: if isSignedIn() && isValidId(newsId) && isValidNews(incoming());
-      allow delete: if isSignedIn() && isValidId(newsId);
+      allow delete: if isSignedIn() && isSignedIn() && isValidId(newsId);
     }
 
     // Books: Publicly readable by all visitors
@@ -83,6 +112,22 @@ service cloud.firestore {
       allow create: if isSignedIn() && isValidId(animeId) && isValidAnimeOverride(incoming());
       allow update: if isSignedIn() && isValidId(animeId) && isValidAnimeOverride(incoming());
       allow delete: if isSignedIn() && isValidId(animeId);
+    }
+
+    // User Profiles: Strictly isolated to the owner
+    match /user_profiles/{userId} {
+      allow get: if isSignedIn() && isValidId(userId) && request.auth.uid == userId;
+      allow create: if isSignedIn() && isValidId(userId) && request.auth.uid == userId && isValidUserProfile(incoming(), userId);
+      allow update: if isSignedIn() && isValidId(userId) && request.auth.uid == userId && isValidUserProfile(incoming(), userId) && incoming().userId == resource.data.userId;
+      allow delete: if isSignedIn() && isValidId(userId) && request.auth.uid == userId;
+
+      match /history/{entryId} {
+        allow get: if isSignedIn() && isValidId(userId) && isValidId(entryId) && request.auth.uid == userId;
+        allow list: if isSignedIn() && request.auth.uid == userId && resource.data.userId == request.auth.uid;
+        allow create: if isSignedIn() && isValidId(userId) && isValidId(entryId) && request.auth.uid == userId && isValidUserHistory(incoming(), userId, entryId);
+        allow update: if isSignedIn() && isValidId(userId) && isValidId(entryId) && request.auth.uid == userId && isValidUserHistory(incoming(), userId, entryId) && incoming().userId == resource.data.userId;
+        allow delete: if isSignedIn() && isValidId(userId) && isValidId(entryId) && request.auth.uid == userId;
+      }
     }
   }
 }

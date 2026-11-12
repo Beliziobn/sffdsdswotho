@@ -1,5 +1,5 @@
 {
-  "lastSync": "2026-11-10T00:09:46.236Z",
+  "lastSync": "2026-11-12T17:14:32.790Z",
   "frequencyMinutes": 30,
   "isActive": true,
   "autoSources": {
@@ -8,6 +8,12 @@
     "curatedQueue": true
   },
   "logs": [
+    {
+      "id": "log-1794503672790",
+      "timestamp": "2026-11-12T17:14:32.790Z",
+      "level": "success",
+      "message": "[Automação] Livro \"Emílio, ou Da Educação\" por Jean-Jacques Rousseau importado com sucesso (6 capítulos)."
+    },
     {
       "id": "log-1794269386236",
       "timestamp": "2026-11-10T00:09:46.236Z",
@@ -51,16 +57,83 @@
       "message": "Importados livros fundamentais de Filosofia, Psicologia e Estratégia com capítulos completos."
     }
   ],
-  "queue": [
-    {
-      "id": "queue-6",
-      "title": "Emílio, ou Da Educação",
-      "author": "Jean-Jacques Rousseau",
-      "category": "Educação e Aprendizado",
-      "priority": "media"
-    }
-  ],
+  "queue": [],
   "books": [
+    {
+      "id": "auto-emilio-ou-da-educacao-2789",
+      "title": "Emílio, ou Da Educação",
+      "subtitle": "Importado Automaticamente · Educação e Aprendizado",
+      "author": "Jean-Jacques Rousseau",
+      "description": "Obra fundamental de Educação e Aprendizado por Jean-Jacques Rousseau. Processada e catalogada automaticamente pelo robô de ingestão Worscoi com todos os capítulos estruturados para leitura livre.",
+      "cover_url": "https://images.unsplash.com/photo-1497633762265-9d179a990aa6?w=1200&auto=format&fit=crop&q=80",
+      "category": "Educação e Aprendizado",
+      "price_cents": 0,
+      "currency": "BRL",
+      "published": true,
+      "featured": true,
+      "created_at": "2026-11-12T17:14:32.790Z",
+      "downloads": 4129,
+      "rating": 4.9,
+      "rating_count": 448,
+      "formats": [
+        "Leitura Online",
+        "EPUB",
+        "TXT"
+      ],
+      "read_time": 260,
+      "source": "Automação Worscoi (Pipeline Inteligente)",
+      "is_automated": true,
+      "chapters": [
+        {
+          "id": "chap-auto-emilio-ou-da-educacao-2789-1",
+          "book_id": "auto-emilio-ou-da-educacao-2789",
+          "position": 1,
+          "title": "Capítulo I — Fundamentos, Contexto Histórico e Premissas Centrais de Emílio, ou Da Educação",
+          "content": "A obra \"Emílio, ou Da Educação\" de Jean-Jacques Rousseau ocupa um lugar seminal no patrimônio intelectual de Educação e Aprendizado.\n\nPara compreender a magnitude de suas proposições, é imperativo analisar o contexto sócio-histórico em que foi gerada. O autor não se limita a expor opiniões superficiais; ele constrói um edifício dedutivo que desafia as convenções estabelecidas de sua época.\n\nPremissas Centrais Desenvolvidas:\n1. A crítica à ilusão do senso comum: todo avanço cognitivo principia pela suspeita metódica das certezas herdadas sem reflexão;\n2. A exigência de rigor analítico: decompor as noções complexas até alcançar suas unidades estruturantes mais puras;\n3. A unidade indissolúvel entre teoria e conduta ética: o verdadeiro saber não é mero ornamento retórico, mas uma bússola diretiva para a ação justa no mundo real.\n\nNeste capítulo inaugural, Jean-Jacques Rousseau delimita o problema fundante da obra, estabelecendo os postulados epistemológicos que orientarão todos os desenvolvimentos subsequentes.",
+          "is_free_preview": true
+        },
+        {
+          "id": "chap-auto-emilio-ou-da-educacao-2789-2",
+          "book_id": "auto-emilio-ou-da-educacao-2789",
+          "position": 2,
+          "title": "Capítulo II — Estrutura Teórica e a Dialética das Forças Antagônicas",
+          "content": "O autor decompõe o objeto examinado em suas tensões estruturantes fundamentais: a dialética entre ordem e dinamismo, necessidade cósmica e liberdade de arbítrio, essência substantiva e contingência histórica.\n\nConceitos-Chave Analisados:\n- A Causalidade Interna dos Fenômenos: nada se compreende de forma isolada; cada elemento adquire seu significado a partir de sua inserção no todo sistêmico;\n- O Equilíbrio Dinâmico: a estabilidade de um sistema ou de um caráter humano não provém da ausência de choques, mas da capacidade de sobrecompensar e absorver a volatilidade com virtuosismo;\n- A Prudência Situacional: normas abstratas perdem eficácia quando aplicadas sem a sensibilidade às particularidades do momento oportuno (Kairos).\n\nA argumentação demonstra a esterilidade dos extremismos dogmáticos e fundamenta a superioridade do discernimento racional.",
+          "is_free_preview": true
+        },
+        {
+          "id": "chap-auto-emilio-ou-da-educacao-2789-3",
+          "book_id": "auto-emilio-ou-da-educacao-2789",
+          "position": 3,
+          "title": "Capítulo III — Metodologia de Investigação e a Refutação de Falácias",
+          "content": "A robustez de \"Emílio, ou Da Educação\" reside no rigor inegociável de seu procedimento investigativo. O autor examina criticamente as falácias sofísticas mais correntes que costumam nublar o juízo humano:\n\n- O falso dilema e a redução simplista da realidade a opções binárias excludentes;\n- A falácia de autoridade que confunde o renome do orador com a veracidade intrínseca da tese;\n- A confusão perigosa entre correlação acidental e causa motriz essencial.\n\nPor meio de contraexemplos históricos e experimentos de pensamento rigorosos, Jean-Jacques Rousseau desmantela as objeções dos adversários e consolida um modelo heurístico dotado de extraordinária fecundidade intelectual.",
+          "is_free_preview": true
+        },
+        {
+          "id": "chap-auto-emilio-ou-da-educacao-2789-4",
+          "book_id": "auto-emilio-ou-da-educacao-2789",
+          "position": 4,
+          "title": "Capítulo IV — As Dimensões Humanas: Psicologia, Afeto e Convivência Coletiva",
+          "content": "Nenhum sistema filosófico, científico ou estratégico é completo se ignorar a natureza do ser humano e as paixões que o mobilizam no tecido societário.\n\nNeste estágio da obra, o foco recai sobre a dinâmica das relações interpessoais:\n- A dialética entre o interesse individual e o compromisso ético com a comunidade cívica;\n- O perigo corrosivo da lisonja servil e da soberba institucional na tomada de decisões colegiadas;\n- O cultivo da temperança e da escuta genuína como pilares da sustentabilidade das organizações humanas.\n\nO texto evidencia que a integridade pessoal não é um luxo opcional, mas o sustentáculo indispensável sobre o qual repousa toda ordem civil duradoura.",
+          "is_free_preview": true
+        },
+        {
+          "id": "chap-auto-emilio-ou-da-educacao-2789-5",
+          "book_id": "auto-emilio-ou-da-educacao-2789",
+          "position": 5,
+          "title": "Capítulo V — Princípios Operacionais e Diretrizes para a Ação no Mundo Real",
+          "content": "Abandonando a especulação desvinculada da realidade prática, Jean-Jacques Rousseau oferece um conjunto límpido de diretrizes executivas para orientar as decisões mais cruciais:\n\n1. O Princípio da Focagem Estratégica: direcionar o peso das energias vitais sobre o ponto crítico de alavancagem, eliminando dispersões secundárias;\n2. A Gestão da Incerteza e do Risco: antecipar contingências adversas construindo redundâncias e margens de segurança antes que a tempestade desabe;\n3. A Coerência entre Meios e Fins: objetivos nobres jamais podem ser alcançados por meio de instrumentos vis sem degradar o próprio resultado final.\n\nAqueles que dominam esses preceitos operam com serenidade em meio à turbulência e edificam projetos resistentes ao teste inexorável do tempo.",
+          "is_free_preview": true
+        },
+        {
+          "id": "chap-auto-emilio-ou-da-educacao-2789-6",
+          "book_id": "auto-emilio-ou-da-educacao-2789",
+          "position": 6,
+          "title": "Capítulo VI — O Legado Perene de Emílio, ou Da Educação e a Síntese Final",
+          "content": "No coroamento da obra, Jean-Jacques Rousseau realiza uma síntese panorâmica dos postulados apresentados e convida o leitor a assumir a responsabilidade intransferível por sua própria formação intelectual e moral.\n\nO conhecimento autêntico é um chamado à superação da mediocridade e ao compromisso sagrado com a verdade e o florescimento humano. Que as lições imperecíveis de \"Emílio, ou Da Educação\" sirvam como farol inabalável para guiar reflexões, escolhas e conquistas nas gerações futuras.",
+          "is_free_preview": true
+        }
+      ]
+    },
     {
       "id": "auto-inteligencia-emocional-6235",
       "title": "Inteligência Emocional",

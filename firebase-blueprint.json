@@ -69,6 +69,41 @@
       },
       "required": ["id"]
     },
+    "user_profiles": {
+      "title": "User Profile",
+      "description": "Personal profile preferences, bio, and display name for a Wotho user",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "maxLength": 128 },
+        "displayName": { "type": "string", "maxLength": 100 },
+        "bio": { "type": "string", "maxLength": 600 },
+        "avatarUrl": { "type": "string", "maxLength": 1000 },
+        "preferredLanguage": { "type": "string", "maxLength": 20 },
+        "preferredReaderTheme": { "type": "string", "maxLength": 20 },
+        "favoriteGenres": { "type": "string", "maxLength": 500 },
+        "updatedAt": { "type": "string", "maxLength": 100 }
+      },
+      "required": ["userId", "displayName"]
+    },
+    "user_history": {
+      "title": "User Activity History Entry",
+      "description": "Reading and watching history entry for books, cinema, animes, webtoons, and news",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "userId": { "type": "string", "maxLength": 128 },
+        "itemId": { "type": "string", "maxLength": 128 },
+        "type": { "type": "string", "maxLength": 30 },
+        "title": { "type": "string", "maxLength": 300 },
+        "subtitle": { "type": "string", "maxLength": 300 },
+        "cover": { "type": "string", "maxLength": 1000 },
+        "href": { "type": "string", "maxLength": 500 },
+        "progressPercent": { "type": "number" },
+        "detailLabel": { "type": "string", "maxLength": 200 },
+        "timestamp": { "type": "string", "maxLength": 100 }
+      },
+      "required": ["id", "userId", "itemId", "type", "title", "href", "timestamp"]
+    },
     "test_connection": {
       "title": "Test Connection",
       "description": "Used by app startup to verify Firestore connectivity",
@@ -94,6 +129,14 @@
     "/anime_overrides/{animeId}": {
       "schema": "anime_overrides",
       "description": "Collection of editorial overrides for anime entries"
+    },
+    "/user_profiles/{userId}": {
+      "schema": "user_profiles",
+      "description": "User profile document owned by userId"
+    },
+    "/user_profiles/{userId}/history/{entryId}": {
+      "schema": "user_history",
+      "description": "User activity history items owned by userId"
     },
     "/test/{testId}": {
       "schema": "test_connection",

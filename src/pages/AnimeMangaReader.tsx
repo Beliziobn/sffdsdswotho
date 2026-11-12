@@ -240,34 +240,41 @@ export const AnimeMangaReader = () => {
         }
         setResolvedPages(res.pages);
       })
-      .catch((err) => {
+      .catch(async (err) => {
         if (!isMounted) return;
-        console.warn("Primary manga pages fetch failed, trying fallback:", err);
-        fetchMangaDexChapterPages(
-          currentChapter.mangadexChapterId || currentChapter.id,
-          imageQuality,
-          mangaLanguage
-        )
-          .then((fallbackRes) => {
-            if (!isMounted) return;
-            if (fallbackRes.pages && fallbackRes.pages.length > 0) {
-              setResolvedPages(fallbackRes.pages);
-            } else if (currentChapter.pages && currentChapter.pages.length > 0) {
-              setResolvedPages(currentChapter.pages);
-            } else {
-              setResolvedPages([]);
-              setPageError("Não foi possível carregar as páginas deste capítulo no momento.");
+        console.warn("Primary manga pages fetch failed, trying direct chapter fetch:", err);
+        try {
+          // Direct fallback 1: fetch directly via /api/manga/pages with animeId and chapter number
+          const directRes = await fetch(`/api/manga/pages?animeId=${encodeURIComponent(anime.id)}&chapterNumber=${currentChapter.numericNumber}`);
+          if (directRes.ok) {
+            const directData = await directRes.json();
+            if (directData?.success && directData?.pages?.length > 0) {
+              if (isMounted) setResolvedPages(directData.pages);
+              return;
             }
-          })
-          .catch(() => {
-            if (!isMounted) return;
-            if (currentChapter.pages && currentChapter.pages.length > 0) {
-              setResolvedPages(currentChapter.pages);
-            } else {
-              setResolvedPages([]);
-              setPageError("Não foi possível carregar as páginas deste capítulo no momento.");
-            }
-          });
+          }
+        } catch {}
+
+        try {
+          const fallbackRes = await fetchMangaDexChapterPages(
+            currentChapter.mangadexChapterId || currentChapter.id,
+            imageQuality,
+            mangaLanguage
+          );
+          if (!isMounted) return;
+          if (fallbackRes.pages && fallbackRes.pages.length > 0) {
+            setResolvedPages(fallbackRes.pages);
+            return;
+          }
+        } catch {}
+
+        if (!isMounted) return;
+        if (currentChapter.pages && currentChapter.pages.length > 0) {
+          setResolvedPages(currentChapter.pages);
+        } else {
+          setResolvedPages([]);
+          setPageError("Não foi possível carregar as páginas deste capítulo no momento.");
+        }
       })
       .finally(() => {
         if (isMounted) setIsLoadingPages(false);

@@ -1,13 +1,19 @@
 import { useState, useEffect } from "react";
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
+import { auth as firebaseAuth } from "@/lib/firebase";
+import { onAuthStateChanged, signOut as firebaseSignOut } from "firebase/auth";
 import {
   getSpecialAdminUser,
   isSpecialAdminLoggedIn,
   logoutSpecialAdmin,
 } from "@/lib/editorialStore";
 
-const ADMIN_EMAILS = ["miguelworscoi@gmail.com", "mongedoun327@gmail.com"];
+const ADMIN_EMAILS = [
+  "miguelworscoi@gmail.com",
+  "mongedoun327@gmail.com",
+  "socienciadaeduca2018@gmail.com",
+];
 
 export const useAuth = () => {
   const [user, setUser] = useState<User | null>(() => (getSpecialAdminUser() as unknown as User) ?? null);
@@ -48,48 +54,100 @@ export const useAuth = () => {
         setIsAdmin(false);
         return;
       }
-      // Deferred to avoid deadlocks inside the auth callback
       setTimeout(async () => {
-        const { data } = await supabase
-          .from("user_roles")
-          .select("role")
-          .eq("user_id", userId)
-          .eq("role", "admin")
-          .maybeSingle();
-        setIsAdmin(!!data);
+        try {
+          const { data } = await supabase
+            .from("user_roles")
+            .select("role")
+            .eq("user_id", userId)
+            .eq("role", "admin")
+            .maybeSingle();
+          setIsAdmin(!!data);
+        } catch {
+          // Ignore if offline
+        }
       }, 0);
     };
+
+    const unsubFirebase = onAuthStateChanged(firebaseAuth, (fbUser) => {
+      if (syncSpecialAdmin()) return;
+      if (fbUser && !fbUser.isAnonymous) {
+        const mappedUser = {
+          id: fbUser.uid,
+          email: fbUser.email || "",
+          app_metadata: { provider: "google" },
+          user_metadata: {
+            display_name: fbUser.displayName || fbUser.email?.split("@")[0] || "Leitor Wotho",
+            avatar_url: fbUser.photoURL || undefined,
+          },
+          aud: "authenticated",
+          created_at: fbUser.metadata?.creationTime || new Date().toISOString(),
+        } as unknown as User;
+        setUser(mappedUser);
+        checkRole(fbUser.uid, fbUser.email || undefined);
+        setLoading(false);
+      }
+    });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (_event, currentSession) => {
         if (syncSpecialAdmin()) return;
-        setSession(currentSession);
-        setUser(currentSession?.user ?? null);
-        checkRole(currentSession?.user?.id, currentSession?.user?.email);
-        setLoading(false);
+        if (currentSession?.user) {
+          setSession(currentSession);
+          setUser(currentSession.user);
+          checkRole(currentSession.user.id, currentSession.user.email);
+          setLoading(false);
+        } else if (!firebaseAuth.currentUser || firebaseAuth.currentUser.isAnonymous) {
+          setSession(null);
+          setUser(null);
+          setIsAdmin(false);
+          setLoading(false);
+        }
       }
     );
 
     supabase.auth.getSession().then(({ data: { session: initialSession } }) => {
       if (syncSpecialAdmin()) return;
-      setSession(initialSession);
-      setUser(initialSession?.user ?? null);
-      checkRole(initialSession?.user?.id, initialSession?.user?.email);
+      if (initialSession?.user) {
+        setSession(initialSession);
+        setUser(initialSession.user);
+        checkRole(initialSession.user.id, initialSession.user.email);
+      }
       setLoading(false);
     });
 
     const handleAuthUpdated = () => {
       if (!syncSpecialAdmin()) {
         supabase.auth.getSession().then(({ data: { session: s } }) => {
-          setSession(s);
-          setUser(s?.user ?? null);
-          checkRole(s?.user?.id, s?.user?.email);
+          if (s?.user) {
+            setSession(s);
+            setUser(s.user);
+            checkRole(s.user.id, s.user.email);
+          } else if (firebaseAuth.currentUser && !firebaseAuth.currentUser.isAnonymous) {
+            const fbUser = firebaseAuth.currentUser;
+            setUser({
+              id: fbUser.uid,
+              email: fbUser.email || "",
+              app_metadata: { provider: "google" },
+              user_metadata: {
+                display_name: fbUser.displayName || fbUser.email?.split("@")[0] || "Leitor Wotho",
+                avatar_url: fbUser.photoURL || undefined,
+              },
+              aud: "authenticated",
+              created_at: fbUser.metadata?.creationTime || new Date().toISOString(),
+            } as unknown as User);
+            checkRole(fbUser.uid, fbUser.email || undefined);
+          } else {
+            setUser(null);
+            setIsAdmin(false);
+          }
         });
       }
     };
     window.addEventListener("worscoi_auth_updated", handleAuthUpdated);
 
     return () => {
+      unsubFirebase();
       subscription.unsubscribe();
       window.removeEventListener("worscoi_auth_updated", handleAuthUpdated);
     };
@@ -97,6 +155,11 @@ export const useAuth = () => {
 
   const signOut = async () => {
     logoutSpecialAdmin();
+    try {
+      await firebaseSignOut(firebaseAuth);
+    } catch {
+      // Ignore
+    }
     try {
       await supabase.auth.signOut();
     } catch {
@@ -109,4 +172,5 @@ export const useAuth = () => {
 
   return { user, session, loading, isAdmin, signOut };
 };
+
 

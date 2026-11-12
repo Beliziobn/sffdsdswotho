@@ -57,6 +57,11 @@ const Footer = () => {
                 </Link>
               </li>
               <li>
+                <Link to="/perfil" className="text-background/70 hover:text-background smooth-hover text-xs font-light">
+                  Meu Perfil & Histórico
+                </Link>
+              </li>
+              <li>
                 <Link to="/biblioteca" className="text-background/70 hover:text-background smooth-hover text-xs font-light">
                   Minha estante
                 </Link>

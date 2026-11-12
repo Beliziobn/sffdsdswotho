@@ -35,6 +35,7 @@ import Privacy from "./pages/Privacy";
 import SiteMapPage from "./pages/SiteMapPage";
 import About from "./pages/About";
 import Contact from "./pages/Contact";
+import Profile from "./pages/Profile";
 import CookieConsent from "./components/consent/CookieConsent";
 import TermsGate from "./components/consent/TermsGate";
 import CanonicalManager from "./components/CanonicalManager";
@@ -72,6 +73,8 @@ const App = () => (
           <Route path="/noticias" element={<News />} />
           <Route path="/noticias/:slug" element={<NewsArticle />} />
           <Route path="/biblioteca" element={<Library />} />
+          <Route path="/perfil" element={<Profile />} />
+          <Route path="/meu-perfil" element={<Profile />} />
           <Route path="/auth" element={<Auth />} />
           <Route path="/admin" element={<Admin />} />
           <Route path="/conteudo/:id" element={<ContentDetail />} />

@@ -169,8 +169,24 @@ const Reader = () => {
     if (id && chapters.length > 0) {
       localStorage.setItem(`worscoi_reading_pos_${id}`, String(index));
     }
+    if (id && book) {
+      const pct = chapters.length <= 1 ? 100 : Math.round(((index + 1) / chapters.length) * 100);
+      const chTitle = chapters[index]?.title || `Capítulo ${index + 1}`;
+      import("@/lib/userProfileStore").then(({ recordUserHistory }) => {
+        recordUserHistory({
+          itemId: String(book.id),
+          type: "book",
+          title: book.title,
+          subtitle: book.author,
+          cover: book.cover_url || undefined,
+          href: `/ler/${book.id}?cap=${index}`,
+          progressPercent: pct,
+          detailLabel: chTitle,
+        });
+      }).catch(() => {});
+    }
     window.scrollTo({ top: 0, behavior: "smooth" });
-  }, [index, id, chapters.length]);
+  }, [index, id, chapters, book]);
 
   // Keyboard navigation
   useEffect(() => {

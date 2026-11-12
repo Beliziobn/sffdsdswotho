@@ -92,6 +92,22 @@ export const AnimeDetail = () => {
     }
   }, [anime]);
 
+  useEffect(() => {
+    if (!anime) return;
+    import("@/lib/userProfileStore").then(({ recordUserHistory }) => {
+      recordUserHistory({
+        itemId: anime.id,
+        type: "anime",
+        title: anime.title,
+        subtitle: `${anime.studio} · ${anime.year}`,
+        cover: anime.cover,
+        href: `/animes/${anime.id}`,
+        progressPercent: Math.min(100, Math.max(12, Math.round((activeEpisodeNumber / Math.max(1, anime.episodesCount || 12)) * 100))),
+        detailLabel: `Temporada ${activeSeasonNumber} · Episódio ${activeEpisodeNumber} (Dublado PT-BR)`,
+      });
+    }).catch(() => {});
+  }, [anime, activeSeasonNumber, activeEpisodeNumber]);
+
   // Fetch real chapters from Multi-Source Manga & MangaDex engine
   useEffect(() => {
     if (!anime) return;

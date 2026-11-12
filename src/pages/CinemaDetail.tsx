@@ -92,6 +92,26 @@ export default function CinemaDetail() {
     }
   }, [id]);
 
+  useEffect(() => {
+    if (!item) return;
+    const detailLabel =
+      item.type === "serie"
+        ? `Temporada ${selectedSeasonNumber} · Episódio ${selectedEpisodeNumber}`
+        : `Filme (${item.year}) · Dublado PT-BR`;
+    import("@/lib/userProfileStore").then(({ recordUserHistory }) => {
+      recordUserHistory({
+        itemId: item.id,
+        type: "cinema",
+        title: item.title,
+        subtitle: `${item.type === "filme" ? "Filme" : "Série"} · ${item.director}`,
+        cover: item.posterUrl || item.backdropUrl,
+        href: `/cinema/${item.id}`,
+        progressPercent: 25,
+        detailLabel,
+      });
+    }).catch(() => {});
+  }, [item, selectedSeasonNumber, selectedEpisodeNumber]);
+
   if (!item) {
     return (
       <div className="min-h-screen bg-[#07090e] text-zinc-100 flex flex-col">

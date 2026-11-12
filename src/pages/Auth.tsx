@@ -50,10 +50,10 @@ const Auth = () => {
       return;
     }
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session) navigate("/biblioteca");
+      if (session) navigate("/perfil");
     });
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) navigate("/biblioteca");
+      if (session) navigate("/perfil");
     });
     return () => subscription.unsubscribe();
   }, [navigate]);
@@ -188,7 +188,7 @@ const Auth = () => {
           title: "Bem-vindo!",
           description: `Sessão iniciada como ${user.displayName || user.email}`,
         });
-        navigate("/biblioteca");
+        navigate("/perfil");
         return;
       }
     } catch (err: any) {
