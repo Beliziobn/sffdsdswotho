@@ -108,7 +108,7 @@ export const WorscoCinemaPlayer: React.FC<WorscoCinemaPlayerProps> = ({
     }
   }, [language]);
 
-  // Resolve real MP4 & HLS streams and subtitles whenever item/season/episode changes
+  // Resolve real MP4 & HLS streams and subtitles whenever item/season/episode/audioMode changes
   useEffect(() => {
     let cancelled = false;
     setIsResolving(true);
@@ -117,8 +117,6 @@ export const WorscoCinemaPlayer: React.FC<WorscoCinemaPlayerProps> = ({
     setCandidateIdx(0);
     setUseProxyForMp4(false);
     setActiveCueText("");
-    savedTimeRef.current = 0;
-    wasPlayingRef.current = false;
 
     const mediaType = item.type === "serie" ? "tv" : "movie";
     const params = new URLSearchParams({
@@ -129,6 +127,7 @@ export const WorscoCinemaPlayer: React.FC<WorscoCinemaPlayerProps> = ({
       episode: String(episodeNumber),
       title: item.originalTitle || item.title,
       year: String(item.year),
+      audioMode,
     });
 
     fetch(`/api/cinema/resolve?${params.toString()}`)
@@ -188,6 +187,7 @@ export const WorscoCinemaPlayer: React.FC<WorscoCinemaPlayerProps> = ({
     item.year,
     seasonNumber,
     episodeNumber,
+    audioMode,
   ]);
 
   // Rank streams based on user's selected audioMode ("dublado" | "legendado" | "original")
@@ -249,8 +249,9 @@ export const WorscoCinemaPlayer: React.FC<WorscoCinemaPlayerProps> = ({
     };
 
     if (currentStream.type === "mp4") {
-      // Use backend MP4 Range proxy first so Referer is stripped for hakunaymatata.com CDN
-      const mp4Source = useProxyForMp4 ? currentStream.url : currentStream.proxyUrl;
+      // With meta referrer="no-referrer", direct CDN URL (currentStream.url) streams 206 Partial Content at full speed on both Vercel & preview; proxyUrl is used as fallback
+      video.setAttribute("referrerpolicy", "no-referrer");
+      const mp4Source = useProxyForMp4 ? currentStream.proxyUrl : currentStream.url;
       video.src = mp4Source;
       video.load();
 

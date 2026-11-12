@@ -14,6 +14,7 @@ import { formatPrice } from "@/lib/format";
 import { getOriginalPdfForBook, getDownloadPdfUrl } from "@/lib/originalPdfRegistry";
 import { CommunityReviews } from "@/components/CommunityReviews";
 import ShareDialog from "@/components/ShareDialog";
+import { ContentDetailSkeleton } from "@/components/skeletons/AppSkeletons";
 
 const BookDetail = () => {
   const { id } = useParams();
@@ -32,9 +33,9 @@ const BookDetail = () => {
   // Dynamic SEO Synchronization
   useEffect(() => {
     if (!book) return;
-    const pageTitle = `${book.title} — ${book.author} | Worsco Livros`;
+    const pageTitle = `${book.title} — ${book.author} | Wotho Livros`;
     document.title = pageTitle;
-    const desc = book.description || `Leia "${book.title}" por ${book.author} online no navegador na Worsco.`;
+    const desc = book.description || `Leia "${book.title}" por ${book.author} online no navegador na Wotho.`;
     const metaDesc = document.querySelector('meta[name="description"]');
     if (metaDesc) metaDesc.setAttribute("content", desc);
     const ogTitle = document.querySelector('meta[property="og:title"]');
@@ -100,7 +101,8 @@ const BookDetail = () => {
     return (
       <div className="min-h-screen bg-background">
         <Navigation variant="dark" />
-        <p className="pt-40 text-center text-sm text-muted-foreground font-light">Carregando livro...</p>
+        <ContentDetailSkeleton />
+        <Footer />
       </div>
     );
   }

@@ -242,6 +242,7 @@ export const SecureAnimePlayer: React.FC<SecureAnimePlayerProps> = ({
     if (!videoEl || !activeRawUrl) return;
 
     let isCancelled = false;
+    let blobManifestUrl: string | null = null;
     setIsBuffering(true);
 
     const restorePlaybackState = () => {
@@ -268,10 +269,9 @@ export const SecureAnimePlayer: React.FC<SecureAnimePlayerProps> = ({
         hlsInstanceRef.current.destroy();
         hlsInstanceRef.current = null;
       }
-      let triedDirectFallback = false;
-      const initialMp4Src = activeRawUrl.includes("hakunaymatata.com")
-        ? `/api/cinema/mp4-proxy?url=${encodeURIComponent(activeRawUrl)}`
-        : activeRawUrl;
+      let triedProxyFallback = false;
+      videoEl.setAttribute("referrerpolicy", "no-referrer");
+      const initialMp4Src = activeRawUrl;
       videoEl.src = initialMp4Src;
       videoEl.load();
 
@@ -283,12 +283,9 @@ export const SecureAnimePlayer: React.FC<SecureAnimePlayerProps> = ({
 
       const handleError = () => {
         if (isCancelled) return;
-        if (!triedDirectFallback) {
-          triedDirectFallback = true;
-          videoEl.src =
-            initialMp4Src === activeRawUrl
-              ? `/api/cinema/mp4-proxy?url=${encodeURIComponent(activeRawUrl)}`
-              : activeRawUrl;
+        if (!triedProxyFallback) {
+          triedProxyFallback = true;
+          videoEl.src = `/api/cinema/mp4-proxy?url=${encodeURIComponent(activeRawUrl)}`;
           videoEl.load();
         } else if (fallbackRawUrl && fallbackRawUrl !== activeRawUrl) {
           setUseEmbedFallback(true);
@@ -316,6 +313,43 @@ export const SecureAnimePlayer: React.FC<SecureAnimePlayerProps> = ({
       hlsInstanceRef.current = null;
     }
 
+    // Helper that normalizes maximaimg.online #EXTINF:...,http lines directly in browser so HLS works even without backend proxy
+    const buildClientNormalizedManifestUrl = async (targetM3u8: string): Promise<string> => {
+      try {
+        const res = await fetch(targetM3u8);
+        if (!res.ok) throw new Error("Direct fetch failed");
+        const rawText = await res.text();
+        if (!rawText.trim().startsWith("#EXTM3U")) throw new Error("Not M3U8");
+        const baseUri = new URL(targetM3u8);
+        const rewritten = rawText
+          .split("\n")
+          .map((line) => {
+            const trimmed = line.trim();
+            if (!trimmed) return line;
+            if (trimmed.startsWith("#")) {
+              if (trimmed.startsWith("#EXTINF") && trimmed.includes(",http")) {
+                const commaIdx = trimmed.indexOf(",http");
+                const tag = trimmed.slice(0, commaIdx + 1);
+                const segUrl = trimmed.slice(commaIdx + 1);
+                return `${tag}\n${segUrl}`;
+              }
+              return line;
+            }
+            try {
+              return new URL(trimmed, baseUri).toString();
+            } catch {
+              return line;
+            }
+          })
+          .join("\n");
+        const blob = new Blob([rewritten], { type: "application/vnd.apple.mpegurl" });
+        blobManifestUrl = URL.createObjectURL(blob);
+        return blobManifestUrl;
+      } catch {
+        return manifestProxyUrl;
+      }
+    };
+
     if (Hls.isSupported()) {
       const hls = new Hls({
         enableWorker: true,
@@ -324,10 +358,14 @@ export const SecureAnimePlayer: React.FC<SecureAnimePlayerProps> = ({
       });
       hlsInstanceRef.current = hls;
 
-      let triedDirectFallback = false;
+      let fallbackStep = 0;
 
-      hls.loadSource(manifestProxyUrl);
-      hls.attachMedia(videoEl);
+      void (async () => {
+        const initialSource = await buildClientNormalizedManifestUrl(activeRawUrl);
+        if (isCancelled) return;
+        hls.loadSource(initialSource);
+        hls.attachMedia(videoEl);
+      })();
 
       hls.on(Hls.Events.MANIFEST_PARSED, () => {
         if (isCancelled) return;
@@ -338,10 +376,18 @@ export const SecureAnimePlayer: React.FC<SecureAnimePlayerProps> = ({
       hls.on(Hls.Events.ERROR, (_event, data) => {
         if (isCancelled) return;
         if (data?.fatal) {
-          if (data.type === Hls.ErrorTypes.NETWORK_ERROR && !triedDirectFallback) {
-            triedDirectFallback = true;
-            hls.loadSource(fallbackRawUrl || activeRawUrl);
+          if (data.type === Hls.ErrorTypes.NETWORK_ERROR && fallbackStep === 0) {
+            fallbackStep = 1;
+            hls.loadSource(manifestProxyUrl);
             hls.startLoad();
+          } else if (data.type === Hls.ErrorTypes.NETWORK_ERROR && fallbackStep === 1 && fallbackRawUrl && fallbackRawUrl !== activeRawUrl) {
+            fallbackStep = 2;
+            void buildClientNormalizedManifestUrl(fallbackRawUrl).then((fbSource) => {
+              if (!isCancelled) {
+                hls.loadSource(fbSource);
+                hls.startLoad();
+              }
+            });
           } else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
             hls.recoverMediaError();
           } else {
@@ -360,6 +406,9 @@ export const SecureAnimePlayer: React.FC<SecureAnimePlayerProps> = ({
 
     return () => {
       isCancelled = true;
+      if (blobManifestUrl) {
+        URL.revokeObjectURL(blobManifestUrl);
+      }
       if (hlsInstanceRef.current) {
         hlsInstanceRef.current.destroy();
         hlsInstanceRef.current = null;

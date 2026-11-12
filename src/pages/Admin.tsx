@@ -23,6 +23,7 @@ import {
   Sparkles,
   Trash2,
   TrendingUp,
+  Upload,
   Wand2,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -61,6 +62,14 @@ import {
 } from "@/lib/editorialStore";
 import { auth, signInWithGoogle } from "@/lib/firebase";
 import { syncLocalEditorialToCloud } from "@/lib/cloudEditorialService";
+import {
+  processUploadedPdfFile,
+  savePdfBytesToIndexedDB,
+  saveCustomUploadedPdfEntry,
+  deleteCustomUploadedPdfEntry,
+  type ExtractedPdfBookData,
+} from "@/lib/pdfUploadService";
+import { getOriginalPdfForBook } from "@/lib/originalPdfRegistry";
 
 const NEWS_CATEGORIES = [
   "Esporte",
@@ -127,6 +136,12 @@ const Admin = () => {
   const [editBookCategory, setEditBookCategory] = useState("Literatura");
   const [editBookCover, setEditBookCover] = useState("");
   const [editBookDescription, setEditBookDescription] = useState("");
+  const [editBookPdfUrl, setEditBookPdfUrl] = useState("");
+  const [uploadedPdfData, setUploadedPdfData] = useState<ExtractedPdfBookData | null>(null);
+  const [uploadedPdfFileName, setUploadedPdfFileName] = useState("");
+  const [isProcessingPdf, setIsProcessingPdf] = useState(false);
+  const [pdfProgressStep, setPdfProgressStep] = useState("");
+  const [pdfProgressPct, setPdfProgressPct] = useState(0);
 
   const [chapterTitle, setChapterTitle] = useState("");
   const [chapterPosition, setChapterPosition] = useState("1");
@@ -241,6 +256,10 @@ const Admin = () => {
     setEditBookCategory(book.category || "Literatura");
     setEditBookCover(book.cover_url || "");
     setEditBookDescription(book.description || "");
+    const existingPdf = getOriginalPdfForBook(book.id);
+    setEditBookPdfUrl(existingPdf?.pdfUrl && !existingPdf.pdfUrl.startsWith("idb://") && !existingPdf.pdfUrl.startsWith("data:") ? existingPdf.pdfUrl : "");
+    setUploadedPdfData(null);
+    setUploadedPdfFileName("");
   };
 
   const startNewBook = () => {
@@ -251,6 +270,9 @@ const Admin = () => {
     setEditBookCategory("Literatura & Filosofia");
     setEditBookCover("https://images.unsplash.com/photo-1544947950-fa07a98d237f?w=800&auto=format&fit=crop&q=80");
     setEditBookDescription("");
+    setEditBookPdfUrl("");
+    setUploadedPdfData(null);
+    setUploadedPdfFileName("");
   };
 
   // ==========================================================================
@@ -522,7 +544,67 @@ const Admin = () => {
     toast.success(`${diverseItems.length} publicações diversas adicionadas ao site!`);
   };
 
-  const handleSaveBook = (e: React.FormEvent) => {
+  const handlePdfFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.name.toLowerCase().endsWith(".pdf") && file.type !== "application/pdf") {
+      toast.error("Por favor, selecione um arquivo em formato .PDF válido.");
+      return;
+    }
+
+    setIsProcessingPdf(true);
+    setUploadedPdfFileName(file.name);
+    setPdfProgressStep("Iniciando leitura do PDF...");
+    setPdfProgressPct(5);
+
+    try {
+      const extracted = await processUploadedPdfFile(file, (step, pct) => {
+        setPdfProgressStep(step);
+        setPdfProgressPct(pct);
+      });
+
+      setUploadedPdfData(extracted);
+
+      if (isCreatingNewBook || !editBookTitle.trim()) {
+        setEditBookTitle(extracted.suggestedTitle || file.name.replace(/\.pdf$/i, ""));
+      }
+      if (extracted.suggestedAuthor && (!editBookAuthor.trim() || editBookAuthor === "Miguel Worscoi")) {
+        setEditBookAuthor(extracted.suggestedAuthor);
+      }
+      if (extracted.coverDataUrl) {
+        setEditBookCover(extracted.coverDataUrl);
+      }
+      if (extracted.suggestedDescription && (!editBookDescription.trim() || isCreatingNewBook)) {
+        setEditBookDescription(extracted.suggestedDescription);
+      }
+
+      toast.success(
+        `PDF "${file.name}" carregado! ${extracted.pagesCount} páginas e ${extracted.extractedChapters.length} partes extraídas automaticamente.`
+      );
+    } catch (err: any) {
+      console.error("Erro ao processar PDF:", err);
+      toast.error("Não foi possível ler o PDF. Verifique se o arquivo não está protegido por senha.");
+    } finally {
+      setIsProcessingPdf(false);
+      e.target.value = "";
+    }
+  };
+
+  const handleCoverFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === "string") {
+        setEditBookCover(reader.result);
+        toast.success("Capa personalizada carregada do dispositivo!");
+      }
+    };
+    reader.readAsDataURL(file);
+    e.target.value = "";
+  };
+
+  const handleSaveBook = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editBookTitle.trim() || !editBookAuthor.trim()) {
       toast.error("Informe o título e o autor da obra.");
@@ -537,11 +619,69 @@ const Admin = () => {
       description: editBookDescription,
       isNew: isCreatingNewBook,
     });
+
+    // If a PDF file was uploaded from device or external PDF URL was provided, register it
+    if (uploadedPdfData) {
+      const idbUri = await savePdfBytesToIndexedDB(saved.id, uploadedPdfData.arrayBuffer);
+      const pdfUrlToUse = uploadedPdfData.inlineDataUrl || idbUri || editBookPdfUrl.trim();
+      saveCustomUploadedPdfEntry({
+        id: saved.id,
+        title: saved.title,
+        author: saved.author,
+        year: new Date().getFullYear(),
+        originalPagesCount: uploadedPdfData.pagesCount,
+        fileSizeBytes: uploadedPdfData.fileSizeBytes,
+        fileSizeFormatted: uploadedPdfData.fileSizeFormatted,
+        pdfUrl: pdfUrlToUse,
+        directDownloadUrl: pdfUrlToUse,
+        sourceRepository: "Biblioteca Digital Luso-Brasileira",
+        editionNotes: `Edição integral em PDF (${uploadedPdfData.pagesCount} páginas · ${uploadedPdfData.fileSizeFormatted}) publicada pela curadoria editorial da Wotho.`,
+        isPublicDomain: false,
+        coverUrl: saved.cover_url || uploadedPdfData.coverDataUrl,
+        category: saved.category,
+        description: saved.description,
+      });
+
+      // Also save all extracted chapters so the book is readable in both PDF and Text mode across all devices
+      for (const ch of uploadedPdfData.extractedChapters) {
+        saveCustomBookChapter({
+          book_id: saved.id,
+          title: ch.title,
+          content: ch.content,
+          position: ch.position,
+        });
+      }
+    } else if (editBookPdfUrl.trim()) {
+      saveCustomUploadedPdfEntry({
+        id: saved.id,
+        title: saved.title,
+        author: saved.author,
+        year: new Date().getFullYear(),
+        originalPagesCount: 200,
+        fileSizeBytes: 2500000,
+        fileSizeFormatted: "PDF Completo",
+        pdfUrl: editBookPdfUrl.trim(),
+        directDownloadUrl: editBookPdfUrl.trim(),
+        sourceRepository: "Biblioteca Digital Luso-Brasileira",
+        editionNotes: "Edição digital em PDF publicada pela curadoria editorial da Wotho.",
+        isPublicDomain: false,
+        coverUrl: saved.cover_url || "/placeholder.svg",
+        category: saved.category,
+        description: saved.description,
+      });
+    }
+
     void queryClient.invalidateQueries({ queryKey: ["books"] });
     void queryClient.invalidateQueries({ queryKey: ["book", saved.id] });
+    void queryClient.invalidateQueries({ queryKey: ["chapters", saved.id] });
     setIsCreatingNewBook(false);
     setSelectedBookId(saved.id);
-    toast.success("Obra literária salva e atualizada no catálogo!");
+    setUploadedPdfData(null);
+    toast.success(
+      uploadedPdfData
+        ? `Livro em PDF "${saved.title}" publicado com ${uploadedPdfData.pagesCount} páginas e capítulos sincronizados!`
+        : "Obra literária salva e atualizada no catálogo!"
+    );
   };
 
   const handleAddChapterToBook = (e: React.FormEvent) => {
@@ -748,6 +888,18 @@ const Admin = () => {
               >
                 <Plus className="h-3.5 w-3.5 mr-1.5" />
                 Nova Publicação
+              </Button>
+              <Button
+                onClick={() => {
+                  startNewBook();
+                  setActiveTab("books");
+                }}
+                variant="outline"
+                size="sm"
+                className="rounded-full text-[11px] uppercase tracking-wider border-primary/40 text-primary hover:bg-primary/10"
+              >
+                <Upload className="h-3.5 w-3.5 mr-1.5" />
+                Publicar Livro PDF
               </Button>
               <Button
                 variant="outline"
@@ -1635,6 +1787,77 @@ const Admin = () => {
                       )}
                     </div>
 
+                    {/* Direct PDF Book Upload Box from Admin Device */}
+                    <div className="mb-6 p-5 rounded-2xl border-2 border-dashed border-primary/40 bg-primary/5 space-y-3">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div className="space-y-1">
+                          <span className="text-[10px] uppercase tracking-widest text-primary font-semibold flex items-center gap-1.5">
+                            <Upload className="h-3.5 w-3.5" />
+                            Upload Direto do Dispositivo (PDF Completo)
+                          </span>
+                          <h3 className="text-sm font-medium text-foreground">
+                            Enviar Arquivo de Livro em PDF do seu Computador ou Celular
+                          </h3>
+                          <p className="text-xs text-muted-foreground font-light">
+                            O sistema extrai automaticamente o título, gera a capa em alta definição a partir da 1ª página, organiza os capítulos e disponibiliza o PDF completo para leitura e download no site.
+                          </p>
+                        </div>
+
+                        <label className="cursor-pointer shrink-0 inline-flex items-center justify-center rounded-full bg-primary text-primary-foreground hover:bg-primary/90 px-4 py-2.5 text-xs uppercase tracking-wider font-medium transition-colors shadow-sm">
+                          <Upload className="h-3.5 w-3.5 mr-2" />
+                          {isProcessingPdf ? "Processando PDF..." : "Escolher Arquivo .PDF"}
+                          <input
+                            type="file"
+                            accept=".pdf,application/pdf"
+                            onChange={handlePdfFileSelect}
+                            disabled={isProcessingPdf}
+                            className="hidden"
+                          />
+                        </label>
+                      </div>
+
+                      {isProcessingPdf && (
+                        <div className="space-y-1.5 pt-2">
+                          <div className="flex items-center justify-between text-xs text-primary font-medium">
+                            <span>{pdfProgressStep}</span>
+                            <span>{pdfProgressPct}%</span>
+                          </div>
+                          <div className="h-2 w-full rounded-full bg-secondary overflow-hidden">
+                            <div
+                              className="h-full bg-primary transition-all duration-300"
+                              style={{ width: `${pdfProgressPct}%` }}
+                            />
+                          </div>
+                        </div>
+                      )}
+
+                      {uploadedPdfData && !isProcessingPdf && (
+                        <div className="p-3.5 rounded-xl bg-background/90 border border-primary/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                          <div className="flex items-center gap-3">
+                            {uploadedPdfData.coverDataUrl && (
+                              <img
+                                src={uploadedPdfData.coverDataUrl}
+                                alt="Capa gerada do PDF"
+                                className="w-12 h-16 object-cover rounded border border-border shrink-0"
+                              />
+                            )}
+                            <div>
+                              <p className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
+                                <CheckCircle2 className="h-3.5 w-3.5" />
+                                Arquivo PDF pronto para publicar: {uploadedPdfFileName}
+                              </p>
+                              <p className="text-[11px] text-muted-foreground font-light mt-0.5">
+                                {uploadedPdfData.pagesCount} páginas · {uploadedPdfData.fileSizeFormatted} · {uploadedPdfData.extractedChapters.length} partes/capítulos extraídos automaticamente
+                              </p>
+                            </div>
+                          </div>
+                          <span className="text-[10px] uppercase tracking-wider px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-medium shrink-0">
+                            Capa + Texto + PDF Integral
+                          </span>
+                        </div>
+                      )}
+                    </div>
+
                     <form onSubmit={handleSaveBook} className="space-y-4">
                       <div className="grid sm:grid-cols-2 gap-4">
                         <div className="space-y-1.5">
@@ -1644,6 +1867,7 @@ const Admin = () => {
                           <Input
                             value={editBookTitle}
                             onChange={(e) => setEditBookTitle(e.target.value)}
+                            placeholder="Ex: Meditações, Hábitos Atômicos..."
                             required
                           />
                         </div>
@@ -1654,6 +1878,7 @@ const Admin = () => {
                           <Input
                             value={editBookAuthor}
                             onChange={(e) => setEditBookAuthor(e.target.value)}
+                            placeholder="Nome do autor ou autora"
                             required
                           />
                         </div>
@@ -1667,17 +1892,42 @@ const Admin = () => {
                           <Input
                             value={editBookCategory}
                             onChange={(e) => setEditBookCategory(e.target.value)}
+                            placeholder="Ex: Filosofia, Romance, Finanças, Ciência..."
                           />
                         </div>
                         <div className="space-y-1.5">
-                          <Label className="text-xs uppercase tracking-wider text-muted-foreground">
-                            URL da Capa
-                          </Label>
+                          <div className="flex items-center justify-between">
+                            <Label className="text-xs uppercase tracking-wider text-muted-foreground">
+                              Capa do Livro (URL ou Upload)
+                            </Label>
+                            <label className="cursor-pointer text-[10px] uppercase tracking-wider text-primary hover:underline font-medium flex items-center gap-1">
+                              <ImageIcon className="h-3 w-3" />
+                              Enviar Imagem
+                              <input
+                                type="file"
+                                accept="image/*"
+                                onChange={handleCoverFileSelect}
+                                className="hidden"
+                              />
+                            </label>
+                          </div>
                           <Input
                             value={editBookCover}
                             onChange={(e) => setEditBookCover(e.target.value)}
+                            placeholder="Gerada automaticamente do PDF ou cole uma URL..."
                           />
                         </div>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <Label className="text-xs uppercase tracking-wider text-muted-foreground">
+                          Link Direto de PDF Externo (Opcional — caso não envie arquivo do dispositivo)
+                        </Label>
+                        <Input
+                          value={editBookPdfUrl}
+                          onChange={(e) => setEditBookPdfUrl(e.target.value)}
+                          placeholder="https://exemplo.com/arquivo-do-livro.pdf (opcional)"
+                        />
                       </div>
 
                       <div className="space-y-1.5">
@@ -1699,6 +1949,7 @@ const Admin = () => {
                             variant="ghost"
                             onClick={() => {
                               deleteBookPublication(selectedBookId);
+                              deleteCustomUploadedPdfEntry(selectedBookId);
                               void queryClient.invalidateQueries({ queryKey: ["books"] });
                               toast.success("Obra ocultada do catálogo.");
                               startNewBook();
@@ -1713,10 +1964,13 @@ const Admin = () => {
                         )}
                         <Button
                           type="submit"
+                          disabled={isProcessingPdf}
                           className="rounded-full text-xs uppercase tracking-wider bg-primary text-primary-foreground hover:bg-primary/90 px-6"
                         >
                           <Save className="h-3.5 w-3.5 mr-1.5" />
-                          Salvar Obra no Catálogo
+                          {uploadedPdfData
+                            ? "Publicar Livro PDF no Site Agora"
+                            : "Salvar Obra no Catálogo"}
                         </Button>
                       </div>
                     </form>

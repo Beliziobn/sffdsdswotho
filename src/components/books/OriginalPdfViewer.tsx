@@ -21,6 +21,8 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
+import { getPdfBytesFromIndexedDB } from "@/lib/pdfUploadService";
+
 // Configure worker with local asset URL and fallback to CDN
 try {
   pdfjsLib.GlobalWorkerOptions.workerSrc =
@@ -86,12 +88,44 @@ export const OriginalPdfViewer: React.FC<OriginalPdfViewerProps> = ({
     setLoadingProgress(10);
 
     try {
-      const loadingTask = pdfjsLib.getDocument({
-        url: pdfUrl,
-        cMapUrl: "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/cmaps/",
-        cMapPacked: true,
-        withCredentials: false,
-      });
+      const targetRef =
+        pdfUrl.startsWith("idb://")
+          ? pdfUrl
+          : originalPdfUrl?.startsWith("idb://")
+          ? originalPdfUrl
+          : pdfUrl;
+
+      let loadingTask: any;
+      if (targetRef.startsWith("idb://")) {
+        const idbBytes = await getPdfBytesFromIndexedDB(targetRef);
+        if (!idbBytes) {
+          throw new Error("Arquivo PDF local não encontrado no dispositivo.");
+        }
+        loadingTask = pdfjsLib.getDocument({
+          data: idbBytes,
+          cMapUrl: "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/cmaps/",
+          cMapPacked: true,
+        });
+      } else if (targetRef.startsWith("data:application/pdf;base64,")) {
+        const b64 = targetRef.replace(/^data:application\/pdf;base64,/, "");
+        const binaryStr = atob(b64);
+        const bytes = new Uint8Array(binaryStr.length);
+        for (let i = 0; i < binaryStr.length; i++) {
+          bytes[i] = binaryStr.charCodeAt(i);
+        }
+        loadingTask = pdfjsLib.getDocument({
+          data: bytes,
+          cMapUrl: "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/cmaps/",
+          cMapPacked: true,
+        });
+      } else {
+        loadingTask = pdfjsLib.getDocument({
+          url: pdfUrl,
+          cMapUrl: "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/cmaps/",
+          cMapPacked: true,
+          withCredentials: false,
+        });
+      }
 
       loadingTask.onProgress = (progressData: { loaded: number; total: number }) => {
         if (progressData.total > 0) {
@@ -110,7 +144,7 @@ export const OriginalPdfViewer: React.FC<OriginalPdfViewerProps> = ({
     } catch (err: any) {
       console.error("Erro ao carregar PDF via PDF.js:", err);
       // If proxied URL had an issue and original url is provided, attempt fallback
-      if (originalPdfUrl && pdfUrl !== originalPdfUrl) {
+      if (originalPdfUrl && pdfUrl !== originalPdfUrl && !originalPdfUrl.startsWith("idb://")) {
         try {
           const fallbackTask = pdfjsLib.getDocument({
             url: originalPdfUrl,

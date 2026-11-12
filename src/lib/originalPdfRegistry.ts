@@ -1505,11 +1505,22 @@ export const ORIGINAL_PDF_REGISTRY: Record<string, OriginalPdfBook> = {
   },
 };
 
+function readCustomUploadedPdfMap(): Record<string, OriginalPdfBook> {
+  if (typeof window === "undefined") return {};
+  try {
+    const raw = localStorage.getItem("wotho_custom_pdf_registry_v1");
+    return raw ? (JSON.parse(raw) as Record<string, OriginalPdfBook>) : {};
+  } catch {
+    return {};
+  }
+}
+
 /**
- * Retorna todos os livros cadastrados no registro de PDFs originais
+ * Retorna todos os livros cadastrados no registro de PDFs originais (incluindo PDFs enviados pelo Admin)
  */
 export function getAllOriginalPdfBooks(): OriginalPdfBook[] {
-  return Object.values(ORIGINAL_PDF_REGISTRY);
+  const customMap = readCustomUploadedPdfMap();
+  return [...Object.values(customMap), ...Object.values(ORIGINAL_PDF_REGISTRY)];
 }
 
 /**
@@ -1517,6 +1528,12 @@ export function getAllOriginalPdfBooks(): OriginalPdfBook[] {
  */
 export function getOriginalPdfForBook(bookId: string): OriginalPdfBook | undefined {
   if (!bookId) return undefined;
+
+  // 0. Busca em PDFs enviados pelo Administrador Mestre
+  const customMap = readCustomUploadedPdfMap();
+  if (customMap[bookId]) {
+    return customMap[bookId];
+  }
 
   // 1. Busca direta por ID exato
   if (ORIGINAL_PDF_REGISTRY[bookId]) {
@@ -1674,6 +1691,14 @@ export function hasOriginalPdf(bookId?: string | null): boolean {
  * Gera URL de streaming de PDF via proxy de alta velocidade no servidor local
  */
 export function getProxiedPdfUrl(targetPdfUrl?: string, filename?: string, bookId?: string): string {
+  if (
+    targetPdfUrl &&
+    (targetPdfUrl.startsWith("data:") ||
+      targetPdfUrl.startsWith("blob:") ||
+      targetPdfUrl.startsWith("idb://"))
+  ) {
+    return targetPdfUrl;
+  }
   const cleanName = filename || "livro-original.pdf";
   const params = new URLSearchParams();
   if (targetPdfUrl) params.set("url", targetPdfUrl);
@@ -1686,6 +1711,14 @@ export function getProxiedPdfUrl(targetPdfUrl?: string, filename?: string, bookI
  * Gera URL para download direto com cabeçalho de anexação (Content-Disposition: attachment)
  */
 export function getDownloadPdfUrl(targetPdfUrl?: string, filename?: string, bookId?: string): string {
+  if (
+    targetPdfUrl &&
+    (targetPdfUrl.startsWith("data:") ||
+      targetPdfUrl.startsWith("blob:") ||
+      targetPdfUrl.startsWith("idb://"))
+  ) {
+    return targetPdfUrl;
+  }
   const cleanName = filename || "livro-original.pdf";
   const params = new URLSearchParams();
   if (targetPdfUrl) params.set("url", targetPdfUrl);

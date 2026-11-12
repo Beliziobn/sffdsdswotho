@@ -11,6 +11,7 @@ import { useSimilar, useBecauseYouRead } from "@/hooks/useRecommendations";
 import { formatDate } from "@/lib/format";
 import { CommunityReviews } from "@/components/CommunityReviews";
 import ShareDialog from "@/components/ShareDialog";
+import { ContentDetailSkeleton } from "@/components/skeletons/AppSkeletons";
 
 const CHUNK_SIZE = 50;
 
@@ -34,9 +35,9 @@ const WebtoonDetail = () => {
   // Dynamic SEO Synchronization
   useEffect(() => {
     if (!item) return;
-    const pageTitle = `${item.title} — Webtoon Online | Worsco`;
+    const pageTitle = `${item.title} — Webtoon Online | Wotho`;
     document.title = pageTitle;
-    const desc = item.description || `Leia o webtoon "${item.title}" em formato scroll vertical na íntegra na Worsco.`;
+    const desc = item.description || `Leia o webtoon "${item.title}" em formato scroll vertical na íntegra na Wotho.`;
     const metaDesc = document.querySelector('meta[name="description"]');
     if (metaDesc) metaDesc.setAttribute("content", desc);
     const ogTitle = document.querySelector('meta[property="og:title"]');
@@ -120,7 +121,8 @@ const WebtoonDetail = () => {
     return (
       <div className="min-h-screen bg-background">
         <Navigation variant="dark" />
-        <p className="pt-40 text-center text-sm text-muted-foreground font-light">Carregando…</p>
+        <ContentDetailSkeleton />
+        <Footer />
       </div>
     );
   }

@@ -13,6 +13,7 @@ import { useSimilar, useBecauseYouRead } from "@/hooks/useRecommendations";
 import { formatPrice } from "@/lib/format";
 import { getOriginalPdfForBook, getDownloadPdfUrl } from "@/lib/originalPdfRegistry";
 import { CommunityReviews } from "@/components/CommunityReviews";
+import { ContentDetailSkeleton } from "@/components/skeletons/AppSkeletons";
 
 const ContentDetail = () => {
   const { id } = useParams();
@@ -36,7 +37,8 @@ const ContentDetail = () => {
     return (
       <div className="min-h-screen bg-background">
         <Navigation variant="dark" />
-        <p className="pt-40 text-center text-sm text-muted-foreground font-light">Carregando…</p>
+        <ContentDetailSkeleton />
+        <Footer />
       </div>
     );
   }

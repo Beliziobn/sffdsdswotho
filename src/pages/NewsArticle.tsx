@@ -20,6 +20,7 @@ import { toast } from "sonner";
 import { expandNewsToDeepReport, organizeIntoReadableParagraphs, EnrichedNews } from "@/lib/newsExpander";
 import { getSmartNewsCover } from "@/lib/newsImageResolver";
 import ShareDialog from "@/components/ShareDialog";
+import { NewsArticleSkeleton } from "@/components/skeletons/AppSkeletons";
 
 const NewsArticle = () => {
   const { slug } = useParams();
@@ -43,7 +44,7 @@ const NewsArticle = () => {
   // Synchronize document title and OpenGraph metadata dynamically
   useEffect(() => {
     if (!article) return;
-    const pageTitle = `${article.title} — Worsco Notícias`;
+    const pageTitle = `${article.title} — Wotho Notícias`;
     document.title = pageTitle;
 
     const desc = article.excerpt || article.title;
@@ -130,7 +131,7 @@ const NewsArticle = () => {
 
   const handleShare = (network?: string) => {
     const url = window.location.href;
-    const title = article?.title || "Notícia Worscoi";
+    const title = article?.title || "Notícia Wotho";
 
     if (network === "whatsapp") {
       window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(`${title}\n${url}`)}`, "_blank");
@@ -153,10 +154,8 @@ const NewsArticle = () => {
     return (
       <div className="min-h-screen bg-background">
         <Navigation variant="dark" />
-        <div className="pt-40 text-center space-y-3">
-          <BookOpen className="h-8 w-8 text-emerald-500 animate-pulse mx-auto" />
-          <p className="text-sm text-muted-foreground font-light">Carregando notícia completa...</p>
-        </div>
+        <NewsArticleSkeleton />
+        <Footer />
       </div>
     );
   }

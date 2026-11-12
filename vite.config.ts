@@ -2705,86 +2705,86 @@ function sitemapPlugin(): Plugin {
 
   const ROUTE_SEO: Record<string, { title: string; desc: string }> = {
     '/': {
-      title: 'Worscoi - Livros digitais e notícias',
+      title: 'Wotho - Livros, notícias globais, streaming e webtoons',
       desc: 'Livros, notícias globais, streaming e webtoons, com um espaço para acompanhar as últimas novidades sobre cultura, literatura e grandes ideias.',
     },
     '/livros': {
-      title: 'Catálogo de Livros Digitais — Worsco',
+      title: 'Catálogo de Livros Digitais — Wotho',
       desc: 'Explore bestsellers modernos, obras preparatórias para o ENEM e artigos científicos para ler diretamente no navegador.',
     },
     '/webtoons': {
-      title: 'Webtoons & Quadrinhos Online — Worsco',
+      title: 'Webtoons & Quadrinhos Online — Wotho',
       desc: 'Leia histórias em quadrinhos e webtoons em formato scroll vertical de alta definição diretamente no navegador.',
     },
     '/animes': {
-      title: 'Portal de Animes e Mangás — Worsco',
-      desc: 'Catálogo de animes, episódios, trailers, fichas técnicas completas e capítulos de mangá vinculados.',
+      title: 'Portal de Animes e Mangás — Wotho',
+      desc: 'Catálogo de animes dublados em português, episódios, trailers, fichas técnicas completas e capítulos de mangá vinculados.',
     },
     '/cinema': {
-      title: 'Cinema & Séries — Filmes e Séries Online — Worsco',
-      desc: 'Assista a filmes e séries aclamados com player cinematográfico, seleção de episódios em alta definição e catálogo completo na Worsco.',
+      title: 'Cinema & Séries Dublados em Português — Wotho',
+      desc: 'Assista a filmes e séries aclamados dublados em português (PT-BR) com player cinematográfico em alta definição na Wotho.',
     },
     '/noticias': {
-      title: 'Portal de Notícias Globais — Worsco',
+      title: 'Portal de Notícias Globais — Wotho',
       desc: 'Acompanhe as últimas notícias e reportagens aprofundadas sobre cultura, tecnologia, futebol, negócios e grandes ideias.',
     },
     '/sobre': {
-      title: 'Sobre a Worsco — Manifesto e Proposta Editorial',
-      desc: 'Conheça a história, missão e pilares editoriais da Worsco na democratização do acesso à cultura e literatura digital.',
+      title: 'Sobre a Wotho — Manifesto e Proposta Editorial',
+      desc: 'Conheça a história, missão e pilares editoriais da Wotho na democratização do acesso à cultura e literatura digital.',
     },
     '/contato': {
-      title: 'Contato e Atendimento — Worsco',
-      desc: 'Fale com a equipe da Worsco para dúvidas, parcerias, sugestões e suporte editorial.',
+      title: 'Contato e Atendimento — Wotho',
+      desc: 'Fale com a equipe da Wotho para dúvidas, parcerias, sugestões e suporte editorial.',
     },
     '/mapa-do-site': {
-      title: 'Mapa do Site (Sitemap) — Worsco',
-      desc: 'Navegue por todas as páginas canônicas, catálogos e acervo estruturado da Worsco.',
+      title: 'Mapa do Site (Sitemap) — Wotho',
+      desc: 'Navegue por todas as páginas canônicas, catálogos e acervo estruturado da Wotho.',
     },
     '/termos': {
-      title: 'Termos de Uso — Worsco',
-      desc: 'Condições gerais de navegação, direitos e diretrizes de uso da plataforma Worsco.',
+      title: 'Termos de Uso — Wotho',
+      desc: 'Condições gerais de navegação, direitos e diretrizes de uso da plataforma Wotho.',
     },
     '/privacidade': {
-      title: 'Política de Privacidade — Worsco',
-      desc: 'Práticas de privacidade, segurança de dados e conformidade da Worsco.',
+      title: 'Política de Privacidade — Wotho',
+      desc: 'Práticas de privacidade, segurança de dados e conformidade da Wotho.',
     },
   };
 
   return {
-    name: 'worscoi-sitemap-plugin',
+    name: 'wotho-sitemap-plugin',
     transformIndexHtml(html, ctx) {
       const rawPath = (ctx.originalUrl || ctx.path || '/').split('?')[0];
       let cleanPath = rawPath === '' || rawPath === '/index.html' ? '/' : rawPath;
       if (cleanPath.endsWith('/index.html')) {
         cleanPath = cleanPath.replace(/\/index\.html$/, '') || '/';
       }
-      const canonicalUrl = cleanPath === '/' ? 'https://worsco.ai.studio/' : `https://worsco.ai.studio${cleanPath}`;
+      const canonicalUrl = cleanPath === '/' ? 'https://wotho.vercel.app/' : `https://wotho.vercel.app${cleanPath}`;
 
       let meta = ROUTE_SEO[cleanPath];
       if (!meta) {
         if (cleanPath.startsWith('/livros/')) {
           meta = {
-            title: 'Livro Digital — Leitura Online na Worsco',
+            title: 'Livro Digital — Leitura Online na Wotho',
             desc: 'Leia a obra completa diretamente no navegador com controle de fontes, modos de leitura e índice de capítulos.',
           };
         } else if (cleanPath.startsWith('/cinema/')) {
           meta = {
-            title: 'Cinema Worsco — Filme ou Série em Alta Resolução',
-            desc: 'Assista a produções consagradas com áudio dublado ou original com legendas completas e qualidade premium.',
+            title: 'Cinema Wotho — Filme ou Série Dublado em Português',
+            desc: 'Assista a produções consagradas com áudio dublado em português (PT-BR) ou original com legendas completas e qualidade premium.',
           };
         } else if (cleanPath.startsWith('/animes/')) {
           meta = {
-            title: 'Anime & Mangá — Detalhes e Capítulos na Worsco',
-            desc: 'Ficha técnica, episódios, sinopse detalhada e capítulos de mangá vinculados para leitura direta.',
+            title: 'Anime & Mangá Dublado em Português — Wotho',
+            desc: 'Episódios dublados em português, ficha técnica, sinopse detalhada e capítulos de mangá vinculados para leitura direta.',
           };
         } else if (cleanPath.startsWith('/webtoon/')) {
           meta = {
-            title: 'Webtoon Oficial — Leitura Vertical em Alta Definição',
+            title: 'Webtoon Oficial — Leitura Vertical em Alta Definição — Wotho',
             desc: 'Acompanhe episódios ilustrados em scroll contínuo e painéis oficiais de alta resolução.',
           };
         } else if (cleanPath.startsWith('/noticias/')) {
           meta = {
-            title: 'Notícia — Cobertura Especial Worsco',
+            title: 'Notícia — Cobertura Especial Wotho',
             desc: 'Reportagem aprofundada sobre cultura, tecnologia, mercado, entretenimento e grandes ideias.',
           };
         } else {
@@ -2833,62 +2833,13 @@ function sitemapPlugin(): Plugin {
         `<meta name="twitter:description" content="${meta.desc}" />`
       );
 
-      // 6. Inject crawlable semantic fallback inside <div id="root"> for search engine indexing
-      const semanticFallback = `
-      <div id="seo-crawler-content" style="padding: 24px; max-width: 900px; margin: 0 auto; font-family: system-ui, -apple-system, sans-serif; color: #e4e4e7; line-height: 1.6;">
-        <header style="border-bottom: 1px solid #27272a; padding-bottom: 16px; margin-bottom: 24px;">
-          <nav aria-label="Navegação do Site" style="display: flex; flex-wrap: wrap; gap: 16px; font-size: 14px;">
-            <a href="/" style="color: #10b981; text-decoration: none; font-weight: 600;">Worsco Início</a>
-            <a href="/livros" style="color: #d4d4d8; text-decoration: none;">Livros Digitais</a>
-            <a href="/webtoons" style="color: #d4d4d8; text-decoration: none;">Webtoons</a>
-            <a href="/animes" style="color: #d4d4d8; text-decoration: none;">Animes & Mangás</a>
-            <a href="/cinema" style="color: #d4d4d8; text-decoration: none;">Cinema & Séries</a>
-            <a href="/noticias" style="color: #d4d4d8; text-decoration: none;">Notícias</a>
-            <a href="/mapa-do-site" style="color: #d4d4d8; text-decoration: none;">Mapa do Site</a>
-            <a href="/sobre" style="color: #d4d4d8; text-decoration: none;">Sobre</a>
-            <a href="/contato" style="color: #d4d4d8; text-decoration: none;">Contato</a>
-          </nav>
-        </header>
-        <main>
-          <h1 style="font-size: 28px; font-weight: 700; color: #ffffff; margin-bottom: 12px;">${meta.title}</h1>
-          <p style="font-size: 16px; color: #a1a1aa; margin-bottom: 24px;">${meta.desc}</p>
-          <section style="display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px;">
-            <div style="background: #18181b; padding: 16px; border-radius: 8px; border: 1px solid #27272a;">
-              <h2 style="font-size: 16px; color: #10b981; margin-bottom: 8px;">Livros Digitais</h2>
-              <p style="font-size: 13px; color: #a1a1aa;">Bestsellers mundiais, clássicos universais e material preparatório para o ENEM.</p>
-              <p><a href="/livros" style="color: #34d399; font-size: 13px; text-decoration: underline;">Ver acervo de livros &rarr;</a></p>
-            </div>
-            <div style="background: #18181b; padding: 16px; border-radius: 8px; border: 1px solid #27272a;">
-              <h2 style="font-size: 16px; color: #10b981; margin-bottom: 8px;">Cinema & Streaming</h2>
-              <p style="font-size: 13px; color: #a1a1aa;">Filmes e séries consagradas com dublagem em português e qualidade cinematográfica.</p>
-              <p><a href="/cinema" style="color: #34d399; font-size: 13px; text-decoration: underline;">Assistir produções &rarr;</a></p>
-            </div>
-            <div style="background: #18181b; padding: 16px; border-radius: 8px; border: 1px solid #27272a;">
-              <h2 style="font-size: 16px; color: #10b981; margin-bottom: 8px;">Webtoons & Mangás</h2>
-              <p style="font-size: 13px; color: #a1a1aa;">Quadrinhos em rolagem vertical de alta definição e leitor de mangás em 3 idiomas.</p>
-              <p><a href="/webtoons" style="color: #34d399; font-size: 13px; text-decoration: underline;">Ler webtoons &rarr;</a></p>
-            </div>
-            <div style="background: #18181b; padding: 16px; border-radius: 8px; border: 1px solid #27272a;">
-              <h2 style="font-size: 16px; color: #10b981; margin-bottom: 8px;">Notícias Globais</h2>
-              <p style="font-size: 13px; color: #a1a1aa;">Feed jornalístico diário sobre cultura, inovação, entretenimento e literatura.</p>
-              <p><a href="/noticias" style="color: #34d399; font-size: 13px; text-decoration: underline;">Ler notícias &rarr;</a></p>
-            </div>
-          </section>
-        </main>
-        <footer style="margin-top: 36px; padding-top: 16px; border-top: 1px solid #27272a; font-size: 12px; color: #71717a;">
-          <p>&copy; ${new Date().getFullYear()} Worsco (worsco.ai.studio). Todos os direitos reservados. Plataforma de leitura, streaming e notícias.</p>
-        </footer>
-      </div>`;
-
-      transformed = transformed.replace('<div id="root"></div>', `<div id="root">${semanticFallback}</div>`);
-
       return transformed;
     },
     configureServer(server) {
       server.middlewares.use((req, res, next) => {
         const urlPath = (req.url || '').split('?')[0];
         if (urlPath === '/sitemap.xml') {
-          const origin = 'https://worsco.ai.studio';
+          const origin = 'https://wotho.vercel.app';
 
           const cached = dynamicCache.get(origin);
           if (cached && Date.now() - cached.time < 3600000) {
@@ -2930,7 +2881,7 @@ function sitemapPlugin(): Plugin {
             return;
           }
 
-          const robotsContent = `User-agent: *\nAllow: /\nDisallow: /admin\nDisallow: /biblioteca\nDisallow: /continuar-lendo\n\nSitemap: https://worsco.ai.studio/sitemap.xml\n`;
+          const robotsContent = `User-agent: *\nAllow: /\nDisallow: /admin\nDisallow: /biblioteca\nDisallow: /continuar-lendo\n\nSitemap: https://wotho.vercel.app/sitemap.xml\n`;
           res.statusCode = 200;
           res.setHeader('Content-Type', 'text/plain; charset=utf-8');
           res.setHeader('Cache-Control', 'public, max-age=3600');
