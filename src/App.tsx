@@ -39,7 +39,8 @@ import Profile from "./pages/Profile";
 import CookieConsent from "./components/consent/CookieConsent";
 import TermsGate from "./components/consent/TermsGate";
 import CanonicalManager from "./components/CanonicalManager";
-import { SpeedInsights } from "@vercel/speed-insights/next";
+
+const SpeedInsights = () => null;
 
 const queryClient = new QueryClient({
   defaultOptions: {

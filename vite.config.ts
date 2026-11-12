@@ -2337,7 +2337,6 @@ export default defineConfig(() => {
     resolve: {
       alias: {
         '@': path.resolve(__dirname, './src'),
-        '@vercel/speed-insights/next': '@vercel/speed-insights/react',
       },
       dedupe: ['react', 'react-dom'],
     },
@@ -2348,8 +2347,6 @@ export default defineConfig(() => {
         'react-router-dom',
         '@tanstack/react-query',
         'framer-motion',
-        '@vercel/speed-insights/react',
-        '@vercel/speed-insights',
       ],
     },
     build: {
@@ -2359,6 +2356,7 @@ export default defineConfig(() => {
       host: '0.0.0.0',
       port: 3000,
       strictPort: true,
+      allowedHosts: true,
       cors: true,
       // HMR is disabled in AI Studio via DISABLE_HMR env var.
       // Do not modify—file watching is disabled to prevent flickering during agent edits.
