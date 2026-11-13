@@ -10,6 +10,8 @@ import type { Content } from "@/hooks/useContents";
 import { useTrackInteraction } from "@/hooks/useContents";
 import { useCheckout } from "@/hooks/useCheckout";
 import { useOwnsContent } from "@/hooks/usePurchases";
+import { executeTrackedDownload } from "@/lib/downloadsStore";
+import { getOriginalPdfForBook } from "@/lib/originalPdfRegistry";
 
 const tapProps = { whileHover: { scale: 1.03 }, whileTap: { scale: 0.96 } };
 
@@ -22,6 +24,7 @@ interface ActionButtonsProps {
 /** Ler / Comprar / Ouvir / Download / Partilhar / Salvar */
 const ActionButtons = ({ item, readHref, readLabel = "Ler agora" }: ActionButtonsProps) => {
   const [isShareOpen, setIsShareOpen] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
   const track = useTrackInteraction();
   const { checkout, isPending } = useCheckout();
   const { data: owned } = useOwnsContent(item.id);
@@ -77,15 +80,40 @@ const ActionButtons = ({ item, readHref, readLabel = "Ler agora" }: ActionButton
         <motion.div {...tapProps}>
           <Button
             variant="outline"
+            disabled={isDownloading}
             className="rounded-md text-[11px] uppercase tracking-wider font-normal w-full"
-            onClick={() => {
+            onClick={async () => {
               track(item.id, "download");
-              if (isPaid && !owned) toast.info("Disponível após a compra");
-              else toast.info("Preparando o seu ficheiro…");
+              if (isPaid && !owned) {
+                toast.info("Disponível após a compra");
+                return;
+              }
+              setIsDownloading(true);
+              try {
+                const orig = getOriginalPdfForBook(item.id);
+                await executeTrackedDownload({
+                  itemId: String(item.id),
+                  type: orig ? "pdf" : item.type === "webtoon" ? "webtoon" : "book",
+                  title: orig?.title || item.title,
+                  author: orig?.author || item.author,
+                  category: item.category,
+                  description: item.description,
+                  cover: item.cover || orig?.coverUrl || undefined,
+                  sourceUrl: orig?.pdfUrl || undefined,
+                  openHref: readHref,
+                  fileName: `${orig?.title || item.title}-${orig?.author || item.author}.pdf`,
+                  expectedFileSizeFormatted: orig?.fileSizeFormatted || item.size || undefined,
+                });
+                toast.success("Download concluído! Disponível em Meu Perfil → Downloads.");
+              } catch {
+                toast.error("Não foi possível transferir o ficheiro.");
+              } finally {
+                setIsDownloading(false);
+              }
             }}
           >
             <Download className="mr-2 h-3 w-3" />
-            Baixar
+            {isDownloading ? "Baixando..." : "Baixar"}
           </Button>
         </motion.div>
 

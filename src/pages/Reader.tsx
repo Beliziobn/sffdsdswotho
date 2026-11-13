@@ -29,6 +29,7 @@ import {
   getDownloadPdfUrl,
 } from "@/lib/originalPdfRegistry";
 import OriginalPdfViewer from "@/components/books/OriginalPdfViewer";
+import { executeTrackedDownload } from "@/lib/downloadsStore";
 import { isExcludedItem } from "@/lib/excludedItems";
 
 type ThemeMode = "light" | "sepia" | "dark" | "oled";
@@ -95,6 +96,31 @@ const Reader = () => {
     return originalPdf ? "pdf" : "text";
   });
   const [isPdfFullscreen, setIsPdfFullscreen] = useState(false);
+  const [isDownloadingFallback, setIsDownloadingFallback] = useState(false);
+
+  const handleDownloadFallbackPdf = async () => {
+    if (!book || isDownloadingFallback) return;
+    setIsDownloadingFallback(true);
+    try {
+      await executeTrackedDownload({
+        itemId: String(book.id),
+        type: "book",
+        title: book.title || "Livro Digital",
+        author: book.author || "Autor Editorial",
+        category: book.category,
+        description: book.description,
+        cover: book.cover_url || undefined,
+        sourceUrl: (book as any)?.pdf_url || (book as any)?.download_url || undefined,
+        openHref: `/ler/${book.id}`,
+        fileName: `${book.title || "livro"}-${book.author || "autor"}.pdf`,
+      });
+      toast.success("Download concluído! Disponível em Meu Perfil → Downloads.");
+    } catch {
+      toast.error("Não foi possível transferir o PDF no momento.");
+    } finally {
+      setIsDownloadingFallback(false);
+    }
+  };
 
   const togglePdfFullscreen = () => {
     if (!document.fullscreenElement) {
@@ -599,6 +625,10 @@ const Reader = () => {
               originalPdf.id
             )}
             originalPdfUrl={originalPdf.pdfUrl}
+            itemId={id || book?.id || originalPdf.id}
+            cover={book?.cover_url || originalPdf.coverUrl}
+            category={book?.category || originalPdf.category}
+            description={book?.description || originalPdf.description}
             title={originalPdf.title}
             author={originalPdf.author}
             pagesCount={originalPdf.originalPagesCount}
@@ -648,18 +678,15 @@ const Reader = () => {
                 {book?.description || "Edição digital completa disponível para leitura."}
               </div>
               <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
-                <a
-                  href={getDownloadPdfUrl(
-                    (book as any)?.pdf_url || (book as any)?.download_url || undefined,
-                    `${book?.title || "livro"}-${book?.author || "autor"}.pdf`,
-                    book?.id
-                  )}
-                  download={`${(book?.title || "livro").replace(/[^\w\s-]/g, "")}.pdf`}
-                  className="px-4 py-2 rounded-full bg-rose-600 hover:bg-rose-500 text-white text-xs font-medium inline-flex items-center gap-1.5 shadow-md"
+                <button
+                  type="button"
+                  onClick={handleDownloadFallbackPdf}
+                  disabled={isDownloadingFallback}
+                  className="px-4 py-2 rounded-full bg-rose-600 hover:bg-rose-500 disabled:opacity-60 text-white text-xs font-medium inline-flex items-center gap-1.5 shadow-md"
                 >
                   <Download className="h-3.5 w-3.5" />
-                  Baixar Edição em PDF
-                </a>
+                  {isDownloadingFallback ? "Transferindo..." : "Baixar Edição em PDF"}
+                </button>
                 <Button asChild variant="outline" className="rounded-full text-xs">
                   <Link to={`/livros/${id}`}>Voltar ao detalhe</Link>
                 </Button>

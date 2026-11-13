@@ -169,3 +169,235 @@ export async function handlePdfProxyRequest(req, res) {
     res.end('Erro ao processar stream do PDF');
   }
 }
+
+const booksCatalogCache = new Map();
+const booksChapterCache = new Map();
+
+export async function handleBooksCatalogRequest(req, res) {
+  try {
+    const urlObj = new URL(req.url || '', `http://${req.headers?.host || 'localhost:3000'}`);
+    const search = urlObj.searchParams.get('search') || '';
+    const cacheKey = search.toLowerCase().trim();
+
+    if (booksCatalogCache.has(cacheKey)) {
+      res.statusCode = 200;
+      res.setHeader('Content-Type', 'application/json; charset=utf-8');
+      res.setHeader('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=600');
+      res.end(JSON.stringify(booksCatalogCache.get(cacheKey)));
+      return;
+    }
+
+    const targetUrl = search
+      ? `https://gutendex.com/books/?languages=pt&search=${encodeURIComponent(search)}`
+      : `https://gutendex.com/books/?languages=pt&sort=popular`;
+
+    const gRes = await fetch(targetUrl, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; WorscoiBookReader/2.0)' },
+      signal: AbortSignal.timeout(7000),
+    });
+
+    if (!gRes.ok) {
+      res.statusCode = 200;
+      res.setHeader('Content-Type', 'application/json; charset=utf-8');
+      res.end(JSON.stringify({ books: [], total: 0 }));
+      return;
+    }
+
+    const gData = await gRes.json();
+    const books = (gData.results || []).map((b) => {
+      const author = b.authors?.[0]?.name
+        ? b.authors[0].name.split(',').reverse().join(' ').trim()
+        : 'Autor Clássico';
+      const title = (b.title || 'Obra Clássica').replace(/\r?\n/g, ' ').replace(/\s+/g, ' ').trim();
+      const subjects = (b.subjects || []).join(' ').toLowerCase();
+      const titleLower = title.toLowerCase();
+
+      let category = 'Romance';
+      if (/poes|poem|versos|canto/i.test(subjects) || /poes|canto/i.test(titleLower)) {
+        category = 'Poesia';
+      } else if (/ficção|sci-fi|lua|viagem|verne/i.test(subjects) || /terra à lua|vinte mil/i.test(titleLower)) {
+        category = 'Ficção Científica';
+      } else if (/dicion|gramat|lingua/i.test(subjects) || /dicionário/i.test(titleLower)) {
+        category = 'Didáticos e Técnicos';
+      } else if (/biblia|relig|testamento|alma|santo/i.test(subjects) || /bíblia|testamento/i.test(titleLower)) {
+        category = 'Religiosos/Espiritual';
+      } else if (/teatro|comedia|drama|auto/i.test(subjects) || /auto da/i.test(titleLower)) {
+        category = 'Dramático';
+      } else if (/conto|novela/i.test(subjects) || /contos/i.test(titleLower)) {
+        category = 'Narrativa';
+      } else if (/hist[oó]ria|revolução|memórias|fradique/i.test(subjects) || /revolução|história/i.test(titleLower)) {
+        category = 'Biografia e Autobiografia';
+      }
+
+      const coverUrl =
+        b.formats?.['image/jpeg'] ||
+        `https://www.gutenberg.org/cache/epub/${b.id}/pg${b.id}.cover.medium.jpg`;
+
+      return {
+        id: `guten-${b.id}`,
+        gutenberg_id: b.id,
+        title,
+        author,
+        description: `Obra clássica da literatura de domínio público de ${author}. Texto integral e completo disponibilizado pelo Projeto Gutenberg com leitura livre no Worscoi.`,
+        cover_url: coverUrl,
+        category,
+        price_cents: 0,
+        currency: 'BRL',
+        published: true,
+        featured: (b.download_count || 0) > 8000,
+        created_at: new Date().toISOString(),
+        downloads: b.download_count || 0,
+        formats: ['Leitura Online', 'EPUB', 'TXT'],
+        is_public_domain: true,
+        epub_url: b.formats?.['application/epub+zip'] || `https://www.gutenberg.org/ebooks/${b.id}.epub3.images`,
+        txt_url: b.formats?.['text/plain; charset=utf-8'] || `https://www.gutenberg.org/cache/epub/${b.id}/pg${b.id}.txt`,
+      };
+    });
+
+    const result = { books, total: gData.count || books.length };
+    booksCatalogCache.set(cacheKey, result);
+
+    res.statusCode = 200;
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    res.setHeader('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=600');
+    res.end(JSON.stringify(result));
+  } catch {
+    res.statusCode = 200;
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    res.end(JSON.stringify({ books: [], total: 0 }));
+  }
+}
+
+export async function handleBooksChaptersRequest(req, res) {
+  try {
+    const urlObj = new URL(req.url || '', `http://${req.headers?.host || 'localhost:3000'}`);
+    const rawId = urlObj.searchParams.get('bookId') || '';
+    const bookId = rawId.replace(/^guten-/, '').trim();
+
+    if (!bookId || !/^\d+$/.test(bookId)) {
+      res.statusCode = 200;
+      res.setHeader('Content-Type', 'application/json; charset=utf-8');
+      res.end(JSON.stringify({ bookId: rawId, chapters: [], totalChapters: 0 }));
+      return;
+    }
+
+    if (booksChapterCache.has(bookId)) {
+      const cached = booksChapterCache.get(bookId) || [];
+      res.statusCode = 200;
+      res.setHeader('Content-Type', 'application/json; charset=utf-8');
+      res.setHeader('Cache-Control', 'public, s-maxage=3600, stale-while-revalidate=86400');
+      res.end(JSON.stringify({ bookId: `guten-${bookId}`, chapters: cached, totalChapters: cached.length }));
+      return;
+    }
+
+    const candidateTextUrls = [
+      `https://www.gutenberg.org/cache/epub/${bookId}/pg${bookId}.txt`,
+      `https://www.gutenberg.org/files/${bookId}/${bookId}-0.txt`,
+      `https://www.gutenberg.org/files/${bookId}/${bookId}.txt`,
+      `https://www.gutenberg.org/files/${bookId}/${bookId}-8.txt`,
+      `https://www.gutenberg.org/ebooks/${bookId}.txt.utf-8`,
+    ];
+
+    let fullText = '';
+    for (const textUrl of candidateTextUrls) {
+      try {
+        const textRes = await fetch(textUrl, {
+          headers: { 'User-Agent': 'Mozilla/5.0 (compatible; WorscoiBookReader/2.0)' },
+          redirect: 'follow',
+          signal: AbortSignal.timeout(7000),
+        });
+        if (textRes.ok) {
+          const body = await textRes.text();
+          if (body && body.length > 200 && !body.trimStart().startsWith('<!DOCTYPE') && !body.trimStart().startsWith('<html')) {
+            fullText = body;
+            break;
+          }
+        }
+      } catch {}
+    }
+
+    if (!fullText) {
+      res.statusCode = 200;
+      res.setHeader('Content-Type', 'application/json; charset=utf-8');
+      res.end(JSON.stringify({ bookId: `guten-${bookId}`, chapters: [], totalChapters: 0 }));
+      return;
+    }
+
+    const startMatch = fullText.match(/\*\*\*\s*START OF (THE|THIS) PROJECT GUTENBERG EBOOK[^\*]*\*\*\*/i);
+    if (startMatch && startMatch.index !== undefined) {
+      fullText = fullText.substring(startMatch.index + startMatch[0].length);
+    }
+    const endMatch = fullText.match(/\*\*\*\s*END OF (THE|THIS) PROJECT GUTENBERG EBOOK/i);
+    if (endMatch && endMatch.index !== undefined) {
+      fullText = fullText.substring(0, endMatch.index);
+    }
+
+    const lines = fullText.split('\n');
+    const markers = [];
+    const romanOrCap = /^((CAP[ÍI]TULO|CANTO|PARTE|LIVRO)\s+([0-9IVXLCDM]+|[A-Z]+)|[IVXLCDM]+\.?)\s*$/i;
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim();
+      if (romanOrCap.test(line)) {
+        let title = line;
+        let j = i + 1;
+        while (j < lines.length && !lines[j].trim() && j < i + 4) j++;
+        if (j < lines.length && lines[j].trim().length < 80 && !romanOrCap.test(lines[j].trim())) {
+          title = `${line} — ${lines[j].trim()}`;
+        }
+        markers.push({ lineIndex: i, title });
+      }
+    }
+
+    const chapters = [];
+    if (markers.length >= 2) {
+      for (let m = 0; m < markers.length; m++) {
+        const current = markers[m];
+        const nextMarker = markers[m + 1];
+        const chapterLines = lines.slice(current.lineIndex, nextMarker ? nextMarker.lineIndex : lines.length);
+        const content = chapterLines.join('\n').trim();
+        if (content.length > 50) {
+          chapters.push({
+            id: `chap-${bookId}-${chapters.length + 1}`,
+            book_id: `guten-${bookId}`,
+            position: chapters.length + 1,
+            title: current.title,
+            content,
+            is_free_preview: true,
+          });
+        }
+      }
+    }
+
+    if (chapters.length === 0) {
+      const paragraphs = fullText
+        .split(/\r?\n\r?\n+/)
+        .map((p) => p.trim())
+        .filter((p) => p.length > 0);
+      const chunkSize = 35;
+      for (let c = 0; c < paragraphs.length; c += chunkSize) {
+        const slice = paragraphs.slice(c, c + chunkSize);
+        const partNum = Math.floor(c / chunkSize) + 1;
+        chapters.push({
+          id: `chap-${bookId}-${partNum}`,
+          book_id: `guten-${bookId}`,
+          position: partNum,
+          title: `Parte ${partNum}`,
+          content: slice.join('\n\n'),
+          is_free_preview: true,
+        });
+      }
+    }
+
+    booksChapterCache.set(bookId, chapters);
+
+    res.statusCode = 200;
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    res.setHeader('Cache-Control', 'public, s-maxage=3600, stale-while-revalidate=86400');
+    res.end(JSON.stringify({ bookId: `guten-${bookId}`, chapters, totalChapters: chapters.length }));
+  } catch {
+    res.statusCode = 200;
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    res.end(JSON.stringify({ chapters: [], totalChapters: 0 }));
+  }
+}

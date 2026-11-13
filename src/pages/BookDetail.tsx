@@ -11,7 +11,8 @@ import { useBook, useChapters, usePurchases } from "@/hooks/useCatalog";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { formatPrice } from "@/lib/format";
-import { getOriginalPdfForBook, getDownloadPdfUrl } from "@/lib/originalPdfRegistry";
+import { getOriginalPdfForBook } from "@/lib/originalPdfRegistry";
+import { executeTrackedDownload } from "@/lib/downloadsStore";
 import { CommunityReviews } from "@/components/CommunityReviews";
 import ShareDialog from "@/components/ShareDialog";
 import { ContentDetailSkeleton } from "@/components/skeletons/AppSkeletons";
@@ -29,6 +30,37 @@ const BookDetail = () => {
   const [chapterSearch, setChapterSearch] = useState("");
   const [selectedRange, setSelectedRange] = useState<number | "all">("all");
   const [isShareOpen, setIsShareOpen] = useState(false);
+  const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
+
+  const handleDownloadBookPdf = async () => {
+    if (!book || isDownloadingPdf) return;
+    setIsDownloadingPdf(true);
+    try {
+      const sourcePdfUrl =
+        originalPdf?.pdfUrl ||
+        (book as any).pdf_url ||
+        (book as any).download_url ||
+        undefined;
+      await executeTrackedDownload({
+        itemId: String(book.id),
+        type: originalPdf ? "pdf" : "book",
+        title: originalPdf?.title || book.title,
+        author: originalPdf?.author || book.author,
+        category: book.category,
+        description: book.description,
+        cover: book.cover_url || originalPdf?.coverUrl || undefined,
+        sourceUrl: sourcePdfUrl,
+        openHref: originalPdf ? `/ler/${book.id}?mode=pdf` : `/ler/${book.id}`,
+        fileName: `${originalPdf?.title || book.title}-${originalPdf?.author || book.author}.pdf`,
+        expectedFileSizeFormatted: originalPdf?.fileSizeFormatted,
+      });
+      toast.success("Download concluído! Acesse e abra quando quiser em Meu Perfil → Downloads.");
+    } catch {
+      toast.error("Não foi possível baixar o arquivo PDF no momento.");
+    } finally {
+      setIsDownloadingPdf(false);
+    }
+  };
 
   // Dynamic SEO Synchronization
   useEffect(() => {
@@ -376,14 +408,19 @@ const BookDetail = () => {
 
                   {originalPdf ? (
                     <div className="pt-2">
-                      <a
-                        href={getDownloadPdfUrl(originalPdf.pdfUrl, `${originalPdf.title}-${originalPdf.author}.pdf`, originalPdf.id)}
-                        download={`${originalPdf.title.replace(/[^\w\s-]/g, "")}-${originalPdf.author.replace(/[^\w\s-]/g, "")}.pdf`}
-                        className="w-full py-2 px-3 border border-border/80 hover:border-border rounded-md text-xs font-light text-muted-foreground hover:text-foreground transition-colors flex items-center justify-center gap-2 bg-secondary/30"
+                      <button
+                        type="button"
+                        onClick={handleDownloadBookPdf}
+                        disabled={isDownloadingPdf}
+                        className="w-full py-2 px-3 border border-border/80 hover:border-border rounded-md text-xs font-light text-muted-foreground hover:text-foreground transition-colors flex items-center justify-center gap-2 bg-secondary/30 disabled:opacity-60"
                       >
                         <Download className="h-3.5 w-3.5 text-rose-500" />
-                        <span>Baixar PDF ({originalPdf.fileSizeFormatted})</span>
-                      </a>
+                        <span>
+                          {isDownloadingPdf
+                            ? "Transferindo PDF..."
+                            : `Baixar PDF (${originalPdf.fileSizeFormatted})`}
+                        </span>
+                      </button>
                       <div className="mt-3 p-3 rounded-lg bg-accent/40 border border-border/60 text-[11px] text-muted-foreground font-light space-y-1">
                         <div className="flex justify-between">
                           <span className="text-foreground font-medium">Páginas físicas:</span>
@@ -400,18 +437,17 @@ const BookDetail = () => {
                     </div>
                   ) : (
                     <div className="pt-2">
-                      <a
-                        href={getDownloadPdfUrl(
-                          (book as any).pdf_url || (book as any).download_url || undefined,
-                          `${book.title}-${book.author}.pdf`,
-                          book.id
-                        )}
-                        download={`${book.title.replace(/[^\w\s-]/g, "")}-${book.author.replace(/[^\w\s-]/g, "")}.pdf`}
-                        className="w-full py-2 px-3 border border-border/80 hover:border-border rounded-md text-xs font-light text-muted-foreground hover:text-foreground transition-colors flex items-center justify-center gap-2 bg-secondary/30"
+                      <button
+                        type="button"
+                        onClick={handleDownloadBookPdf}
+                        disabled={isDownloadingPdf}
+                        className="w-full py-2 px-3 border border-border/80 hover:border-border rounded-md text-xs font-light text-muted-foreground hover:text-foreground transition-colors flex items-center justify-center gap-2 bg-secondary/30 disabled:opacity-60"
                       >
                         <Download className="h-3.5 w-3.5 text-rose-500" />
-                        <span>Baixar Edição em PDF Completa</span>
-                      </a>
+                        <span>
+                          {isDownloadingPdf ? "Transferindo PDF..." : "Baixar Edição em PDF Completa"}
+                        </span>
+                      </button>
                     </div>
                   )}
                 </div>

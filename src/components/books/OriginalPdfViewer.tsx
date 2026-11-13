@@ -22,6 +22,8 @@ import {
 import { Button } from "@/components/ui/button";
 
 import { getPdfBytesFromIndexedDB } from "@/lib/pdfUploadService";
+import { executeTrackedDownload } from "@/lib/downloadsStore";
+import { toast } from "sonner";
 
 // Configure worker with local asset URL and fallback to CDN
 try {
@@ -37,6 +39,11 @@ interface OriginalPdfViewerProps {
   pdfUrl: string;
   downloadUrl: string;
   originalPdfUrl?: string;
+  itemId?: string;
+  cover?: string;
+  category?: string;
+  description?: string;
+  pdfBytes?: Uint8Array;
   title: string;
   author: string;
   pagesCount?: number;
@@ -52,6 +59,11 @@ export const OriginalPdfViewer: React.FC<OriginalPdfViewerProps> = ({
   pdfUrl,
   downloadUrl,
   originalPdfUrl,
+  itemId,
+  cover,
+  category,
+  description,
+  pdfBytes,
   title,
   author,
   pagesCount,
@@ -81,6 +93,38 @@ export const OriginalPdfViewer: React.FC<OriginalPdfViewerProps> = ({
   const [pageInput, setPageInput] = useState<string>("1");
   const [renderedContinuousPages, setRenderedContinuousPages] = useState<Set<number>>(new Set());
 
+  const [isDownloading, setIsDownloading] = useState<boolean>(false);
+
+  const handleTrackedPdfDownload = async () => {
+    if (isDownloading) return;
+    setIsDownloading(true);
+    try {
+      await executeTrackedDownload({
+        itemId:
+          itemId ||
+          title
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, "-")
+            .replace(/^-|-$/g, ""),
+        type: "pdf",
+        title,
+        author,
+        category,
+        description,
+        cover,
+        sourceUrl: originalPdfUrl || downloadUrl || pdfUrl,
+        openHref: itemId ? `/ler/${itemId}?mode=pdf` : undefined,
+        fileName: `${title}-${author}.pdf`,
+        expectedFileSizeFormatted: fileSizeFormatted,
+      });
+      toast.success("Download concluído! Disponível em Meu Perfil → Downloads.");
+    } catch {
+      toast.error("Não foi possível transferir o PDF no momento.");
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
   // Load PDF Document
   const loadPdf = useCallback(async () => {
     setIsLoading(true);
@@ -96,7 +140,13 @@ export const OriginalPdfViewer: React.FC<OriginalPdfViewerProps> = ({
           : pdfUrl;
 
       let loadingTask: any;
-      if (targetRef.startsWith("idb://")) {
+      if (pdfBytes && pdfBytes.byteLength > 0) {
+        loadingTask = pdfjsLib.getDocument({
+          data: pdfBytes.slice(),
+          cMapUrl: "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/cmaps/",
+          cMapPacked: true,
+        });
+      } else if (targetRef.startsWith("idb://")) {
         const idbBytes = await getPdfBytesFromIndexedDB(targetRef);
         if (!idbBytes) {
           throw new Error("Arquivo PDF local não encontrado no dispositivo.");
@@ -164,7 +214,7 @@ export const OriginalPdfViewer: React.FC<OriginalPdfViewerProps> = ({
       );
       setIsLoading(false);
     }
-  }, [pdfUrl, originalPdfUrl]);
+  }, [pdfUrl, originalPdfUrl, pdfBytes]);
 
   useEffect(() => {
     loadPdf();
@@ -398,15 +448,16 @@ export const OriginalPdfViewer: React.FC<OriginalPdfViewerProps> = ({
             </Button>
           )}
 
-          <a
-            href={downloadUrl}
-            download={`${title.replace(/[^\w\s-]/g, "")}-${author.replace(/[^\w\s-]/g, "")}.pdf`}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-medium shadow-sm transition-colors"
-            title="Baixar arquivo físico original em formato .pdf"
+          <button
+            type="button"
+            onClick={handleTrackedPdfDownload}
+            disabled={isDownloading}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 text-white text-xs font-medium shadow-sm transition-colors"
+            title="Baixar arquivo físico original em formato .pdf e salvar no seu histórico de Downloads"
           >
             <Download className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Baixar .pdf</span>
-          </a>
+            <span className="hidden sm:inline">{isDownloading ? "Baixando..." : "Baixar .pdf"}</span>
+          </button>
 
           {originalPdfUrl && (
             <a
@@ -641,14 +692,15 @@ export const OriginalPdfViewer: React.FC<OriginalPdfViewerProps> = ({
                   <RefreshCw className="h-3.5 w-3.5" />
                   Tentar Novamente
                 </Button>
-                <a
-                  href={downloadUrl}
-                  download={`${title.replace(/[^\w\s-]/g, "")}-${author.replace(/[^\w\s-]/g, "")}.pdf`}
-                  className="w-full sm:w-auto inline-flex items-center justify-center gap-1 px-4 py-2 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-medium transition-colors"
+                <button
+                  type="button"
+                  onClick={handleTrackedPdfDownload}
+                  disabled={isDownloading}
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-1 px-4 py-2 rounded-full bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 text-white text-xs font-medium transition-colors"
                 >
                   <Download className="h-3.5 w-3.5" />
-                  Baixar Arquivo PDF
-                </a>
+                  {isDownloading ? "Transferindo PDF..." : "Baixar Arquivo PDF"}
+                </button>
               </div>
             </div>
           )}

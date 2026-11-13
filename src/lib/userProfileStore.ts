@@ -231,6 +231,13 @@ export async function syncProfileFromCloud(): Promise<void> {
       handleFirestoreError(error, OperationType.LIST, historyPath);
     }
   }
+
+  try {
+    const { syncDownloadsFromCloud } = await import("./downloadsStore");
+    await syncDownloadsFromCloud();
+  } catch {
+    // Non-fatal
+  }
 }
 
 // ============================================================================

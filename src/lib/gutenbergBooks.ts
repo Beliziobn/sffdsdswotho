@@ -386,16 +386,43 @@ export async function fetchGutenbergCatalog(search = ""): Promise<GutenbergBook[
   }
 }
 
+function extractNumericGutenbergId(bookId: string): string | null {
+  const cleaned = String(bookId || "").replace(/^guten-/, "").trim();
+  return /^\d+$/.test(cleaned) ? cleaned : null;
+}
+
 /** Fetch full parsed chapters for a book */
 export async function fetchGutenbergChapters(bookId: string): Promise<GutenbergChapter[]> {
-  const cleanId = bookId.replace(/^guten-/, "");
-  try {
-    const res = await fetch(`/api/books/chapters?bookId=${cleanId}`);
-    if (!res.ok) throw new Error("Falha ao carregar capítulos");
-    const data = await res.json();
-    return data.chapters || [];
-  } catch (err) {
-    console.error("Erro ao carregar capítulos Gutenberg:", err);
+  const cleanId = extractNumericGutenbergId(bookId);
+  if (!cleanId) {
     return [];
   }
+
+  try {
+    const res = await fetch(`/api/books/chapters?bookId=${encodeURIComponent(cleanId)}`);
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data.chapters) && data.chapters.length > 0) {
+        return data.chapters;
+      }
+    }
+  } catch {
+    // Fall back gracefully when offline or upstream Gutenberg is unreachable
+  }
+
+  const curated = CURATED_GUTENBERG_BOOKS.find((b) => String(b.gutenberg_id) === cleanId || b.id === `guten-${cleanId}`);
+  if (curated) {
+    return [
+      {
+        id: `chap-${cleanId}-intro`,
+        book_id: curated.id,
+        position: 1,
+        title: `Apresentação — ${curated.title}`,
+        content: `### ${curated.title}\n\n**Autor:** ${curated.author}${curated.year ? ` (${curated.year})` : ""}\n\n${curated.description}\n\n*Nota:* Os capítulos completos deste clássico do Projeto Gutenberg estão temporariamente indisponíveis na conexão atual. Você pode continuar lendo a edição digitalizada em PDF ou tentar novamente em instantes.`,
+        is_free_preview: true,
+      },
+    ];
+  }
+
+  return [];
 }

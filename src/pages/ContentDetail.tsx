@@ -11,7 +11,8 @@ import { Card } from "@/components/ui/card";
 import { useContent, useTrackInteraction, useProgress, CONTENT_LABELS } from "@/hooks/useContents";
 import { useSimilar, useBecauseYouRead } from "@/hooks/useRecommendations";
 import { formatPrice } from "@/lib/format";
-import { getOriginalPdfForBook, getDownloadPdfUrl } from "@/lib/originalPdfRegistry";
+import { getOriginalPdfForBook } from "@/lib/originalPdfRegistry";
+import { executeTrackedDownload } from "@/lib/downloadsStore";
 import { CommunityReviews } from "@/components/CommunityReviews";
 import { ContentDetailSkeleton } from "@/components/skeletons/AppSkeletons";
 
@@ -25,6 +26,7 @@ const ContentDetail = () => {
   const { data: progress } = useProgress(id);
   const track = useTrackInteraction();
   const [saved, setSaved] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
 
   const originalPdf = id ? getOriginalPdfForBook(id) : undefined;
 
@@ -65,6 +67,38 @@ const ContentDetail = () => {
       toast.success("Link copiado");
     }
     track(item.id, "share");
+  };
+
+  const handleDownloadContent = async () => {
+    if (isDownloading) return;
+    setIsDownloading(true);
+    track(item.id, "download");
+    try {
+      const readPath =
+        item.type === "webtoon" || item.id.startsWith("wt-")
+          ? `/webtoon/${item.id}`
+          : originalPdf
+          ? `/ler/${item.id}?mode=pdf`
+          : `/ler/${item.id}`;
+      await executeTrackedDownload({
+        itemId: String(item.id),
+        type: originalPdf ? "pdf" : item.type === "webtoon" ? "webtoon" : "book",
+        title: originalPdf?.title || item.title,
+        author: originalPdf?.author || item.author,
+        category: item.category,
+        description: item.description,
+        cover: item.cover || originalPdf?.coverUrl || undefined,
+        sourceUrl: originalPdf?.pdfUrl || undefined,
+        openHref: readPath,
+        fileName: `${originalPdf?.title || item.title}-${originalPdf?.author || item.author}.pdf`,
+        expectedFileSizeFormatted: originalPdf?.fileSizeFormatted || item.size || undefined,
+      });
+      toast.success("Download concluído! Disponível em Meu Perfil → Downloads.");
+    } catch {
+      toast.error("Não foi possível transferir o arquivo no momento.");
+    } finally {
+      setIsDownloading(false);
+    }
   };
 
   return (
@@ -244,29 +278,25 @@ const ContentDetail = () => {
 
                 {originalPdf ? (
                   <Button
-                    asChild
+                    type="button"
                     variant="outline"
+                    disabled={isDownloading}
+                    onClick={handleDownloadContent}
                     className="rounded-md text-[11px] uppercase tracking-wider font-normal text-emerald-600 dark:text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/10"
                   >
-                    <a
-                      href={getDownloadPdfUrl(originalPdf.pdfUrl, `${originalPdf.title}-${originalPdf.author}.pdf`, originalPdf.id)}
-                      download={`${originalPdf.title.replace(/[^\w\s-]/g, "")}-${originalPdf.author.replace(/[^\w\s-]/g, "")}.pdf`}
-                    >
-                      <Download className="mr-2 h-3 w-3" />
-                      Baixar PDF
-                    </a>
+                    <Download className="mr-2 h-3 w-3" />
+                    {isDownloading ? "Baixando..." : "Baixar PDF"}
                   </Button>
                 ) : (
                   <Button
+                    type="button"
                     variant="outline"
+                    disabled={isDownloading}
+                    onClick={handleDownloadContent}
                     className="rounded-md text-[11px] uppercase tracking-wider font-normal"
-                    onClick={() => {
-                      track(item.id, "download");
-                      toast.info("Download disponível");
-                    }}
                   >
                     <Download className="mr-2 h-3 w-3" />
-                    Baixar
+                    {isDownloading ? "Baixando..." : "Baixar"}
                   </Button>
                 )}
 

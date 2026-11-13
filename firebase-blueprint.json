@@ -111,6 +111,32 @@
       },
       "required": ["id", "userId", "itemId", "type", "title", "href", "timestamp"]
     },
+    "user_downloads": {
+      "title": "User Download Entry",
+      "description": "Download record and history entry for books, PDFs, and digital editions downloaded by a Wotho user",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "userId": { "type": "string", "maxLength": 128 },
+        "itemId": { "type": "string", "maxLength": 128 },
+        "type": { "type": "string", "maxLength": 30 },
+        "title": { "type": "string", "maxLength": 300 },
+        "author": { "type": "string", "maxLength": 150 },
+        "category": { "type": "string", "maxLength": 100 },
+        "cover": { "type": "string", "maxLength": 1000 },
+        "fileName": { "type": "string", "maxLength": 250 },
+        "mimeType": { "type": "string", "maxLength": 100 },
+        "fileSizeBytes": { "type": "number" },
+        "fileSizeFormatted": { "type": "string", "maxLength": 50 },
+        "downloadUrl": { "type": "string", "maxLength": 2000 },
+        "openHref": { "type": "string", "maxLength": 500 },
+        "status": { "type": "string", "maxLength": 30 },
+        "downloadedAt": { "type": "string", "maxLength": 100 },
+        "lastOpenedAt": { "type": "string", "maxLength": 100 },
+        "openCount": { "type": "number" }
+      },
+      "required": ["id", "userId", "itemId", "type", "title", "fileName", "status", "downloadedAt"]
+    },
     "editorial_auth": {
       "title": "Editorial Master Auth Proof",
       "description": "Write-only atomic batch proof authorizing Master Admin editorial writes without Google OAuth",
@@ -158,6 +184,10 @@
     "/user_profiles/{userId}/history/{entryId}": {
       "schema": "user_history",
       "description": "User activity history items owned by userId"
+    },
+    "/user_profiles/{userId}/downloads/{downloadId}": {
+      "schema": "user_downloads",
+      "description": "User download records and history owned by userId"
     },
     "/test/{testId}": {
       "schema": "test_connection",

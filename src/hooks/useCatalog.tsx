@@ -542,10 +542,10 @@ export const useChapters = (bookId?: string) =>
       }
 
       // Check Gutenberg chapters
-      if (bookId.startsWith("guten-") || /^\d+$/.test(bookId)) {
+      if (/^(?:guten-)?\d+$/.test(bookId)) {
         const { fetchGutenbergChapters } = await import("@/lib/gutenbergBooks");
         const chaps = await fetchGutenbergChapters(bookId);
-        return chaps as Chapter[];
+        if (chaps && chaps.length > 0) return chaps as Chapter[];
       }
 
       try {
@@ -555,13 +555,6 @@ export const useChapters = (bookId?: string) =>
           .eq("book_id", bookId!)
           .order("position", { ascending: true });
         if (!error && data && data.length > 0) return data as Chapter[];
-      } catch {}
-
-      // Check if it's a Gutenberg book without prefix
-      try {
-        const { fetchGutenbergChapters } = await import("@/lib/gutenbergBooks");
-        const chaps = await fetchGutenbergChapters(bookId);
-        if (chaps && chaps.length > 0) return chaps as Chapter[];
       } catch {}
 
       // Check Original PDF Registry for default full digitized edition chapter

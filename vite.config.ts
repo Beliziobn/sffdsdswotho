@@ -1186,28 +1186,89 @@ function gutenbergBooksPlugin(): Plugin {
           const rawId = urlObj.searchParams.get('bookId') || '';
           const bookId = rawId.replace(/^guten-/, '').trim();
 
-          if (!bookId) {
-            res.statusCode = 400;
-            res.end(JSON.stringify({ error: 'Parâmetro bookId é obrigatório' }));
+          if (!bookId || !/^\d+$/.test(bookId)) {
+            res.statusCode = 200;
+            res.setHeader('Content-Type', 'application/json');
+            res.end(JSON.stringify({ bookId: rawId, chapters: [], totalChapters: 0 }));
             return;
           }
 
           if (chapterCache.has(bookId)) {
-            const cached = chapterCache.get(bookId);
+            const cached = chapterCache.get(bookId) || [];
             res.statusCode = 200;
             res.setHeader('Content-Type', 'application/json');
             res.end(JSON.stringify({ bookId: `guten-${bookId}`, chapters: cached, totalChapters: cached.length }));
             return;
           }
 
-          // Fetch full text from Gutenberg
-          const textUrl = `https://www.gutenberg.org/cache/epub/${bookId}/pg${bookId}.txt`;
-          const textRes = await fetch(textUrl, {
-            headers: { 'User-Agent': 'Mozilla/5.0 (compatible; WorscoiBookReader/2.0)' },
-          });
+          const candidateTextUrls = [
+            `https://www.gutenberg.org/cache/epub/${bookId}/pg${bookId}.txt`,
+            `https://www.gutenberg.org/files/${bookId}/${bookId}-0.txt`,
+            `https://www.gutenberg.org/files/${bookId}/${bookId}.txt`,
+            `https://www.gutenberg.org/files/${bookId}/${bookId}-8.txt`,
+            `https://www.gutenberg.org/ebooks/${bookId}.txt.utf-8`,
+          ];
 
-          if (!textRes.ok) throw new Error(`Falha ao baixar texto de Gutenberg (${textRes.status})`);
-          let fullText = await textRes.text();
+          let fullText = '';
+          for (const textUrl of candidateTextUrls) {
+            try {
+              const textRes = await fetch(textUrl, {
+                headers: { 'User-Agent': 'Mozilla/5.0 (compatible; WorscoiBookReader/2.0)' },
+                redirect: 'follow',
+                signal: AbortSignal.timeout(7000),
+              });
+              if (textRes.ok) {
+                const body = await textRes.text();
+                if (body && body.length > 200 && !body.trimStart().startsWith('<!DOCTYPE') && !body.trimStart().startsWith('<html')) {
+                  fullText = body;
+                  break;
+                }
+              }
+            } catch {}
+          }
+
+          if (!fullText) {
+            try {
+              const metaRes = await fetch(`https://gutendex.com/books/${bookId}`, {
+                headers: { 'User-Agent': 'Mozilla/5.0 (compatible; WorscoiBookReader/2.0)' },
+                signal: AbortSignal.timeout(6000),
+              });
+              if (metaRes.ok) {
+                const meta = await metaRes.json();
+                const formats = meta?.formats || {};
+                const txtCandidates = [
+                  formats['text/plain; charset=utf-8'],
+                  formats['text/plain; charset=us-ascii'],
+                  formats['text/plain; charset=iso-8859-1'],
+                  formats['text/plain'],
+                ].filter((u): u is string => typeof u === 'string' && u.startsWith('http'));
+
+                for (const txtUrl of txtCandidates) {
+                  try {
+                    const textRes = await fetch(txtUrl, {
+                      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; WorscoiBookReader/2.0)' },
+                      redirect: 'follow',
+                      signal: AbortSignal.timeout(7000),
+                    });
+                    if (textRes.ok) {
+                      const body = await textRes.text();
+                      if (body && body.length > 200) {
+                        fullText = body;
+                        break;
+                      }
+                    }
+                  } catch {}
+                }
+              }
+            } catch {}
+          }
+
+          if (!fullText) {
+            res.statusCode = 200;
+            res.setHeader('Content-Type', 'application/json');
+            res.end(JSON.stringify({ bookId: `guten-${bookId}`, chapters: [], totalChapters: 0 }));
+            return;
+          }
 
           // Strip Gutenberg license header and footer
           const startMatch = fullText.match(/\*\*\*\s*START OF (THE|THIS) PROJECT GUTENBERG EBOOK[^\*]*\*\*\*/i);
@@ -1285,9 +1346,9 @@ function gutenbergBooksPlugin(): Plugin {
           res.setHeader('Content-Type', 'application/json');
           res.end(JSON.stringify({ bookId: `guten-${bookId}`, chapters, totalChapters: chapters.length }));
         } catch (err: any) {
-          res.statusCode = 500;
+          res.statusCode = 200;
           res.setHeader('Content-Type', 'application/json');
-          res.end(JSON.stringify({ error: err.message, chapters: [] }));
+          res.end(JSON.stringify({ error: err?.message, chapters: [], totalChapters: 0 }));
         }
       });
 

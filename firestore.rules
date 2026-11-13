@@ -137,6 +137,29 @@ service cloud.firestore {
         (!('detailLabel' in data) || (data.detailLabel is string && data.detailLabel.size() <= 200));
     }
 
+    function isValidUserDownload(data, userId, downloadId) {
+      return data.keys().hasAll(['id', 'userId', 'itemId', 'type', 'title', 'fileName', 'status', 'downloadedAt']) &&
+        data.keys().hasOnly(['id', 'userId', 'itemId', 'type', 'title', 'author', 'category', 'cover', 'fileName', 'mimeType', 'fileSizeBytes', 'fileSizeFormatted', 'downloadUrl', 'openHref', 'status', 'downloadedAt', 'lastOpenedAt', 'openCount']) &&
+        data.id is string && data.id == downloadId && data.id.size() >= 1 && data.id.size() <= 128 &&
+        data.userId is string && data.userId == userId && data.userId.size() >= 1 && data.userId.size() <= 128 &&
+        data.itemId is string && data.itemId.size() >= 1 && data.itemId.size() <= 128 &&
+        data.type is string && data.type.size() >= 1 && data.type.size() <= 30 &&
+        data.title is string && data.title.size() >= 1 && data.title.size() <= 300 &&
+        data.fileName is string && data.fileName.size() >= 1 && data.fileName.size() <= 250 &&
+        data.status is string && data.status in ['completed', 'in_progress', 'failed'] &&
+        data.downloadedAt is string && data.downloadedAt.size() >= 1 && data.downloadedAt.size() <= 100 &&
+        (!('author' in data) || (data.author is string && data.author.size() <= 150)) &&
+        (!('category' in data) || (data.category is string && data.category.size() <= 100)) &&
+        (!('cover' in data) || (data.cover is string && data.cover.size() <= 1000)) &&
+        (!('mimeType' in data) || (data.mimeType is string && data.mimeType.size() <= 100)) &&
+        (!('fileSizeBytes' in data) || (data.fileSizeBytes is number && data.fileSizeBytes >= 0)) &&
+        (!('fileSizeFormatted' in data) || (data.fileSizeFormatted is string && data.fileSizeFormatted.size() <= 50)) &&
+        (!('downloadUrl' in data) || (data.downloadUrl is string && data.downloadUrl.size() <= 2000)) &&
+        (!('openHref' in data) || (data.openHref is string && data.openHref.size() <= 500)) &&
+        (!('lastOpenedAt' in data) || (data.lastOpenedAt is string && data.lastOpenedAt.size() <= 100)) &&
+        (!('openCount' in data) || (data.openCount is number && data.openCount >= 0));
+    }
+
     // Default deny catch-all
     match /{document=**} {
       allow read, write: if false;
@@ -200,6 +223,14 @@ service cloud.firestore {
         allow create: if isSignedIn() && isValidId(userId) && isValidId(entryId) && request.auth.uid == userId && isValidUserHistory(incoming(), userId, entryId);
         allow update: if isSignedIn() && isValidId(userId) && isValidId(entryId) && request.auth.uid == userId && isValidUserHistory(incoming(), userId, entryId) && incoming().userId == resource.data.userId;
         allow delete: if isSignedIn() && isValidId(userId) && isValidId(entryId) && request.auth.uid == userId;
+      }
+
+      match /downloads/{downloadId} {
+        allow get: if isSignedIn() && isValidId(userId) && isValidId(downloadId) && request.auth.uid == userId;
+        allow list: if isSignedIn() && request.auth.uid == userId && resource.data.userId == request.auth.uid;
+        allow create: if isSignedIn() && isValidId(userId) && isValidId(downloadId) && request.auth.uid == userId && isValidUserDownload(incoming(), userId, downloadId);
+        allow update: if isSignedIn() && isValidId(userId) && isValidId(downloadId) && request.auth.uid == userId && isValidUserDownload(incoming(), userId, downloadId) && incoming().userId == resource.data.userId;
+        allow delete: if isSignedIn() && isValidId(userId) && isValidId(downloadId) && request.auth.uid == userId;
       }
     }
   }

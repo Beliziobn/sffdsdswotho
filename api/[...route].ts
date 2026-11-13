@@ -19,6 +19,8 @@ import {
 } from './_newsHandler.js';
 import {
   handlePdfProxyRequest,
+  handleBooksCatalogRequest,
+  handleBooksChaptersRequest,
 } from './_booksHandler.js';
 import {
   handleAdminLoginRequest,
@@ -109,17 +111,9 @@ export default async function handler(req: any, res: any) {
     case '/api/books/pdf-proxy':
       return handlePdfProxyRequest(req, res);
     case '/api/books/catalog':
-      res.statusCode = 200;
-      res.setHeader('Content-Type', 'application/json; charset=utf-8');
-      res.setHeader('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=600');
-      res.end(JSON.stringify({ books: [] }));
-      return;
+      return handleBooksCatalogRequest(req, res);
     case '/api/books/chapters':
-      res.statusCode = 200;
-      res.setHeader('Content-Type', 'application/json; charset=utf-8');
-      res.setHeader('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=600');
-      res.end(JSON.stringify({ chapters: [] }));
-      return;
+      return handleBooksChaptersRequest(req, res);
 
     // Sitemaps & Feeds
     case '/api/sitemap.xml':
