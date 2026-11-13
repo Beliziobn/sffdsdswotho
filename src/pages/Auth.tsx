@@ -13,9 +13,9 @@ import brandIcon from "@/assets/worscoi-icon.png";
 import { checkLoginRateLimit, logAudit, passwordStrength, recordLoginFailure } from "@/lib/security";
 import { TERMS_VERSION, readCookiePreferences } from "@/hooks/useConsent";
 import {
+  SPECIAL_ADMIN_EMAIL,
   isSpecialAdminLoggedIn,
-  loginSpecialAdmin,
-  verifySpecialAdminCredentials,
+  loginSpecialAdminWithServer,
 } from "@/lib/editorialStore";
 import { signInWithGoogle } from "@/lib/firebase";
 
@@ -84,16 +84,18 @@ const Auth = () => {
 
     setLoading(true);
     try {
-      // Special Master Editorial Login (miguelworscoi@gmail.com / 004116)
-      if (mode !== "forgot" && verifySpecialAdminCredentials(emailCheck.data, password)) {
-        loginSpecialAdmin();
-        void logAudit("login_success", { email: emailCheck.data });
-        toast({
-          title: "Acesso Editorial Mestre Concedido",
-          description: "Bem-vindo ao Studio Editorial & Análise de Conteúdos, Miguel Worscoi!",
-        });
-        navigate("/admin");
-        return;
+      // Special Master Editorial Login (server-verified)
+      if (mode !== "forgot" && emailCheck.data.trim().toLowerCase() === SPECIAL_ADMIN_EMAIL) {
+        const adminLogin = await loginSpecialAdminWithServer(emailCheck.data, password);
+        if (adminLogin.ok) {
+          void logAudit("login_success", { email: emailCheck.data });
+          toast({
+            title: "Acesso Editorial Mestre Concedido",
+            description: "Bem-vindo ao Studio Editorial & Análise de Conteúdos, Miguel Worscoi!",
+          });
+          navigate("/admin");
+          return;
+        }
       }
 
       if (mode === "forgot") {

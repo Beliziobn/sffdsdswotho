@@ -15,6 +15,11 @@ import {
   handleMangadexServerRequest,
   handleMangaImageProxyRequest,
 } from './api/_mangaHandler.js';
+import {
+  handleAdminLoginRequest,
+  handleAdminSessionRequest,
+  handleAdminLogoutRequest,
+} from './api/_adminHandler.js';
 
 function newsRssPlugin(): Plugin {
   const parser = new Parser({
@@ -2335,9 +2340,26 @@ function sitemapPlugin(): Plugin {
   };
 }
 
+function adminAuthPlugin(): Plugin {
+  return {
+    name: 'worscoi-admin-auth',
+    configureServer(server) {
+      server.middlewares.use('/api/admin/login', async (req, res) => {
+        await handleAdminLoginRequest(req, res);
+      });
+      server.middlewares.use('/api/admin/session', async (req, res) => {
+        await handleAdminSessionRequest(req, res);
+      });
+      server.middlewares.use('/api/admin/logout', async (req, res) => {
+        await handleAdminLogoutRequest(req, res);
+      });
+    },
+  };
+}
+
 export default defineConfig(() => {
   return {
-    plugins: [react(), cinemaStreamingPlugin(), newsRssPlugin(), gutenbergBooksPlugin(), bookAutomationPlugin(), officialWebtoonIntegrationPlugin(), sitemapPlugin()],
+    plugins: [react(), cinemaStreamingPlugin(), newsRssPlugin(), gutenbergBooksPlugin(), bookAutomationPlugin(), officialWebtoonIntegrationPlugin(), sitemapPlugin(), adminAuthPlugin()],
     resolve: {
       alias: {
         '@': path.resolve(__dirname, './src'),

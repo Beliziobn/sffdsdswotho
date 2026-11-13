@@ -18,9 +18,9 @@ import { onAuthStateChanged } from "firebase/auth";
 import { isExcludedItem, filterExcludedItems, EXCLUDED_IDS, EXCLUDED_SLUGS } from "./excludedItems";
 
 export const SPECIAL_ADMIN_EMAIL = "miguelworscoi@gmail.com";
-export const SPECIAL_ADMIN_PASS = "004116";
 
 const ADMIN_SESSION_KEY = "worscoi_special_admin_session_v1";
+const EDITORIAL_PROOF_STORAGE_KEY = "worscoi_editorial_proof_v1";
 const NEWS_OVERRIDES_KEY = "worscoi_editorial_news_overrides_v1";
 const CUSTOM_NEWS_KEY = "worscoi_editorial_custom_news_v1";
 const DELETED_NEWS_KEY = "worscoi_editorial_deleted_news_v1";
@@ -194,6 +194,9 @@ export async function initCloudEditorialSync(): Promise<void> {
 }
 
 if (typeof window !== "undefined") {
+  if (isSpecialAdminLoggedIn()) {
+    void refreshSpecialAdminSession();
+  }
   void initCloudEditorialSync();
   onAuthStateChanged(auth, () => {
     void initCloudEditorialSync();
@@ -254,21 +257,90 @@ export function slugifyEditorial(text: string): string {
 }
 
 // ============================================================================
-// 1. SPECIAL MASTER LOGIN (miguelworscoi@gmail.com / 004116)
+// 1. SPECIAL MASTER LOGIN (Server-Verified Session & Editorial Proof)
 // ============================================================================
 
-export function verifySpecialAdminCredentials(email: string, password: string): boolean {
-  return (
-    email.trim().toLowerCase() === SPECIAL_ADMIN_EMAIL &&
-    password.trim() === SPECIAL_ADMIN_PASS
-  );
+export function storeEditorialCloudProof(token: string | null | undefined): void {
+  if (typeof window === "undefined") return;
+  try {
+    if (token && token.trim()) {
+      sessionStorage.setItem(EDITORIAL_PROOF_STORAGE_KEY, token.trim());
+    } else {
+      sessionStorage.removeItem(EDITORIAL_PROOF_STORAGE_KEY);
+    }
+  } catch {
+    // Ignore storage issues
+  }
 }
 
-export function loginSpecialAdmin(): void {
+export function hasEditorialCloudProof(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    return Boolean(sessionStorage.getItem(EDITORIAL_PROOF_STORAGE_KEY));
+  } catch {
+    return false;
+  }
+}
+
+export async function loginSpecialAdminWithServer(
+  email: string,
+  password: string
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const res = await fetch("/api/admin/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({
+        email: email.trim().toLowerCase(),
+        password: password.trim(),
+      }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data?.ok) {
+      return {
+        ok: false,
+        error: data?.error || "Credenciais inválidas. Verifique o e-mail e a senha mestra.",
+      };
+    }
+
+    storeEditorialCloudProof(data.editorialProofToken);
+    loginSpecialAdmin(data.user?.email || email.trim().toLowerCase());
+    return { ok: true };
+  } catch {
+    return {
+      ok: false,
+      error: "Não foi possível validar as credenciais no servidor. Tente novamente.",
+    };
+  }
+}
+
+export async function refreshSpecialAdminSession(): Promise<boolean> {
+  if (typeof window === "undefined") return false;
+  try {
+    const res = await fetch("/api/admin/session", {
+      method: "GET",
+      credentials: "include",
+    });
+    if (!res.ok) return false;
+    const data = await res.json().catch(() => ({}));
+    if (data?.authenticated && data?.editorialProofToken) {
+      storeEditorialCloudProof(data.editorialProofToken);
+      loginSpecialAdmin(data.user?.email || SPECIAL_ADMIN_EMAIL);
+      return true;
+    }
+    storeEditorialCloudProof(null);
+    return false;
+  } catch {
+    return false;
+  }
+}
+
+export function loginSpecialAdmin(email = SPECIAL_ADMIN_EMAIL): void {
   if (typeof window === "undefined") return;
   const payload = {
     id: "master-admin-miguel-worscoi",
-    email: SPECIAL_ADMIN_EMAIL,
+    email: email.trim().toLowerCase(),
     role: "admin",
     displayName: "Miguel Worscoi (Editor-Chefe)",
     loggedInAt: new Date().toISOString(),
@@ -280,6 +352,11 @@ export function loginSpecialAdmin(): void {
 export function logoutSpecialAdmin(): void {
   if (typeof window === "undefined") return;
   localStorage.removeItem(ADMIN_SESSION_KEY);
+  storeEditorialCloudProof(null);
+  void fetch("/api/admin/logout", {
+    method: "POST",
+    credentials: "include",
+  }).catch(() => {});
   window.dispatchEvent(new Event("worscoi_auth_updated"));
 }
 

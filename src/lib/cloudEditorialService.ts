@@ -5,6 +5,8 @@ import {
   getDocs,
   setDoc,
   deleteDoc,
+  writeBatch,
+  serverTimestamp,
   onSnapshot,
   query,
   where,
@@ -19,9 +21,95 @@ const NEWS_COLLECTION = "news";
 const BOOKS_COLLECTION = "books";
 const CHAPTERS_COLLECTION = "chapters";
 const ANIME_OVERRIDES_COLLECTION = "anime_overrides";
+const EDITORIAL_AUTH_COLLECTION = "editorial_auth";
 
 const READ_CACHE_TTL_MS = 10_000;
 const FIRESTORE_READ_TIMEOUT_MS = 6_000;
+
+const EDITORIAL_PROOF_STORAGE_KEY = "worscoi_editorial_proof_v1";
+
+function hasMasterAdminSession(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    const raw = localStorage.getItem("worscoi_special_admin_session_v1");
+    if (!raw) return false;
+    const parsed = JSON.parse(raw);
+    return parsed?.email === "miguelworscoi@gmail.com";
+  } catch {
+    return false;
+  }
+}
+
+async function resolveMasterEditorialProofToken(): Promise<string | null> {
+  if (typeof window === "undefined" || !hasMasterAdminSession()) return null;
+  try {
+    const cached = sessionStorage.getItem(EDITORIAL_PROOF_STORAGE_KEY);
+    if (cached && cached.trim()) {
+      return cached.trim();
+    }
+    const res = await fetch("/api/admin/session", {
+      method: "GET",
+      credentials: "include",
+    });
+    if (res.ok) {
+      const data = await res.json().catch(() => ({}));
+      if (data?.authenticated && typeof data?.editorialProofToken === "string" && data.editorialProofToken.trim()) {
+        sessionStorage.setItem(EDITORIAL_PROOF_STORAGE_KEY, data.editorialProofToken.trim());
+        return data.editorialProofToken.trim();
+      }
+    }
+  } catch {
+    // Ignore storage/network error
+  }
+  return null;
+}
+
+function canAuthorizeCloudWrite(): boolean {
+  return Boolean(auth.currentUser || hasMasterAdminSession());
+}
+
+async function writeEditorialDoc(
+  collectionName: string,
+  docId: string,
+  payload: Record<string, any>
+): Promise<void> {
+  if (auth.currentUser) {
+    await setDoc(doc(db, collectionName, docId), payload, { merge: true });
+    return;
+  }
+  const proofToken = await resolveMasterEditorialProofToken();
+  if (!proofToken) {
+    throw new Error("Sessão editorial expirada ou não validada no servidor. Entre novamente com sua senha mestra no painel /admin.");
+  }
+  const batch = writeBatch(db);
+  batch.set(doc(db, EDITORIAL_AUTH_COLLECTION, docId), {
+    token: proofToken,
+    updatedAt: serverTimestamp(),
+  });
+  batch.set(doc(db, collectionName, docId), payload, { merge: true });
+  await batch.commit();
+}
+
+async function deleteEditorialDoc(
+  collectionName: string,
+  docId: string
+): Promise<void> {
+  if (auth.currentUser) {
+    await deleteDoc(doc(db, collectionName, docId));
+    return;
+  }
+  const proofToken = await resolveMasterEditorialProofToken();
+  if (!proofToken) {
+    throw new Error("Sessão editorial expirada ou não validada no servidor. Entre novamente com sua senha mestra no painel /admin.");
+  }
+  const batch = writeBatch(db);
+  batch.set(doc(db, EDITORIAL_AUTH_COLLECTION, docId), {
+    token: proofToken,
+    updatedAt: serverTimestamp(),
+  });
+  batch.delete(doc(db, collectionName, docId));
+  await batch.commit();
+}
 
 function decodeFirestoreValue(val: any): any {
   if (!val || typeof val !== "object") return val;
@@ -160,10 +248,10 @@ export async function publishNewsToCloudDetailed(
     return { ok: false, error: "Identificador de publicação inválido." };
   }
 
-  if (!auth.currentUser) {
+  if (!canAuthorizeCloudWrite()) {
     return {
       ok: false,
-      error: "Conecte sua conta Google no painel para publicar na nuvem para todos os usuários.",
+      error: "Faça login administrativo no painel para publicar na nuvem para todos os usuários.",
     };
   }
 
@@ -202,8 +290,7 @@ export async function publishNewsToCloudDetailed(
       };
     }
 
-    const docRef = doc(db, NEWS_COLLECTION, docId);
-    await setDoc(docRef, payload, { merge: true });
+    await writeEditorialDoc(NEWS_COLLECTION, docId, payload);
 
     // Immediately update in-memory cache so reads see the fresh doc
     if (cachedNewsResult) {
@@ -238,15 +325,15 @@ export async function publishNewsToCloud(item: NewsItem): Promise<boolean> {
 
 export async function deleteNewsFromCloud(idOrSlug: string): Promise<boolean> {
   const docId = sanitizeDocId(idOrSlug);
-  if (!docId || !auth.currentUser) return false;
+  if (!docId || !canAuthorizeCloudWrite()) return false;
 
   try {
     const online = await ensureFirestoreOnline();
     if (!online) return false;
 
-    await deleteDoc(doc(db, NEWS_COLLECTION, docId));
+    await deleteEditorialDoc(NEWS_COLLECTION, docId);
     if (!docId.startsWith("editorial-")) {
-      await deleteDoc(doc(db, NEWS_COLLECTION, sanitizeDocId(`editorial-${docId}`))).catch(() => {});
+      await deleteEditorialDoc(NEWS_COLLECTION, sanitizeDocId(`editorial-${docId}`)).catch(() => {});
     }
     invalidateCloudNewsCache();
     return true;
@@ -468,9 +555,9 @@ export async function publishBookToCloud(book: Book & {
   }
 
   try {
+    if (!canAuthorizeCloudWrite()) return false;
     await ensureFirestoreOnline();
-    const docRef = doc(db, BOOKS_COLLECTION, docId);
-    await setDoc(docRef, payload, { merge: true });
+    await writeEditorialDoc(BOOKS_COLLECTION, docId, payload);
     return true;
   } catch (err: any) {
     if (err?.code === "permission-denied") {
@@ -483,12 +570,11 @@ export async function publishBookToCloud(book: Book & {
 
 export async function deleteBookFromCloud(bookId: string): Promise<boolean> {
   const docId = sanitizeDocId(bookId);
-  if (!docId) return false;
+  if (!docId || !canAuthorizeCloudWrite()) return false;
 
   try {
     await ensureFirestoreOnline();
-    const docRef = doc(db, BOOKS_COLLECTION, docId);
-    await setDoc(docRef, { published: false, updated_at: new Date().toISOString() }, { merge: true });
+    await deleteEditorialDoc(BOOKS_COLLECTION, docId);
     return true;
   } catch (err: any) {
     if (err?.code === "permission-denied") {
@@ -568,9 +654,9 @@ export async function publishChapterToCloud(chapter: Chapter): Promise<boolean> 
   };
 
   try {
+    if (!canAuthorizeCloudWrite()) return false;
     await ensureFirestoreOnline();
-    const docRef = doc(db, CHAPTERS_COLLECTION, docId);
-    await setDoc(docRef, payload, { merge: true });
+    await writeEditorialDoc(CHAPTERS_COLLECTION, docId, payload);
     return true;
   } catch (err: any) {
     if (err?.code === "permission-denied") {
@@ -654,9 +740,9 @@ export async function publishAnimeOverrideToCloud(animeId: string, patch: Record
   };
 
   try {
+    if (!canAuthorizeCloudWrite()) return false;
     await ensureFirestoreOnline();
-    const docRef = doc(db, ANIME_OVERRIDES_COLLECTION, docId);
-    await setDoc(docRef, payload, { merge: true });
+    await writeEditorialDoc(ANIME_OVERRIDES_COLLECTION, docId, payload);
     return true;
   } catch (err: any) {
     if (err?.code === "permission-denied") {

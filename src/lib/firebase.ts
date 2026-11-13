@@ -35,7 +35,25 @@ export const signInWithGoogle = async () => {
   try {
     const result = await signInWithPopup(auth, googleProvider);
     return result.user;
-  } catch (error) {
+  } catch (error: any) {
+    const code = error?.code || "";
+    if (code === "auth/popup-closed-by-user" || code === "auth/cancelled-popup-request") {
+      return null;
+    }
+    if (code === "auth/unauthorized-domain" && typeof window !== "undefined") {
+      const originHost = window.location.hostname;
+      console.warn(
+        `[FirebaseAuth] Domínio não autorizado para login Google: ${originHost}. Adicione-o em Firebase Authentication > Settings > Authorized domains.`
+      );
+      throw new Error(
+        `Domínio (${originHost}) ainda não autorizado no Firebase Authentication.`
+      );
+    }
+    if (code === "auth/popup-blocked") {
+      throw new Error(
+        "O navegador bloqueou a janela de login do Google. Permita popups para este site e tente novamente."
+      );
+    }
     console.error("Error signing in with Google:", error);
     throw error;
   }
@@ -131,7 +149,7 @@ export async function ensureFirestoreOnline(): Promise<boolean> {
   if (typeof navigator !== "undefined" && navigator.onLine === false) {
     return false;
   }
-  if (Date.now() - lastCheckTs < 15_000) {
+  if (Date.now() - lastCheckTs < 3_000) {
     return false;
   }
   await enableNetwork(db).catch(() => {});

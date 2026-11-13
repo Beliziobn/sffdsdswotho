@@ -37,7 +37,13 @@
         "category": { "type": "string", "maxLength": 100 },
         "published": { "type": "boolean" },
         "featured": { "type": "boolean" },
-        "created_at": { "type": "string", "maxLength": 100 }
+        "created_at": { "type": "string", "maxLength": 100 },
+        "pdf_url": { "type": "string", "maxLength": 500000 },
+        "download_url": { "type": "string", "maxLength": 500000 },
+        "original_pages_count": { "type": "number" },
+        "file_size_formatted": { "type": "string", "maxLength": 50 },
+        "edition_notes": { "type": "string", "maxLength": 1000 },
+        "source_repository": { "type": "string", "maxLength": 200 }
       },
       "required": ["title", "author", "published"]
     },
@@ -105,6 +111,16 @@
       },
       "required": ["id", "userId", "itemId", "type", "title", "href", "timestamp"]
     },
+    "editorial_auth": {
+      "title": "Editorial Master Auth Proof",
+      "description": "Write-only atomic batch proof authorizing Master Admin editorial writes without Google OAuth",
+      "type": "object",
+      "properties": {
+        "token": { "type": "string", "maxLength": 128 },
+        "updatedAt": { "type": "string", "maxLength": 100 }
+      },
+      "required": ["token", "updatedAt"]
+    },
     "test_connection": {
       "title": "Test Connection",
       "description": "Used by app startup to verify Firestore connectivity",
@@ -115,6 +131,10 @@
     }
   },
   "firestore": {
+    "/editorial_auth/{proofId}": {
+      "schema": "editorial_auth",
+      "description": "Write-only atomic batch verification for Master Admin editorial publishing"
+    },
     "/news/{newsId}": {
       "schema": "news",
       "description": "Collection of all published and editorial news articles"

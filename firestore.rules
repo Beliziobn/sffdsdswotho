@@ -14,6 +14,36 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    function isGoogleAdmin() {
+      return isSignedIn() &&
+        request.auth.token.email_verified == true &&
+        request.auth.token.email in [
+          'miguelworscoi@gmail.com',
+          'mongedoun327@gmail.com',
+          'socienciadaeduca2018@gmail.com',
+          'fubnn10@gmail.com'
+        ];
+    }
+
+    function isEditorialBatchAuthorized(docId) {
+      return existsAfter(/databases/$(database)/documents/editorial_auth/$(docId)) &&
+        getAfter(/databases/$(database)/documents/editorial_auth/$(docId)).data.updatedAt == request.time;
+    }
+
+    function isEditorialWriter(docId) {
+      return isGoogleAdmin() || isEditorialBatchAuthorized(docId);
+    }
+
+    function isValidEditorialProof(data) {
+      return data.keys().hasAll(['token', 'updatedAt']) &&
+        data.keys().hasOnly(['token', 'updatedAt']) &&
+        data.token is string &&
+        data.token.size() >= 1 &&
+        data.token.size() <= 128 &&
+        hashing.sha256(data.token.toUtf8()).toHexString() == 'f3e0632fd1f33ee9812c87ac718cff4fe6af986c3b95d9f345879cd04854a055' &&
+        data.updatedAt == request.time;
+    }
+
     function isValidNews(data) {
       return data.keys().hasAll(['title', 'slug', 'content', 'published']) &&
         data.keys().hasOnly(['id', 'title', 'slug', 'excerpt', 'content', 'cover_url', 'category', 'published', 'published_at', 'created_at', 'updated_at', 'author', 'source_name', 'source_url']) &&
@@ -35,22 +65,47 @@ service cloud.firestore {
 
     function isValidBook(data) {
       return data.keys().hasAll(['title', 'author', 'published']) &&
-        data.title is string && data.title.size() <= 300 &&
-        data.author is string && data.author.size() <= 150 &&
-        data.published is bool;
+        data.keys().hasOnly(['id', 'title', 'author', 'description', 'cover_url', 'price_cents', 'currency', 'category', 'published', 'featured', 'created_at', 'pdf_url', 'download_url', 'original_pages_count', 'file_size_formatted', 'edition_notes', 'source_repository']) &&
+        data.title is string && data.title.size() >= 1 && data.title.size() <= 300 &&
+        data.author is string && data.author.size() >= 1 && data.author.size() <= 150 &&
+        data.published is bool &&
+        (!('id' in data) || (data.id is string && data.id.size() <= 128)) &&
+        (!('description' in data) || (data.description is string && data.description.size() <= 10000)) &&
+        (!('cover_url' in data) || (data.cover_url is string && data.cover_url.size() <= 1000)) &&
+        (!('price_cents' in data) || (data.price_cents is number && data.price_cents >= 0)) &&
+        (!('currency' in data) || (data.currency is string && data.currency.size() <= 10)) &&
+        (!('category' in data) || (data.category is string && data.category.size() <= 100)) &&
+        (!('featured' in data) || data.featured is bool) &&
+        (!('created_at' in data) || (data.created_at is string && data.created_at.size() <= 100)) &&
+        (!('pdf_url' in data) || (data.pdf_url is string && data.pdf_url.size() <= 500000)) &&
+        (!('download_url' in data) || (data.download_url is string && data.download_url.size() <= 500000)) &&
+        (!('original_pages_count' in data) || (data.original_pages_count is number && data.original_pages_count >= 0)) &&
+        (!('file_size_formatted' in data) || (data.file_size_formatted is string && data.file_size_formatted.size() <= 50)) &&
+        (!('edition_notes' in data) || (data.edition_notes is string && data.edition_notes.size() <= 1000)) &&
+        (!('source_repository' in data) || (data.source_repository is string && data.source_repository.size() <= 200));
     }
 
     function isValidChapter(data) {
       return data.keys().hasAll(['book_id', 'title', 'content', 'position']) &&
-        data.book_id is string && data.book_id.size() <= 128 &&
-        data.title is string && data.title.size() <= 300 &&
+        data.keys().hasOnly(['id', 'book_id', 'title', 'content', 'position', 'is_free_preview']) &&
+        data.book_id is string && data.book_id.size() >= 1 && data.book_id.size() <= 128 &&
+        data.title is string && data.title.size() >= 1 && data.title.size() <= 300 &&
         data.content is string && data.content.size() <= 100000 &&
-        data.position is number;
+        data.position is number &&
+        (!('id' in data) || (data.id is string && data.id.size() <= 128)) &&
+        (!('is_free_preview' in data) || data.is_free_preview is bool);
     }
 
     function isValidAnimeOverride(data) {
       return data.keys().hasAll(['id']) &&
-        data.id is string && data.id.size() <= 128;
+        data.keys().hasOnly(['id', 'title', 'synopsis', 'cover', 'banner', 'trailerYoutubeId', 'updatedAt']) &&
+        data.id is string && data.id.size() >= 1 && data.id.size() <= 128 &&
+        (!('title' in data) || (data.title is string && data.title.size() <= 300)) &&
+        (!('synopsis' in data) || (data.synopsis is string && data.synopsis.size() <= 5000)) &&
+        (!('cover' in data) || (data.cover is string && data.cover.size() <= 1000)) &&
+        (!('banner' in data) || (data.banner is string && data.banner.size() <= 1000)) &&
+        (!('trailerYoutubeId' in data) || (data.trailerYoutubeId is string && data.trailerYoutubeId.size() <= 100)) &&
+        (!('updatedAt' in data) || (data.updatedAt is string && data.updatedAt.size() <= 100));
     }
 
     function isValidUserProfile(data, userId) {
@@ -87,42 +142,49 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // Write-only Master Admin atomic batch proof (never readable)
+    match /editorial_auth/{proofId} {
+      allow read: if false;
+      allow create, update: if isValidId(proofId) && isValidEditorialProof(incoming());
+      allow delete: if false;
+    }
+
     // Test connection doc
     match /test/{testId} {
       allow read: if true;
-      allow write: if isSignedIn();
+      allow write: if false;
     }
 
     // News articles: Publicly readable by all visitors and users everywhere
     match /news/{newsId} {
       allow get, list: if true;
-      allow create: if isSignedIn() && isValidId(newsId) && isValidNews(incoming());
-      allow update: if isSignedIn() && isValidId(newsId) && isValidNews(incoming());
-      allow delete: if isSignedIn() && isValidId(newsId);
+      allow create: if isValidId(newsId) && isValidNews(incoming()) && isEditorialWriter(newsId);
+      allow update: if isValidId(newsId) && isValidNews(incoming()) && isEditorialWriter(newsId);
+      allow delete: if isValidId(newsId) && isEditorialWriter(newsId);
     }
 
     // Books: Publicly readable by all visitors
     match /books/{bookId} {
       allow get, list: if true;
-      allow create: if isSignedIn() && isValidId(bookId) && isValidBook(incoming());
-      allow update: if isSignedIn() && isValidId(bookId) && isValidBook(incoming());
-      allow delete: if isSignedIn() && isValidId(bookId);
+      allow create: if isValidId(bookId) && isValidBook(incoming()) && isEditorialWriter(bookId);
+      allow update: if isValidId(bookId) && isValidBook(incoming()) && isEditorialWriter(bookId);
+      allow delete: if isValidId(bookId) && isEditorialWriter(bookId);
     }
 
     // Chapters: Publicly readable by all visitors
     match /chapters/{chapterId} {
       allow get, list: if true;
-      allow create: if isSignedIn() && isValidId(chapterId) && isValidChapter(incoming());
-      allow update: if isSignedIn() && isValidId(chapterId) && isValidChapter(incoming());
-      allow delete: if isSignedIn() && isValidId(chapterId);
+      allow create: if isValidId(chapterId) && isValidChapter(incoming()) && isEditorialWriter(chapterId);
+      allow update: if isValidId(chapterId) && isValidChapter(incoming()) && isEditorialWriter(chapterId);
+      allow delete: if isValidId(chapterId) && isEditorialWriter(chapterId);
     }
 
     // Anime Overrides: Publicly readable by all visitors
     match /anime_overrides/{animeId} {
       allow get, list: if true;
-      allow create: if isSignedIn() && isValidId(animeId) && isValidAnimeOverride(incoming());
-      allow update: if isSignedIn() && isValidId(animeId) && isValidAnimeOverride(incoming());
-      allow delete: if isSignedIn() && isValidId(animeId);
+      allow create: if isValidId(animeId) && isValidAnimeOverride(incoming()) && isEditorialWriter(animeId);
+      allow update: if isValidId(animeId) && isValidAnimeOverride(incoming()) && isEditorialWriter(animeId);
+      allow delete: if isValidId(animeId) && isEditorialWriter(animeId);
     }
 
     // User Profiles: Strictly isolated to the owner

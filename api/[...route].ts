@@ -20,6 +20,11 @@ import {
 import {
   handlePdfProxyRequest,
 } from './_booksHandler.js';
+import {
+  handleAdminLoginRequest,
+  handleAdminSessionRequest,
+  handleAdminLogoutRequest,
+} from './_adminHandler.js';
 
 export default async function handler(req: any, res: any) {
   // Global CORS & preflight
@@ -131,6 +136,14 @@ export default async function handler(req: any, res: any) {
       }
       return;
     }
+
+    // Admin Authentication
+    case '/api/admin/login':
+      return handleAdminLoginRequest(req, res);
+    case '/api/admin/session':
+      return handleAdminSessionRequest(req, res);
+    case '/api/admin/logout':
+      return handleAdminLogoutRequest(req, res);
 
     // Health check
     case '/api/health':

@@ -59,15 +59,19 @@ import {
   getCustomBooks,
   getCustomNewsPublications,
   getNewsOverrides,
+  hasEditorialCloudProof,
   improveNewsPublication,
+  isSpecialAdminLoggedIn,
   loginSpecialAdmin,
+  loginSpecialAdminWithServer,
+  logoutSpecialAdmin,
+  refreshSpecialAdminSession,
   saveAnimeEditorialOverride,
   saveBookPublication,
   saveCustomBookChapter,
   saveNewsPublication,
   saveNewsPublicationWithSync,
   slugifyEditorial,
-  verifySpecialAdminCredentials,
 } from "@/lib/editorialStore";
 import { auth, signInWithGoogle } from "@/lib/firebase";
 import { syncLocalEditorialToCloud } from "@/lib/cloudEditorialService";
@@ -450,17 +454,26 @@ const Admin = () => {
   // HANDLERS
   // ==========================================================================
 
-  const handleDirectAdminLogin = (e: React.FormEvent) => {
+  useEffect(() => {
+    if (isSpecialAdminLoggedIn() && !auth.currentUser && !hasEditorialCloudProof()) {
+      void refreshSpecialAdminSession().then((ok) => {
+        if (!ok) {
+          logoutSpecialAdmin();
+          toast.info("Sessão editorial atualizada por segurança. Entre novamente com a senha mestra.");
+        }
+      });
+    }
+  }, []);
+
+  const handleDirectAdminLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (verifySpecialAdminCredentials(loginEmail, loginPassword)) {
-      loginSpecialAdmin();
-      if (!auth.currentUser) {
-        toast.success("Bem-vindo, Miguel Worscoi! Conecte também sua conta Google no painel para sincronizar publicações na nuvem para todos os usuários.");
-      } else {
-        toast.success("Bem-vindo ao Studio Editorial Mestre, Miguel Worscoi!");
-      }
+    const res = await loginSpecialAdminWithServer(loginEmail, loginPassword);
+    if (res.ok) {
+      setLastSaveCloudWarning(null);
+      setLoginPassword("");
+      toast.success("Bem-vindo ao Studio Editorial Mestre, Miguel Worscoi! Publicações sincronizadas diretamente na nuvem para todos os usuários.");
     } else {
-      toast.error("Credenciais inválidas. Utilize o e-mail e senha especiais de administrador.");
+      toast.error(res.error || "Credenciais inválidas. Utilize o e-mail e senha especiais de administrador.");
     }
   };
 
@@ -480,7 +493,7 @@ const Admin = () => {
   };
 
   const ensureCloudSessionForPublish = async (): Promise<boolean> => {
-    if (auth.currentUser && !auth.currentUser.isAnonymous) {
+    if (isSpecialAdminLoggedIn() || (auth.currentUser && !auth.currentUser.isAnonymous)) {
       return true;
     }
     try {
@@ -490,8 +503,10 @@ const Admin = () => {
         setLastSaveCloudWarning(null);
         return true;
       }
-    } catch {
-      // User closed popup or popup was blocked; caller will handle local fallback + warning
+    } catch (err: any) {
+      const msg = err?.message || "Não foi possível autenticar para sincronizar na nuvem.";
+      setLastSaveCloudWarning(msg);
+      toast.warning("Falha na autenticação para nuvem", { description: msg });
     }
     return false;
   };
@@ -499,7 +514,7 @@ const Admin = () => {
   const handleSyncCloudNow = async () => {
     setSyncingCloud(true);
     try {
-      if (!auth.currentUser) {
+      if (!auth.currentUser && !isSpecialAdminLoggedIn()) {
         const googleUser = await signInWithGoogle();
         if (googleUser) {
           setFirebaseUser(googleUser);
@@ -507,8 +522,8 @@ const Admin = () => {
         }
       }
 
-      if (!auth.currentUser) {
-        toast.warning("Conecte sua conta Google para enviar suas publicações para a nuvem.");
+      if (!auth.currentUser && !isSpecialAdminLoggedIn()) {
+        toast.warning("Entre como administrador para sincronizar suas publicações na nuvem.");
         return;
       }
 
@@ -587,7 +602,7 @@ const Admin = () => {
       toast.success(`"${saved.title.slice(0, 45)}..." foi melhorada e sincronizada para todos os leitores!`);
     } else {
       toast.warning(`"${saved.title.slice(0, 45)}..." foi salva localmente.`, {
-        description: cloudError || "Conecte sua conta Google para refletir para todos os usuários.",
+        description: cloudError || "Verifique sua conexão com a internet e clique em Sincronizar Nuvem.",
       });
     }
   };
@@ -608,7 +623,6 @@ const Admin = () => {
     setLastSaveCloudWarning(null);
 
     try {
-      // Ensure Firebase Google Auth session exists so Firestore accepts the write for all users
       await ensureCloudSessionForPublish();
 
       const resolvedCover =
@@ -647,7 +661,7 @@ const Admin = () => {
       } else {
         const msg =
           cloudError ||
-          "Conecte sua conta Google no topo do painel e clique em 'Sincronizar Nuvem' para publicar para todos os usuários.";
+          "Não foi possível enviar à nuvem neste momento. Clique em 'Sincronizar Nuvem' para tentar novamente.";
         setLastSaveCloudWarning(msg);
         toast.warning("Salvo apenas localmente neste dispositivo", {
           description: msg,
@@ -697,7 +711,7 @@ const Admin = () => {
       toast.success(`Publicado na nuvem: "${saved.title.slice(0, 50)}..."`);
     } else {
       toast.warning(`Salvo localmente: "${saved.title.slice(0, 50)}..."`, {
-        description: cloudError || "Conecte sua conta Google para publicar para todos os usuários.",
+        description: cloudError || "Verifique sua conexão e clique em Sincronizar Nuvem.",
       });
     }
   };
@@ -719,7 +733,7 @@ const Admin = () => {
     if (syncedCount === diverseItems.length) {
       toast.success(`${syncedCount} publicações sincronizadas na nuvem para todos os usuários!`);
     } else {
-      toast.warning(`${diverseItems.length} salvas localmente (${syncedCount} na nuvem). Conecte sua conta Google e clique em Sincronizar Nuvem.`);
+      toast.warning(`${diverseItems.length} salvas localmente (${syncedCount} na nuvem). Clique em Sincronizar Nuvem.`);
     }
   };
 
@@ -1048,6 +1062,11 @@ const Admin = () => {
                     <Cloud className="h-3 w-3" />
                     Nuvem Conectada ({firebaseUser.email})
                   </span>
+                ) : isSpecialAdminLoggedIn() ? (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[10px] uppercase tracking-wider font-medium border border-emerald-500/20">
+                    <Cloud className="h-3 w-3" />
+                    Nuvem Editorial Ativa (Publicação Direta)
+                  </span>
                 ) : (
                   <button
                     type="button"
@@ -1055,7 +1074,7 @@ const Admin = () => {
                     className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-300 text-[10px] uppercase tracking-wider font-semibold border border-amber-500/30 hover:bg-amber-500/25 transition-colors"
                   >
                     <AlertTriangle className="h-3 w-3" />
-                    Conectar Google (Publicar para Todos)
+                    Conectar Google (Opcional)
                   </button>
                 )}
               </div>
@@ -1501,18 +1520,15 @@ const Admin = () => {
                     </div>
                   </div>
 
-                  {(!firebaseUser || lastSaveCloudWarning) && (
+                  {lastSaveCloudWarning && (
                     <div className="mb-6 p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                       <div className="space-y-1">
                         <div className="font-semibold text-amber-800 dark:text-amber-300 flex items-center gap-1.5">
                           <AlertTriangle className="h-4 w-4 shrink-0" />
-                          {lastSaveCloudWarning
-                            ? "Publicação ainda não enviada para a nuvem global"
-                            : "Conecte sua conta Google para publicar na nuvem para todos os usuários"}
+                          Publicação ainda não enviada para a nuvem global
                         </div>
                         <p className="text-muted-foreground font-light">
-                          {lastSaveCloudWarning ||
-                            "Você entrou com a senha mestra local. Ao conectar o Google (ou ao clicar em Publicar), a matéria e a capa serão gravadas no Firestore para todos os leitores."}
+                          {lastSaveCloudWarning}
                         </p>
                       </div>
                       <Button
@@ -1523,7 +1539,7 @@ const Admin = () => {
                         className="rounded-full text-xs shrink-0 bg-amber-600 text-white hover:bg-amber-700"
                       >
                         <Cloud className="h-3.5 w-3.5 mr-1.5" />
-                        {syncingCloud ? "Sincronizando..." : "Conectar e Sincronizar"}
+                        {syncingCloud ? "Sincronizando..." : "Sincronizar Nuvem"}
                       </Button>
                     </div>
                   )}
