@@ -48,11 +48,13 @@ export function sanitizeForPdf(text: string): string {
     .replace(/[\u2012\u2013]/g, "-")
     .replace(/[\u2026]/g, "...")
     .replace(/[\u2022\u25E6\u25AA\u25AB]/g, "* ")
+    .replace(/\u00A0/g, " ")
+    .replace(/\r/g, "")
     .replace(/[^\x00-\xFF]/g, (char) => {
-      // Decompor caracteres acentuados fora de Latin-1 para base ASCII
       const norm = char.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-      return /^[\x00-\xFF]$/.test(norm) ? norm : " ";
-    });
+      return /^[\x20-\x7E\xA1-\xFF]$/.test(norm) ? norm : " ";
+    })
+    .replace(/[^\x20-\x7E\xA1-\xFF\n]/g, " ");
 }
 
 /**

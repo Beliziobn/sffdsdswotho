@@ -57,10 +57,13 @@ export interface TrackedDownloadProgressInfo {
 }
 
 export interface CustomDownloadResult {
-  buffer: ArrayBuffer;
+  buffer?: ArrayBuffer;
+  chunks?: Uint8Array[];
+  totalBytes?: number;
   mimeType: string;
   resolvedDownloadUrl?: string;
   fileName?: string;
+  directHttpUrl?: string;
 }
 
 export interface TrackedDownloadOptions {
@@ -133,16 +136,23 @@ function sanitizeId(raw: string): string {
 }
 
 function sanitizeFileName(rawName: string, defaultExt = ".pdf"): string {
-  const cleaned = rawName
+  const extMatch = String(rawName || "").trim().match(/\.(pdf|mp4|ts|webm|mkv|m4v|epub)$/i);
+  const ext = extMatch ? `.${extMatch[1].toLowerCase()}` : defaultExt;
+  const withoutExt = extMatch
+    ? String(rawName).trim().slice(0, -extMatch[0].length)
+    : String(rawName || "").trim();
+
+  const cleanedBase = withoutExt
+    .replace(/[\x00-\x1f\x7f]/g, " ")
     .replace(/[\\/:*?"<>|]/g, " ")
+    .replace(/\.{2,}/g, ".")
     .replace(/\s+/g, " ")
-    .trim()
-    .slice(0, 220);
-  if (!cleaned) return `obra-wotho${defaultExt}`;
-  if (/\.(pdf|mp4|ts|webm|mkv|m4v|epub)$/i.test(cleaned)) {
-    return cleaned;
-  }
-  return `${cleaned}${defaultExt}`;
+    .replace(/^[.\s-]+|[.\s-]+$/g, "")
+    .slice(0, 110)
+    .replace(/^[.\s-]+|[.\s-]+$/g, "");
+
+  if (!cleanedBase) return `obra-wotho${ext}`;
+  return `${cleanedBase}${ext}`;
 }
 
 export function formatDownloadBytes(bytes?: number): string {
@@ -445,17 +455,43 @@ export function buildProxyPdfFetchUrl(options: {
   return `/api/books/pdf-proxy?${params.toString()}`;
 }
 
+function normalizeMimeType(raw?: string, fallback = "application/octet-stream"): string {
+  const clean = (raw || "").split(";")[0].trim().toLowerCase();
+  if (!clean || clean === "text/plain" || clean === "text/html") return fallback;
+  return clean;
+}
+
 function triggerBrowserFileDownload(blob: Blob, fileName: string): void {
   if (typeof window === "undefined" || typeof document === "undefined") return;
   const blobUrl = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = blobUrl;
   link.download = fileName;
+  link.rel = "noopener";
   link.style.display = "none";
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
-  window.setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
+  // Keep blob URL alive for 10 minutes so slow/large disk writes & mobile DownloadManagers are never interrupted mid-transfer
+  const cleanup = () => {
+    try {
+      URL.revokeObjectURL(blobUrl);
+    } catch {}
+  };
+  window.setTimeout(cleanup, 10 * 60 * 1000);
+  window.addEventListener("pagehide", cleanup, { once: true });
+}
+
+function triggerDirectHttpDownload(url: string, fileName: string): void {
+  if (typeof window === "undefined" || typeof document === "undefined") return;
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = fileName;
+  link.rel = "noopener";
+  link.style.display = "none";
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
 }
 
 export async function readResponseWithProgress(
@@ -539,7 +575,7 @@ async function resolveDownloadBytes(
     loadedBytes: number;
     totalBytes?: number;
   }) => void
-): Promise<{ buffer: ArrayBuffer; mimeType: string; resolvedDownloadUrl: string }> {
+): Promise<CustomDownloadResult> {
   const src = options.sourceUrl || "";
   onProgress?.({ progressPercent: 8, loadedBytes: 0 });
 
@@ -564,12 +600,33 @@ async function resolveDownloadBytes(
     const res = await fetch(src);
     if (res.ok) {
       const buffer = await readResponseWithProgress(res, onProgress);
-      return {
-        buffer,
-        mimeType: res.headers.get("content-type") || options.mimeType || "application/pdf",
-        resolvedDownloadUrl: src.startsWith("blob:") ? "" : src.slice(0, 2000),
-      };
+      if (buffer.byteLength > 0) {
+        return {
+          buffer,
+          mimeType: normalizeMimeType(
+            res.headers.get("content-type") || undefined,
+            options.mimeType || "application/pdf"
+          ),
+          resolvedDownloadUrl: src.startsWith("blob:") ? "" : src.slice(0, 2000),
+        };
+      }
     }
+  }
+
+  const isHlsUrl =
+    /\.m3u8(\?|$)/i.test(src) ||
+    src.includes("/api/cinema/hls-proxy") ||
+    src.includes("/backend/servers/atlas/edge");
+
+  if (isHlsUrl && src) {
+    const { downloadHlsStreamAsBinary } = await import("./mediaDownloaders");
+    const hlsRes = await downloadHlsStreamAsBinary(src, (p) => onProgress?.(p));
+    return {
+      chunks: hlsRes.chunks,
+      totalBytes: hlsRes.totalBytes,
+      mimeType: hlsRes.mimeType,
+      resolvedDownloadUrl: src.slice(0, 2000),
+    };
   }
 
   const looksLikeVideo =
@@ -577,25 +634,22 @@ async function resolveDownloadBytes(
     /\.(mp4|webm|ts|mkv|m4v)(\?|$)/i.test(options.fileName) ||
     src.includes("/api/cinema/mp4-proxy");
 
-  if (looksLikeVideo && src && !src.includes(".m3u8")) {
+  if (looksLikeVideo && src) {
     const videoFetchUrl = src.startsWith("/")
       ? src
       : `/api/cinema/mp4-proxy?url=${encodeURIComponent(src)}`;
-    const res = await fetch(videoFetchUrl);
-    if (!res.ok) {
-      throw new Error(`HTTP ${res.status} ao transferir vídeo`);
-    }
-    const ct = (res.headers.get("content-type") || "").toLowerCase();
-    if (ct.includes("text/html")) {
-      throw new Error("O servidor de vídeo retornou uma página inválida.");
-    }
-    const buffer = await readResponseWithProgress(res, onProgress);
-    const mimeType = ct.startsWith("video/") ? ct : options.mimeType || "video/mp4";
+    const { fetchMp4ChunksWithResume } = await import("./mediaDownloaders");
+    const mp4Res = await fetchMp4ChunksWithResume(videoFetchUrl, (p) => onProgress?.(p));
     return {
-      buffer,
-      mimeType,
+      chunks: mp4Res.chunks,
+      totalBytes: mp4Res.totalBytes,
+      mimeType: normalizeMimeType(mp4Res.mimeType, options.mimeType || "video/mp4"),
       resolvedDownloadUrl: videoFetchUrl,
     };
+  }
+
+  if (looksLikeVideo && !src) {
+    throw new Error("O link de vídeo original não está disponível para retransferência.");
   }
 
   const proxyUrl = buildProxyPdfFetchUrl(options);
@@ -603,8 +657,15 @@ async function resolveDownloadBytes(
   if (!res.ok) {
     throw new Error(`HTTP ${res.status} ao transferir arquivo`);
   }
+  const ct = (res.headers.get("content-type") || "").toLowerCase();
+  if (ct.includes("text/html")) {
+    throw new Error("O servidor retornou uma página inválida em vez do documento.");
+  }
   const buffer = await readResponseWithProgress(res, onProgress);
-  const mimeType = res.headers.get("content-type") || options.mimeType || "application/pdf";
+  if (buffer.byteLength < 100) {
+    throw new Error("O arquivo retornado está vazio ou corrompido.");
+  }
+  const mimeType = normalizeMimeType(ct, options.mimeType || "application/pdf");
   return {
     buffer,
     mimeType,
@@ -696,8 +757,8 @@ export async function executeTrackedDownload(
           progressHandler
         );
 
-    const { buffer, mimeType } = resolvedResult;
     const resolvedDownloadUrl = resolvedResult.resolvedDownloadUrl || "";
+    const mimeType = normalizeMimeType(resolvedResult.mimeType, options.mimeType || "application/pdf");
     if (resolvedResult && "fileName" in resolvedResult && resolvedResult.fileName) {
       fileName = sanitizeFileName(
         resolvedResult.fileName,
@@ -705,17 +766,53 @@ export async function executeTrackedDownload(
       );
     }
 
+    const totalByteLength =
+      resolvedResult.totalBytes ??
+      (resolvedResult.buffer
+        ? resolvedResult.buffer.byteLength
+        : (resolvedResult.chunks || []).reduce((acc, c) => acc + c.byteLength, 0));
+
+    if (totalByteLength <= 0 && !resolvedResult.directHttpUrl) {
+      throw new Error("O arquivo baixado está vazio.");
+    }
+
     liveProgressMap.set(downloadId, {
       progressPercent: 96,
-      loadedBytes: buffer.byteLength,
-      totalBytes: buffer.byteLength,
+      loadedBytes: totalByteLength,
+      totalBytes: totalByteLength,
       progressStage: "saving",
     });
     emitDownloadsUpdated();
 
-    await saveDownloadedFileToIdb(downloadId, buffer, mimeType);
-    const blob = new Blob([buffer], { type: mimeType });
-    triggerBrowserFileDownload(blob, fileName);
+    // Cache files up to 180MB in IndexedDB for instant offline playback; larger movies go straight to device storage without hitting browser IDB/RAM caps
+    const MAX_IDB_CACHE_BYTES = 180 * 1024 * 1024;
+    if (totalByteLength > 0 && totalByteLength <= MAX_IDB_CACHE_BYTES) {
+      let idbBuffer: ArrayBuffer | null = resolvedResult.buffer || null;
+      if (!idbBuffer && resolvedResult.chunks?.length) {
+        const merged = new Uint8Array(totalByteLength);
+        let offset = 0;
+        for (const chunk of resolvedResult.chunks) {
+          merged.set(chunk, offset);
+          offset += chunk.byteLength;
+        }
+        idbBuffer = merged.buffer;
+      }
+      if (idbBuffer) {
+        await saveDownloadedFileToIdb(downloadId, idbBuffer, mimeType);
+      }
+    }
+
+    if (resolvedResult.directHttpUrl) {
+      triggerDirectHttpDownload(resolvedResult.directHttpUrl, fileName);
+    } else {
+      const blobParts: BlobPart[] = resolvedResult.chunks?.length
+        ? resolvedResult.chunks.map((c) => c as unknown as BlobPart)
+        : resolvedResult.buffer
+        ? [resolvedResult.buffer]
+        : [];
+      const blob = new Blob(blobParts, { type: mimeType });
+      triggerBrowserFileDownload(blob, fileName);
+    }
 
     liveProgressMap.delete(downloadId);
 
@@ -723,14 +820,14 @@ export async function executeTrackedDownload(
       ...pendingEntry,
       fileName,
       mimeType,
-      fileSizeBytes: buffer.byteLength,
-      fileSizeFormatted: formatDownloadBytes(buffer.byteLength),
+      fileSizeBytes: totalByteLength,
+      fileSizeFormatted: totalByteLength > 0 ? formatDownloadBytes(totalByteLength) : pendingEntry.fileSizeFormatted,
       downloadUrl: resolvedDownloadUrl.slice(0, 2000) || pendingEntry.downloadUrl,
       status: "completed",
       downloadedAt: new Date().toISOString(),
       progressPercent: 100,
-      loadedBytes: buffer.byteLength,
-      totalBytes: buffer.byteLength,
+      loadedBytes: totalByteLength,
+      totalBytes: totalByteLength,
       progressStage: "completed",
     };
 
@@ -766,7 +863,7 @@ export async function getOrFetchDownloadBytes(
     return cached;
   }
 
-  const { buffer, mimeType } = await resolveDownloadBytes({
+  const resolved = await resolveDownloadBytes({
     sourceUrl: entry.downloadUrl,
     title: entry.title,
     author: entry.author,
@@ -776,9 +873,26 @@ export async function getOrFetchDownloadBytes(
     mimeType: entry.mimeType,
   });
 
-  await saveDownloadedFileToIdb(entry.id, buffer, mimeType);
+  let finalBytes: Uint8Array;
+  if (resolved.buffer) {
+    finalBytes = new Uint8Array(resolved.buffer);
+  } else if (resolved.chunks?.length) {
+    const total = resolved.totalBytes ?? resolved.chunks.reduce((s, c) => s + c.byteLength, 0);
+    finalBytes = new Uint8Array(total);
+    let offset = 0;
+    for (const c of resolved.chunks) {
+      finalBytes.set(c, offset);
+      offset += c.byteLength;
+    }
+  } else {
+    throw new Error("Arquivo indisponível offline.");
+  }
+
+  if (finalBytes.byteLength <= 180 * 1024 * 1024) {
+    await saveDownloadedFileToIdb(entry.id, finalBytes.slice().buffer, resolved.mimeType);
+  }
   emitDownloadsUpdated();
-  return { bytes: new Uint8Array(buffer), mimeType };
+  return { bytes: finalBytes, mimeType: resolved.mimeType };
 }
 
 export function markDownloadOpened(downloadId: string): UserDownloadEntry | null {

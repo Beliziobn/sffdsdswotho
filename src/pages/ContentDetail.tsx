@@ -12,7 +12,7 @@ import { useContent, useTrackInteraction, useProgress, CONTENT_LABELS } from "@/
 import { useSimilar, useBecauseYouRead } from "@/hooks/useRecommendations";
 import { formatPrice } from "@/lib/format";
 import { getOriginalPdfForBook } from "@/lib/originalPdfRegistry";
-import { executeTrackedDownload } from "@/lib/downloadsStore";
+import { downloadRealBook } from "@/lib/mediaDownloaders";
 import { CommunityReviews } from "@/components/CommunityReviews";
 import { ContentDetailSkeleton } from "@/components/skeletons/AppSkeletons";
 
@@ -74,24 +74,15 @@ const ContentDetail = () => {
     setIsDownloading(true);
     track(item.id, "download");
     try {
-      const readPath =
-        item.type === "webtoon" || item.id.startsWith("wt-")
-          ? `/webtoon/${item.id}`
-          : originalPdf
-          ? `/ler/${item.id}?mode=pdf`
-          : `/ler/${item.id}`;
-      await executeTrackedDownload({
-        itemId: String(item.id),
-        type: originalPdf ? "pdf" : item.type === "webtoon" ? "webtoon" : "book",
-        title: originalPdf?.title || item.title,
-        author: originalPdf?.author || item.author,
-        category: item.category,
-        description: item.description,
-        cover: item.cover || originalPdf?.coverUrl || undefined,
-        sourceUrl: originalPdf?.pdfUrl || undefined,
-        openHref: readPath,
-        fileName: `${originalPdf?.title || item.title}-${originalPdf?.author || item.author}.pdf`,
-        expectedFileSizeFormatted: originalPdf?.fileSizeFormatted || item.size || undefined,
+      await downloadRealBook({
+        book: {
+          id: String(item.id),
+          title: item.title,
+          author: item.author,
+          category: item.category,
+          description: item.description,
+          cover_url: item.cover,
+        },
       });
       toast.success("Download concluído! Disponível em Meu Perfil → Downloads.");
     } catch {

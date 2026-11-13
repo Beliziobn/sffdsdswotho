@@ -1097,8 +1097,9 @@ export async function handleCinemaMp4ProxyRequest(req, res) {
       abortController.abort();
     } catch {}
   };
-  req.on?.('close', cleanup);
-  res.on?.('close', cleanup);
+  res.on?.('close', () => {
+    if (!res.writableEnded) cleanup();
+  });
 
   try {
     const urlObj = new URL(req.url || '/', 'http://localhost:3000');
@@ -1181,13 +1182,33 @@ export async function handleCinemaMp4ProxyRequest(req, res) {
     const cr = upstream.headers.get('content-range');
     if (cr) res.setHeader('Content-Range', cr);
 
+    if (urlObj.searchParams.get('download') === '1' || urlObj.searchParams.get('download') === 'true') {
+      const rawName = (urlObj.searchParams.get('filename') || 'video-wotho.mp4').trim();
+      const asciiName = rawName
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-zA-Z0-9._-]/g, '-')
+        .replace(/-+/g, '-')
+        .slice(0, 120) || 'video-wotho.mp4';
+      res.setHeader(
+        'Content-Disposition',
+        `attachment; filename="${asciiName}"; filename*=UTF-8''${encodeURIComponent(rawName.slice(0, 140))}`
+      );
+    }
+
     if (upstream.body) {
       const nodeStream = Readable.fromWeb(upstream.body);
       nodeStream.on('error', () => {
-        if (!res.writableEnded) res.end();
+        if (!res.writableEnded) {
+          try {
+            res.destroy();
+          } catch {
+            res.end();
+          }
+        }
       });
-      req.on?.('close', () => {
-        nodeStream.destroy();
+      res.on?.('close', () => {
+        if (!res.writableEnded) nodeStream.destroy();
       });
       nodeStream.pipe(res);
     } else {
@@ -1258,7 +1279,7 @@ export async function handleCinemaHlsProxyRequest(req, res) {
               Accept: '*/*',
             },
           },
-          8000
+          22000
         );
         if (r.ok) {
           upstream = r;

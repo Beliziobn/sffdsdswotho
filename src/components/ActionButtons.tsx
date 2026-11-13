@@ -10,8 +10,7 @@ import type { Content } from "@/hooks/useContents";
 import { useTrackInteraction } from "@/hooks/useContents";
 import { useCheckout } from "@/hooks/useCheckout";
 import { useOwnsContent } from "@/hooks/usePurchases";
-import { executeTrackedDownload } from "@/lib/downloadsStore";
-import { getOriginalPdfForBook } from "@/lib/originalPdfRegistry";
+import { downloadRealBook } from "@/lib/mediaDownloaders";
 
 const tapProps = { whileHover: { scale: 1.03 }, whileTap: { scale: 0.96 } };
 
@@ -90,19 +89,15 @@ const ActionButtons = ({ item, readHref, readLabel = "Ler agora" }: ActionButton
               }
               setIsDownloading(true);
               try {
-                const orig = getOriginalPdfForBook(item.id);
-                await executeTrackedDownload({
-                  itemId: String(item.id),
-                  type: orig ? "pdf" : item.type === "webtoon" ? "webtoon" : "book",
-                  title: orig?.title || item.title,
-                  author: orig?.author || item.author,
-                  category: item.category,
-                  description: item.description,
-                  cover: item.cover || orig?.coverUrl || undefined,
-                  sourceUrl: orig?.pdfUrl || undefined,
-                  openHref: readHref,
-                  fileName: `${orig?.title || item.title}-${orig?.author || item.author}.pdf`,
-                  expectedFileSizeFormatted: orig?.fileSizeFormatted || item.size || undefined,
+                await downloadRealBook({
+                  book: {
+                    id: String(item.id),
+                    title: item.title,
+                    author: item.author,
+                    category: item.category,
+                    description: item.description,
+                    cover_url: item.cover,
+                  },
                 });
                 toast.success("Download concluído! Disponível em Meu Perfil → Downloads.");
               } catch {

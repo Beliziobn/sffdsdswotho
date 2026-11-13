@@ -148,7 +148,7 @@ function DownloadedVideoViewer({
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
-    window.setTimeout(() => URL.revokeObjectURL(url), 10000);
+    window.setTimeout(() => URL.revokeObjectURL(url), 10 * 60 * 1000);
   };
 
   useEffect(() => {
@@ -555,22 +555,76 @@ const Profile = () => {
     if (redownloadingId) return;
     setRedownloadingId(entry.id);
     try {
-      if (entry.type === "book" && !entry.downloadUrl) {
+      if (entry.type === "book" || entry.type === "pdf" || entry.type === "article") {
         const matchedBook = books.find((b) => String(b.id) === String(entry.itemId));
-        if (matchedBook) {
-          const { downloadRealBook } = await import("@/lib/mediaDownloaders");
-          await downloadRealBook({
-            book: {
-              id: String(matchedBook.id),
-              title: matchedBook.title,
-              author: matchedBook.author,
-              category: matchedBook.category,
-              description: matchedBook.description,
-              cover_url: matchedBook.cover_url,
-            },
+        const { downloadRealBook } = await import("@/lib/mediaDownloaders");
+        await downloadRealBook({
+          book: matchedBook
+            ? {
+                id: String(matchedBook.id),
+                title: matchedBook.title,
+                author: matchedBook.author,
+                category: matchedBook.category,
+                description: matchedBook.description,
+                cover_url: matchedBook.cover_url,
+                pdf_url: (matchedBook as any).pdf_url,
+                download_url: (matchedBook as any).download_url,
+              }
+            : {
+                id: String(entry.itemId),
+                title: entry.title,
+                author: entry.author,
+                category: entry.category,
+                cover_url: entry.cover,
+                download_url: entry.downloadUrl,
+              },
+        });
+        toast.success(`"${entry.title}" transferido com sucesso.`);
+        return;
+      }
+
+      if (entry.type === "cinema") {
+        const { CINEMA_CATALOG } = await import("@/lib/cinema");
+        const { downloadRealCinemaVideo } = await import("@/lib/mediaDownloaders");
+        const lang: "pt" | "en" = entry.itemId.endsWith("-en") ? "en" : "pt";
+        const seriesMatch = entry.itemId.match(/^(.*)-s(\d+)e(\d+)-(pt|en)$/);
+        const baseId = seriesMatch ? seriesMatch[1] : entry.itemId.replace(/-(pt|en)$/, "");
+        const cinemaItem = CINEMA_CATALOG.find((c) => c.id === baseId);
+        if (cinemaItem) {
+          await downloadRealCinemaVideo({
+            item: cinemaItem,
+            language: lang,
+            seasonNumber: seriesMatch ? parseInt(seriesMatch[2], 10) : 1,
+            episodeNumber: seriesMatch ? parseInt(seriesMatch[3], 10) : 1,
           });
           toast.success(`"${entry.title}" transferido com sucesso.`);
           return;
+        }
+      }
+
+      if (entry.type === "anime") {
+        const { ANIMES_DATA } = await import("@/lib/animes");
+        const { downloadRealAnimeEpisode } = await import("@/lib/mediaDownloaders");
+        const animeMatch = entry.itemId.match(/^(.*)-s(\d+)e(\d+)-([a-z]+)-(\d+)$/i);
+        if (animeMatch) {
+          const [, animeId, sNumStr, eNumStr, dubCode, dubType] = animeMatch;
+          const anime = ANIMES_DATA.find((a) => a.id === animeId);
+          const sNum = parseInt(sNumStr, 10);
+          const eNum = parseInt(eNumStr, 10);
+          const season = anime?.seasons.find((s) => s.seasonNumber === sNum) || anime?.seasons[0];
+          const episode =
+            season?.episodes.find((e) => e.number === eNum) ||
+            anime?.episodes.find((e) => e.number === eNum);
+          if (anime && season && episode) {
+            await downloadRealAnimeEpisode({
+              anime,
+              season,
+              episode,
+              dubId: `${dubCode}:${dubType}`,
+            });
+            toast.success(`"${entry.title}" transferido com sucesso.`);
+            return;
+          }
         }
       }
 
@@ -597,8 +651,12 @@ const Profile = () => {
         expectedFileSizeFormatted: entry.fileSizeFormatted,
       });
       toast.success(`"${entry.title}" transferido com sucesso.`);
-    } catch {
-      toast.error("Erro ao transferir o arquivo novamente.");
+    } catch (err) {
+      toast.error(
+        err instanceof Error && err.message
+          ? err.message
+          : "Erro ao transferir o arquivo novamente."
+      );
     } finally {
       setRedownloadingId(null);
     }

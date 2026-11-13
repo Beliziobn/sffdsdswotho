@@ -146,52 +146,65 @@ async function fetchImageAsJpegBytes(
       ? rawUrl
       : `${proxyEndpoint}?url=${encodeURIComponent(rawUrl)}`;
 
-  try {
-    const res = await fetch(fetchUrl);
-    if (!res.ok) return null;
-    const blob = await res.blob();
-    if (!blob || blob.size < 200) return null;
-
-    const objectUrl = URL.createObjectURL(blob);
+  for (let attempt = 0; attempt < 2; attempt++) {
     try {
-      const img = await new Promise<HTMLImageElement>((resolve, reject) => {
-        const el = new Image();
-        el.crossOrigin = "anonymous";
-        el.onload = () => resolve(el);
-        el.onerror = () => reject(new Error("Image decode failed"));
-        el.src = objectUrl;
-      });
+      const res = await fetch(fetchUrl, { signal: AbortSignal.timeout(18000) });
+      if (!res.ok) {
+        if (attempt === 0) {
+          await new Promise((r) => setTimeout(r, 350));
+          continue;
+        }
+        return null;
+      }
+      const blob = await res.blob();
+      if (!blob || blob.size < 200) return null;
 
-      const width = img.naturalWidth || img.width || 800;
-      const height = img.naturalHeight || img.height || 1200;
+      const objectUrl = URL.createObjectURL(blob);
+      try {
+        const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+          const el = new Image();
+          el.crossOrigin = "anonymous";
+          el.onload = () => resolve(el);
+          el.onerror = () => reject(new Error("Image decode failed"));
+          el.src = objectUrl;
+        });
 
-      // Downscale ultra-wide strips slightly only if exceeding 1800px wide to keep PDF fast & crisp
-      const maxDim = 1800;
-      const scale = width > maxDim ? maxDim / width : 1;
-      const targetW = Math.max(1, Math.round(width * scale));
-      const targetH = Math.max(1, Math.round(height * scale));
+        const width = img.naturalWidth || img.width || 800;
+        const height = img.naturalHeight || img.height || 1200;
 
-      const canvas = document.createElement("canvas");
-      canvas.width = targetW;
-      canvas.height = targetH;
-      const ctx = canvas.getContext("2d");
-      if (!ctx) return null;
-      ctx.fillStyle = "#ffffff";
-      ctx.fillRect(0, 0, targetW, targetH);
-      ctx.drawImage(img, 0, 0, targetW, targetH);
+        // Downscale ultra-wide strips slightly only if exceeding 1800px wide to keep PDF fast & crisp
+        const maxDim = 1800;
+        const scale = width > maxDim ? maxDim / width : 1;
+        const targetW = Math.max(1, Math.round(width * scale));
+        const targetH = Math.max(1, Math.round(height * scale));
 
-      const jpegBlob = await new Promise<Blob | null>((resolve) =>
-        canvas.toBlob((b) => resolve(b), "image/jpeg", 0.9)
-      );
-      if (!jpegBlob) return null;
-      const buf = await jpegBlob.arrayBuffer();
-      return { bytes: new Uint8Array(buf), width: targetW, height: targetH };
-    } finally {
-      URL.revokeObjectURL(objectUrl);
+        const canvas = document.createElement("canvas");
+        canvas.width = targetW;
+        canvas.height = targetH;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) return null;
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(0, 0, targetW, targetH);
+        ctx.drawImage(img, 0, 0, targetW, targetH);
+
+        const jpegBlob = await new Promise<Blob | null>((resolve) =>
+          canvas.toBlob((b) => resolve(b), "image/jpeg", 0.9)
+        );
+        if (!jpegBlob) return null;
+        const buf = await jpegBlob.arrayBuffer();
+        return { bytes: new Uint8Array(buf), width: targetW, height: targetH };
+      } finally {
+        URL.revokeObjectURL(objectUrl);
+      }
+    } catch {
+      if (attempt === 0) {
+        await new Promise((r) => setTimeout(r, 350));
+        continue;
+      }
+      return null;
     }
-  } catch {
-    return null;
   }
+  return null;
 }
 
 export interface BookChapterInput {
@@ -972,6 +985,11 @@ export async function downloadRealWebtoonEpisode(params: {
   });
 }
 
+function isMobileBrowser(): boolean {
+  if (typeof navigator === "undefined") return false;
+  return /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent || "");
+}
+
 function resolveHlsUrl(maybeRelative: string, baseUrl: string): string {
   if (maybeRelative.startsWith("/api/cinema/hls-proxy")) {
     return maybeRelative;
@@ -987,18 +1005,80 @@ function resolveHlsUrl(maybeRelative: string, baseUrl: string): string {
   }
 }
 
-async function downloadHlsStreamAsBinary(
+async function fetchWithRetry(
+  url: string,
+  init?: RequestInit,
+  attempts = 4,
+  timeoutMs = 25000
+): Promise<Response> {
+  let lastError: unknown = null;
+  for (let i = 0; i < attempts; i++) {
+    try {
+      const res = await fetch(url, {
+        ...init,
+        signal: AbortSignal.timeout(timeoutMs),
+      });
+      if (res.ok || res.status === 206) {
+        return res;
+      }
+      lastError = new Error(`HTTP ${res.status}`);
+      if (res.status === 404 || res.status === 400) {
+        throw lastError;
+      }
+    } catch (err) {
+      lastError = err;
+    }
+    if (i < attempts - 1) {
+      await new Promise((r) => setTimeout(r, 350 * Math.pow(2, i)));
+    }
+  }
+  throw lastError instanceof Error ? lastError : new Error("Falha de rede na transferência");
+}
+
+async function decryptAes128Segment(
+  encrypted: ArrayBuffer,
+  keyBytes: ArrayBuffer,
+  sequenceNum: number,
+  explicitIvHex?: string
+): Promise<Uint8Array> {
+  const cryptoKey = await crypto.subtle.importKey(
+    "raw",
+    keyBytes,
+    { name: "AES-CBC" },
+    false,
+    ["decrypt"]
+  );
+  const iv = new Uint8Array(16);
+  if (explicitIvHex) {
+    const cleanHex = explicitIvHex.replace(/^0x/i, "").padStart(32, "0");
+    for (let i = 0; i < 16; i++) {
+      iv[i] = parseInt(cleanHex.slice(i * 2, i * 2 + 2), 16) || 0;
+    }
+  } else {
+    let seq = sequenceNum;
+    for (let i = 15; i >= 8; i--) {
+      iv[i] = seq & 0xff;
+      seq = Math.floor(seq / 256);
+    }
+  }
+  const plain = await crypto.subtle.decrypt({ name: "AES-CBC", iv }, cryptoKey, encrypted);
+  return new Uint8Array(plain);
+}
+
+export async function downloadHlsStreamAsBinary(
   hlsUrl: string,
   onProgress: (info: TrackedDownloadProgressInfo) => void
-): Promise<{ buffer: ArrayBuffer; mimeType: string; ext: ".mp4" | ".ts" }> {
+): Promise<{
+  chunks: Uint8Array[];
+  totalBytes: number;
+  mimeType: string;
+  ext: ".mp4" | ".ts";
+}> {
   const initialProxy = hlsUrl.startsWith("/api/cinema/hls-proxy")
     ? hlsUrl
     : `/api/cinema/hls-proxy?url=${encodeURIComponent(hlsUrl)}`;
 
-  const playlistRes = await fetch(initialProxy);
-  if (!playlistRes.ok) {
-    throw new Error(`HTTP ${playlistRes.status} ao carregar playlist HLS`);
-  }
+  const playlistRes = await fetchWithRetry(initialProxy, undefined, 3, 20000);
   let playlistText = await playlistRes.text();
   let activeBaseUrl = hlsUrl;
 
@@ -1006,37 +1086,74 @@ async function downloadHlsStreamAsBinary(
     throw new Error("Playlist HLS inválida retornada pelo servidor");
   }
 
-  // If master playlist, pick highest-bandwidth variant stream
+  // If master playlist, pick optimal variant stream (cap bitrate slightly on mobile to prevent memory crashes)
   if (playlistText.includes("#EXT-X-STREAM-INF")) {
     const lines = playlistText.split("\n").map((l) => l.trim());
-    let bestBandwidth = -1;
-    let bestUri = "";
+    const variants: Array<{ bw: number; uri: string }> = [];
     for (let i = 0; i < lines.length; i++) {
       if (lines[i].startsWith("#EXT-X-STREAM-INF")) {
         const bwMatch = lines[i].match(/BANDWIDTH=(\d+)/i);
         const bw = bwMatch ? parseInt(bwMatch[1], 10) : 0;
         const nextLine = lines[i + 1] || "";
-        if (nextLine && !nextLine.startsWith("#") && bw >= bestBandwidth) {
-          bestBandwidth = bw;
-          bestUri = nextLine;
+        if (nextLine && !nextLine.startsWith("#")) {
+          variants.push({ bw, uri: nextLine });
         }
       }
     }
-    if (bestUri) {
-      const variantProxy = resolveHlsUrl(bestUri, activeBaseUrl);
-      if (bestUri.startsWith("http")) activeBaseUrl = bestUri;
-      const vRes = await fetch(variantProxy);
-      if (!vRes.ok) throw new Error(`HTTP ${vRes.status} ao carregar stream HLS`);
+    variants.sort((a, b) => b.bw - a.bw);
+
+    let chosen = variants[0];
+    if (isMobileBrowser() && variants.length > 1) {
+      chosen =
+        variants.find((v) => v.bw > 0 && v.bw <= 2500000) ||
+        variants[Math.min(1, variants.length - 1)];
+    }
+
+    if (chosen?.uri) {
+      const variantProxy = resolveHlsUrl(chosen.uri, activeBaseUrl);
+      if (chosen.uri.startsWith("http")) activeBaseUrl = chosen.uri;
+      const vRes = await fetchWithRetry(variantProxy, undefined, 3, 20000);
       playlistText = await vRes.text();
     }
   }
 
   const lines = playlistText.split("\n").map((l) => l.trim());
   let initMapUri: string | null = null;
-  const segmentUrls: string[] = [];
+  let mediaSequence = 0;
+  let currentKey: { method: string; uri: string; iv?: string } | null = null;
+  const segmentItems: Array<{
+    url: string;
+    seq: number;
+    key: { method: string; uri: string; iv?: string } | null;
+  }> = [];
 
   for (const line of lines) {
     if (!line) continue;
+    if (line.startsWith("#EXT-X-MEDIA-SEQUENCE:")) {
+      const seqVal = parseInt(line.split(":")[1] || "0", 10);
+      if (Number.isFinite(seqVal)) mediaSequence = seqVal;
+      continue;
+    }
+    if (line.startsWith("#EXT-X-KEY:")) {
+      const methodMatch = line.match(/METHOD=([^,\s]+)/i);
+      const method = (methodMatch?.[1] || "NONE").toUpperCase();
+      if (method === "NONE") {
+        currentKey = null;
+      } else if (method === "AES-128") {
+        const uriMatch = line.match(/URI="([^"]+)"/i);
+        const ivMatch = line.match(/IV=([^,\s]+)/i);
+        if (uriMatch?.[1]) {
+          currentKey = {
+            method,
+            uri: resolveHlsUrl(uriMatch[1], activeBaseUrl),
+            iv: ivMatch?.[1],
+          };
+        }
+      } else {
+        throw new Error(`Stream HLS usa encriptação DRM não suportada (${method})`);
+      }
+      continue;
+    }
     if (line.startsWith("#EXT-X-MAP")) {
       const uriMatch = line.match(/URI="([^"]+)"/i);
       if (uriMatch?.[1]) {
@@ -1045,59 +1162,190 @@ async function downloadHlsStreamAsBinary(
       continue;
     }
     if (line.startsWith("#")) continue;
-    segmentUrls.push(resolveHlsUrl(line, activeBaseUrl));
+    segmentItems.push({
+      url: resolveHlsUrl(line, activeBaseUrl),
+      seq: mediaSequence + segmentItems.length,
+      key: currentKey,
+    });
   }
 
-  if (segmentUrls.length === 0) {
+  if (segmentItems.length === 0) {
     throw new Error("Nenhum segmento de vídeo encontrado na playlist HLS");
   }
 
-  const allUrls = initMapUri ? [initMapUri, ...segmentUrls] : segmentUrls;
-  const buffers: Uint8Array[] = new Array(allUrls.length);
+  const keyCache = new Map<string, ArrayBuffer>();
+  const getKeyBytes = async (uri: string): Promise<ArrayBuffer> => {
+    if (keyCache.has(uri)) return keyCache.get(uri)!;
+    const kr = await fetchWithRetry(uri, undefined, 3, 15000);
+    const kb = await kr.arrayBuffer();
+    keyCache.set(uri, kb);
+    return kb;
+  };
+
+  const allItems = initMapUri
+    ? [{ url: initMapUri, seq: 0, key: null }, ...segmentItems]
+    : segmentItems;
+
+  const buffers: Uint8Array[] = new Array(allItems.length);
   let loadedBytes = 0;
   let completed = 0;
-  const concurrency = 4;
+  const concurrency = isMobileBrowser() ? 2 : 3;
 
-  for (let start = 0; start < allUrls.length; start += concurrency) {
-    const batch = allUrls.slice(start, start + concurrency);
+  for (let start = 0; start < allItems.length; start += concurrency) {
+    const batch = allItems.slice(start, start + concurrency);
     await Promise.all(
-      batch.map(async (segUrl, offset) => {
+      batch.map(async (item, offset) => {
         const idx = start + offset;
-        const r = await fetch(segUrl);
-        if (!r.ok) throw new Error(`Segmento HLS falhou (HTTP ${r.status})`);
+        const r = await fetchWithRetry(item.url, undefined, 4, 28000);
         const ab = await r.arrayBuffer();
-        const bytes = new Uint8Array(ab);
+        let bytes: Uint8Array = new Uint8Array(ab);
+        if (item.key && item.key.method === "AES-128") {
+          const kb = await getKeyBytes(item.key.uri);
+          bytes = await decryptAes128Segment(ab, kb, item.seq, item.key.iv);
+        }
         buffers[idx] = bytes;
         loadedBytes += bytes.byteLength;
         completed += 1;
         const avgSegSize = loadedBytes / Math.max(1, completed);
         onProgress({
-          progressPercent: 10 + Math.round((completed / allUrls.length) * 82),
+          progressPercent: 10 + Math.round((completed / allItems.length) * 82),
           loadedBytes,
-          totalBytes: Math.round(avgSegSize * allUrls.length),
+          totalBytes: Math.round(avgSegSize * allItems.length),
           progressStage: "downloading",
         });
       })
     );
   }
 
-  const merged = new Uint8Array(loadedBytes);
-  let offset = 0;
-  for (const b of buffers) {
-    if (b) {
-      merged.set(b, offset);
-      offset += b.byteLength;
-    }
-  }
-
-  if (merged.byteLength < 16384) {
+  const validBuffers = buffers.filter((b): b is Uint8Array => Boolean(b && b.byteLength > 0));
+  if (loadedBytes < 16384 || validBuffers.length === 0) {
     throw new Error("O fluxo de vídeo baixado está vazio.");
   }
 
   return {
-    buffer: merged.buffer,
+    chunks: validBuffers,
+    totalBytes: loadedBytes,
     mimeType: initMapUri ? "video/mp4" : "video/mp2t",
     ext: initMapUri ? ".mp4" : ".ts",
+  };
+}
+
+export async function fetchMp4ChunksWithResume(
+  proxyUrl: string,
+  onProgress: (info: TrackedDownloadProgressInfo) => void
+): Promise<{
+  chunks: Uint8Array[];
+  totalBytes: number;
+  mimeType: string;
+  directHttpUrl?: string;
+}> {
+  // Probe first chunk (or full stream if Range isn't supported) so we know totalBytes and support Vercel 4MB caps + automatic resume
+  const firstRes = await fetchWithRetry(proxyUrl, undefined, 3, 45000);
+  const ct = (firstRes.headers.get("content-type") || "").toLowerCase();
+  if (ct.includes("text/html") || ct.includes("application/json")) {
+    throw new Error("Resposta HTML/JSON inválida em vez de vídeo");
+  }
+  if (ct.includes("mpegurl") || ct.includes("x-mpegurl")) {
+    throw new Error("STREAM_IS_HLS");
+  }
+
+  const contentRange = firstRes.headers.get("content-range") || "";
+  const rangeTotalMatch = contentRange.match(/\/(\d+)$/);
+  const contentLenHeader = firstRes.headers.get("content-length");
+  const expectedTotal = rangeTotalMatch
+    ? parseInt(rangeTotalMatch[1], 10)
+    : contentLenHeader
+    ? parseInt(contentLenHeader, 10)
+    : 0;
+
+  // On mobile devices with very large MP4s (>90MB) served directly by Node (not 206-capped Vercel), let Android/iOS DownloadManager stream directly over HTTP!
+  if (
+    isMobileBrowser() &&
+    firstRes.status === 200 &&
+    expectedTotal > 90 * 1024 * 1024
+  ) {
+    try {
+      await firstRes.body?.cancel();
+    } catch {}
+    onProgress({
+      progressPercent: 90,
+      loadedBytes: expectedTotal,
+      totalBytes: expectedTotal,
+      progressStage: "saving",
+    });
+    return {
+      chunks: [],
+      totalBytes: expectedTotal,
+      mimeType: ct.startsWith("video/") ? ct : "video/mp4",
+      directHttpUrl: `${proxyUrl}${proxyUrl.includes("?") ? "&" : "?"}download=1`,
+    };
+  }
+
+  const chunks: Uint8Array[] = [];
+  let loadedBytes = 0;
+
+  try {
+    const firstBuf = await readResponseWithProgress(firstRes, (p) =>
+      onProgress({
+        progressPercent: expectedTotal
+          ? Math.min(92, Math.max(8, Math.round((p.loadedBytes / expectedTotal) * 90)))
+          : p.progressPercent,
+        loadedBytes: p.loadedBytes,
+        totalBytes: expectedTotal || p.totalBytes,
+        progressStage: "downloading",
+      })
+    );
+    if (firstBuf.byteLength > 0) {
+      const u8 = new Uint8Array(firstBuf);
+      chunks.push(u8);
+      loadedBytes += u8.byteLength;
+    }
+  } catch (err) {
+    if (loadedBytes === 0 || !expectedTotal) {
+      throw err;
+    }
+    // Partial body read failed mid-stream: resume from loadedBytes below!
+  }
+
+  // Resume or fetch remaining chunks via Range whenever partial (HTTP 206) or dropped mid-stream
+  if (expectedTotal > 0 && loadedBytes < expectedTotal) {
+    const CHUNK_SIZE = 4 * 1024 * 1024; // 4MB chunks work both on Node and Vercel Serverless
+    while (loadedBytes < expectedTotal) {
+      const end = Math.min(expectedTotal - 1, loadedBytes + CHUNK_SIZE - 1);
+      const chunkRes = await fetchWithRetry(
+        proxyUrl,
+        { headers: { Range: `bytes=${loadedBytes}-${end}` } },
+        4,
+        35000
+      );
+      const chunkBuf = await chunkRes.arrayBuffer();
+      if (chunkBuf.byteLength === 0) {
+        break;
+      }
+      const u8 = new Uint8Array(chunkBuf);
+      chunks.push(u8);
+      loadedBytes += u8.byteLength;
+      onProgress({
+        progressPercent: Math.min(93, Math.max(10, Math.round((loadedBytes / expectedTotal) * 90))),
+        loadedBytes,
+        totalBytes: expectedTotal,
+        progressStage: "downloading",
+      });
+      if (chunkRes.status === 200) {
+        // Server ignored Range and returned full body
+        break;
+      }
+    }
+  }
+
+  if (loadedBytes < 32768) {
+    throw new Error("Arquivo de vídeo retornado é inválido ou muito pequeno");
+  }
+
+  return {
+    chunks,
+    totalBytes: loadedBytes,
+    mimeType: ct.startsWith("video/") ? ct : "video/mp4",
   };
 }
 
@@ -1123,19 +1371,30 @@ async function downloadFirstWorkingVideoCandidate(
   baseFileName: string,
   onProgress: (info: TrackedDownloadProgressInfo) => void
 ): Promise<{
-  buffer: ArrayBuffer;
+  chunks: Uint8Array[];
+  totalBytes: number;
   mimeType: string;
   resolvedDownloadUrl: string;
   fileName: string;
+  directHttpUrl?: string;
 }> {
   let lastError: unknown = null;
 
   for (const cand of candidates) {
-    if (!cand?.url || cand.url.includes("youtube.com") || cand.url.includes("vimeo.com")) {
+    if (
+      !cand?.url ||
+      cand.url.includes("youtube.com") ||
+      cand.url.includes("vimeo.com") ||
+      cand.url.includes("videohls.php")
+    ) {
       continue;
     }
 
-    const isHls = cand.type === "hls" || /\.m3u8(\?|$)/i.test(cand.url) || cand.url.includes("hls-proxy");
+    const isHls =
+      cand.type === "hls" ||
+      /\.m3u8(\?|$)/i.test(cand.url) ||
+      cand.url.includes("hls-proxy") ||
+      cand.url.includes("/backend/servers/atlas/edge");
 
     try {
       if (!isHls) {
@@ -1156,32 +1415,37 @@ async function downloadFirstWorkingVideoCandidate(
           ? cand.url
           : `/api/cinema/mp4-proxy?${params.toString()}`;
 
-        const res = await fetch(proxyUrl);
-        if (!res.ok && res.status !== 206) {
-          throw new Error(`HTTP ${res.status}`);
+        try {
+          const mp4Res = await fetchMp4ChunksWithResume(proxyUrl, onProgress);
+          const finalName = `${baseFileName}.mp4`;
+          return {
+            chunks: mp4Res.chunks,
+            totalBytes: mp4Res.totalBytes,
+            mimeType: mp4Res.mimeType,
+            resolvedDownloadUrl: proxyUrl,
+            fileName: finalName,
+            directHttpUrl: mp4Res.directHttpUrl
+              ? `${mp4Res.directHttpUrl}&filename=${encodeURIComponent(finalName)}`
+              : undefined,
+          };
+        } catch (mp4Err) {
+          if (mp4Err instanceof Error && mp4Err.message === "STREAM_IS_HLS") {
+            const hlsResult = await downloadHlsStreamAsBinary(cand.url, onProgress);
+            return {
+              chunks: hlsResult.chunks,
+              totalBytes: hlsResult.totalBytes,
+              mimeType: hlsResult.mimeType,
+              resolvedDownloadUrl: cand.url.slice(0, 2000),
+              fileName: `${baseFileName}${hlsResult.ext}`,
+            };
+          }
+          throw mp4Err;
         }
-        const ct = (res.headers.get("content-type") || "").toLowerCase();
-        if (ct.includes("text/html") || ct.includes("application/json")) {
-          throw new Error("Resposta HTML/JSON inválida em vez de vídeo");
-        }
-
-        const buffer = await readResponseWithProgress(res, (p) =>
-          onProgress({ ...p, progressStage: "downloading" })
-        );
-        if (buffer.byteLength < 32768) {
-          throw new Error("Arquivo de vídeo retornado é inválido ou muito pequeno");
-        }
-
-        return {
-          buffer,
-          mimeType: ct.startsWith("video/") ? ct : "video/mp4",
-          resolvedDownloadUrl: proxyUrl,
-          fileName: `${baseFileName}.mp4`,
-        };
       } else {
         const hlsResult = await downloadHlsStreamAsBinary(cand.url, onProgress);
         return {
-          buffer: hlsResult.buffer,
+          chunks: hlsResult.chunks,
+          totalBytes: hlsResult.totalBytes,
           mimeType: hlsResult.mimeType,
           resolvedDownloadUrl: cand.url.slice(0, 2000),
           fileName: `${baseFileName}${hlsResult.ext}`,
@@ -1241,22 +1505,21 @@ export async function downloadRealCinemaVideo(params: {
       onProgress({ progressPercent: 6, loadedBytes: 0, progressStage: "connecting" });
 
       const mediaType = isSerie ? "tv" : "movie";
-      let resolved = await fetchCinemaResolveCached({
-        tmdbId: item.tmdbId,
-        imdbId: item.imdbId,
-        type: mediaType,
-        season: seasonNum,
-        episode: episodeNum,
-        title: item.originalTitle || item.title,
-        year: item.year,
-        audioMode,
-        dubCode,
-        dubType,
-        server: "orion",
-      }).catch(() => null);
-
-      if (!resolved?.streams?.length) {
-        resolved = await fetchCinemaResolveCached({
+      const [orionRes, atlasRes] = await Promise.all([
+        fetchCinemaResolveCached({
+          tmdbId: item.tmdbId,
+          imdbId: item.imdbId,
+          type: mediaType,
+          season: seasonNum,
+          episode: episodeNum,
+          title: item.originalTitle || item.title,
+          year: item.year,
+          audioMode,
+          dubCode,
+          dubType,
+          server: "orion",
+        }).catch(() => null),
+        fetchCinemaResolveCached({
           tmdbId: item.tmdbId,
           imdbId: item.imdbId,
           type: mediaType,
@@ -1266,13 +1529,26 @@ export async function downloadRealCinemaVideo(params: {
           year: item.year,
           audioMode,
           server: "atlas",
-        }).catch(() => null);
+        }).catch(() => null),
+      ]);
+
+      const combinedRaw: any[] = [
+        ...(Array.isArray(orionRes?.streams) ? orionRes.streams : []),
+        ...(Array.isArray(atlasRes?.streams) ? atlasRes.streams : []),
+      ];
+
+      const seenUrls = new Set<string>();
+      const deduped: any[] = [];
+      for (const s of combinedRaw) {
+        if (s?.url && !seenUrls.has(s.url)) {
+          seenUrls.add(s.url);
+          deduped.push(s);
+        }
       }
 
-      const rawStreams: any[] = Array.isArray(resolved?.streams) ? resolved.streams : [];
       const sorted: VideoStreamCandidate[] = [
-        ...rawStreams.filter((s) => s.type === "mp4"),
-        ...rawStreams.filter((s) => s.type !== "mp4"),
+        ...deduped.filter((s) => s.type === "mp4"),
+        ...deduped.filter((s) => s.type !== "mp4"),
       ].map((s) => ({
         url: s.url,
         type: s.type === "hls" ? "hls" : "mp4",
@@ -1288,7 +1564,7 @@ export async function downloadRealCinemaVideo(params: {
         sorted,
         {
           tmdbId: item.tmdbId,
-          imdbId: resolved?.imdbId || item.imdbId,
+          imdbId: orionRes?.imdbId || atlasRes?.imdbId || item.imdbId,
           type: mediaType,
           season: isSerie ? seasonNum : undefined,
           episode: isSerie ? episodeNum : undefined,
@@ -1320,7 +1596,7 @@ export async function downloadRealAnimeEpisode(params: {
       : dubCode.toUpperCase();
 
   const isSteelBallRun = anime.id === "steel-ball-run";
-  const tmdbId = ANIME_TMDB_MAP[anime.id];
+  const tmdbId = ANIME_TMDB_MAP[anime.id] || anime.tmdbId;
   const effectiveTmdbSeason = isSteelBallRun ? 6 : season.seasonNumber || 1;
   const effectiveTmdbEpisode = isSteelBallRun
     ? (season.seasonNumber || 1) === 1
@@ -1348,11 +1624,11 @@ export async function downloadRealAnimeEpisode(params: {
 
       const cleanStreamUrl = (episode.streamUrl || "").split("?")[0];
       const catalogDubUrl =
-        episode.sources?.find((s) => s.id.includes("dub"))?.streamUrl?.split("?")[0] ||
+        episode.sources?.find((s) => s.format !== "embed" && s.id.includes("dub"))?.streamUrl?.split("?")[0] ||
         (episode.hlsStreamUrl || "").split("?")[0] ||
         cleanStreamUrl;
       const catalogSubUrl =
-        episode.sources?.find((s) => s.id.includes("sub") || s.id.includes("legendado"))?.streamUrl?.split("?")[0] ||
+        episode.sources?.find((s) => s.format !== "embed" && (s.id.includes("sub") || s.id.includes("legendado")))?.streamUrl?.split("?")[0] ||
         (episode.subHlsStreamUrl || "").split("?")[0] ||
         catalogDubUrl;
 
@@ -1367,9 +1643,10 @@ export async function downloadRealAnimeEpisode(params: {
           : "original";
 
       let orionStreams: any[] = [];
+      let atlasStreams: any[] = [];
       if (tmdbId) {
-        try {
-          const resolved = await fetchCinemaResolveCached({
+        const [orionRes, atlasRes] = await Promise.all([
+          fetchCinemaResolveCached({
             tmdbId,
             type: "tv",
             season: effectiveTmdbSeason,
@@ -1380,16 +1657,25 @@ export async function downloadRealAnimeEpisode(params: {
             dubCode,
             dubType,
             server: "orion",
-          });
-          if (Array.isArray(resolved?.streams)) {
-            orionStreams = resolved.streams;
-          }
-        } catch {}
+          }).catch(() => null),
+          fetchCinemaResolveCached({
+            tmdbId,
+            type: "tv",
+            season: effectiveTmdbSeason,
+            episode: effectiveTmdbEpisode,
+            title: isSteelBallRun ? "JoJo's Bizarre Adventure" : anime.title,
+            year: isSteelBallRun ? 2012 : season.year || 2024,
+            audioMode: audioModeParam,
+            server: "atlas",
+          }).catch(() => null),
+        ]);
+        if (Array.isArray(orionRes?.streams)) orionStreams = orionRes.streams;
+        if (Array.isArray(atlasRes?.streams)) atlasStreams = atlasRes.streams;
       }
 
       const candidates: VideoStreamCandidate[] = [];
       const addCand = (url?: string, typeHint?: "mp4" | "hls", quality?: string, mode?: string) => {
-        if (!url || !url.startsWith("http")) return;
+        if (!url || !url.startsWith("http") || url.includes("videohls.php")) return;
         if (candidates.some((c) => c.url === url)) return;
         const detectedType: "mp4" | "hls" =
           typeHint || (/\.m3u8(\?|$)/i.test(url) ? "hls" : "mp4");
@@ -1414,6 +1700,10 @@ export async function downloadRealAnimeEpisode(params: {
       } else {
         addCand(catalogDubUrl);
         addCand(catalogSubUrl);
+      }
+
+      for (const s of atlasStreams) {
+        addCand(s.url, s.type === "hls" ? "hls" : "mp4", s.quality, s.audioMode);
       }
 
       if (candidates.length === 0) {
