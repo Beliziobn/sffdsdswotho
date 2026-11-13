@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import type { NewsItem } from "./useCatalog";
 import { syncDailyNews, getCachedNews } from "@/lib/newsSyndication";
 import { queryNewsArchive } from "@/lib/newsArchiveEngine";
-import { applyNewsEditorialOverrides } from "@/lib/editorialStore";
+import { applyNewsEditorialOverrides, mergeCloudNewsIntoStore } from "@/lib/editorialStore";
 import { filterExcludedItems } from "@/lib/excludedItems";
 import { fetchCloudNews } from "@/lib/cloudEditorialService";
 
@@ -70,6 +70,9 @@ export const useNewsFeed = (filters: NewsFilters) =>
       let cloudNews: NewsItem[] = [];
       try {
         cloudNews = await fetchCloudNews();
+        if (cloudNews.length > 0) {
+          mergeCloudNewsIntoStore(cloudNews);
+        }
       } catch {}
 
       // 4. Merge & Deduplicate (Firestore Cloud + Supabase DB + Syndicated + Permanent Archive)

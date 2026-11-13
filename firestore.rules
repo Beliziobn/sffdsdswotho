@@ -16,10 +16,21 @@ service cloud.firestore {
 
     function isValidNews(data) {
       return data.keys().hasAll(['title', 'slug', 'content', 'published']) &&
-        data.title is string && data.title.size() <= 300 &&
-        data.slug is string && data.slug.size() <= 150 &&
+        data.keys().hasOnly(['id', 'title', 'slug', 'excerpt', 'content', 'cover_url', 'category', 'published', 'published_at', 'created_at', 'updated_at', 'author', 'source_name', 'source_url']) &&
+        data.title is string && data.title.size() >= 1 && data.title.size() <= 300 &&
+        data.slug is string && data.slug.size() >= 1 && data.slug.size() <= 150 &&
         data.content is string && data.content.size() <= 50000 &&
-        data.published is bool;
+        data.published is bool &&
+        (!('id' in data) || (data.id is string && data.id.size() <= 128)) &&
+        (!('excerpt' in data) || (data.excerpt is string && data.excerpt.size() <= 2000)) &&
+        (!('cover_url' in data) || (data.cover_url is string && data.cover_url.size() <= 500000)) &&
+        (!('category' in data) || (data.category is string && data.category.size() <= 100)) &&
+        (!('published_at' in data) || (data.published_at is string && data.published_at.size() <= 100)) &&
+        (!('created_at' in data) || (data.created_at is string && data.created_at.size() <= 100)) &&
+        (!('updated_at' in data) || (data.updated_at is string && data.updated_at.size() <= 100)) &&
+        (!('author' in data) || (data.author is string && data.author.size() <= 150)) &&
+        (!('source_name' in data) || (data.source_name is string && data.source_name.size() <= 150)) &&
+        (!('source_url' in data) || (data.source_url is string && data.source_url.size() <= 1000));
     }
 
     function isValidBook(data) {
@@ -87,7 +98,7 @@ service cloud.firestore {
       allow get, list: if true;
       allow create: if isSignedIn() && isValidId(newsId) && isValidNews(incoming());
       allow update: if isSignedIn() && isValidId(newsId) && isValidNews(incoming());
-      allow delete: if isSignedIn() && isSignedIn() && isValidId(newsId);
+      allow delete: if isSignedIn() && isValidId(newsId);
     }
 
     // Books: Publicly readable by all visitors

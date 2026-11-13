@@ -2,10 +2,12 @@ import { useState, useMemo, useEffect, useRef } from "react";
 import { useSearchParams, Link } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import {
+  AlertTriangle,
   BarChart3,
   BookOpen,
   Check,
   CheckCircle2,
+  Cloud,
   Compass,
   Edit3,
   ExternalLink,
@@ -30,6 +32,7 @@ import {
   X,
 } from "lucide-react";
 import { toast } from "sonner";
+import { onAuthStateChanged, type User as FirebaseUser } from "firebase/auth";
 import { compressImageFile, formatBytes } from "@/lib/imageUploadUtils";
 import Navigation from "@/components/Navigation";
 import Footer from "@/components/Footer";
@@ -44,6 +47,7 @@ import { useBooks, useNews, type Book, type NewsItem } from "@/hooks/useCatalog"
 import { ANIMES_DATA } from "@/lib/animes";
 import { BASE_CURATED_WEBTOONS } from "@/lib/webtoons";
 import { getSmartNewsCover } from "@/lib/newsImageResolver";
+import { NEWS_CATEGORIES as PORTAL_NEWS_CATEGORIES } from "@/lib/news";
 import {
   DIVERSE_PUBLICATION_TOPICS,
   SPECIAL_ADMIN_EMAIL,
@@ -61,6 +65,7 @@ import {
   saveBookPublication,
   saveCustomBookChapter,
   saveNewsPublication,
+  saveNewsPublicationWithSync,
   slugifyEditorial,
   verifySpecialAdminCredentials,
 } from "@/lib/editorialStore";
@@ -75,18 +80,18 @@ import {
 } from "@/lib/pdfUploadService";
 import { getOriginalPdfForBook } from "@/lib/originalPdfRegistry";
 
-const NEWS_CATEGORIES = [
-  "Esporte",
-  "Tecnologia",
-  "Ciência",
-  "Cultura",
-  "Economia",
-  "Entretenimento",
-  "Mundo",
-  "Política",
-  "Saúde",
-  "Geral",
-];
+const NEWS_CATEGORIES = Array.from(
+  new Set([
+    ...PORTAL_NEWS_CATEGORIES,
+    "Esporte",
+    "Tecnologia",
+    "Economia",
+    "Entretenimento",
+    "Mundo",
+    "Saúde",
+    "Geral",
+  ])
+);
 
 const Admin = () => {
   const { user, isAdmin, loading, signOut } = useAuth();
@@ -100,6 +105,19 @@ const Admin = () => {
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
   const [syncingCloud, setSyncingCloud] = useState(false);
+  const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(() => auth.currentUser);
+  const [isSavingNews, setIsSavingNews] = useState(false);
+  const [lastSaveCloudWarning, setLastSaveCloudWarning] = useState<string | null>(null);
+
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, (fbUser) => {
+      setFirebaseUser(fbUser && !fbUser.isAnonymous ? fbUser : null);
+      if (fbUser && !fbUser.isAnonymous) {
+        setLastSaveCloudWarning(null);
+      }
+    });
+    return () => unsub();
+  }, []);
 
   // Active Tab
   const initialTab = searchParams.get("tab") || "overview";
@@ -115,7 +133,7 @@ const Admin = () => {
 
   const [editNewsTitle, setEditNewsTitle] = useState("");
   const [editNewsSlug, setEditNewsSlug] = useState("");
-  const [editNewsCategory, setEditNewsCategory] = useState("Esporte");
+  const [editNewsCategory, setEditNewsCategory] = useState("Futebol");
   const [editNewsCover, setEditNewsCover] = useState("");
   const [editNewsExcerpt, setEditNewsExcerpt] = useState("");
   const [editNewsContent, setEditNewsContent] = useState("");
@@ -141,6 +159,7 @@ const Admin = () => {
         maxWidth: 1280,
         maxHeight: 720,
         quality: 0.82,
+        maxBytes: 220 * 1024,
       });
       setEditNewsCover(result.dataUrl);
       setNewsCoverMeta({
@@ -151,7 +170,7 @@ const Admin = () => {
         fileName: result.fileName,
       });
       toast.success(
-        `Capa otimizada com sucesso (${result.width}x${result.height} · ${formatBytes(result.sizeBytes)})! Pronta para sincronizar na nuvem para todos os leitores.`
+        `Capa otimizada (${result.width}x${result.height} · ${formatBytes(result.sizeBytes)})! Clique em "${isCreatingNewArticle ? "Publicar no Site" : "Salvar Alterações no Site"}" para enviar para todos os leitores.`
       );
     } catch (err: any) {
       toast.error(err?.message || "Erro ao processar imagem de capa.");
@@ -288,7 +307,7 @@ const Admin = () => {
     setLastImprovements([]);
   };
 
-  const startNewArticle = (prefillCategory = "Esporte") => {
+  const startNewArticle = (prefillCategory = "Futebol") => {
     setIsCreatingNewArticle(true);
     setSelectedNewsId(null);
     setEditNewsTitle("");
@@ -301,6 +320,7 @@ const Admin = () => {
     setEditNewsContent("");
     setEditNewsAuthor("Miguel Worscoi (Editor-Chefe)");
     setLastImprovements([]);
+    setLastSaveCloudWarning(null);
     setActiveTab("news");
   };
 
@@ -434,7 +454,11 @@ const Admin = () => {
     e.preventDefault();
     if (verifySpecialAdminCredentials(loginEmail, loginPassword)) {
       loginSpecialAdmin();
-      toast.success("Bem-vindo ao Studio Editorial Mestre, Miguel Worscoi!");
+      if (!auth.currentUser) {
+        toast.success("Bem-vindo, Miguel Worscoi! Conecte também sua conta Google no painel para sincronizar publicações na nuvem para todos os usuários.");
+      } else {
+        toast.success("Bem-vindo ao Studio Editorial Mestre, Miguel Worscoi!");
+      }
     } else {
       toast.error("Credenciais inválidas. Utilize o e-mail e senha especiais de administrador.");
     }
@@ -444,6 +468,8 @@ const Admin = () => {
     try {
       const googleUser = await signInWithGoogle();
       if (googleUser) {
+        setFirebaseUser(googleUser);
+        setLastSaveCloudWarning(null);
         loginSpecialAdmin();
         toast.success(`Autenticado com Google (${googleUser.email})! Nuvem Firestore ativada.`);
         void handleSyncCloudNow();
@@ -453,11 +479,37 @@ const Admin = () => {
     }
   };
 
+  const ensureCloudSessionForPublish = async (): Promise<boolean> => {
+    if (auth.currentUser && !auth.currentUser.isAnonymous) {
+      return true;
+    }
+    try {
+      const googleUser = await signInWithGoogle();
+      if (googleUser) {
+        setFirebaseUser(googleUser);
+        setLastSaveCloudWarning(null);
+        return true;
+      }
+    } catch {
+      // User closed popup or popup was blocked; caller will handle local fallback + warning
+    }
+    return false;
+  };
+
   const handleSyncCloudNow = async () => {
     setSyncingCloud(true);
     try {
       if (!auth.currentUser) {
-        await signInWithGoogle();
+        const googleUser = await signInWithGoogle();
+        if (googleUser) {
+          setFirebaseUser(googleUser);
+          setLastSaveCloudWarning(null);
+        }
+      }
+
+      if (!auth.currentUser) {
+        toast.warning("Conecte sua conta Google para enviar suas publicações para a nuvem.");
+        return;
       }
 
       const books = getCustomBooks();
@@ -473,10 +525,13 @@ const Admin = () => {
         getAnimeOverrides()
       );
 
-      void queryClient.invalidateQueries({ queryKey: ["news"] });
-      void queryClient.invalidateQueries({ queryKey: ["news-feed"] });
-      void queryClient.invalidateQueries({ queryKey: ["books"] });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["news"] }),
+        queryClient.invalidateQueries({ queryKey: ["news-feed"] }),
+        queryClient.invalidateQueries({ queryKey: ["books"] }),
+      ]);
 
+      setLastSaveCloudWarning(null);
       toast.success(
         `Nuvem sincronizada com sucesso! ${res.newsCount} notícias, ${res.booksCount} livros e ${res.animesCount} animes já estão refletindo para todos os usuários em tempo real.`
       );
@@ -505,56 +560,106 @@ const Admin = () => {
       setEditNewsCover(getSmartNewsCover(result.title, editNewsCategory));
     }
     setLastImprovements(result.improvements);
-    toast.success("Publicação melhorada e estruturada com sucesso! Clique em Salvar para publicar.");
+    toast.success("Publicação melhorada e estruturada com sucesso! Clique em Publicar/Salvar.");
   };
 
-  const handleQuickImproveAndSave = (item: NewsItem) => {
+  const handleQuickImproveAndSave = async (item: NewsItem) => {
     const improved = improveNewsPublication({
       title: item.title,
       excerpt: item.excerpt,
       content: item.content,
       category: item.category,
     });
-    const saved = saveNewsPublication({
+    await ensureCloudSessionForPublish();
+    const { item: saved, cloudSynced, cloudError } = await saveNewsPublicationWithSync({
       ...item,
       title: improved.title,
       excerpt: improved.excerpt,
       content: improved.content,
     });
-    void queryClient.invalidateQueries({ queryKey: ["news"] });
-    void queryClient.invalidateQueries({ queryKey: ["news-feed"] });
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["news"] }),
+      queryClient.invalidateQueries({ queryKey: ["news-feed"] }),
+      queryClient.invalidateQueries({ queryKey: ["news", saved.slug] }),
+    ]);
     selectArticleForEditing(saved);
-    toast.success(`"${saved.title.slice(0, 45)}..." foi melhorada e atualizada no site!`);
+    if (cloudSynced) {
+      toast.success(`"${saved.title.slice(0, 45)}..." foi melhorada e sincronizada para todos os leitores!`);
+    } else {
+      toast.warning(`"${saved.title.slice(0, 45)}..." foi salva localmente.`, {
+        description: cloudError || "Conecte sua conta Google para refletir para todos os usuários.",
+      });
+    }
   };
 
-  const handleSaveNewsArticle = (e: React.FormEvent) => {
+  const handleSaveNewsArticle = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isUploadingNewsCover) {
+      toast.info("Aguarde a otimização da imagem de capa terminar...");
+      return;
+    }
     if (!editNewsTitle.trim() || !editNewsContent.trim()) {
       toast.error("Preencha o título e o conteúdo da publicação.");
       return;
     }
-    const saved = saveNewsPublication({
-      id: isCreatingNewArticle ? undefined : selectedNewsId || undefined,
-      slug: editNewsSlug.trim() || slugifyEditorial(editNewsTitle),
-      title: editNewsTitle,
-      excerpt: editNewsExcerpt,
-      content: editNewsContent,
-      cover_url: editNewsCover || getSmartNewsCover(editNewsTitle, editNewsCategory),
-      category: editNewsCategory,
-      author: editNewsAuthor,
-      isNew: isCreatingNewArticle,
-    });
 
-    void queryClient.invalidateQueries({ queryKey: ["news"] });
-    void queryClient.invalidateQueries({ queryKey: ["news-feed"] });
-    setIsCreatingNewArticle(false);
-    setSelectedNewsId(saved.id);
-    setEditNewsSlug(saved.slug);
-    toast.success(
-      isCreatingNewArticle
-        ? "Nova publicação criada e disponível imediatamente no site!"
-        : "Publicação atualizada com sucesso em todo o site!"
-    );
+    const wasCreating = isCreatingNewArticle;
+    setIsSavingNews(true);
+    setLastSaveCloudWarning(null);
+
+    try {
+      // Ensure Firebase Google Auth session exists so Firestore accepts the write for all users
+      await ensureCloudSessionForPublish();
+
+      const resolvedCover =
+        editNewsCover.trim() || getSmartNewsCover(editNewsTitle, editNewsCategory);
+
+      const { item: saved, cloudSynced, cloudError } = await saveNewsPublicationWithSync({
+        id: wasCreating ? undefined : selectedNewsId || undefined,
+        slug: editNewsSlug.trim() || slugifyEditorial(editNewsTitle),
+        title: editNewsTitle,
+        excerpt: editNewsExcerpt,
+        content: editNewsContent,
+        cover_url: resolvedCover,
+        category: editNewsCategory,
+        author: editNewsAuthor,
+        isNew: wasCreating,
+      });
+
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["news"] }),
+        queryClient.invalidateQueries({ queryKey: ["news-feed"] }),
+        queryClient.invalidateQueries({ queryKey: ["news", saved.slug] }),
+      ]);
+
+      setIsCreatingNewArticle(false);
+      setSelectedNewsId(saved.id);
+      setEditNewsSlug(saved.slug);
+      setEditNewsCover(saved.cover_url || resolvedCover);
+
+      if (cloudSynced) {
+        setLastSaveCloudWarning(null);
+        toast.success(
+          wasCreating
+            ? "Publicação e capa enviadas para a nuvem! Todos os usuários já podem ver no site."
+            : "Publicação e capa atualizadas na nuvem para todos os usuários!"
+        );
+      } else {
+        const msg =
+          cloudError ||
+          "Conecte sua conta Google no topo do painel e clique em 'Sincronizar Nuvem' para publicar para todos os usuários.";
+        setLastSaveCloudWarning(msg);
+        toast.warning("Salvo apenas localmente neste dispositivo", {
+          description: msg,
+        });
+      }
+    } catch (err: any) {
+      const msg = err?.message || "Erro inesperado ao publicar notícia na nuvem.";
+      setLastSaveCloudWarning(msg);
+      toast.error("Falha ao enviar publicação para a nuvem", { description: msg });
+    } finally {
+      setIsSavingNews(false);
+    }
   };
 
   const handleDeleteCurrentNews = () => {
@@ -578,26 +683,44 @@ const Admin = () => {
     }
   };
 
-  const handlePublishDiverseItem = (item: NewsItem) => {
-    const saved = saveNewsPublication({
+  const handlePublishDiverseItem = async (item: NewsItem) => {
+    await ensureCloudSessionForPublish();
+    const { item: saved, cloudSynced, cloudError } = await saveNewsPublicationWithSync({
       ...item,
       isNew: true,
     });
-    void queryClient.invalidateQueries({ queryKey: ["news"] });
-    void queryClient.invalidateQueries({ queryKey: ["news-feed"] });
-    toast.success(`Publicado com sucesso: "${saved.title.slice(0, 50)}..."`);
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["news"] }),
+      queryClient.invalidateQueries({ queryKey: ["news-feed"] }),
+    ]);
+    if (cloudSynced) {
+      toast.success(`Publicado na nuvem: "${saved.title.slice(0, 50)}..."`);
+    } else {
+      toast.warning(`Salvo localmente: "${saved.title.slice(0, 50)}..."`, {
+        description: cloudError || "Conecte sua conta Google para publicar para todos os usuários.",
+      });
+    }
   };
 
-  const handlePublishAllDiverse = () => {
+  const handlePublishAllDiverse = async () => {
+    await ensureCloudSessionForPublish();
+    let syncedCount = 0;
     for (const item of diverseItems) {
-      saveNewsPublication({
+      const res = await saveNewsPublicationWithSync({
         ...item,
         isNew: true,
       });
+      if (res.cloudSynced) syncedCount++;
     }
-    void queryClient.invalidateQueries({ queryKey: ["news"] });
-    void queryClient.invalidateQueries({ queryKey: ["news-feed"] });
-    toast.success(`${diverseItems.length} publicações diversas adicionadas ao site!`);
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["news"] }),
+      queryClient.invalidateQueries({ queryKey: ["news-feed"] }),
+    ]);
+    if (syncedCount === diverseItems.length) {
+      toast.success(`${syncedCount} publicações sincronizadas na nuvem para todos os usuários!`);
+    } else {
+      toast.warning(`${diverseItems.length} salvas localmente (${syncedCount} na nuvem). Conecte sua conta Google e clique em Sincronizar Nuvem.`);
+    }
   };
 
   const handlePdfFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -913,16 +1036,28 @@ const Admin = () => {
           {/* Top Executive Header */}
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-8 mb-8 border-b border-border">
             <div>
-              <div className="flex items-center gap-2 mb-2">
+              <div className="flex flex-wrap items-center gap-2 mb-2">
                 <span className="px-2.5 py-0.5 rounded-full bg-primary text-primary-foreground text-[10px] uppercase tracking-widest font-semibold">
                   Editor-Chefe Mestre
                 </span>
                 <span className="text-xs text-muted-foreground font-light">
                   {user.email}
                 </span>
-                <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[10px] uppercase tracking-wider font-medium border border-emerald-500/20">
-                  Nuvem Firestore Ativa
-                </span>
+                {firebaseUser ? (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[10px] uppercase tracking-wider font-medium border border-emerald-500/20">
+                    <Cloud className="h-3 w-3" />
+                    Nuvem Conectada ({firebaseUser.email})
+                  </span>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleGoogleAdminLogin}
+                    className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-300 text-[10px] uppercase tracking-wider font-semibold border border-amber-500/30 hover:bg-amber-500/25 transition-colors"
+                  >
+                    <AlertTriangle className="h-3 w-3" />
+                    Conectar Google (Publicar para Todos)
+                  </button>
+                )}
               </div>
               <h1 className="text-2xl sm:text-4xl font-light tracking-tight text-foreground">
                 Studio Editorial, Análise & Curadoria de Conteúdos
@@ -944,7 +1079,7 @@ const Admin = () => {
                 {syncingCloud ? "Sincronizando..." : "Sincronizar Nuvem"}
               </Button>
               <Button
-                onClick={() => startNewArticle("Esporte")}
+                onClick={() => startNewArticle("Futebol")}
                 size="sm"
                 className="rounded-full text-[11px] uppercase tracking-wider bg-primary text-primary-foreground hover:bg-primary/90"
               >
@@ -1232,7 +1367,7 @@ const Admin = () => {
                     </div>
                     <Button
                       size="sm"
-                      onClick={() => startNewArticle("Esporte")}
+                      onClick={() => startNewArticle("Futebol")}
                       className="h-8 text-xs bg-primary text-primary-foreground hover:bg-primary/90"
                     >
                       <Plus className="h-3.5 w-3.5 mr-1" />
@@ -1366,6 +1501,33 @@ const Admin = () => {
                     </div>
                   </div>
 
+                  {(!firebaseUser || lastSaveCloudWarning) && (
+                    <div className="mb-6 p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div className="space-y-1">
+                        <div className="font-semibold text-amber-800 dark:text-amber-300 flex items-center gap-1.5">
+                          <AlertTriangle className="h-4 w-4 shrink-0" />
+                          {lastSaveCloudWarning
+                            ? "Publicação ainda não enviada para a nuvem global"
+                            : "Conecte sua conta Google para publicar na nuvem para todos os usuários"}
+                        </div>
+                        <p className="text-muted-foreground font-light">
+                          {lastSaveCloudWarning ||
+                            "Você entrou com a senha mestra local. Ao conectar o Google (ou ao clicar em Publicar), a matéria e a capa serão gravadas no Firestore para todos os leitores."}
+                        </p>
+                      </div>
+                      <Button
+                        type="button"
+                        size="sm"
+                        onClick={handleSyncCloudNow}
+                        disabled={syncingCloud}
+                        className="rounded-full text-xs shrink-0 bg-amber-600 text-white hover:bg-amber-700"
+                      >
+                        <Cloud className="h-3.5 w-3.5 mr-1.5" />
+                        {syncingCloud ? "Sincronizando..." : "Conectar e Sincronizar"}
+                      </Button>
+                    </div>
+                  )}
+
                   {lastImprovements.length > 0 && (
                     <div className="mb-6 p-4 rounded-xl bg-secondary/70 border border-border text-xs space-y-1">
                       <div className="font-medium text-foreground flex items-center gap-1.5">
@@ -1380,7 +1542,25 @@ const Admin = () => {
                     </div>
                   )}
 
-                  <form onSubmit={handleSaveNewsArticle} className="space-y-5">
+                  <form
+                    onSubmit={handleSaveNewsArticle}
+                    onPaste={(e) => {
+                      const items = e.clipboardData?.items;
+                      if (!items) return;
+                      for (let i = 0; i < items.length; i++) {
+                        if (items[i].type.startsWith("image/")) {
+                          const pastedFile = items[i].getAsFile();
+                          if (pastedFile) {
+                            e.preventDefault();
+                            setNewsCoverInputMode("upload");
+                            void handleNewsCoverFileSelect(pastedFile);
+                            break;
+                          }
+                        }
+                      }
+                    }}
+                    className="space-y-5"
+                  >
                     <div className="grid sm:grid-cols-3 gap-4">
                       <div className="sm:col-span-2 space-y-1.5">
                         <Label className="text-xs uppercase tracking-wider text-muted-foreground">
@@ -1802,10 +1982,20 @@ const Admin = () => {
                         </Button>
                         <Button
                           type="submit"
+                          disabled={isSavingNews || isUploadingNewsCover}
                           className="rounded-full text-xs uppercase tracking-wider bg-primary text-primary-foreground hover:bg-primary/90 px-6"
                         >
-                          <Save className="h-3.5 w-3.5 mr-1.5" />
-                          {isCreatingNewArticle ? "Publicar no Site" : "Salvar Alterações no Site"}
+                          {isSavingNews ? (
+                            <>
+                              <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                              Publicando na Nuvem...
+                            </>
+                          ) : (
+                            <>
+                              <Save className="h-3.5 w-3.5 mr-1.5" />
+                              {isCreatingNewArticle ? "Publicar no Site" : "Salvar Alterações no Site"}
+                            </>
+                          )}
                         </Button>
                       </div>
                     </div>

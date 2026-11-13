@@ -1,8 +1,8 @@
-import { Suspense, lazy, type ComponentType } from "react";
+import { Suspense, lazy, useEffect, type ComponentType } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
@@ -12,6 +12,7 @@ import TermsGate from "./components/consent/TermsGate";
 import CanonicalManager from "./components/CanonicalManager";
 import AppErrorBoundary from "./components/AppErrorBoundary";
 import OfflineBanner from "./components/OfflineBanner";
+import { initCloudEditorialSync } from "./lib/editorialStore";
 
 function lazyWithRetry<T extends ComponentType<any>>(
   factory: () => Promise<{ default: T }>
@@ -85,8 +86,40 @@ const queryClient = new QueryClient({
   },
 });
 
+const CloudEditorialQuerySync = () => {
+  const qc = useQueryClient();
+
+  useEffect(() => {
+    void initCloudEditorialSync();
+
+    const handleEditorialUpdated = () => {
+      void qc.invalidateQueries({ queryKey: ["news"] });
+      void qc.invalidateQueries({ queryKey: ["news-feed"] });
+      void qc.invalidateQueries({ queryKey: ["books"] });
+      void qc.invalidateQueries({ queryKey: ["contents"] });
+    };
+
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") {
+        void initCloudEditorialSync();
+      }
+    };
+
+    window.addEventListener("worscoi_editorial_updated", handleEditorialUpdated);
+    document.addEventListener("visibilitychange", handleVisibility);
+
+    return () => {
+      window.removeEventListener("worscoi_editorial_updated", handleEditorialUpdated);
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
+  }, [qc]);
+
+  return null;
+};
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
+    <CloudEditorialQuerySync />
     <TooltipProvider>
       <Toaster />
       <Sonner />

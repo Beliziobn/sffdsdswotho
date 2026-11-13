@@ -10,11 +10,12 @@
         "slug": { "type": "string", "maxLength": 150 },
         "excerpt": { "type": "string", "maxLength": 2000 },
         "content": { "type": "string", "maxLength": 50000 },
-        "cover_url": { "type": "string", "maxLength": 1000 },
+        "cover_url": { "type": "string", "maxLength": 500000 },
         "category": { "type": "string", "maxLength": 100 },
         "published": { "type": "boolean" },
         "published_at": { "type": "string", "maxLength": 100 },
         "created_at": { "type": "string", "maxLength": 100 },
+        "updated_at": { "type": "string", "maxLength": 100 },
         "author": { "type": "string", "maxLength": 150 },
         "source_name": { "type": "string", "maxLength": 150 },
         "source_url": { "type": "string", "maxLength": 1000 }

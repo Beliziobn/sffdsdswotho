@@ -7,9 +7,10 @@ import {
   getCustomBookChapters,
   getSingleBookWithOverrides,
   getSingleNewsWithOverrides,
+  mergeCloudNewsIntoStore,
 } from "@/lib/editorialStore";
 import { isExcludedItem, filterExcludedItems } from "@/lib/excludedItems";
-import { fetchCloudBooks, fetchCloudChapters, fetchCloudNews } from "@/lib/cloudEditorialService";
+import { fetchCloudBooks, fetchCloudChapters, fetchCloudNews, fetchCloudNewsBySlug } from "@/lib/cloudEditorialService";
 import { getAllOriginalPdfBooks, getOriginalPdfForBook } from "@/lib/originalPdfRegistry";
 import { expandNewsToDeepReport } from "@/lib/newsExpander";
 import { syncDailyNews, getCachedNews } from "@/lib/newsSyndication";
@@ -611,6 +612,9 @@ export const useNews = () =>
       let cloudNews: NewsItem[] = [];
       try {
         cloudNews = await fetchCloudNews();
+        if (cloudNews.length > 0) {
+          mergeCloudNewsIntoStore(cloudNews);
+        }
       } catch {}
 
       // Read cached news immediately and trigger background sync if empty
@@ -656,13 +660,22 @@ export const useArticle = (slug?: string) =>
   useQuery({
     queryKey: ["news", slug],
     enabled: !!slug && !isExcludedItem({ slug, id: slug }),
-    staleTime: 1000 * 60 * 10,
+    staleTime: 1000 * 60 * 2,
     refetchOnWindowFocus: false,
     queryFn: async () => {
       if (!slug || isExcludedItem({ slug, id: slug })) return null;
       let rawFound: NewsItem | null = null;
 
-      // 0. Check if edited or created in Editorial Studio first
+      // 0. Check Firestore Cloud first so cross-user direct links & cover updates always reflect live state
+      try {
+        const cloudMatch = await fetchCloudNewsBySlug(slug);
+        if (cloudMatch) {
+          mergeCloudNewsIntoStore([cloudMatch]);
+          return expandNewsToDeepReport(cloudMatch) as unknown as NewsItem;
+        }
+      } catch {}
+
+      // 0b. Check if edited or created locally in Editorial Studio
       const editorialDirect = getSingleNewsWithOverrides(slug, null);
       if (editorialDirect && slug.startsWith("editorial-")) {
         return expandNewsToDeepReport(editorialDirect) as unknown as NewsItem;

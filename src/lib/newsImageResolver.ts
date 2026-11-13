@@ -110,6 +110,9 @@ export function isValidCoverUrl(url?: string | null): boolean {
   if (!url || typeof url !== "string") return false;
   const trimmed = url.trim();
   if (trimmed.length < 10) return false;
+  if (/^data:image\/(png|jpe?g|webp|avif|gif|bmp|svg\+xml);base64,/i.test(trimmed)) {
+    return trimmed.length > 32;
+  }
   if (trimmed === "/placeholder.svg" || trimmed.includes("placeholder.svg")) return false;
   if (/gravatar\.com|1x1|spacer|tracking|pixel|feedburner|emoji|favicon/i.test(trimmed)) return false;
   if (/\.gif(\?.*)?$/i.test(trimmed)) return false;

@@ -1,13 +1,16 @@
 import {
   collection,
   doc,
+  getDoc,
   getDocs,
   setDoc,
+  deleteDoc,
+  onSnapshot,
   query,
   where,
   limit,
 } from "firebase/firestore";
-import { db, ensureFirestoreReady, ensureFirestoreOnline } from "./firebase";
+import { auth, db, ensureFirestoreReady, ensureFirestoreOnline } from "./firebase";
 import { handleFirestoreError, OperationType } from "./firebaseErrors";
 import firebaseConfig from "../../firebase-applet-config.json";
 import type { Book, Chapter, NewsItem } from "@/hooks/useCatalog";
@@ -17,7 +20,7 @@ const BOOKS_COLLECTION = "books";
 const CHAPTERS_COLLECTION = "chapters";
 const ANIME_OVERRIDES_COLLECTION = "anime_overrides";
 
-const READ_CACHE_TTL_MS = 60_000;
+const READ_CACHE_TTL_MS = 10_000;
 const FIRESTORE_READ_TIMEOUT_MS = 6_000;
 
 function decodeFirestoreValue(val: any): any {
@@ -60,7 +63,7 @@ async function runRestQuery(structuredQuery: Record<string, any>): Promise<Array
   if (typeof navigator !== "undefined" && navigator.onLine === false) return [];
   if (typeof fetch !== "function") return [];
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 4000);
+  const timer = setTimeout(() => controller.abort(), 4500);
   try {
     const dbPath = `projects/${firebaseConfig.projectId}/databases/${firebaseConfig.firestoreDatabaseId}`;
     const url = `https://firestore.googleapis.com/v1/${dbPath}/documents:runQuery?key=${encodeURIComponent(firebaseConfig.apiKey)}`;
@@ -129,76 +132,138 @@ function withTimeout<T>(promise: Promise<T>, ms: number, fallback: T): Promise<T
 
 // Sanitize string keys to ensure valid Firestore document IDs
 export function sanitizeDocId(rawId: string): string {
-  return rawId
+  const cleaned = rawId
     .trim()
     .replace(/[^a-zA-Z0-9_\-\.]/g, "-")
+    .replace(/^\.+|\.+$/g, "")
     .slice(0, 120);
+  if (!cleaned || cleaned === "." || cleaned === "..") {
+    return `doc-${Date.now()}`;
+  }
+  return cleaned;
+}
+
+export function invalidateCloudNewsCache(): void {
+  cachedNewsResult = null;
+  inflightNewsPromise = null;
 }
 
 // ============================================================================
 // 1. NEWS CLOUD PERSISTENCE
 // ============================================================================
 
-export async function publishNewsToCloud(item: NewsItem): Promise<boolean> {
+export async function publishNewsToCloudDetailed(
+  item: NewsItem
+): Promise<{ ok: boolean; error?: string }> {
   const docId = sanitizeDocId(item.id || item.slug);
-  if (!docId) return false;
+  if (!docId) {
+    return { ok: false, error: "Identificador de publicação inválido." };
+  }
 
+  if (!auth.currentUser) {
+    return {
+      ok: false,
+      error: "Conecte sua conta Google no painel para publicar na nuvem para todos os usuários.",
+    };
+  }
+
+  const coverUrl = (item.cover_url || "").trim();
+  if (coverUrl.length > 500000) {
+    return {
+      ok: false,
+      error: "A imagem de capa otimizada excedeu o limite de tamanho da nuvem (500KB).",
+    };
+  }
+
+  const nowIso = new Date().toISOString();
   const payload = {
-    id: item.id || docId,
+    id: (item.id || docId).trim().slice(0, 128),
     title: (item.title || "").trim().slice(0, 300),
     slug: (item.slug || docId).trim().slice(0, 150),
     excerpt: (item.excerpt || "").trim().slice(0, 2000),
     content: (item.content || "").trim().slice(0, 50000),
-    cover_url: (item.cover_url || "").trim().slice(0, 500000),
+    cover_url: coverUrl,
     category: (item.category || "Geral").trim().slice(0, 100),
     published: item.published ?? true,
-    published_at: item.published_at || new Date().toISOString(),
-    created_at: new Date().toISOString(),
+    published_at: item.published_at || nowIso,
+    created_at: (item as any).created_at || nowIso,
+    updated_at: (item as any).updated_at || nowIso,
     author: ((item as any).author || "Miguel Worscoi (Redação Editorial)").trim().slice(0, 150),
     source_name: ((item as any).source_name || "Worscoi Editorial").trim().slice(0, 150),
     source_url: ((item as any).source_url || "").trim().slice(0, 1000),
   };
 
   try {
-    await ensureFirestoreOnline();
+    const online = await ensureFirestoreOnline();
+    if (!online) {
+      return {
+        ok: false,
+        error: "Sem conexão com a nuvem Firestore no momento. Verifique sua internet e tente sincronizar.",
+      };
+    }
+
     const docRef = doc(db, NEWS_COLLECTION, docId);
     await setDoc(docRef, payload, { merge: true });
-    cachedNewsResult = null;
-    return true;
+
+    // Immediately update in-memory cache so reads see the fresh doc
+    if (cachedNewsResult) {
+      const rest = cachedNewsResult.data.filter(
+        (n) => n.id !== payload.id && n.slug !== payload.slug
+      );
+      cachedNewsResult = {
+        data: payload.published ? [payload as NewsItem, ...rest] : rest,
+        ts: Date.now(),
+      };
+    } else {
+      cachedNewsResult = null;
+    }
+
+    return { ok: true };
   } catch (err: any) {
     if (err?.code === "permission-denied" || String(err).includes("permission")) {
       handleFirestoreError(err, OperationType.WRITE, `${NEWS_COLLECTION}/${docId}`);
     }
     console.warn("[CloudEditorial] Failed to write news to Firestore:", err);
-    return false;
+    return {
+      ok: false,
+      error: err?.message || "Falha ao gravar publicação no Firestore.",
+    };
   }
+}
+
+export async function publishNewsToCloud(item: NewsItem): Promise<boolean> {
+  const res = await publishNewsToCloudDetailed(item);
+  return res.ok;
 }
 
 export async function deleteNewsFromCloud(idOrSlug: string): Promise<boolean> {
   const docId = sanitizeDocId(idOrSlug);
-  if (!docId) return false;
+  if (!docId || !auth.currentUser) return false;
 
   try {
-    await ensureFirestoreOnline();
-    const docRef = doc(db, NEWS_COLLECTION, docId);
-    // Mark as unpublished to avoid race conditions
-    await setDoc(docRef, { published: false, updated_at: new Date().toISOString() }, { merge: true });
-    cachedNewsResult = null;
+    const online = await ensureFirestoreOnline();
+    if (!online) return false;
+
+    await deleteDoc(doc(db, NEWS_COLLECTION, docId));
+    if (!docId.startsWith("editorial-")) {
+      await deleteDoc(doc(db, NEWS_COLLECTION, sanitizeDocId(`editorial-${docId}`))).catch(() => {});
+    }
+    invalidateCloudNewsCache();
     return true;
   } catch (err: any) {
     if (err?.code === "permission-denied" || String(err).includes("permission")) {
       handleFirestoreError(err, OperationType.DELETE, `${NEWS_COLLECTION}/${docId}`);
     }
-    console.warn("[CloudEditorial] Failed to mark news deleted in Firestore:", err);
+    console.warn("[CloudEditorial] Failed to delete news in Firestore:", err);
     return false;
   }
 }
 
-export async function fetchCloudNews(): Promise<NewsItem[]> {
-  if (cachedNewsResult && Date.now() - cachedNewsResult.ts < READ_CACHE_TTL_MS) {
+export async function fetchCloudNews(forceFresh = false): Promise<NewsItem[]> {
+  if (!forceFresh && cachedNewsResult && Date.now() - cachedNewsResult.ts < READ_CACHE_TTL_MS) {
     return cachedNewsResult.data;
   }
-  if (inflightNewsPromise) {
+  if (!forceFresh && inflightNewsPromise) {
     return inflightNewsPromise;
   }
 
@@ -216,7 +281,7 @@ export async function fetchCloudNews(): Promise<NewsItem[]> {
                 value: { booleanValue: true },
               },
             },
-            limit: 200,
+            limit: 500,
           });
           const items = restDocs.map((d) => d.data as NewsItem);
           cachedNewsResult = { data: items, ts: Date.now() };
@@ -225,7 +290,7 @@ export async function fetchCloudNews(): Promise<NewsItem[]> {
         const q = query(
           collection(db, NEWS_COLLECTION),
           where("published", "==", true),
-          limit(200)
+          limit(500)
         );
         const snapshot = await getDocs(q);
         const items = snapshot.docs.map((d) => d.data() as NewsItem);
@@ -243,6 +308,115 @@ export async function fetchCloudNews(): Promise<NewsItem[]> {
   );
 
   return inflightNewsPromise;
+}
+
+export async function fetchCloudNewsBySlug(slugOrId: string): Promise<NewsItem | null> {
+  const clean = (slugOrId || "").trim();
+  if (!clean) return null;
+
+  // Check recent in-memory cache first
+  if (cachedNewsResult && Date.now() - cachedNewsResult.ts < READ_CACHE_TTL_MS) {
+    const cachedMatch = cachedNewsResult.data.find(
+      (n) =>
+        n.slug?.toLowerCase() === clean.toLowerCase() ||
+        n.id?.toLowerCase() === clean.toLowerCase()
+    );
+    if (cachedMatch) return cachedMatch;
+  }
+
+  return withTimeout(
+    (async () => {
+      try {
+        const ready = await ensureFirestoreReady();
+        if (!ready) {
+          const restDocs = await runRestQuery({
+            from: [{ collectionId: NEWS_COLLECTION }],
+            where: {
+              fieldFilter: {
+                field: { fieldPath: "slug" },
+                op: "EQUAL",
+                value: { stringValue: clean },
+              },
+            },
+            limit: 1,
+          });
+          const docData = restDocs[0]?.data as NewsItem | undefined;
+          if (docData && docData.published !== false) return docData;
+          return null;
+        }
+
+        // 1. Try query by slug
+        const bySlugQ = query(
+          collection(db, NEWS_COLLECTION),
+          where("slug", "==", clean),
+          limit(1)
+        );
+        const snap = await getDocs(bySlugQ);
+        if (!snap.empty) {
+          const data = snap.docs[0].data() as NewsItem;
+          if (data.published !== false) return data;
+        }
+
+        // 2. Fallback direct document lookup by sanitized ID or editorial-slug ID
+        const candidates = [sanitizeDocId(clean)];
+        if (!clean.startsWith("editorial-")) {
+          candidates.push(sanitizeDocId(`editorial-${clean}`));
+        }
+        for (const candidateId of candidates) {
+          const dSnap = await getDoc(doc(db, NEWS_COLLECTION, candidateId));
+          if (dSnap.exists()) {
+            const data = dSnap.data() as NewsItem;
+            if (data.published !== false) return data;
+          }
+        }
+        return null;
+      } catch (err: any) {
+        console.warn("[CloudEditorial] Could not fetch cloud news by slug:", err?.message || err);
+        return null;
+      }
+    })(),
+    FIRESTORE_READ_TIMEOUT_MS,
+    null
+  );
+}
+
+export function subscribeToCloudNews(
+  onUpdate: (items: NewsItem[]) => void
+): () => void {
+  let active = true;
+  let unsubscribeSnapshot: (() => void) | null = null;
+
+  void ensureFirestoreReady().then((ready) => {
+    if (!active || !ready) return;
+    try {
+      const q = query(
+        collection(db, NEWS_COLLECTION),
+        where("published", "==", true),
+        limit(500)
+      );
+      unsubscribeSnapshot = onSnapshot(
+        q,
+        (snapshot) => {
+          const items = snapshot.docs.map((d) => d.data() as NewsItem);
+          cachedNewsResult = { data: items, ts: Date.now() };
+          onUpdate(items);
+        },
+        (error) => {
+          console.warn("[CloudEditorial] News realtime listener notice:", error?.message || error);
+        }
+      );
+    } catch (err: any) {
+      console.warn("[CloudEditorial] Could not attach realtime news listener:", err?.message || err);
+    }
+  });
+
+  return () => {
+    active = false;
+    if (unsubscribeSnapshot) {
+      unsubscribeSnapshot();
+      unsubscribeSnapshot = null;
+    }
+  };
 }
 
 // ============================================================================

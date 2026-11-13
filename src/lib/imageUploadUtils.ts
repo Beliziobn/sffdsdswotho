@@ -28,7 +28,10 @@ export function validateImageFile(file: File): { valid: boolean; error?: string 
     return { valid: false, error: "Nenhum arquivo selecionado." };
   }
 
-  if (!file.type.startsWith("image/")) {
+  const hasImageMime = Boolean(file.type && file.type.startsWith("image/"));
+  const hasImageExt = /\.(png|jpe?g|webp|avif|gif|bmp)$/i.test(file.name || "");
+
+  if (!hasImageMime && !hasImageExt) {
     return {
       valid: false,
       error: `Formato inválido (${file.type || "desconhecido"}). Por favor selecione uma imagem (PNG, JPG, WEBP, AVIF).`,
@@ -47,6 +50,47 @@ export function validateImageFile(file: File): { valid: boolean; error?: string 
   return { valid: true };
 }
 
+function renderToDataUrl(
+  img: HTMLImageElement,
+  width: number,
+  height: number,
+  quality: number,
+  preferWebp: boolean
+): { dataUrl: string; format: "webp" | "jpeg"; approxBytes: number } {
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+
+  const ctx = canvas.getContext("2d", { alpha: false });
+  if (!ctx) {
+    throw new Error("Não foi possível inicializar o processador gráfico do navegador.");
+  }
+
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = "high";
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, width, height);
+  ctx.drawImage(img, 0, 0, width, height);
+
+  let format: "webp" | "jpeg" = preferWebp ? "webp" : "jpeg";
+  let dataUrl = "";
+
+  if (preferWebp) {
+    dataUrl = canvas.toDataURL("image/webp", quality);
+    if (!dataUrl.startsWith("data:image/webp")) {
+      dataUrl = canvas.toDataURL("image/jpeg", quality);
+      format = "jpeg";
+    }
+  } else {
+    dataUrl = canvas.toDataURL("image/jpeg", quality);
+    format = "jpeg";
+  }
+
+  const base64Content = dataUrl.split(",")[1] || "";
+  const approxBytes = Math.round((base64Content.length * 3) / 4);
+  return { dataUrl, format, approxBytes };
+}
+
 export async function compressImageFile(
   file: File,
   options: {
@@ -54,6 +98,7 @@ export async function compressImageFile(
     maxHeight?: number;
     quality?: number;
     preferWebp?: boolean;
+    maxBytes?: number;
   } = {}
 ): Promise<OptimizedImageResult> {
   const validation = validateImageFile(file);
@@ -63,8 +108,9 @@ export async function compressImageFile(
 
   const maxWidth = options.maxWidth ?? 1280;
   const maxHeight = options.maxHeight ?? 720;
-  const quality = options.quality ?? 0.82;
+  const initialQuality = options.quality ?? 0.82;
   const preferWebp = options.preferWebp ?? true;
+  const maxBytes = options.maxBytes ?? 220 * 1024;
 
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -76,75 +122,63 @@ export async function compressImageFile(
 
       img.onload = () => {
         try {
-          let { width, height } = img;
-
-          // Maintain aspect ratio while fitting within maxWidth x maxHeight
-          if (width > maxWidth || height > maxHeight) {
-            const ratio = Math.min(maxWidth / width, maxHeight / height);
-            width = Math.round(width * ratio);
-            height = Math.round(height * ratio);
-          }
-
-          // Ensure minimum dimensions
-          width = Math.max(width, 1);
-          height = Math.max(height, 1);
-
-          const canvas = document.createElement("canvas");
-          canvas.width = width;
-          canvas.height = height;
-
-          const ctx = canvas.getContext("2d", { alpha: false });
-          if (!ctx) {
-            // Fallback to original data URL if 2D context fails
-            const rawUrl = reader.result as string;
-            resolve({
-              dataUrl: rawUrl,
-              width: img.width,
-              height: img.height,
-              sizeBytes: file.size,
-              format: file.type.includes("webp") ? "webp" : "jpeg",
-              fileName: file.name,
-            });
-            return;
-          }
-
-          // High-quality image rendering on canvas
-          ctx.imageSmoothingEnabled = true;
-          ctx.imageSmoothingQuality = "high";
-
-          // Fill white background to avoid transparent black artifacts on JPEG/WebP
-          ctx.fillStyle = "#ffffff";
-          ctx.fillRect(0, 0, width, height);
-
-          ctx.drawImage(img, 0, 0, width, height);
-
-          // Try exporting to WebP first, fallback to JPEG
-          let outputFormat: "webp" | "jpeg" = preferWebp ? "webp" : "jpeg";
-          let dataUrl = "";
-
-          if (preferWebp) {
-            dataUrl = canvas.toDataURL("image/webp", quality);
-            // If browser doesn't support webp export, it returns image/png
-            if (!dataUrl.startsWith("data:image/webp")) {
-              dataUrl = canvas.toDataURL("image/jpeg", quality);
-              outputFormat = "jpeg";
+          const fitSize = (limitW: number, limitH: number) => {
+            let w = img.width;
+            let h = img.height;
+            if (w > limitW || h > limitH) {
+              const ratio = Math.min(limitW / w, limitH / h);
+              w = Math.round(w * ratio);
+              h = Math.round(h * ratio);
             }
-          } else {
-            dataUrl = canvas.toDataURL("image/jpeg", quality);
-            outputFormat = "jpeg";
-          }
+            return { width: Math.max(w, 1), height: Math.max(h, 1) };
+          };
 
-          // Calculate approximate byte size of base64
-          // Base64 header length + 4 * ceil(n / 3)
-          const base64Content = dataUrl.split(",")[1] || "";
-          const approxBytes = Math.round((base64Content.length * 3) / 4);
+          const sizeSteps = [
+            fitSize(maxWidth, maxHeight),
+            fitSize(960, 540),
+            fitSize(800, 450),
+          ];
+          const qualitySteps = [initialQuality, 0.72, 0.62, 0.52];
+
+          let bestResult = renderToDataUrl(
+            img,
+            sizeSteps[0].width,
+            sizeSteps[0].height,
+            qualitySteps[0],
+            preferWebp
+          );
+          let bestWidth = sizeSteps[0].width;
+          let bestHeight = sizeSteps[0].height;
+
+          if (bestResult.approxBytes > maxBytes) {
+            outer: for (let s = 0; s < sizeSteps.length; s++) {
+              const dim = sizeSteps[s];
+              for (let q = s === 0 ? 1 : 0; q < qualitySteps.length; q++) {
+                const candidate = renderToDataUrl(
+                  img,
+                  dim.width,
+                  dim.height,
+                  qualitySteps[q],
+                  preferWebp
+                );
+                if (candidate.approxBytes < bestResult.approxBytes) {
+                  bestResult = candidate;
+                  bestWidth = dim.width;
+                  bestHeight = dim.height;
+                }
+                if (candidate.approxBytes <= maxBytes) {
+                  break outer;
+                }
+              }
+            }
+          }
 
           resolve({
-            dataUrl,
-            width,
-            height,
-            sizeBytes: approxBytes,
-            format: outputFormat,
+            dataUrl: bestResult.dataUrl,
+            width: bestWidth,
+            height: bestHeight,
+            sizeBytes: bestResult.approxBytes,
+            format: bestResult.format,
             fileName: file.name,
           });
         } catch (err: any) {

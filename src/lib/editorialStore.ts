@@ -2,6 +2,7 @@ import type { Book, Chapter, NewsItem } from "@/hooks/useCatalog";
 import { getSmartNewsCover } from "@/lib/newsImageResolver";
 import {
   publishNewsToCloud,
+  publishNewsToCloudDetailed,
   deleteNewsFromCloud,
   publishBookToCloud,
   deleteBookFromCloud,
@@ -10,6 +11,7 @@ import {
   fetchCloudNews,
   fetchCloudBooks,
   fetchCloudAnimeOverrides,
+  subscribeToCloudNews,
 } from "./cloudEditorialService";
 import { auth } from "./firebase";
 import { onAuthStateChanged } from "firebase/auth";
@@ -30,11 +32,117 @@ const DELETED_BOOKS_KEY = "worscoi_editorial_deleted_books_v1";
 
 const ANIME_OVERRIDES_KEY = "worscoi_editorial_anime_overrides_v1";
 
+// Authoritative in-memory caches prevent localStorage 5MB quota limits from dropping uploaded covers
+let memoryNewsOverrides: Record<string, EditorialNewsPatch> | null = null;
+let memoryCustomNews: NewsItem[] | null = null;
+let memoryDeletedNews: string[] | null = null;
+let unsubscribeCloudNewsListener: (() => void) | null = null;
+
+function toTimestamp(val?: string | null): number {
+  if (!val) return 0;
+  const t = new Date(val).getTime();
+  return Number.isFinite(t) ? t : 0;
+}
+
+export function mergeCloudNewsIntoStore(cloudNews: NewsItem[]): boolean {
+  if (typeof window === "undefined" || !Array.isArray(cloudNews) || cloudNews.length === 0) {
+    return false;
+  }
+
+  const customList = [...getCustomNewsPublications()];
+  const overrides = { ...getNewsOverrides() };
+  const deletedSet = new Set(getDeletedNewsIds().map((k) => k.toLowerCase()));
+  let changed = false;
+
+  for (const cn of cloudNews) {
+    if (!cn || (!cn.id && !cn.slug)) continue;
+    const idKey = (cn.id || "").toLowerCase();
+    const slugKey = (cn.slug || "").toLowerCase();
+
+    if (cn.published === false) {
+      if (cn.id) delete overrides[cn.id];
+      if (cn.slug) delete overrides[cn.slug];
+      const before = customList.length;
+      const filtered = customList.filter(
+        (c) => c.id?.toLowerCase() !== idKey && (!slugKey || c.slug?.toLowerCase() !== slugKey)
+      );
+      if (filtered.length !== before) {
+        customList.length = 0;
+        customList.push(...filtered);
+        changed = true;
+      }
+      continue;
+    }
+
+    if ((idKey && deletedSet.has(idKey)) || (slugKey && deletedSet.has(slugKey))) {
+      // Remove from deleted list if a fresh published version exists on server
+      const cnTs = toTimestamp((cn as any).updated_at || cn.published_at);
+      if (cnTs > 0) {
+        deletedSet.delete(idKey);
+        if (slugKey) deletedSet.delete(slugKey);
+      } else {
+        continue;
+      }
+    }
+
+    const existingOverride =
+      (cn.id ? overrides[cn.id] : undefined) ||
+      (cn.slug ? overrides[cn.slug] : undefined);
+    const existingCustomIdx = customList.findIndex(
+      (c) =>
+        (cn.id && c.id === cn.id) ||
+        (cn.slug && c.slug === cn.slug)
+    );
+    const existingCustom = existingCustomIdx >= 0 ? customList[existingCustomIdx] : undefined;
+
+    const cloudTs = toTimestamp((cn as any).updated_at || cn.published_at || (cn as any).created_at);
+    const localTs = Math.max(
+      toTimestamp(existingOverride?.updated_at || existingOverride?.published_at),
+      toTimestamp((existingCustom as any)?.updated_at || existingCustom?.published_at)
+    );
+
+    const shouldUpdate =
+      !existingCustom ||
+      cloudTs >= localTs ||
+      existingCustom.cover_url !== cn.cover_url ||
+      existingCustom.title !== cn.title ||
+      existingCustom.content !== cn.content;
+
+    if (shouldUpdate) {
+      if (cn.id) overrides[cn.id] = cn;
+      if (cn.slug) overrides[cn.slug] = cn;
+      if (existingCustomIdx >= 0) {
+        customList[existingCustomIdx] = cn;
+      } else {
+        customList.unshift(cn);
+      }
+      changed = true;
+    }
+  }
+
+  if (changed) {
+    memoryNewsOverrides = overrides;
+    memoryCustomNews = customList;
+    safeWriteJson(CUSTOM_NEWS_KEY, customList);
+    // Store lighter override references when already in customList to avoid doubling base64 storage
+    safeWriteJson(NEWS_OVERRIDES_KEY, overrides);
+    window.dispatchEvent(new Event("worscoi_editorial_updated"));
+  }
+
+  return changed;
+}
+
 let isCloudSyncing = false;
 export async function initCloudEditorialSync(): Promise<void> {
   if (typeof window === "undefined" || isCloudSyncing) return;
   isCloudSyncing = true;
   try {
+    if (!unsubscribeCloudNewsListener) {
+      unsubscribeCloudNewsListener = subscribeToCloudNews((liveNews) => {
+        mergeCloudNewsIntoStore(liveNews);
+      });
+    }
+
     const [cloudNews, cloudBooks, cloudAnimes] = await Promise.all([
       fetchCloudNews(),
       fetchCloudBooks(),
@@ -44,21 +152,9 @@ export async function initCloudEditorialSync(): Promise<void> {
     let changed = false;
 
     if (cloudNews && cloudNews.length > 0) {
-      const customList = getCustomNewsPublications();
-      const overrides = getNewsOverrides();
-      for (const cn of cloudNews) {
-        overrides[cn.id] = cn;
-        if (cn.slug) overrides[cn.slug] = cn;
-        const idx = customList.findIndex((c) => c.id === cn.id || c.slug === cn.slug);
-        if (idx >= 0) {
-          customList[idx] = cn;
-        } else {
-          customList.unshift(cn);
-        }
+      if (mergeCloudNewsIntoStore(cloudNews)) {
+        changed = true;
       }
-      safeWriteJson(NEWS_OVERRIDES_KEY, overrides);
-      safeWriteJson(CUSTOM_NEWS_KEY, customList);
-      changed = true;
     }
 
     if (cloudBooks && cloudBooks.length > 0) {
@@ -98,14 +194,9 @@ export async function initCloudEditorialSync(): Promise<void> {
 }
 
 if (typeof window !== "undefined") {
-  let hasTriggeredInitialSync = false;
+  void initCloudEditorialSync();
   onAuthStateChanged(auth, () => {
-    if (!hasTriggeredInitialSync) {
-      hasTriggeredInitialSync = true;
-      void initCloudEditorialSync();
-    } else {
-      void initCloudEditorialSync();
-    }
+    void initCloudEditorialSync();
   });
 }
 
@@ -124,7 +215,25 @@ function safeWriteJson<T>(key: string, value: T): void {
   try {
     localStorage.setItem(key, JSON.stringify(value));
   } catch (err) {
-    console.warn("[EditorialStore] localStorage write notice:", err);
+    // Handle QuotaExceededError gracefully: for overrides, strip heavy base64 strings if customList already has them
+    if (key === NEWS_OVERRIDES_KEY && value && typeof value === "object") {
+      try {
+        const compacted: Record<string, any> = {};
+        for (const [k, entry] of Object.entries(value as Record<string, any>)) {
+          if (entry && typeof entry.cover_url === "string" && entry.cover_url.startsWith("data:") && entry.cover_url.length > 4000) {
+            const { cover_url: _drop, ...rest } = entry;
+            compacted[k] = rest;
+          } else {
+            compacted[k] = entry;
+          }
+        }
+        localStorage.setItem(key, JSON.stringify(compacted));
+      } catch {
+        console.warn("[EditorialStore] localStorage quota notice:", err);
+      }
+    } else {
+      console.warn("[EditorialStore] localStorage write notice:", err);
+    }
   } finally {
     try {
       window.dispatchEvent(new Event("worscoi_editorial_updated"));
@@ -213,22 +322,39 @@ export type EditorialNewsPatch = Partial<NewsItem> & {
 };
 
 export function getNewsOverrides(): Record<string, EditorialNewsPatch> {
-  return safeReadJson<Record<string, EditorialNewsPatch>>(NEWS_OVERRIDES_KEY, {});
+  if (!memoryNewsOverrides) {
+    memoryNewsOverrides = safeReadJson<Record<string, EditorialNewsPatch>>(NEWS_OVERRIDES_KEY, {});
+  }
+  return memoryNewsOverrides;
 }
 
 export function getCustomNewsPublications(): NewsItem[] {
-  return safeReadJson<NewsItem[]>(CUSTOM_NEWS_KEY, []);
+  if (!memoryCustomNews) {
+    memoryCustomNews = safeReadJson<NewsItem[]>(CUSTOM_NEWS_KEY, []);
+  }
+  return memoryCustomNews;
 }
 
 export function getDeletedNewsIds(): string[] {
-  const local = safeReadJson<string[]>(DELETED_NEWS_KEY, []);
-  return Array.from(new Set([...local, ...Array.from(EXCLUDED_IDS), ...Array.from(EXCLUDED_SLUGS)]));
+  if (!memoryDeletedNews) {
+    memoryDeletedNews = safeReadJson<string[]>(DELETED_NEWS_KEY, []);
+  }
+  return Array.from(new Set([...memoryDeletedNews, ...Array.from(EXCLUDED_IDS), ...Array.from(EXCLUDED_SLUGS)]));
 }
 
 export function applyNewsEditorialOverrides(items: NewsItem[]): NewsItem[] {
   const overrides = getNewsOverrides();
   const customList = getCustomNewsPublications();
   const deletedSet = new Set(getDeletedNewsIds().map((k) => k.toLowerCase()));
+
+  // Build map of incoming items by id/slug so fresher cloud items aren't shadowed by stale local custom cache
+  const incomingByKey = new Map<string, NewsItem>();
+  for (const item of items) {
+    const idKey = (item.id || "").toLowerCase();
+    const slugKey = (item.slug || "").toLowerCase();
+    if (idKey) incomingByKey.set(idKey, item);
+    if (slugKey) incomingByKey.set(slugKey, item);
+  }
 
   const result: NewsItem[] = [];
   const seenKeys = new Set<string>();
@@ -239,11 +365,17 @@ export function applyNewsEditorialOverrides(items: NewsItem[]): NewsItem[] {
     const slugKey = (custom.slug || "").toLowerCase();
     if (deletedSet.has(idKey) || (slugKey && deletedSet.has(slugKey))) continue;
 
+    const incomingMatch = incomingByKey.get(idKey) || (slugKey ? incomingByKey.get(slugKey) : undefined);
     const patch = overrides[custom.id] || (custom.slug ? overrides[custom.slug] : undefined);
-    const merged = patch ? { ...custom, ...patch } : custom;
+
+    const customTs = toTimestamp((custom as any).updated_at || custom.published_at);
+    const incomingTs = toTimestamp((incomingMatch as any)?.updated_at || incomingMatch?.published_at);
+    const baseItem = incomingMatch && incomingTs > customTs ? incomingMatch : custom;
+
+    const merged = patch && toTimestamp(patch.updated_at) >= incomingTs ? { ...baseItem, ...patch } : baseItem;
     if (merged.published === false) continue;
 
-    seenKeys.add(idKey || slugKey);
+    if (idKey) seenKeys.add(idKey);
     if (slugKey) seenKeys.add(slugKey);
     result.push(merged);
   }
@@ -256,7 +388,9 @@ export function applyNewsEditorialOverrides(items: NewsItem[]): NewsItem[] {
     if (seenKeys.has(idKey) || (slugKey && seenKeys.has(slugKey))) continue;
 
     const patch = overrides[item.id] || (item.slug ? overrides[item.slug] : undefined);
-    const merged = patch ? { ...item, ...patch } : item;
+    const itemTs = toTimestamp((item as any).updated_at || item.published_at);
+    const patchTs = toTimestamp(patch?.updated_at);
+    const merged = patch && (patchTs === 0 || patchTs >= itemTs) ? { ...item, ...patch } : item;
     if (merged.published === false) continue;
 
     if (idKey) seenKeys.add(idKey);
@@ -319,7 +453,7 @@ export function getSingleNewsWithOverrides(
   return patch ? ({ ...target, ...patch } as NewsItem) : target;
 }
 
-export function saveNewsPublication(
+function persistLocalNewsPublication(
   input: Partial<NewsItem> & {
     id?: string;
     slug?: string;
@@ -327,7 +461,7 @@ export function saveNewsPublication(
     source_name?: string;
     isNew?: boolean;
   }
-): NewsItem {
+): NewsItem & { author?: string; source_name?: string; created_at?: string; updated_at?: string } {
   const title = (input.title || "Nova Publicação Editorial").trim();
   const category = (input.category || "Geral").trim();
   const slug = (input.slug || slugifyEditorial(title) || `editorial-${Date.now()}`).trim();
@@ -339,8 +473,9 @@ export function saveNewsPublication(
     (input.excerpt || "").trim() ||
     content.replace(/###\s*/g, "").slice(0, 200).trim() + "...";
   const published_at = input.published_at || new Date().toISOString();
+  const nowIso = new Date().toISOString();
 
-  const fullItem: NewsItem & { author?: string; source_name?: string; updated_at?: string } = {
+  const fullItem: NewsItem & { author?: string; source_name?: string; created_at?: string; updated_at?: string } = {
     id,
     slug,
     title,
@@ -350,56 +485,91 @@ export function saveNewsPublication(
     category,
     published: input.published ?? true,
     published_at,
+    created_at: (input as any).created_at || published_at,
     author: input.author || "Miguel Worscoi (Redação Editorial)",
     source_name: input.source_name || "Worscoi Editorial",
-    updated_at: new Date().toISOString(),
+    updated_at: nowIso,
   };
 
-  // Save in overrides keyed by both id and slug so any existing article on the site is updated immediately
-  const overrides = getNewsOverrides();
+  // Save in overrides keyed by both id and slug
+  const overrides = { ...getNewsOverrides() };
   overrides[id] = fullItem;
   overrides[slug] = fullItem;
+  memoryNewsOverrides = overrides;
   safeWriteJson(NEWS_OVERRIDES_KEY, overrides);
 
-  // If it's a newly created or imported publication, also store in custom news list
-  const customList = getCustomNewsPublications();
+  // Store newly created or edited custom publications in custom news list
+  const customList = [...getCustomNewsPublications()];
   const existingIdx = customList.findIndex(
     (c) => c.id === id || c.slug === slug
   );
   if (existingIdx >= 0) {
     customList[existingIdx] = fullItem;
-    safeWriteJson(CUSTOM_NEWS_KEY, customList);
-  } else if (input.isNew) {
+  } else if (input.isNew || id.startsWith("editorial-") || id.startsWith("diverse-")) {
     customList.unshift(fullItem);
-    safeWriteJson(CUSTOM_NEWS_KEY, customList);
   }
+  memoryCustomNews = customList;
+  safeWriteJson(CUSTOM_NEWS_KEY, customList);
 
   // Ensure it's not in deleted list
-  const deleted = getDeletedNewsIds().filter(
+  const deleted = (memoryDeletedNews ?? safeReadJson<string[]>(DELETED_NEWS_KEY, [])).filter(
     (k) => k.toLowerCase() !== id.toLowerCase() && k.toLowerCase() !== slug.toLowerCase()
   );
+  memoryDeletedNews = deleted;
   safeWriteJson(DELETED_NEWS_KEY, deleted);
 
+  return fullItem;
+}
+
+export function saveNewsPublication(
+  input: Partial<NewsItem> & {
+    id?: string;
+    slug?: string;
+    author?: string;
+    source_name?: string;
+    isNew?: boolean;
+  }
+): NewsItem {
+  const fullItem = persistLocalNewsPublication(input);
   // Sync with Firestore Cloud immediately so all users receive the publication
   void publishNewsToCloud(fullItem);
-
   return fullItem;
+}
+
+export async function saveNewsPublicationWithSync(
+  input: Partial<NewsItem> & {
+    id?: string;
+    slug?: string;
+    author?: string;
+    source_name?: string;
+    isNew?: boolean;
+  }
+): Promise<{ item: NewsItem; cloudSynced: boolean; cloudError?: string }> {
+  const fullItem = persistLocalNewsPublication(input);
+  const res = await publishNewsToCloudDetailed(fullItem);
+  return {
+    item: fullItem,
+    cloudSynced: res.ok,
+    cloudError: res.error,
+  };
 }
 
 export function deleteNewsPublication(idOrSlug: string): void {
   const clean = idOrSlug.trim();
   if (!clean) return;
-  const deleted = getDeletedNewsIds();
-  if (!deleted.includes(clean)) {
-    deleted.push(clean);
-    safeWriteJson(DELETED_NEWS_KEY, deleted);
+  const currentDeleted = memoryDeletedNews ?? safeReadJson<string[]>(DELETED_NEWS_KEY, []);
+  if (!currentDeleted.includes(clean)) {
+    const nextDeleted = [...currentDeleted, clean];
+    memoryDeletedNews = nextDeleted;
+    safeWriteJson(DELETED_NEWS_KEY, nextDeleted);
   }
   const customList = getCustomNewsPublications().filter(
     (c) => c.id !== clean && c.slug !== clean
   );
+  memoryCustomNews = customList;
   safeWriteJson(CUSTOM_NEWS_KEY, customList);
 
-  // Mark deleted/unpublished in Firestore Cloud
+  // Remove from Firestore Cloud
   void deleteNewsFromCloud(clean);
 }
 
