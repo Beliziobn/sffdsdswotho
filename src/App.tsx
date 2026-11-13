@@ -1,4 +1,4 @@
-import { Suspense, lazy } from "react";
+import { Suspense, lazy, type ComponentType } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -10,39 +10,68 @@ import ScrollToTop from "./components/ScrollToTop";
 import CookieConsent from "./components/consent/CookieConsent";
 import TermsGate from "./components/consent/TermsGate";
 import CanonicalManager from "./components/CanonicalManager";
+import AppErrorBoundary from "./components/AppErrorBoundary";
+import OfflineBanner from "./components/OfflineBanner";
 
-const Books = lazy(() => import("./pages/Books"));
-const BookDetail = lazy(() => import("./pages/BookDetail"));
-const Reader = lazy(() => import("./pages/Reader"));
-const News = lazy(() => import("./pages/News"));
-const NewsArticle = lazy(() => import("./pages/NewsArticle"));
-const Library = lazy(() => import("./pages/Library"));
-const Admin = lazy(() => import("./pages/Admin"));
-const Auth = lazy(() => import("./pages/Auth"));
-const ContentDetail = lazy(() => import("./pages/ContentDetail"));
-const ContentReader = lazy(() => import("./pages/ContentReader"));
-const WebtoonDetail = lazy(() => import("./pages/WebtoonDetail"));
-const Webtoons = lazy(() => import("./pages/Webtoons"));
-const WebtoonReader = lazy(() => import("./pages/WebtoonReader"));
-const Animes = lazy(() => import("./pages/Animes"));
-const AnimeDetail = lazy(() => import("./pages/AnimeDetail"));
-const AnimeMangaReader = lazy(() => import("./pages/AnimeMangaReader"));
-const Cinema = lazy(() => import("./pages/Cinema"));
-const CinemaDetail = lazy(() => import("./pages/CinemaDetail"));
-const ForYou = lazy(() => import("./pages/ForYou"));
-const ContinueReading = lazy(() => import("./pages/ContinueReading"));
-const Search = lazy(() => import("./pages/Search"));
-const PurchaseSuccess = lazy(() => import("./pages/PurchaseSuccess"));
-const PurchaseCancelled = lazy(() => import("./pages/PurchaseCancelled"));
-const ResetPassword = lazy(() => import("./pages/ResetPassword"));
-const Terms = lazy(() => import("./pages/Terms"));
-const Privacy = lazy(() => import("./pages/Privacy"));
-const SiteMapPage = lazy(() => import("./pages/SiteMapPage"));
-const About = lazy(() => import("./pages/About"));
-const Contact = lazy(() => import("./pages/Contact"));
-const Profile = lazy(() => import("./pages/Profile"));
+function lazyWithRetry<T extends ComponentType<any>>(
+  factory: () => Promise<{ default: T }>
+) {
+  return lazy(async () => {
+    try {
+      return await factory();
+    } catch (firstError) {
+      if (typeof navigator !== "undefined" && navigator.onLine !== false) {
+        await new Promise((r) => setTimeout(r, 400));
+        return await factory();
+      }
+      throw firstError;
+    }
+  });
+}
+
+const Books = lazyWithRetry(() => import("./pages/Books"));
+const BookDetail = lazyWithRetry(() => import("./pages/BookDetail"));
+const Reader = lazyWithRetry(() => import("./pages/Reader"));
+const News = lazyWithRetry(() => import("./pages/News"));
+const NewsArticle = lazyWithRetry(() => import("./pages/NewsArticle"));
+const Library = lazyWithRetry(() => import("./pages/Library"));
+const Admin = lazyWithRetry(() => import("./pages/Admin"));
+const Auth = lazyWithRetry(() => import("./pages/Auth"));
+const ContentDetail = lazyWithRetry(() => import("./pages/ContentDetail"));
+const ContentReader = lazyWithRetry(() => import("./pages/ContentReader"));
+const WebtoonDetail = lazyWithRetry(() => import("./pages/WebtoonDetail"));
+const Webtoons = lazyWithRetry(() => import("./pages/Webtoons"));
+const WebtoonReader = lazyWithRetry(() => import("./pages/WebtoonReader"));
+const Animes = lazyWithRetry(() => import("./pages/Animes"));
+const AnimeDetail = lazyWithRetry(() => import("./pages/AnimeDetail"));
+const AnimeMangaReader = lazyWithRetry(() => import("./pages/AnimeMangaReader"));
+const Cinema = lazyWithRetry(() => import("./pages/Cinema"));
+const CinemaDetail = lazyWithRetry(() => import("./pages/CinemaDetail"));
+const ForYou = lazyWithRetry(() => import("./pages/ForYou"));
+const ContinueReading = lazyWithRetry(() => import("./pages/ContinueReading"));
+const Search = lazyWithRetry(() => import("./pages/Search"));
+const PurchaseSuccess = lazyWithRetry(() => import("./pages/PurchaseSuccess"));
+const PurchaseCancelled = lazyWithRetry(() => import("./pages/PurchaseCancelled"));
+const ResetPassword = lazyWithRetry(() => import("./pages/ResetPassword"));
+const Terms = lazyWithRetry(() => import("./pages/Terms"));
+const Privacy = lazyWithRetry(() => import("./pages/Privacy"));
+const SiteMapPage = lazyWithRetry(() => import("./pages/SiteMapPage"));
+const About = lazyWithRetry(() => import("./pages/About"));
+const Contact = lazyWithRetry(() => import("./pages/Contact"));
+const Profile = lazyWithRetry(() => import("./pages/Profile"));
 
 const SpeedInsights = () => null;
+
+const RouteLoadingFallback = () => (
+  <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-3">
+    <div className="w-24 h-0.5 bg-border overflow-hidden rounded-full">
+      <div className="h-full w-1/2 bg-primary animate-pulse rounded-full" />
+    </div>
+    <span className="text-[11px] uppercase tracking-widest text-muted-foreground font-light">
+      Carregando…
+    </span>
+  </div>
+);
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -67,7 +96,9 @@ const App = () => (
         <CanonicalManager />
         <CookieConsent />
         <TermsGate />
-        <Suspense fallback={<div className="min-h-screen bg-background" />}>
+        <OfflineBanner />
+        <AppErrorBoundary>
+          <Suspense fallback={<RouteLoadingFallback />}>
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/livros" element={<Books />} />
@@ -110,7 +141,8 @@ const App = () => (
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
-        </Suspense>
+          </Suspense>
+        </AppErrorBoundary>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>

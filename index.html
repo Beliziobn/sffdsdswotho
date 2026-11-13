@@ -174,50 +174,101 @@
     <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-W9XSHXQS" height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <!-- End Google Tag Manager (noscript) -->
 
-    <!-- Conteúdo inicial renderizado imediatamente no HTML para indexação e carregamento progressivo -->
     <div id="root">
-      <header style="max-width:1120px;margin:0 auto;padding:24px 24px 12px;font-family:'DM Sans',sans-serif;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #e4e4e7;">
-        <a href="/" style="font-weight:500;font-size:18px;color:#18181b;text-decoration:none;">Wotho</a>
-        <nav aria-label="Navegação principal" style="display:flex;gap:18px;flex-wrap:wrap;font-size:13px;">
-          <a href="/livros" style="color:#27272a;text-decoration:none;">Livros</a>
-          <a href="/noticias" style="color:#27272a;text-decoration:none;">Notícias</a>
-          <a href="/cinema" style="color:#27272a;text-decoration:none;">Cinema &amp; Streaming</a>
-          <a href="/animes" style="color:#27272a;text-decoration:none;">Animes</a>
-          <a href="/webtoons" style="color:#27272a;text-decoration:none;">Webtoons</a>
-        </nav>
-      </header>
-      <main style="max-width:1120px;margin:0 auto;padding:48px 24px;font-family:'DM Sans',sans-serif;color:#18181b;">
-        <h1 style="font-size:36px;font-weight:400;line-height:1.2;margin:0 0 16px;">Wotho — Livros, notícias globais, streaming e webtoons</h1>
-        <p style="font-size:16px;line-height:1.6;color:#52525b;max-width:720px;margin:0 0 32px;">
-          Plataforma editorial e cultural integrada para ler livros digitais completos no navegador, acompanhar notícias globais em tempo real, assistir a filmes, séries e animes em streaming e explorar webtoons em scroll vertical.
-        </p>
-        <section aria-label="Secções principais da Wotho" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;">
-          <article style="border:1px solid #e4e4e7;border-radius:10px;padding:18px;">
-            <h2 style="font-size:18px;font-weight:500;margin:0 0 8px;"><a href="/livros" style="color:#18181b;text-decoration:none;">Livros Digitais</a></h2>
-            <p style="font-size:14px;color:#52525b;margin:0;">Bestsellers modernos, clássicos da filosofia, acervo curricular para o ENEM e artigos científicos em texto e PDF.</p>
-          </article>
-          <article style="border:1px solid #e4e4e7;border-radius:10px;padding:18px;">
-            <h2 style="font-size:18px;font-weight:500;margin:0 0 8px;"><a href="/noticias" style="color:#18181b;text-decoration:none;">Notícias Globais</a></h2>
-            <p style="font-size:14px;color:#52525b;margin:0;">Cobertura contínua sobre tecnologia, ciência, economia, esportes, cultura e grandes ideias.</p>
-          </article>
-          <article style="border:1px solid #e4e4e7;border-radius:10px;padding:18px;">
-            <h2 style="font-size:18px;font-weight:500;margin:0 0 8px;"><a href="/cinema" style="color:#18181b;text-decoration:none;">Streaming de Cinema &amp; Animes</a></h2>
-            <p style="font-size:14px;color:#52525b;margin:0;">Filmes, séries e animes selecionados em alta definição com áudio em português e legendas completas (<a href="/animes">ver animes</a>).</p>
-          </article>
-          <article style="border:1px solid #e4e4e7;border-radius:10px;padding:18px;">
-            <h2 style="font-size:18px;font-weight:500;margin:0 0 8px;"><a href="/webtoons" style="color:#18181b;text-decoration:none;">Webtoons &amp; Comics</a></h2>
-            <p style="font-size:14px;color:#52525b;margin:0;">Histórias ilustradas em leitura vertical contínua de ação, fantasia, drama e ficção.</p>
-          </article>
-        </section>
-      </main>
-      <footer style="max-width:1120px;margin:0 auto;padding:24px;border-top:1px solid #e4e4e7;font-family:'DM Sans',sans-serif;font-size:13px;color:#71717a;">
-        <a href="/sobre" style="color:#52525b;margin-right:16px;">Sobre a Wotho</a>
-        <a href="/contato" style="color:#52525b;margin-right:16px;">Contato</a>
-        <a href="/mapa-do-site" style="color:#52525b;margin-right:16px;">Mapa do Site</a>
-        <a href="/termos" style="color:#52525b;margin-right:16px;">Termos de Uso</a>
-        <a href="/privacidade" style="color:#52525b;">Privacidade</a>
-      </footer>
+      <div
+        id="wotho-boot-shell"
+        style="min-height:100vh;width:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;box-sizing:border-box;background:#09090b;color:#fafafa;font-family:'DM Sans',system-ui,-apple-system,sans-serif;text-align:center;"
+      >
+        <div style="display:flex;flex-direction:column;align-items:center;gap:18px;max-width:340px;">
+          <img
+            src="/favicon.svg"
+            alt="Wotho"
+            width="44"
+            height="44"
+            style="width:44px;height:44px;object-fit:contain;opacity:0.95;"
+          />
+          <div
+            id="wotho-boot-loader"
+            style="width:120px;height:2px;background:rgba(255,255,255,0.14);border-radius:999px;overflow:hidden;position:relative;"
+          >
+            <div
+              style="position:absolute;inset:0;width:45%;background:#6366f1;border-radius:999px;animation:wothoBootSlide 1.15s ease-in-out infinite;"
+            ></div>
+          </div>
+          <p
+            id="wotho-boot-status"
+            style="margin:0;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;color:rgba(250,250,250,0.65);"
+          >
+            Carregando Wotho…
+          </p>
+          <div id="wotho-boot-offline" style="display:none;flex-direction:column;align-items:center;gap:12px;margin-top:4px;">
+            <p style="margin:0;font-size:13px;line-height:1.5;color:rgba(250,250,250,0.72);">
+              Não foi possível carregar a plataforma. Verifique sua conexão com a internet e tente novamente.
+            </p>
+            <button
+              type="button"
+              onclick="window.location.reload()"
+              style="padding:9px 22px;border-radius:999px;border:1px solid rgba(255,255,255,0.22);background:rgba(255,255,255,0.08);color:#fff;font-size:12px;letter-spacing:0.08em;text-transform:uppercase;cursor:pointer;font-family:inherit;"
+            >
+              Tentar novamente
+            </button>
+          </div>
+        </div>
+        <style>
+          @keyframes wothoBootSlide {
+            0% { transform: translateX(-110%); }
+            100% { transform: translateX(240%); }
+          }
+        </style>
+      </div>
     </div>
+    <noscript>
+      <main style="max-width:720px;margin:64px auto;padding:24px;font-family:'DM Sans',sans-serif;color:#18181b;">
+        <h1>Wotho — Livros, notícias globais, streaming e webtoons</h1>
+        <p>Ative o JavaScript no seu navegador para acessar a plataforma Wotho.</p>
+      </main>
+    </noscript>
+    <script>
+      (function () {
+        var showOfflineState = function () {
+          if (window.__WOTHO_APP_MOUNTED__) return;
+          var loader = document.getElementById("wotho-boot-loader");
+          var status = document.getElementById("wotho-boot-status");
+          var offline = document.getElementById("wotho-boot-offline");
+          if (loader) loader.style.display = "none";
+          if (status) {
+            status.textContent = navigator.onLine === false ? "Sem conexão com a internet" : "Conexão instável";
+          }
+          if (offline) offline.style.display = "flex";
+        };
+
+        if (navigator.onLine === false) {
+          setTimeout(showOfflineState, 1200);
+        }
+
+        window.addEventListener("offline", function () {
+          if (!window.__WOTHO_APP_MOUNTED__) showOfflineState();
+        });
+
+        window.addEventListener(
+          "error",
+          function (e) {
+            if (window.__WOTHO_APP_MOUNTED__) return;
+            var target = e && e.target;
+            if (target && (target.tagName === "SCRIPT" || target.tagName === "LINK")) {
+              showOfflineState();
+            }
+          },
+          true
+        );
+
+        setTimeout(function () {
+          if (!window.__WOTHO_APP_MOUNTED__ && navigator.onLine === false) {
+            showOfflineState();
+          }
+        }, 4500);
+      })();
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
