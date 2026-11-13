@@ -44856,7 +44856,7 @@
         "poster": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx190327-riJNCFL7w9y4.jpg",
         "banner": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/190327-bXr8tFZUdxOw.jpg",
         "trailerYoutubeId": "b51C8AbRDGU",
-        "episodes": [
+            "episodes": [
           {
             "id": "steel-ball-run-s1-ep-1",
             "animeId": "steel-ball-run",
@@ -44869,9 +44869,9 @@
             "synopsis": "Especial de estreia de 48 minutos da 1ª Parte (1st Stage): Em 25 de setembro de 1890, Steven Steel dá a largada na praia de San Diego para os 3.852 cavaleiros. Johnny Joestar descobre o mistério da Rotação das Esferas de Aço de Gyro Zeppeli na corrida de 15.000 metros contra Diego Brando, Pocoloco e Sandman.",
             "isFree": true,
             "contentHash": "sha256-3f5c2c232160d651c773c2ac",
-            "streamUrl": "https://cdn-sv01.maximaimg.online/stream/j/jojo-no-kimyou-na-bouken-dublado/01.mp4/index.m3u8",
-            "hlsStreamUrl": "https://cdn-sv01.maximaimg.online/stream/j/jojo-no-kimyou-na-bouken-dublado/01.mp4/index.m3u8",
-            "subHlsStreamUrl": "https://cdn-sv01.maximaimg.online/stream/j/jojo-no-kimyou-na-bouken/01.mp4/index.m3u8",
+            "streamUrl": "https://archive.org/download/steel-ball-run-jo-jos-bizarre-adventure-1st-stage-episode-1/STEEL%20BALL%20RUN%20JoJo%27s%20Bizarre%20Adventure%201st%20STAGE%20-%20Episode%201.ia.mp4",
+            "hlsStreamUrl": "https://archive.org/download/steel-ball-run-jo-jos-bizarre-adventure-1st-stage-episode-1/STEEL%20BALL%20RUN%20JoJo%27s%20Bizarre%20Adventure%201st%20STAGE%20-%20Episode%201.ia.mp4",
+            "subHlsStreamUrl": "https://archive.org/download/jo-jo.s.-bizarre.-adventure.-steel.-ball.-run.-e-01.540p.x-265.-aac.-9ja-rocks.-com/JoJo.s.Bizarre.Adventure.Steel.Ball.Run.E01.540p.x265.AAC.%5B9jaRocks.Com%5D.mp4",
             "anivideoEmbedUrl": "https://archive.org/embed/steel-ball-run-jo-jos-bizarre-adventure-1st-stage-episode-1",
             "youtubeVideoId": "b51C8AbRDGU",
             "sources": [
@@ -44919,10 +44919,10 @@
             "synopsis": "Após a chegada explosiva da 1st Stage de 15.000 metros e a revisão de Gyro Zeppeli, os competidores encaram os 1.200 km mortais do Deserto do Arizona.",
             "isFree": true,
             "contentHash": "sha256-394360962a59bbc99d25b768",
-            "streamUrl": "https://cdn-sv01.maximaimg.online/stream/j/jojo-no-kimyou-na-bouken-dublado/01.mp4/index.m3u8",
-            "hlsStreamUrl": "https://cdn-sv01.maximaimg.online/stream/j/jojo-no-kimyou-na-bouken-dublado/01.mp4/index.m3u8",
-            "subHlsStreamUrl": "https://cdn-sv01.maximaimg.online/stream/j/jojo-no-kimyou-na-bouken/01.mp4/index.m3u8",
-            "anivideoEmbedUrl": "https://archive.org/embed/steel-ball-run-jo-jos-bizarre-adventure-2nd-3rd-stage-episode-1",
+            "streamUrl": "https://archive.org/download/steel-ball-run-jo-jos-bizarre-adventure-1st-stage-episode-1/STEEL%20BALL%20RUN%20JoJo%27s%20Bizarre%20Adventure%202nd%20-%203rd%20STAGE%20-%20Episode%201.ia.mp4",
+            "hlsStreamUrl": "https://archive.org/download/steel-ball-run-jo-jos-bizarre-adventure-1st-stage-episode-1/STEEL%20BALL%20RUN%20JoJo%27s%20Bizarre%20Adventure%202nd%20-%203rd%20STAGE%20-%20Episode%201.ia.mp4",
+            "subHlsStreamUrl": "https://archive.org/download/jo-jo.s.-bizarre.-adventure.-steel.-ball.-run.-e-01.540p.x-265.-aac.-9ja-rocks.-com/JoJo.s.Bizarre.Adventure.Steel.Ball.Run.E02.540p.x265.AAC.%5B9jaRocks.Com%5D.mp4",
+            "anivideoEmbedUrl": "https://archive.org/embed/steel-ball-run-jo-jos-bizarre-adventure-1st-stage-episode-1",
             "youtubeVideoId": "jXtG_lcR9P4",
             "sources": [
               {
@@ -44954,10 +44954,10 @@
             "synopsis": "Johnny Joestar e Gyro Zeppeli desviam da rota principal no Arizona enquanto assassinatos misteriosos no deserto colocam o xerife Mountain Tim no rastro dos corredores.",
             "isFree": true,
             "contentHash": "sha256-f882d2a4039f0468a139db5e",
-            "streamUrl": "https://cdn-sv01.maximaimg.online/stream/j/jojo-no-kimyou-na-bouken-dublado/02.mp4/index.m3u8",
-            "hlsStreamUrl": "https://cdn-sv01.maximaimg.online/stream/j/jojo-no-kimyou-na-bouken-dublado/02.mp4/index.m3u8",
-            "subHlsStreamUrl": "https://cdn-sv01.maximaimg.online/stream/j/jojo-no-kimyou-na-bouken/02.mp4/index.m3u8",
-            "anivideoEmbedUrl": "https://archive.org/embed/steel-ball-run-jo-jos-bizarre-adventure-2nd-3rd-stage-episode-1",
+            "streamUrl": "https://archive.org/download/steel-ball-run-jo-jos-bizarre-adventure-1st-stage-episode-1/STEEL%20BALL%20RUN%20JoJo%27s%20Bizarre%20Adventure%202nd%20-%203rd%20STAGE%20-%20Episode%202.ia.mp4",
+            "hlsStreamUrl": "https://archive.org/download/steel-ball-run-jo-jos-bizarre-adventure-1st-stage-episode-1/STEEL%20BALL%20RUN%20JoJo%27s%20Bizarre%20Adventure%202nd%20-%203rd%20STAGE%20-%20Episode%202.ia.mp4",
+            "subHlsStreamUrl": "https://archive.org/download/jo-jo.s.-bizarre.-adventure.-steel.-ball.-run.-e-01.540p.x-265.-aac.-9ja-rocks.-com/JoJo.s.Bizarre.Adventure.Steel.Ball.Run.S01E03.540p.x265.AAC.%5B9jaRocks.Com%5D.mp4",
+            "anivideoEmbedUrl": "https://archive.org/embed/steel-ball-run-jo-jos-bizarre-adventure-1st-stage-episode-1",
             "youtubeVideoId": "jXtG_lcR9P4",
             "sources": [
               {
@@ -44989,10 +44989,10 @@
             "synopsis": "Benjamin, Andre e L.A. Boom Boom emboscam Johnny e Gyro no deserto usando o magnetismo letal do Stand compartilhado Tomb of the Boom.",
             "isFree": true,
             "contentHash": "sha256-9f679650a324921c525e642b",
-            "streamUrl": "https://cdn-sv01.maximaimg.online/stream/j/jojo-no-kimyou-na-bouken-dublado/03.mp4/index.m3u8",
-            "hlsStreamUrl": "https://cdn-sv01.maximaimg.online/stream/j/jojo-no-kimyou-na-bouken-dublado/03.mp4/index.m3u8",
-            "subHlsStreamUrl": "https://cdn-sv01.maximaimg.online/stream/j/jojo-no-kimyou-na-bouken/03.mp4/index.m3u8",
-            "anivideoEmbedUrl": "https://archive.org/embed/clideo_editor_55d2ad6530ee4a05ad8f4b87d90610c8",
+            "streamUrl": "https://archive.org/download/steel-ball-run-jo-jos-bizarre-adventure-1st-stage-episode-1/STEEL%20BALL%20RUN%20JoJo%27s%20Bizarre%20Adventure%202nd%20-%203rd%20STAGE%20-%20Episode%203.ia.mp4",
+            "hlsStreamUrl": "https://archive.org/download/steel-ball-run-jo-jos-bizarre-adventure-1st-stage-episode-1/STEEL%20BALL%20RUN%20JoJo%27s%20Bizarre%20Adventure%202nd%20-%203rd%20STAGE%20-%20Episode%203.ia.mp4",
+            "subHlsStreamUrl": "https://archive.org/download/jo-jo.s.-bizarre.-adventure.-steel.-ball.-run.-e-01.540p.x-265.-aac.-9ja-rocks.-com/JoJo.s.Bizarre.Adventure.Steel.Ball.Run.S01E04.540p.x265.AAC.%5B9jaRocks.Com%5D.mp4",
+            "anivideoEmbedUrl": "https://archive.org/embed/steel-ball-run-jo-jos-bizarre-adventure-1st-stage-episode-1",
             "youtubeVideoId": "jXtG_lcR9P4",
             "sources": [
               {
@@ -45024,10 +45024,10 @@
             "synopsis": "Com a chegada de Mountain Tim na Palma do Diabo (Devil's Palm), Johnny Joestar absorve o Braço Esquerdo do Cadáver Sagrado e desperta o Stand Tusk.",
             "isFree": true,
             "contentHash": "sha256-a725e801e3e1c666480cde31",
-            "streamUrl": "https://cdn-sv01.maximaimg.online/stream/j/jojo-no-kimyou-na-bouken-dublado/04.mp4/index.m3u8",
-            "hlsStreamUrl": "https://cdn-sv01.maximaimg.online/stream/j/jojo-no-kimyou-na-bouken-dublado/04.mp4/index.m3u8",
-            "subHlsStreamUrl": "https://cdn-sv01.maximaimg.online/stream/j/jojo-no-kimyou-na-bouken/04.mp4/index.m3u8",
-            "anivideoEmbedUrl": "https://archive.org/embed/clideo_editor_55d2ad6530ee4a05ad8f4b87d90610c8",
+            "streamUrl": "https://archive.org/download/steel-ball-run-jo-jos-bizarre-adventure-1st-stage-episode-1/STEEL%20BALL%20RUN%20JoJo%27s%20Bizarre%20Adventure%202nd%20-%203rd%20STAGE%20-%20Episode%204.ia.mp4",
+            "hlsStreamUrl": "https://archive.org/download/steel-ball-run-jo-jos-bizarre-adventure-1st-stage-episode-1/STEEL%20BALL%20RUN%20JoJo%27s%20Bizarre%20Adventure%202nd%20-%203rd%20STAGE%20-%20Episode%204.ia.mp4",
+            "subHlsStreamUrl": "https://archive.org/download/steel-ball-run-jo-jos-bizarre-adventure-2nd-3rd-stage-episode-1/clideo_editor_e79ba4f6df7a44fc84a78b656cce5d24.mp4",
+            "anivideoEmbedUrl": "https://archive.org/embed/steel-ball-run-jo-jos-bizarre-adventure-1st-stage-episode-1",
             "youtubeVideoId": "jXtG_lcR9P4",
             "sources": [
               {
@@ -45059,10 +45059,10 @@
             "synopsis": "Oyecomova invade o acampamento de Gyro e Johnny buscando vingança contra a família Zeppeli com seus pinos-relógio explosivos.",
             "isFree": true,
             "contentHash": "sha256-1dd0f9cf517e8441a506418f",
-            "streamUrl": "https://cdn-sv01.maximaimg.online/stream/j/jojo-no-kimyou-na-bouken-dublado/05.mp4/index.m3u8",
-            "hlsStreamUrl": "https://cdn-sv01.maximaimg.online/stream/j/jojo-no-kimyou-na-bouken-dublado/05.mp4/index.m3u8",
-            "subHlsStreamUrl": "https://cdn-sv01.maximaimg.online/stream/j/jojo-no-kimyou-na-bouken/05.mp4/index.m3u8",
-            "anivideoEmbedUrl": "https://archive.org/embed/steel-ball-run-jo-jos-bizarre-adventure-2nd-3rd-stage-episode-5-online-video-cutter.com-merged",
+            "streamUrl": "https://archive.org/download/steel-ball-run-jo-jos-bizarre-adventure-1st-stage-episode-1/STEEL%20BALL%20RUN%20JoJo%27s%20Bizarre%20Adventure%202nd%20-%203rd%20STAGE%20-%20Episode%205.ia.mp4",
+            "hlsStreamUrl": "https://archive.org/download/steel-ball-run-jo-jos-bizarre-adventure-1st-stage-episode-1/STEEL%20BALL%20RUN%20JoJo%27s%20Bizarre%20Adventure%202nd%20-%203rd%20STAGE%20-%20Episode%205.ia.mp4",
+            "subHlsStreamUrl": "https://archive.org/download/steel-ball-run-jo-jos-bizarre-adventure-1st-stage-episode-1/STEEL%20BALL%20RUN%20JoJo%27s%20Bizarre%20Adventure%202nd%20-%203rd%20STAGE%20-%20Episode%205.mp4",
+            "anivideoEmbedUrl": "https://archive.org/embed/steel-ball-run-jo-jos-bizarre-adventure-1st-stage-episode-1",
             "youtubeVideoId": "jXtG_lcR9P4",
             "sources": [
               {
@@ -45076,7 +45076,7 @@
               {
                 "id": "steel-ball-run-s2-e5-sub",
                 "quality": "1080p",
-                "streamUrl": "https://archive.org/download/clideo_editor_55d2ad6530ee4a05ad8f4b87d90610c8/STEEL%20BALL%20RUN%20JoJo%27s%20Bizarre%20Adventure%202nd%20-%203rd%20STAGE%20-%20Episode%203%20(1)-shorts.mp4",
+                "streamUrl": "https://archive.org/download/steel-ball-run-jo-jos-bizarre-adventure-1st-stage-episode-1/STEEL%20BALL%20RUN%20JoJo%27s%20Bizarre%20Adventure%202nd%20-%203rd%20STAGE%20-%20Episode%205.mp4",
                 "format": "mp4",
                 "provider": "Worscoi Servidor Alternativo"
               }
@@ -45094,10 +45094,10 @@
             "synopsis": "Sob a pressão das bombas de contato de Oyecomova, Johnny e Gyro combinam a Rotação da Esfera de Aço com as unhas giratórias do Tusk.",
             "isFree": true,
             "contentHash": "sha256-ef82df75ee1cfe17276fb29a",
-            "streamUrl": "https://cdn-sv01.maximaimg.online/stream/j/jojo-no-kimyou-na-bouken-dublado/06.mp4/index.m3u8",
-            "hlsStreamUrl": "https://cdn-sv01.maximaimg.online/stream/j/jojo-no-kimyou-na-bouken-dublado/06.mp4/index.m3u8",
-            "subHlsStreamUrl": "https://cdn-sv01.maximaimg.online/stream/j/jojo-no-kimyou-na-bouken/06.mp4/index.m3u8",
-            "anivideoEmbedUrl": "https://archive.org/embed/steel-ball-run-jo-jos-bizarre-adventure-2nd-3rd-stage-episode-5-online-video-cutter.com-merged",
+            "streamUrl": "https://archive.org/download/steel-ball-run-jo-jos-bizarre-adventure-1st-stage-episode-1/STEEL%20BALL%20RUN%20JoJo%27s%20Bizarre%20Adventure%202nd%20-%203rd%20STAGE%20-%20Episode%206.ia.mp4",
+            "hlsStreamUrl": "https://archive.org/download/steel-ball-run-jo-jos-bizarre-adventure-1st-stage-episode-1/STEEL%20BALL%20RUN%20JoJo%27s%20Bizarre%20Adventure%202nd%20-%203rd%20STAGE%20-%20Episode%206.ia.mp4",
+            "subHlsStreamUrl": "https://archive.org/download/steel-ball-run-jo-jos-bizarre-adventure-1st-stage-episode-1/STEEL%20BALL%20RUN%20JoJo%27s%20Bizarre%20Adventure%202nd%20-%203rd%20STAGE%20-%20Episode%206.mp4",
+            "anivideoEmbedUrl": "https://archive.org/embed/steel-ball-run-jo-jos-bizarre-adventure-1st-stage-episode-1",
             "youtubeVideoId": "jXtG_lcR9P4",
             "sources": [
               {
@@ -45111,7 +45111,7 @@
               {
                 "id": "steel-ball-run-s2-e6-sub",
                 "quality": "1080p",
-                "streamUrl": "https://archive.org/download/clideo_editor_55d2ad6530ee4a05ad8f4b87d90610c8/clideo_editor_55d2ad6530ee4a05ad8f4b87d90610c8.mp4",
+                "streamUrl": "https://archive.org/download/steel-ball-run-jo-jos-bizarre-adventure-1st-stage-episode-1/STEEL%20BALL%20RUN%20JoJo%27s%20Bizarre%20Adventure%202nd%20-%203rd%20STAGE%20-%20Episode%206.mp4",
                 "format": "mp4",
                 "provider": "Worscoi Servidor Alternativo"
               }
@@ -45124,21 +45124,21 @@
             "seasonNumber": 2,
             "number": 7,
             "title": "Episódio 7 — Os Anzóis Invisíveis de Pork Pie Hat Kid (Stand Wired)",
-            "duration": "24 min",
+            "duration": "25 min",
             "thumbnail": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/210482-pYAD0IbzNbgS.jpg",
             "synopsis": "Enviado por Funny Valentine para capturar a parte do Cadáver Sagrado, Pork Pie Hat Kid ataca do céu usando os cabos dimensionais do Stand Wired.",
             "isFree": true,
             "contentHash": "sha256-6ee948f4bf6d5b17a56ccebb",
-            "streamUrl": "https://cdn-sv01.maximaimg.online/stream/j/jojo-no-kimyou-na-bouken-dublado/07.mp4/index.m3u8",
-            "hlsStreamUrl": "https://cdn-sv01.maximaimg.online/stream/j/jojo-no-kimyou-na-bouken-dublado/07.mp4/index.m3u8",
-            "subHlsStreamUrl": "https://cdn-sv01.maximaimg.online/stream/j/jojo-no-kimyou-na-bouken/07.mp4/index.m3u8",
-            "anivideoEmbedUrl": "https://archive.org/embed/steel-ball-run-jo-jos-bizarre-adventure-2nd-3rd-stage-episode-5-online-video-cutter.com-merged",
+            "streamUrl": "https://archive.org/download/steel-ball-run-jo-jos-bizarre-adventure-1st-stage-episode-1/STEEL%20BALL%20RUN%20JoJo%27s%20Bizarre%20Adventure%202nd%20-%203rd%20STAGE%20-%20Episode%205.ia.mp4",
+            "hlsStreamUrl": "https://archive.org/download/steel-ball-run-jo-jos-bizarre-adventure-1st-stage-episode-1/STEEL%20BALL%20RUN%20JoJo%27s%20Bizarre%20Adventure%202nd%20-%203rd%20STAGE%20-%20Episode%205.ia.mp4",
+            "subHlsStreamUrl": "https://archive.org/download/steel-ball-run-jo-jos-bizarre-adventure-1st-stage-episode-1/STEEL%20BALL%20RUN%20JoJo%27s%20Bizarre%20Adventure%202nd%20-%203rd%20STAGE%20-%20Episode%205.mp4",
+            "anivideoEmbedUrl": "https://archive.org/embed/steel-ball-run-jo-jos-bizarre-adventure-1st-stage-episode-1",
             "youtubeVideoId": "jXtG_lcR9P4",
             "sources": [
               {
                 "id": "steel-ball-run-s2-e7-dub",
                 "quality": "1080p",
-                "streamUrl": "https://archive.org/download/steel-ball-run-jo-jos-bizarre-adventure-2nd-3rd-stage-episode-5-online-video-cutter.com-merged/STEEL%20BALL%20RUN%20JoJo%27s%20Bizarre%20Adventure%202nd%20-%203rd%20STAGE%20-%20Episode%205%20(online-video-cutter.com)_merged.mp4",
+                "streamUrl": "https://archive.org/download/steel-ball-run-jo-jos-bizarre-adventure-1st-stage-episode-1/STEEL%20BALL%20RUN%20JoJo%27s%20Bizarre%20Adventure%202nd%20-%203rd%20STAGE%20-%20Episode%205.ia.mp4",
                 "format": "mp4",
                 "provider": "Worscoi HD Principal",
                 "isDefault": true
@@ -45159,21 +45159,21 @@
             "seasonNumber": 2,
             "number": 8,
             "title": "Episódio 8 — Monument Valley: O Sprint Final da 2nd Stage contra Diego Brando",
-            "duration": "24 min",
+            "duration": "25 min",
             "thumbnail": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/210482-pYAD0IbzNbgS.jpg",
             "synopsis": "Após derrotarem Pork Pie Hat Kid, Gyro Zeppeli, Johnny Joestar, Diego Brando e Sandman disputam a chegada eletrizante da 2ª Etapa em Monument Valley.",
             "isFree": true,
             "contentHash": "sha256-757084ae0c63cd6264019c91",
-            "streamUrl": "https://cdn-sv01.maximaimg.online/stream/j/jojo-no-kimyou-na-bouken-dublado/08.mp4/index.m3u8",
-            "hlsStreamUrl": "https://cdn-sv01.maximaimg.online/stream/j/jojo-no-kimyou-na-bouken-dublado/08.mp4/index.m3u8",
-            "subHlsStreamUrl": "https://cdn-sv01.maximaimg.online/stream/j/jojo-no-kimyou-na-bouken/08.mp4/index.m3u8",
-            "anivideoEmbedUrl": "https://archive.org/embed/steel-ball-run-jo-jos-bizarre-adventure-2nd-3rd-stage-episode-5-online-video-cutter.com-merged",
+            "streamUrl": "https://archive.org/download/steel-ball-run-jo-jos-bizarre-adventure-1st-stage-episode-1/STEEL%20BALL%20RUN%20JoJo%27s%20Bizarre%20Adventure%202nd%20-%203rd%20STAGE%20-%20Episode%206.ia.mp4",
+            "hlsStreamUrl": "https://archive.org/download/steel-ball-run-jo-jos-bizarre-adventure-1st-stage-episode-1/STEEL%20BALL%20RUN%20JoJo%27s%20Bizarre%20Adventure%202nd%20-%203rd%20STAGE%20-%20Episode%206.ia.mp4",
+            "subHlsStreamUrl": "https://archive.org/download/steel-ball-run-jo-jos-bizarre-adventure-1st-stage-episode-1/STEEL%20BALL%20RUN%20JoJo%27s%20Bizarre%20Adventure%202nd%20-%203rd%20STAGE%20-%20Episode%206.mp4",
+            "anivideoEmbedUrl": "https://archive.org/embed/steel-ball-run-jo-jos-bizarre-adventure-1st-stage-episode-1",
             "youtubeVideoId": "jXtG_lcR9P4",
             "sources": [
               {
                 "id": "steel-ball-run-s2-e8-dub",
                 "quality": "1080p",
-                "streamUrl": "https://archive.org/download/steel-ball-run-jo-jos-bizarre-adventure-2nd-3rd-stage-episode-5-online-video-cutter.com-merged/STEEL%20BALL%20RUN%20JoJo%27s%20Bizarre%20Adventure%202nd%20-%203rd%20STAGE%20-%20Episode%206%20(1)_merged.mp4",
+                "streamUrl": "https://archive.org/download/steel-ball-run-jo-jos-bizarre-adventure-1st-stage-episode-1/STEEL%20BALL%20RUN%20JoJo%27s%20Bizarre%20Adventure%202nd%20-%203rd%20STAGE%20-%20Episode%206.ia.mp4",
                 "format": "mp4",
                 "provider": "Worscoi HD Principal",
                 "isDefault": true

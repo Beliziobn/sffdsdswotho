@@ -21,6 +21,7 @@ const K_IMDB_ID = 'f35a814265e871c4933a725f';
 const resolveCache = new Map();
 const tmdbDetailsCache = new Map();
 const subtitleVttCache = new Map();
+const andromedaTokenCache = new Map();
 
 const LANGUAGE_METADATA = {
   'ptbr:0': { label: 'Português (Dublado PT-BR)', shortLabel: '🇧🇷 Dublado PT-BR', flag: '🇧🇷', audioMode: 'dublado' },
@@ -189,6 +190,12 @@ async function discoverVidstuckPayloadKey() {
 }
 
 async function fetchAndromedaToken(commonHeaders, tmdbId, mediaType, serverKey, season, episode) {
+  const tokenCacheKey = `${tmdbId}:${mediaType}:${serverKey}:${season || '1'}:${episode || '1'}`;
+  const cachedTok = andromedaTokenCache.get(tokenCacheKey);
+  if (cachedTok && cachedTok.expiresAt > Date.now()) {
+    return { token: cachedTok.token, ts: cachedTok.ts };
+  }
+
   const abcdPayload = {
     id: String(tmdbId),
     media_type: mediaType,
@@ -208,7 +215,6 @@ async function fetchAndromedaToken(commonHeaders, tmdbId, mediaType, serverKey, 
         [K_SERVER]: serverKey,
         [activePayloadKey]: encrypted,
         meow: encrypted,
-        abcd: encrypted,
       };
       if (mediaType === 'tv') {
         tokenBody[K_SEASON] = Number(season || '1');
@@ -233,7 +239,7 @@ async function fetchAndromedaToken(commonHeaders, tmdbId, mediaType, serverKey, 
         continue;
       }
       if (tokRes.status === 429 && attempt === 0) {
-        await sleep(300);
+        await sleep(350);
         continue;
       }
       if (!tokRes.ok) return null;
@@ -242,6 +248,11 @@ async function fetchAndromedaToken(commonHeaders, tmdbId, mediaType, serverKey, 
       if (!text.startsWith('{')) return null;
       const tok = JSON.parse(text);
       if (!tok?.token || !tok?.ts) return null;
+      andromedaTokenCache.set(tokenCacheKey, {
+        token: tok.token,
+        ts: tok.ts,
+        expiresAt: Date.now() + 45000,
+      });
       return { token: tok.token, ts: tok.ts };
     } catch {
       if (attempt === 0) {
@@ -534,6 +545,9 @@ export async function resolveVidstuckStreams(params) {
   let hasPtDub = false;
   let hasPtSub = false;
 
+  const isSteelBallRun =
+    String(params.tmdbId) === '45790' && String(params.season) === '6';
+
   // Determine exact dubCode and dubType requested
   let reqDubCode = params.dubCode || '';
   let reqDubType = params.dubType !== undefined && params.dubType !== '' ? String(params.dubType) : '';
@@ -543,13 +557,35 @@ export async function resolveVidstuckStreams(params) {
       reqDubCode = 'pt';
       reqDubType = '1';
     } else if (params.preferredAudioMode === 'original') {
-      reqDubCode = 'en';
+      reqDubCode = isSteelBallRun ? 'ja' : 'en';
       reqDubType = '0';
     } else {
       reqDubCode = 'ptbr';
       reqDubType = '0';
     }
+  } else if (isSteelBallRun && reqDubCode === 'en') {
+    // On TMDB 45790 Season 6 (Steel Ball Run), en:0 is misindexed on Orion to a 480p Part 1 file,
+    // while ja:0 is the authentic 1080p FHD Steel Ball Run release.
+    reqDubCode = 'ja';
+    reqDubType = '0';
   }
+
+  // On Orion Season 6 (Steel Ball Run), Episode 1 is the 48-min 1st Stage double-episode special,
+  // so PT-BR/JA/ES tracks index 2nd Stage episodes at 3, 5, 6 while FR indexes 1..7 sequentially.
+  const sbrOrionEpisodeMap = {
+    '1': '1',
+    '2': reqDubCode === 'fr' ? '2' : '3',
+    '3': '3',
+    '4': reqDubCode === 'fr' ? '4' : '5',
+    '5': '5',
+    '6': '6',
+    '7': reqDubCode === 'fr' ? '7' : '6',
+    '8': reqDubCode === 'fr' ? '7' : '6',
+    '9': '6',
+  };
+  const effectiveOrionEpisode = isSteelBallRun
+    ? sbrOrionEpisodeMap[String(params.episode)] || '6'
+    : params.episode;
 
   let initialOrion = await queryOrionVariant({
     commonHeaders,
@@ -561,12 +597,30 @@ export async function resolveVidstuckStreams(params) {
     latestDate: safeLatestDate,
     imdbId: canonicalImdbId,
     season: params.season,
-    episode: params.episode,
+    episode: effectiveOrionEpisode,
     dubCode: reqDubCode,
     dubType: reqDubType,
   });
 
-  if (!initialOrion && params.type === 'tv') {
+  if (!initialOrion && isSteelBallRun) {
+    // Fallback to authentic 1080p Steel Ball Run on Orion (ja:0 or fr:0) so it never serves Part 1
+    initialOrion = await queryOrionVariant({
+      commonHeaders,
+      tmdbId: params.tmdbId,
+      mediaType: params.type,
+      title: canonicalTitle,
+      year: canonicalYear,
+      date: canonicalDate,
+      latestDate: safeLatestDate,
+      imdbId: canonicalImdbId,
+      season: params.season,
+      episode: sbrOrionEpisodeMap[String(params.episode)] || '1',
+      dubCode: 'ptbr',
+      dubType: '0',
+    });
+  }
+
+  if (!initialOrion && params.type === 'tv' && !isSteelBallRun) {
     initialOrion = await queryOrionVariant({
       commonHeaders,
       tmdbId: params.tmdbId,

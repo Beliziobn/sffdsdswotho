@@ -13,9 +13,6 @@ import {
   Languages,
   RotateCcw,
   Loader2,
-  ShieldCheck,
-  Subtitles,
-  Globe,
 } from "lucide-react";
 import { AnimeEpisode, AnimeSeason } from "@/lib/animes";
 import { toast } from "sonner";
@@ -31,15 +28,74 @@ interface SecureAnimePlayerProps {
   hasPreviousEpisode?: boolean;
 }
 
-type AudioTrackMode = "dub" | "sub" | "en";
-
 interface ResolvedOrionStream {
   id: string;
   type: "mp4" | "hls";
   audioMode: "dublado" | "legendado" | "original" | "multi";
+  langCode?: string;
+  label?: string;
+  quality?: string;
   url: string;
   proxyUrl: string;
 }
+
+interface AvailableDubOption {
+  id: string;
+  dubCode: string;
+  dubType: string;
+  label: string;
+  shortLabel: string;
+  flag: string;
+  audioMode: "dublado" | "legendado" | "original" | "multi";
+}
+
+const DEFAULT_ANIME_DUB_PRESETS: AvailableDubOption[] = [
+  {
+    id: "ptbr:0",
+    dubCode: "ptbr",
+    dubType: "0",
+    label: "Português (Dublado PT-BR)",
+    shortLabel: "🇧🇷 Dublado PT-BR",
+    flag: "🇧🇷",
+    audioMode: "dublado",
+  },
+  {
+    id: "pt:1",
+    dubCode: "pt",
+    dubType: "1",
+    label: "Português (Legendado PT-BR)",
+    shortLabel: "🇧🇷 Legendado PT-BR",
+    flag: "🇧🇷",
+    audioMode: "legendado",
+  },
+  {
+    id: "ja:0",
+    dubCode: "ja",
+    dubType: "0",
+    label: "Japonês (Áudio Original)",
+    shortLabel: "🇯🇵 Japonês (Original)",
+    flag: "🇯🇵",
+    audioMode: "original",
+  },
+  {
+    id: "esla:0",
+    dubCode: "esla",
+    dubType: "0",
+    label: "Espanhol Latino (Dublado)",
+    shortLabel: "🇲🇽 Espanhol",
+    flag: "🇲🇽",
+    audioMode: "multi",
+  },
+  {
+    id: "fr:0",
+    dubCode: "fr",
+    dubType: "0",
+    label: "Francês (Dublado)",
+    shortLabel: "🇫🇷 Francês",
+    flag: "🇫🇷",
+    audioMode: "multi",
+  },
+];
 
 const ANIME_TMDB_MAP: Record<string, number> = {
   "solo-leveling": 127532,
@@ -101,11 +157,14 @@ export const SecureAnimePlayer: React.FC<SecureAnimePlayerProps> = ({
   hasPreviousEpisode = false,
 }) => {
   // Rigorously enforce anti-redirect and popup blocking
-  const { blockedCount } = usePlayerAdBlock(true);
+  usePlayerAdBlock(true);
 
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
-  const [audioTrack, setAudioTrack] = useState<AudioTrackMode>("dub");
+  const [selectedDubId, setSelectedDubId] = useState<string>("ptbr:0");
+  const [availableDubs, setAvailableDubs] = useState<AvailableDubOption[]>(
+    DEFAULT_ANIME_DUB_PRESETS
+  );
   const [currentTime, setCurrentTime] = useState(0);
   const [durationSec, setDurationSec] = useState(1420);
   const [isBuffering, setIsBuffering] = useState(false);
@@ -119,40 +178,69 @@ export const SecureAnimePlayer: React.FC<SecureAnimePlayerProps> = ({
   const savedTimeRef = useRef<number>(0);
   const wasPlayingRef = useRef<boolean>(false);
 
+  const animeId = episode.animeId || season.animeId;
+  const isSteelBallRun = animeId === "steel-ball-run";
+
   // Extract authentic Dublado (PT-BR) and Legendado (PT-BR) URLs from the verified anime episode catalog
   const cleanStreamUrl = (episode.streamUrl || "").split("?")[0];
   const catalogDubUrl =
-    (episode.hlsStreamUrl || "").split("?")[0] ||
     episode.sources?.find((s) => s.id.includes("dub"))?.streamUrl?.split("?")[0] ||
+    (episode.hlsStreamUrl || "").split("?")[0] ||
     cleanStreamUrl;
   const catalogSubUrl =
-    (episode.subHlsStreamUrl || "").split("?")[0] ||
     episode.sources?.find((s) => s.id.includes("sub") || s.id.includes("legendado"))?.streamUrl?.split("?")[0] ||
+    (episode.subHlsStreamUrl || "").split("?")[0] ||
     catalogDubUrl;
 
-  const isCatalogDubExplicit = /-dublado|-dub\b|op-cn|dublado|-pt\.mp4/i.test(catalogDubUrl);
+  const isCatalogDubExplicit =
+    !isSteelBallRun &&
+    /-dublado|-dub\b|op-cn|dublado|-pt\.mp4/i.test(catalogDubUrl);
 
-  // Also resolve multi-audio streams from Orion (/api/cinema/resolve) for animes
+  // Map Steel Ball Run to TMDB 45790 Season 6 (STEEL BALL RUN) so it never resolves Season 1 (Phantom Blood / Part 1)
+  const effectiveTmdbSeason = isSteelBallRun ? 6 : season.seasonNumber || 1;
+  const effectiveTmdbEpisode = isSteelBallRun
+    ? (season.seasonNumber || 1) === 1
+      ? 1
+      : (episode.number || 1) + 1
+    : episode.number || 1;
+
+  // Resolve multi-language streams from Orion (/api/cinema/resolve) for the selected language
   useEffect(() => {
     let cancelled = false;
     setOrionStreams([]);
-    const tmdbId = ANIME_TMDB_MAP[episode.animeId || season.animeId];
+    const tmdbId = ANIME_TMDB_MAP[animeId];
     if (!tmdbId) {
       setIsResolvingOrion(false);
       return;
     }
 
-    if (!isCatalogDubExplicit) {
+    const [dubCode, dubType] = selectedDubId.split(":");
+    const shouldWaitForOrion =
+      isSteelBallRun ||
+      !isCatalogDubExplicit ||
+      selectedDubId !== "ptbr:0";
+
+    if (shouldWaitForOrion) {
       setIsResolvingOrion(true);
     }
+
+    const audioModeParam =
+      dubCode.startsWith("pt") && dubType === "0"
+        ? "dublado"
+        : dubType === "1"
+        ? "legendado"
+        : "original";
 
     const params = new URLSearchParams({
       tmdbId: String(tmdbId),
       type: "tv",
-      season: String(season.seasonNumber || 1),
-      episode: String(episode.number || 1),
-      title: animeTitle,
-      year: String(season.year || 2024),
+      season: String(effectiveTmdbSeason),
+      episode: String(effectiveTmdbEpisode),
+      title: isSteelBallRun ? "JoJo's Bizarre Adventure" : animeTitle,
+      year: String(isSteelBallRun ? 2012 : season.year || 2024),
+      audioMode: audioModeParam,
+      dubCode,
+      dubType,
     });
 
     fetch(`/api/cinema/resolve?${params.toString()}`)
@@ -161,6 +249,9 @@ export const SecureAnimePlayer: React.FC<SecureAnimePlayerProps> = ({
         if (cancelled) return;
         if (Array.isArray(data?.streams)) {
           setOrionStreams(data.streams);
+        }
+        if (Array.isArray(data?.availableDubs) && data.availableDubs.length > 0) {
+          setAvailableDubs(data.availableDubs);
         }
         setIsResolvingOrion(false);
       })
@@ -171,43 +262,74 @@ export const SecureAnimePlayer: React.FC<SecureAnimePlayerProps> = ({
     return () => {
       cancelled = true;
     };
-  }, [episode.id, episode.animeId, episode.number, season.animeId, season.seasonNumber, season.year, animeTitle, isCatalogDubExplicit]);
+  }, [
+    episode.id,
+    animeId,
+    effectiveTmdbSeason,
+    effectiveTmdbEpisode,
+    season.year,
+    animeTitle,
+    isSteelBallRun,
+    isCatalogDubExplicit,
+    selectedDubId,
+  ]);
 
-  // Select the authentic video stream matching the user's selected audioTrack ("dub" | "sub" | "en")
+  // Select the authentic video stream matching the user's selected language (selectedDubId)
   const selectedStreamTarget = useMemo(() => {
-    const orionDub = orionStreams.find((s) => s.audioMode === "dublado");
-    const orionSub = orionStreams.find((s) => s.audioMode === "legendado");
-    const orionOrig = orionStreams.find((s) => s.audioMode === "original");
+    const orionPrimary = orionStreams[0];
 
-    if (audioTrack === "dub") {
+    // For Steel Ball Run, always prefer the multi-language Orion Season 6 stream first,
+    // with the authentic Archive.org Steel Ball Run MP4 as instant fallback
+    if (isSteelBallRun) {
+      const sbrCatalogFallback =
+        selectedDubId === "pt:1" || selectedDubId === "ja:0"
+          ? catalogSubUrl || catalogDubUrl
+          : catalogDubUrl || catalogSubUrl;
+      if (orionPrimary?.url) {
+        return {
+          url: orionPrimary.url,
+          fallbackUrl: sbrCatalogFallback,
+        };
+      }
+      return {
+        url: sbrCatalogFallback,
+        fallbackUrl: catalogSubUrl || catalogDubUrl,
+      };
+    }
+
+    if (selectedDubId === "ptbr:0" || selectedDubId === "pt:0") {
       if (isCatalogDubExplicit && catalogDubUrl) {
-        return { url: catalogDubUrl, fallbackUrl: orionDub?.url || catalogSubUrl };
+        return { url: catalogDubUrl, fallbackUrl: orionPrimary?.url || catalogSubUrl };
       }
-      if (orionDub) {
-        return { url: orionDub.url, fallbackUrl: catalogDubUrl || catalogSubUrl };
-      }
-      if (orionSub) {
-        return { url: orionSub.url, fallbackUrl: catalogDubUrl || catalogSubUrl };
+      if (orionPrimary?.url) {
+        return { url: orionPrimary.url, fallbackUrl: catalogDubUrl || catalogSubUrl };
       }
       return { url: catalogDubUrl || catalogSubUrl, fallbackUrl: catalogSubUrl };
     }
 
-    if (audioTrack === "sub") {
-      if (orionSub) {
-        return { url: orionSub.url, fallbackUrl: catalogSubUrl || catalogDubUrl };
+    if (selectedDubId === "pt:1" || selectedDubId === "ptbr:1") {
+      if (orionPrimary?.url) {
+        return { url: orionPrimary.url, fallbackUrl: catalogSubUrl || catalogDubUrl };
       }
       if (catalogSubUrl && !/-dublado|-dub\b|op-cn|dublado/i.test(catalogSubUrl)) {
-        return { url: catalogSubUrl, fallbackUrl: orionSub?.url || catalogDubUrl };
+        return { url: catalogSubUrl, fallbackUrl: catalogDubUrl };
       }
       return { url: catalogSubUrl || catalogDubUrl, fallbackUrl: catalogDubUrl };
     }
 
-    // audioTrack === "en" (Original / English)
-    if (orionOrig) {
-      return { url: orionOrig.url, fallbackUrl: catalogSubUrl || catalogDubUrl };
+    // Any other language (ja:0, en:0, esla:0, es:0, fr:0, hi:0, ar:1, ru:1, etc.)
+    if (orionPrimary?.url) {
+      return { url: orionPrimary.url, fallbackUrl: catalogSubUrl || catalogDubUrl };
     }
     return { url: catalogSubUrl || catalogDubUrl, fallbackUrl: catalogDubUrl };
-  }, [audioTrack, isCatalogDubExplicit, catalogDubUrl, catalogSubUrl, orionStreams]);
+  }, [
+    selectedDubId,
+    isSteelBallRun,
+    isCatalogDubExplicit,
+    catalogDubUrl,
+    catalogSubUrl,
+    orionStreams,
+  ]);
 
   const activeRawUrl = selectedStreamTarget.url;
   const fallbackRawUrl = selectedStreamTarget.fallbackUrl;
@@ -225,21 +347,40 @@ export const SecureAnimePlayer: React.FC<SecureAnimePlayerProps> = ({
     setUseEmbedFallback(false);
   }, [episode.id, season.id]);
 
+  const activeDubObj = useMemo(() => {
+    return (
+      availableDubs.find((d) => d.id === selectedDubId) ||
+      DEFAULT_ANIME_DUB_PRESETS.find((d) => d.id === selectedDubId) ||
+      DEFAULT_ANIME_DUB_PRESETS[0]
+    );
+  }, [availableDubs, selectedDubId]);
+
+  const quickDubPresets = useMemo(() => {
+    const map = new Map<string, AvailableDubOption>();
+    DEFAULT_ANIME_DUB_PRESETS.forEach((p) => map.set(p.id, p));
+    availableDubs.forEach((d) => map.set(d.id, d));
+
+    const priorityIds = ["ptbr:0", "pt:1", "ja:0", "esla:0", "es:0", "fr:0"];
+    const result: AvailableDubOption[] = [];
+    for (const id of priorityIds) {
+      const found = map.get(id);
+      if (found && result.length < 5) {
+        if (id === "es:0" && result.some((r) => r.id === "esla:0")) continue;
+        result.push(found);
+      }
+    }
+    return result;
+  }, [availableDubs]);
+
   // Handle seamless language track switching preserving timestamp
-  const handleSelectAudioTrack = (nextTrack: AudioTrackMode) => {
+  const handleSelectDubOption = (dubOpt: AvailableDubOption) => {
     if (videoRef.current && videoRef.current.currentTime > 1) {
       savedTimeRef.current = videoRef.current.currentTime;
       wasPlayingRef.current = !videoRef.current.paused || isPlaying;
     }
     setUseEmbedFallback(false);
-    setAudioTrack(nextTrack);
-    if (nextTrack === "dub") {
-      toast.success("Áudio alterado para Dublado em Português (PT-BR)");
-    } else if (nextTrack === "sub") {
-      toast.success("Alterado para Áudio Original Japonês (Legendado PT-BR)");
-    } else {
-      toast.success("Alterado para Áudio Original / Inglês");
-    }
+    setSelectedDubId(dubOpt.id);
+    toast.success(`Idioma alterado para: ${dubOpt.label}`);
   };
 
   // Attach native MP4 or HLS.js stream
@@ -252,7 +393,12 @@ export const SecureAnimePlayer: React.FC<SecureAnimePlayerProps> = ({
       return;
     }
 
-    if (isResolvingOrion && !isCatalogDubExplicit) {
+    const shouldWaitForOrion =
+      isSteelBallRun ||
+      !isCatalogDubExplicit ||
+      selectedDubId !== "ptbr:0";
+
+    if (isResolvingOrion && shouldWaitForOrion) {
       setIsBuffering(true);
       return;
     }
@@ -288,24 +434,27 @@ export const SecureAnimePlayer: React.FC<SecureAnimePlayerProps> = ({
         hlsInstanceRef.current.destroy();
         hlsInstanceRef.current = null;
       }
-      const tmdbId = ANIME_TMDB_MAP[episode.animeId || season.animeId] || "";
+      const tmdbId = ANIME_TMDB_MAP[animeId] || "";
+      const [dubCode, dubType] = selectedDubId.split(":");
       const selfHealParams = new URLSearchParams({
         url: activeRawUrl,
         tmdbId: String(tmdbId),
         type: "tv",
-        season: String(season.seasonNumber || 1),
-        episode: String(episode.number || 1),
-        title: animeTitle,
-        year: String(season.year || 2024),
-        audioMode: audioTrack === "dub" ? "dublado" : audioTrack === "sub" ? "legendado" : "original",
+        season: String(effectiveTmdbSeason),
+        episode: String(effectiveTmdbEpisode),
+        title: isSteelBallRun ? "JoJo's Bizarre Adventure" : animeTitle,
+        year: String(isSteelBallRun ? 2012 : season.year || 2024),
+        audioMode:
+          dubCode.startsWith("pt") && dubType === "0"
+            ? "dublado"
+            : dubType === "1"
+            ? "legendado"
+            : "original",
       });
       const proxyMp4Url = `/api/cinema/mp4-proxy?${selfHealParams.toString()}`;
-      const isArchiveOrg = activeRawUrl.includes("archive.org");
-      let triedSecondCandidate = false;
+      let fallbackStage = 0;
       videoEl.setAttribute("referrerpolicy", "no-referrer");
-      const initialMp4Src = activeRawUrl;
-      const secondaryMp4Src = proxyMp4Url;
-      videoEl.src = initialMp4Src;
+      videoEl.src = activeRawUrl;
       videoEl.load();
 
       const handleLoaded = () => {
@@ -316,9 +465,13 @@ export const SecureAnimePlayer: React.FC<SecureAnimePlayerProps> = ({
 
       const handleError = () => {
         if (isCancelled) return;
-        if (!triedSecondCandidate) {
-          triedSecondCandidate = true;
-          videoEl.src = secondaryMp4Src;
+        if (fallbackStage === 0 && fallbackRawUrl && fallbackRawUrl !== activeRawUrl) {
+          fallbackStage = 1;
+          videoEl.src = fallbackRawUrl;
+          videoEl.load();
+        } else if (fallbackStage <= 1) {
+          fallbackStage = 2;
+          videoEl.src = proxyMp4Url;
           videoEl.load();
         } else {
           setIsBuffering(false);
@@ -344,7 +497,6 @@ export const SecureAnimePlayer: React.FC<SecureAnimePlayerProps> = ({
       hlsInstanceRef.current = null;
     }
 
-    // Helper that normalizes maximaimg.online #EXTINF:...,http lines directly in browser as backup
     const buildClientNormalizedManifestUrl = async (targetM3u8: string): Promise<string> => {
       try {
         const res = await fetch(targetM3u8);
@@ -391,7 +543,6 @@ export const SecureAnimePlayer: React.FC<SecureAnimePlayerProps> = ({
 
       let fallbackStep = 0;
 
-      // Always load from /api/anime/hls-manifest first (which tries v2 and fallback variants automatically)
       hls.loadSource(manifestProxyUrl);
       hls.attachMedia(videoEl);
 
@@ -412,7 +563,12 @@ export const SecureAnimePlayer: React.FC<SecureAnimePlayerProps> = ({
                 hls.startLoad();
               }
             });
-          } else if (data.type === Hls.ErrorTypes.NETWORK_ERROR && fallbackStep === 1 && fallbackRawUrl && fallbackRawUrl !== activeRawUrl) {
+          } else if (
+            data.type === Hls.ErrorTypes.NETWORK_ERROR &&
+            fallbackStep === 1 &&
+            fallbackRawUrl &&
+            fallbackRawUrl !== activeRawUrl
+          ) {
             fallbackStep = 2;
             void buildClientNormalizedManifestUrl(fallbackRawUrl).then((fbSource) => {
               if (!isCancelled) {
@@ -446,9 +602,25 @@ export const SecureAnimePlayer: React.FC<SecureAnimePlayerProps> = ({
         hlsInstanceRef.current = null;
       }
     };
-  }, [useEmbedFallback, activeRawUrl, fallbackRawUrl, isDirectMp4Stream, episode.id, season.id, isResolvingOrion, isCatalogDubExplicit]);
+  }, [
+    useEmbedFallback,
+    activeRawUrl,
+    fallbackRawUrl,
+    isDirectMp4Stream,
+    episode.id,
+    season.id,
+    isResolvingOrion,
+    isCatalogDubExplicit,
+    isSteelBallRun,
+    selectedDubId,
+    animeId,
+    effectiveTmdbSeason,
+    effectiveTmdbEpisode,
+    animeTitle,
+    season.year,
+  ]);
 
-  // Keep native video volume at 100% (never ducked, zero artificial TTS)
+  // Keep native video volume at 100%
   useEffect(() => {
     if (videoRef.current) {
       videoRef.current.volume = isMuted ? 0 : 1;
@@ -521,57 +693,50 @@ export const SecureAnimePlayer: React.FC<SecureAnimePlayerProps> = ({
       ref={containerRef}
       className="rounded-2xl overflow-hidden border border-neutral-200 bg-white text-neutral-900 shadow-2xl transition-all duration-300 w-full"
     >
-      {/* Unified Control Header: Anti-Redirect Status & Direct Language Selector */}
-      <div className="px-4 py-3 bg-white border-b border-neutral-200 flex flex-wrap items-center justify-between gap-3 text-xs">
-        <div className="flex items-center gap-2 text-emerald-700 font-medium">
-          <ShieldCheck className="h-4 w-4 shrink-0" />
-          <span>
-            Servidor Unificado HD · Anti-Redirecionamento Ativo
-            {blockedCount > 0 ? ` (${blockedCount} bloqueados)` : ""}
-          </span>
-        </div>
-
-        {/* Direct 3-Way Language Switcher (Dublado PT-BR | Japonês Leg. PT | Original/EN) */}
+      {/* Unified Multi-Language Control Header */}
+      <div className="px-4 py-3 bg-white border-b border-neutral-200 flex flex-wrap items-center justify-end gap-2 text-xs">
         <div className="flex flex-wrap items-center gap-1 bg-neutral-100 border border-neutral-200 rounded-xl p-1">
-          <button
-            type="button"
-            onClick={() => handleSelectAudioTrack("dub")}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 cursor-pointer ${
-              audioTrack === "dub"
-                ? "bg-primary text-white shadow-sm"
-                : "text-neutral-600 hover:text-neutral-900"
-            }`}
-            title="Reproduzir episódio com Áudio Original Dublado em Português (PT-BR)"
-          >
-            <Languages className="h-3.5 w-3.5" />
-            <span>Dublado em Português</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => handleSelectAudioTrack("sub")}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 cursor-pointer ${
-              audioTrack === "sub"
-                ? "bg-primary text-white shadow-sm"
-                : "text-neutral-600 hover:text-neutral-900"
-            }`}
-            title="Reproduzir com Áudio Original Japonês e Legendas em Português"
-          >
-            <Subtitles className="h-3.5 w-3.5" />
-            <span>Português (Legendado)</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => handleSelectAudioTrack("en")}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 cursor-pointer ${
-              audioTrack === "en"
-                ? "bg-primary text-white shadow-sm"
-                : "text-neutral-600 hover:text-neutral-900"
-            }`}
-            title="Reproduzir com Áudio Original / Inglês"
-          >
-            <Globe className="h-3.5 w-3.5" />
-            <span>Áudio Original / EN</span>
-          </button>
+          {quickDubPresets.map((preset) => {
+            const isSelected = selectedDubId === preset.id;
+            return (
+              <button
+                key={preset.id}
+                type="button"
+                onClick={() => handleSelectDubOption(preset)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 cursor-pointer ${
+                  isSelected
+                    ? "bg-primary text-white shadow-sm"
+                    : "text-neutral-600 hover:text-neutral-900"
+                }`}
+                title={preset.label}
+              >
+                <span>{preset.shortLabel}</span>
+              </button>
+            );
+          })}
+
+          {availableDubs.length > quickDubPresets.length && (
+            <div className="relative inline-flex items-center pl-1 border-l border-neutral-300">
+              <Languages className="h-3.5 w-3.5 text-primary ml-1.5 pointer-events-none" />
+              <select
+                aria-label="Mais idiomas disponíveis"
+                value={selectedDubId}
+                onChange={(e) => {
+                  const found =
+                    availableDubs.find((d) => d.id === e.target.value) ||
+                    DEFAULT_ANIME_DUB_PRESETS.find((d) => d.id === e.target.value);
+                  if (found) handleSelectDubOption(found);
+                }}
+                className="bg-transparent text-neutral-800 hover:text-primary px-2 py-1.5 text-xs font-semibold cursor-pointer focus:outline-none"
+              >
+                {availableDubs.map((dub) => (
+                  <option key={dub.id} value={dub.id} className="bg-white text-neutral-900">
+                    {dub.flag} {dub.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
       </div>
 
@@ -584,7 +749,7 @@ export const SecureAnimePlayer: React.FC<SecureAnimePlayerProps> = ({
           <>
             <video
               ref={videoRef}
-              key={`${episode.id}-${audioTrack}`}
+              key={`${episode.id}-${selectedDubId}`}
               poster={episode.thumbnail || season.banner || season.poster}
               controls
               playsInline
@@ -625,11 +790,7 @@ export const SecureAnimePlayer: React.FC<SecureAnimePlayerProps> = ({
             <div className="absolute top-3 left-3 z-20 pointer-events-none">
               <span className="px-2.5 py-1 rounded-full bg-black/75 border border-white/15 text-[11px] font-medium text-white backdrop-blur-md flex items-center gap-1.5 shadow">
                 <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                {audioTrack === "dub"
-                  ? "🇧🇷 Dublado em Português (PT-BR)"
-                  : audioTrack === "sub"
-                  ? "🇯🇵 Japonês · Legendado em Português (PT-BR)"
-                  : "🌐 Áudio Original / Inglês"}
+                {activeDubObj.flag} {activeDubObj.label}
               </span>
             </div>
 
@@ -648,13 +809,7 @@ export const SecureAnimePlayer: React.FC<SecureAnimePlayerProps> = ({
                   )}
                 </div>
                 <span className="mt-3 px-4 py-1.5 rounded-full bg-black/80 border border-white/15 text-xs font-medium text-white shadow-lg">
-                  Assistir Episódio {episode.number} Completo (
-                  {audioTrack === "dub"
-                    ? "Dublado em Português"
-                    : audioTrack === "sub"
-                    ? "Português Legendado"
-                    : "Áudio Original / EN"}
-                  )
+                  Assistir Episódio {episode.number} ({activeDubObj.flag} {activeDubObj.label})
                 </span>
               </button>
             )}
@@ -662,7 +817,7 @@ export const SecureAnimePlayer: React.FC<SecureAnimePlayerProps> = ({
         ) : (
           /* Sandboxed Fallback Player (Zero Redirects Guaranteed) */
           <iframe
-            key={`${episode.id}-sandbox-${audioTrack}`}
+            key={`${episode.id}-sandbox-${selectedDubId}`}
             src={anivideoIframeUrl}
             title={`${animeTitle} - T${season.seasonNumber}:E${episode.number}`}
             sandbox="allow-scripts allow-same-origin allow-forms allow-presentation"
