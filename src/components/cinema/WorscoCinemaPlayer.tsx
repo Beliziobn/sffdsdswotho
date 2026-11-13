@@ -10,16 +10,19 @@ import {
   RotateCcw,
   RotateCw,
   Subtitles,
-  ShieldCheck,
-  Mic,
-  Globe,
   Loader2,
+  SkipBack,
+  SkipForward,
+  Settings,
+  Languages,
 } from "lucide-react";
 import {
   CinemaItem,
   CinemaLanguage,
   getCinemaStreamUrl,
   saveCinemaProgress,
+  fetchCinemaResolveCached,
+  prefetchCinemaStream,
 } from "@/lib/cinema";
 import { usePlayerAdBlock } from "@/hooks/usePlayerAdBlock";
 import { toast } from "sonner";
@@ -43,6 +46,17 @@ interface ResolvedStream {
   proxyUrl: string;
 }
 
+interface AvailableDubOption {
+  id: string;
+  dubCode: string;
+  dubType: string;
+  label: string;
+  shortLabel: string;
+  flag: string;
+  audioMode: "dublado" | "legendado" | "original" | "multi";
+  isOriginal?: boolean;
+}
+
 export interface WorscoCinemaPlayerProps {
   item: CinemaItem;
   language: CinemaLanguage;
@@ -54,39 +68,99 @@ export interface WorscoCinemaPlayerProps {
   onSelectEpisode?: (epNumber: number) => void;
 }
 
+const DEFAULT_LANGUAGE_PRESETS: AvailableDubOption[] = [
+  {
+    id: "ptbr:0",
+    dubCode: "ptbr",
+    dubType: "0",
+    label: "Português (Dublado PT-BR)",
+    shortLabel: "🇧🇷 Dublado PT-BR",
+    flag: "🇧🇷",
+    audioMode: "dublado",
+  },
+  {
+    id: "pt:1",
+    dubCode: "pt",
+    dubType: "1",
+    label: "Português (Legendado PT-BR)",
+    shortLabel: "🇧🇷 Legendado PT-BR",
+    flag: "🇧🇷",
+    audioMode: "legendado",
+  },
+  {
+    id: "en:0",
+    dubCode: "en",
+    dubType: "0",
+    label: "Inglês (Áudio Original)",
+    shortLabel: "🇺🇸 Inglês (Original)",
+    flag: "🇺🇸",
+    audioMode: "original",
+    isOriginal: true,
+  },
+  {
+    id: "esla:0",
+    dubCode: "esla",
+    dubType: "0",
+    label: "Espanhol Latino (Dublado)",
+    shortLabel: "🇲🇽 Espanhol",
+    flag: "🇲🇽",
+    audioMode: "multi",
+  },
+  {
+    id: "fr:0",
+    dubCode: "fr",
+    dubType: "0",
+    label: "Francês (Dublado)",
+    shortLabel: "🇫🇷 Francês",
+    flag: "🇫🇷",
+    audioMode: "multi",
+  },
+];
+
 export const WorscoCinemaPlayer: React.FC<WorscoCinemaPlayerProps> = ({
   item,
   language,
   onLanguageChange,
   seasonNumber = 1,
   episodeNumber = 1,
+  totalEpisodes = 1,
+  episodeTitle,
+  onSelectEpisode,
 }) => {
   // Rigorously enforce anti-redirect & anti-popup protection
-  const { blockedCount } = usePlayerAdBlock(true);
+  usePlayerAdBlock(true);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const hlsRef = useRef<Hls | null>(null);
   const savedTimeRef = useRef<number>(0);
-  const wasPlayingRef = useRef<boolean>(false);
   const hideControlsTimerRef = useRef<number | null>(null);
 
-  // Audio mode: "dublado" (Português Dublado PT-BR - Default!), "legendado" (Português Legendado), or "original" (Áudio Original EN)
+  // Unified internal server pipeline ("orion" -> "atlas" -> "embed") handled 100% automatically
+  const [internalPipelineStage, setInternalPipelineStage] = useState<"orion" | "atlas" | "embed">("orion");
+
+  // Audio mode & explicit language code (supports PT-BR Dub, PT Sub, EN, ES, FR, RU, HI, AR, JA, KO, etc.)
   const [audioMode, setAudioMode] = useState<"dublado" | "legendado" | "original">(
     language === "en" ? "original" : "dublado"
   );
+  const [selectedDubId, setSelectedDubId] = useState<string>(
+    language === "en" ? "en:0" : "ptbr:0"
+  );
   const [showSubtitles, setShowSubtitles] = useState<boolean>(true);
+  const [playbackRate, setPlaybackRate] = useState<number>(1);
+  const [preferredQuality, setPreferredQuality] = useState<string>("auto");
 
-  // Resolved streams & subtitles from our server plugin
+  // Resolved streams & available languages from unified backend
   const [isResolving, setIsResolving] = useState<boolean>(true);
   const [allStreams, setAllStreams] = useState<ResolvedStream[]>([]);
+  const [availableDubs, setAvailableDubs] = useState<AvailableDubOption[]>(DEFAULT_LANGUAGE_PRESETS);
   const [hasPtDub, setHasPtDub] = useState<boolean>(true);
   const [hasPtSub, setHasPtSub] = useState<boolean>(true);
   const [candidateIdx, setCandidateIdx] = useState<number>(0);
   const [useProxyForMp4, setUseProxyForMp4] = useState<boolean>(false);
-  const [useSandboxFallback, setUseSandboxFallback] = useState<boolean>(false);
   const [ptCues, setPtCues] = useState<SubtitleCue[]>([]);
   const [enCues, setEnCues] = useState<SubtitleCue[]>([]);
+  const [resolvedImdbId, setResolvedImdbId] = useState<string>(item.imdbId || "");
 
   // Video player state
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
@@ -99,90 +173,132 @@ export const WorscoCinemaPlayer: React.FC<WorscoCinemaPlayerProps> = ({
   const [activeCueText, setActiveCueText] = useState<string>("");
   const [controlsVisible, setControlsVisible] = useState<boolean>(true);
 
+  // Ensure document referrer policy is no-referrer so direct CDN MP4 streams respond in ~12ms without 429 blocks
+  useEffect(() => {
+    let meta = document.querySelector('meta[name="referrer"]') as HTMLMetaElement | null;
+    if (!meta) {
+      meta = document.createElement("meta");
+      meta.name = "referrer";
+      document.head.appendChild(meta);
+    }
+    meta.content = "no-referrer";
+  }, []);
+
   // Keep audioMode synced if external language prop changes
   useEffect(() => {
-    if (language === "en" && audioMode !== "original") {
+    if (language === "en" && selectedDubId === "ptbr:0") {
       setAudioMode("original");
-    } else if (language === "pt" && audioMode === "original") {
+      setSelectedDubId("en:0");
+    } else if (language === "pt" && selectedDubId === "en:0") {
       setAudioMode("dublado");
+      setSelectedDubId("ptbr:0");
     }
   }, [language]);
 
-  // Resolve real MP4 & HLS streams and subtitles whenever item/season/episode/audioMode changes
+  // Reset pipeline to primary when movie or episode changes
   useEffect(() => {
+    setInternalPipelineStage("orion");
+    savedTimeRef.current = 0;
+  }, [item.id, seasonNumber, episodeNumber]);
+
+  // Prefetch next episode in background when watching a series
+  useEffect(() => {
+    if (item.type === "serie" && episodeNumber < totalEpisodes) {
+      const timer = window.setTimeout(() => {
+        prefetchCinemaStream(item, seasonNumber, episodeNumber + 1, audioMode);
+      }, 2000);
+      return () => window.clearTimeout(timer);
+    }
+  }, [item, seasonNumber, episodeNumber, totalEpisodes, audioMode]);
+
+  // Resolve real MP4 & HLS streams from unified server
+  useEffect(() => {
+    if (internalPipelineStage === "embed") {
+      setIsResolving(false);
+      setIsBuffering(false);
+      return;
+    }
+
     let cancelled = false;
     setIsResolving(true);
     setIsBuffering(true);
-    setUseSandboxFallback(false);
     setCandidateIdx(0);
     setUseProxyForMp4(false);
     setActiveCueText("");
 
+    const [dubCode, dubType] = selectedDubId.split(":");
     const mediaType = item.type === "serie" ? "tv" : "movie";
-    const params = new URLSearchParams({
-      tmdbId: String(item.tmdbId),
-      imdbId: item.imdbId,
-      type: mediaType,
-      season: String(seasonNumber),
-      episode: String(episodeNumber),
-      title: item.originalTitle || item.title,
-      year: String(item.year),
-      audioMode,
-    });
 
     const fetchStreams = async (attempt = 1) => {
       try {
-        const r = await fetch(`/api/cinema/resolve?${params.toString()}`);
-        if (!r.ok && attempt < 2) {
-          await new Promise((res) => setTimeout(res, 700));
-          return fetchStreams(attempt + 1);
-        }
-        const data = await r.json();
+        const data = await fetchCinemaResolveCached({
+          tmdbId: item.tmdbId,
+          imdbId: item.imdbId,
+          type: mediaType,
+          season: seasonNumber,
+          episode: episodeNumber,
+          title: item.originalTitle || item.title,
+          year: item.year,
+          audioMode,
+          dubCode: internalPipelineStage === "atlas" ? undefined : dubCode,
+          dubType: internalPipelineStage === "atlas" ? undefined : dubType,
+          server: internalPipelineStage === "atlas" ? "atlas" : "orion",
+          forceBust: attempt > 1,
+        });
+
         if (cancelled) return;
-        const resolvedStreams: ResolvedStream[] = Array.isArray(data.streams)
+        const resolvedStreams: ResolvedStream[] = Array.isArray(data?.streams)
           ? data.streams
           : [];
-        if (resolvedStreams.length === 0 && attempt < 2) {
-          await new Promise((res) => setTimeout(res, 700));
-          return fetchStreams(attempt + 1);
+
+        if (resolvedStreams.length === 0) {
+          if (internalPipelineStage === "orion") {
+            setInternalPipelineStage("atlas");
+            return;
+          }
+          setInternalPipelineStage("embed");
+          setIsResolving(false);
+          return;
         }
+
         setAllStreams(resolvedStreams);
-        const resolvedHasPtDub = Boolean(data.hasPtDub);
-        const resolvedHasPtSub = Boolean(data.hasPtSub);
+        if (Array.isArray(data?.availableDubs) && data.availableDubs.length > 0) {
+          setAvailableDubs(data.availableDubs);
+        }
+        if (data?.imdbId) {
+          setResolvedImdbId(data.imdbId);
+        }
+
+        const resolvedHasPtDub = Boolean(data?.hasPtDub);
+        const resolvedHasPtSub = Boolean(data?.hasPtSub);
         setHasPtDub(resolvedHasPtDub);
         setHasPtSub(resolvedHasPtSub);
 
-        const resolvedPtCues = Array.isArray(data.subtitles?.pt?.cues)
+        const resolvedPtCues = Array.isArray(data?.subtitles?.pt?.cues)
           ? data.subtitles.pt.cues
-          : Array.isArray(data.subtitles?.ptCues)
+          : Array.isArray(data?.subtitles?.ptCues)
           ? data.subtitles.ptCues
           : [];
-        const resolvedEnCues = Array.isArray(data.subtitles?.en?.cues)
+        const resolvedEnCues = Array.isArray(data?.subtitles?.en?.cues)
           ? data.subtitles.en.cues
-          : Array.isArray(data.subtitles?.enCues)
+          : Array.isArray(data?.subtitles?.enCues)
           ? data.subtitles.enCues
           : [];
-        setPtCues(resolvedPtCues);
-        setEnCues(resolvedEnCues);
+        if (resolvedPtCues.length > 0) setPtCues(resolvedPtCues);
+        if (resolvedEnCues.length > 0) setEnCues(resolvedEnCues);
 
-        // If dub is not available upstream, automatically activate Portuguese subtitles
         if (!resolvedHasPtDub && audioMode === "dublado") {
           setShowSubtitles(true);
         }
 
-        if (resolvedStreams.length === 0) {
-          setUseSandboxFallback(true);
-        }
         setIsResolving(false);
       } catch {
         if (cancelled) return;
-        if (attempt < 2) {
-          await new Promise((res) => setTimeout(res, 700));
-          return fetchStreams(attempt + 1);
+        if (internalPipelineStage === "orion") {
+          setInternalPipelineStage("atlas");
+          return;
         }
-        setAllStreams([]);
-        setHasPtDub(false);
-        setUseSandboxFallback(true);
+        setInternalPipelineStage("embed");
         setIsResolving(false);
       }
     };
@@ -202,31 +318,69 @@ export const WorscoCinemaPlayer: React.FC<WorscoCinemaPlayerProps> = ({
     item.year,
     seasonNumber,
     episodeNumber,
+    selectedDubId,
     audioMode,
+    internalPipelineStage,
   ]);
 
-  // Rank streams based on user's selected audioMode ("dublado" | "legendado" | "original")
+  // Non-blocking background subtitle loader so OpenSubtitles never delays video startup
+  useEffect(() => {
+    const targetImdb = resolvedImdbId || item.imdbId;
+    if (!targetImdb) return;
+    const needsPt = ptCues.length === 0 && (audioMode === "legendado" || (!hasPtDub && audioMode === "dublado") || showSubtitles);
+    const needsEn = enCues.length === 0 && audioMode === "original" && showSubtitles;
+    if (!needsPt && !needsEn) return;
+
+    let cancelled = false;
+    const mediaType = item.type === "serie" ? "tv" : "movie";
+    const langParam = needsEn ? "eng" : "pob";
+
+    fetch(
+      `/api/cinema/vtt?imdbId=${encodeURIComponent(targetImdb)}&lang=${langParam}&type=${mediaType}&season=${seasonNumber}&episode=${episodeNumber}&format=json`
+    )
+      .then((r) => r.json())
+      .then((data) => {
+        if (cancelled || !Array.isArray(data?.cues) || data.cues.length === 0) return;
+        if (langParam === "eng") {
+          setEnCues(data.cues);
+        } else {
+          setPtCues(data.cues);
+        }
+      })
+      .catch(() => {});
+
+    return () => {
+      cancelled = true;
+    };
+  }, [resolvedImdbId, item.imdbId, item.type, seasonNumber, episodeNumber, audioMode, hasPtDub, showSubtitles, ptCues.length, enCues.length]);
+
+  // Rank streams based on user's preferredQuality
   const orderedCandidates = useMemo(() => {
     if (allStreams.length === 0) return [];
-    const dubStreams = allStreams.filter((s) => s.audioMode === "dublado");
-    const legStreams = allStreams.filter((s) => s.audioMode === "legendado");
-    const origStreams = allStreams.filter((s) => s.audioMode === "original");
-    const multiStreams = allStreams.filter((s) => s.audioMode === "multi");
+    let list = [...allStreams];
 
-    if (audioMode === "dublado") {
-      return [...dubStreams, ...multiStreams, ...legStreams, ...origStreams];
+    if (preferredQuality !== "auto") {
+      const matchingQuality = list.filter((s) => s.quality === preferredQuality);
+      const others = list.filter((s) => s.quality !== preferredQuality);
+      list = [...matchingQuality, ...others];
     }
-    if (audioMode === "legendado") {
-      return [...legStreams, ...origStreams, ...multiStreams, ...dubStreams];
-    }
-    return [...origStreams, ...multiStreams, ...legStreams, ...dubStreams];
-  }, [allStreams, audioMode]);
+
+    return list;
+  }, [allStreams, preferredQuality]);
+
+  const availableQualities = useMemo(() => {
+    const set = new Set<string>();
+    allStreams.forEach((s) => {
+      if (s.quality) set.add(s.quality);
+    });
+    return Array.from(set);
+  }, [allStreams]);
 
   const currentStream = orderedCandidates[candidateIdx] || orderedCandidates[0] || null;
 
-  // Attach MP4 or HLS.js to video element when currentStream changes
+  // Attach MP4 (Direct CDN first!) or HLS.js to video element when currentStream changes
   useEffect(() => {
-    if (useSandboxFallback || isResolving || !currentStream) return;
+    if (internalPipelineStage === "embed" || isResolving || !currentStream) return;
     const video = videoRef.current;
     if (!video) return;
 
@@ -237,7 +391,10 @@ export const WorscoCinemaPlayer: React.FC<WorscoCinemaPlayerProps> = ({
       hlsRef.current = null;
     }
 
+    let hasStartedMetadata = false;
+
     const restorePositionAndPlay = () => {
+      hasStartedMetadata = true;
       setIsBuffering(false);
       if (savedTimeRef.current > 2) {
         try {
@@ -245,9 +402,8 @@ export const WorscoCinemaPlayer: React.FC<WorscoCinemaPlayerProps> = ({
         } catch {}
       }
       video.volume = isMuted ? 0 : userVolume;
-      video.play().catch(() => {
-        // Autoplay may wait for user click
-      });
+      video.playbackRate = playbackRate;
+      video.play().catch(() => {});
     };
 
     const advanceToNextCandidate = () => {
@@ -256,15 +412,30 @@ export const WorscoCinemaPlayer: React.FC<WorscoCinemaPlayerProps> = ({
         return;
       }
       setUseProxyForMp4(false);
-      if (candidateIdx + 1 < orderedCandidates.length) {
-        setCandidateIdx((prev) => prev + 1);
+      let nextIdx = candidateIdx + 1;
+      while (
+        nextIdx < orderedCandidates.length &&
+        orderedCandidates[nextIdx].url === currentStream.url
+      ) {
+        nextIdx++;
+      }
+      if (nextIdx < orderedCandidates.length) {
+        setCandidateIdx(nextIdx);
+      } else if (internalPipelineStage === "orion") {
+        setInternalPipelineStage("atlas");
       } else {
-        setUseSandboxFallback(true);
+        setInternalPipelineStage("embed");
       }
     };
 
+    // Automatic watchdog: if stream doesn't load metadata within 7 seconds, seamlessly try next unified source
+    const watchdogTimer = window.setTimeout(() => {
+      if (!hasStartedMetadata && video.readyState < 1) {
+        advanceToNextCandidate();
+      }
+    }, 7000);
+
     if (currentStream.type === "mp4") {
-      // Always use backend proxyUrl first because hakunaymatata CDN tokens (?sign=...) are bound to the server IP
       video.setAttribute("referrerpolicy", "no-referrer");
       const mediaType = item.type === "serie" ? "tv" : "movie";
       const selfHealParams = new URLSearchParams({
@@ -281,22 +452,33 @@ export const WorscoCinemaPlayer: React.FC<WorscoCinemaPlayerProps> = ({
       const enrichedProxyUrl = currentStream.proxyUrl.includes("tmdbId=")
         ? currentStream.proxyUrl
         : `${currentStream.proxyUrl}&${selfHealParams.toString()}`;
-      const mp4Source = useProxyForMp4 ? currentStream.url : enrichedProxyUrl;
+
+      const mp4Source = useProxyForMp4 ? enrichedProxyUrl : currentStream.url;
       video.src = mp4Source;
       video.load();
 
       const onLoadedMetadata = () => {
+        window.clearTimeout(watchdogTimer);
         restorePositionAndPlay();
       };
+      const onCanPlay = () => {
+        hasStartedMetadata = true;
+        window.clearTimeout(watchdogTimer);
+        setIsBuffering(false);
+      };
       const onError = () => {
+        window.clearTimeout(watchdogTimer);
         advanceToNextCandidate();
       };
 
       video.addEventListener("loadedmetadata", onLoadedMetadata);
+      video.addEventListener("canplay", onCanPlay);
       video.addEventListener("error", onError);
 
       return () => {
+        window.clearTimeout(watchdogTimer);
         video.removeEventListener("loadedmetadata", onLoadedMetadata);
+        video.removeEventListener("canplay", onCanPlay);
         video.removeEventListener("error", onError);
       };
     }
@@ -306,8 +488,9 @@ export const WorscoCinemaPlayer: React.FC<WorscoCinemaPlayerProps> = ({
       const hls = new Hls({
         enableWorker: true,
         lowLatencyMode: false,
+        startLevel: -1,
         backBufferLength: 60,
-        maxBufferLength: 45,
+        maxBufferLength: 30,
       });
       hlsRef.current = hls;
 
@@ -315,6 +498,7 @@ export const WorscoCinemaPlayer: React.FC<WorscoCinemaPlayerProps> = ({
       hls.attachMedia(video);
 
       hls.on(Hls.Events.MANIFEST_PARSED, () => {
+        window.clearTimeout(watchdogTimer);
         restorePositionAndPlay();
       });
 
@@ -335,51 +519,57 @@ export const WorscoCinemaPlayer: React.FC<WorscoCinemaPlayerProps> = ({
 
       hls.on(Hls.Events.ERROR, (_, errData) => {
         if (errData.fatal) {
+          window.clearTimeout(watchdogTimer);
           advanceToNextCandidate();
         }
       });
 
       return () => {
+        window.clearTimeout(watchdogTimer);
         hls.destroy();
         hlsRef.current = null;
       };
     } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
       video.src = currentStream.proxyUrl;
-      const onLoaded = () => restorePositionAndPlay();
-      const onErr = () => advanceToNextCandidate();
+      const onLoaded = () => {
+        window.clearTimeout(watchdogTimer);
+        restorePositionAndPlay();
+      };
+      const onErr = () => {
+        window.clearTimeout(watchdogTimer);
+        advanceToNextCandidate();
+      };
       video.addEventListener("loadedmetadata", onLoaded);
       video.addEventListener("error", onErr);
       return () => {
+        window.clearTimeout(watchdogTimer);
         video.removeEventListener("loadedmetadata", onLoaded);
         video.removeEventListener("error", onErr);
       };
     }
-  }, [currentStream, useProxyForMp4, useSandboxFallback, isResolving, audioMode]);
+  }, [currentStream, useProxyForMp4, isResolving, audioMode, internalPipelineStage, candidateIdx, orderedCandidates]);
 
-  // Keep native video volume at 100% of user's setting (never ducked, zero artificial TTS)
+  // Keep native video volume and playbackRate synced
   useEffect(() => {
     const video = videoRef.current;
     if (video) {
       video.volume = isMuted ? 0 : userVolume;
       video.muted = isMuted;
+      video.playbackRate = playbackRate;
     }
-  }, [isMuted, userVolume]);
+  }, [isMuted, userVolume, playbackRate]);
 
   // Synchronize authentic subtitles with video currentTime
   useEffect(() => {
-    // If playing an Orion stream that already has burned-in PT subtitles (audioMode === "legendado" & currentStream.audioMode === "legendado")
-    // or if playing Dublado with subtitles turned off, avoid duplicate overlay unless requested
     if (!showSubtitles) {
       setActiveCueText("");
       return;
     }
-    if (currentStream?.audioMode === "legendado" && audioMode === "legendado") {
-      // Orion pt:1 streams already include Portuguese subtitles in the video stream; only show overlay if user wants extra captions
+    if (currentStream?.audioMode === "legendado" && selectedDubId.endsWith(":1")) {
       setActiveCueText("");
       return;
     }
-    if (currentStream?.audioMode === "dublado" && audioMode === "dublado") {
-      // In Dublado mode, the movie itself speaks Portuguese directly
+    if (currentStream?.audioMode === "dublado" && selectedDubId.startsWith("pt")) {
       setActiveCueText("");
       return;
     }
@@ -389,7 +579,7 @@ export const WorscoCinemaPlayer: React.FC<WorscoCinemaPlayerProps> = ({
       (c) => currentTime >= c.start - 0.2 && currentTime <= c.end + 0.25
     );
     setActiveCueText(currentCue ? currentCue.text : "");
-  }, [currentTime, audioMode, showSubtitles, ptCues, enCues, currentStream]);
+  }, [currentTime, audioMode, selectedDubId, showSubtitles, ptCues, enCues, currentStream]);
 
   // Fullscreen listener
   useEffect(() => {
@@ -410,29 +600,29 @@ export const WorscoCinemaPlayer: React.FC<WorscoCinemaPlayerProps> = ({
     }, 3500);
   }, [isPlaying]);
 
-  const handleSelectAudioMode = (nextMode: "dublado" | "legendado" | "original") => {
+  const handleSelectLanguageOption = (dubOpt: AvailableDubOption) => {
     if (videoRef.current && videoRef.current.currentTime > 1) {
       savedTimeRef.current = videoRef.current.currentTime;
-      wasPlayingRef.current = !videoRef.current.paused;
     }
-    setAudioMode(nextMode);
+    setSelectedDubId(dubOpt.id);
+    const nextAudioMode =
+      dubOpt.audioMode === "dublado"
+        ? "dublado"
+        : dubOpt.audioMode === "legendado"
+        ? "legendado"
+        : "original";
+    setAudioMode(nextAudioMode);
     setCandidateIdx(0);
     setUseProxyForMp4(false);
-    if (allStreams.length > 0) {
-      setUseSandboxFallback(false);
-    }
+    setInternalPipelineStage("orion");
 
-    if (nextMode === "original") {
+    if (dubOpt.dubCode === "en") {
       onLanguageChange("en");
-      toast.success("Áudio alterado para Original (Inglês)");
-    } else if (nextMode === "legendado") {
+    } else if (dubOpt.dubCode.startsWith("pt")) {
       onLanguageChange("pt");
-      setShowSubtitles(true);
-      toast.success("Alterado para Áudio Original com Legendas em Português (PT-BR)");
-    } else {
-      onLanguageChange("pt");
-      toast.success("Áudio alterado para Dublado em Português (PT-BR)");
+      if (dubOpt.dubType === "1") setShowSubtitles(true);
     }
+    toast.success(`Idioma selecionado: ${dubOpt.label}`);
   };
 
   const togglePlay = () => {
@@ -480,66 +670,118 @@ export const WorscoCinemaPlayer: React.FC<WorscoCinemaPlayerProps> = ({
   const displayTitle =
     audioMode === "original" && item.originalTitle ? item.originalTitle : item.title;
 
-  const sandboxBackupUrl = getCinemaStreamUrl(item, {
+  const activeDubObj =
+    availableDubs.find((d) => d.id === selectedDubId) ||
+    DEFAULT_LANGUAGE_PRESETS.find((d) => d.id === selectedDubId) ||
+    DEFAULT_LANGUAGE_PRESETS[0];
+
+  const [activeDubCode, activeDubType] = selectedDubId.split(":");
+  const embedPlayerUrl = getCinemaStreamUrl(item, {
     server: "vidstuck",
     seasonNumber,
     episodeNumber,
     language: audioMode === "original" ? "en" : "pt",
     audioMode,
+    dubCode: activeDubCode,
+    dubType: activeDubType,
   });
+
+  // Quick preset buttons shown directly in the bar
+  const quickDubPresets = useMemo(() => {
+    const map = new Map<string, AvailableDubOption>();
+    DEFAULT_LANGUAGE_PRESETS.forEach((p) => map.set(p.id, p));
+    availableDubs.forEach((d) => map.set(d.id, d));
+
+    const priorityIds = ["ptbr:0", "pt:1", "en:0", "esla:0", "es:0", "fr:0"];
+    const result: AvailableDubOption[] = [];
+    for (const id of priorityIds) {
+      const found = map.get(id);
+      if (found && result.length < 5) {
+        if (id === "es:0" && result.some((r) => r.id === "esla:0")) continue;
+        result.push(found);
+      }
+    }
+    return result;
+  }, [availableDubs]);
 
   return (
     <div className="rounded-2xl overflow-hidden border border-white/15 bg-zinc-950 shadow-2xl">
-      {/* Single Unified Control Header — Direct Language Selection & Anti-Redirect Shield */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 sm:px-6 py-3.5 bg-zinc-900/95 border-b border-white/10">
-        <div className="flex items-center gap-2 text-xs text-emerald-400 font-medium">
-          <ShieldCheck className="w-4 h-4 shrink-0" />
-          <span>
-            Servidor Unificado 1080p FHD · Anti-Redirecionamento Ativo
-            {blockedCount > 0 ? ` (${blockedCount} bloqueados)` : ""}
-          </span>
-        </div>
+      {/* Single Clean Unified Header — Only Language & Quality Selection (Zero Server Complication) */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-end gap-3 px-4 sm:px-6 py-3.5 bg-zinc-900/95 border-b border-white/10">
+        {/* Direct 1-Click Language Switcher + Quality */}
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-1.5 bg-black/80 border border-white/15 rounded-xl p-1">
+            {quickDubPresets.map((preset) => {
+              const isSelected = selectedDubId === preset.id;
+              return (
+                <button
+                  key={preset.id}
+                  type="button"
+                  onClick={() => handleSelectLanguageOption(preset)}
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
+                    isSelected
+                      ? "bg-amber-500 text-black shadow-sm"
+                      : "text-zinc-300 hover:text-white hover:bg-white/5"
+                  }`}
+                >
+                  <span>{preset.shortLabel}</span>
+                </button>
+              );
+            })}
 
-        {/* Direct 3-Way Language Switcher */}
-        <div className="flex flex-wrap items-center gap-1.5 bg-black/80 border border-white/15 rounded-xl p-1">
-          <button
-            type="button"
-            onClick={() => handleSelectAudioMode("dublado")}
-            className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
-              audioMode === "dublado"
-                ? "bg-amber-500 text-black shadow-sm"
-                : "text-zinc-300 hover:text-white hover:bg-white/5"
-            }`}
-          >
-            <Mic className="w-3.5 h-3.5" />
-            <span>Dublado em Português</span>
-          </button>
+            {/* Full Language Dropdown when additional languages exist */}
+            {availableDubs.length > quickDubPresets.length && (
+              <div className="relative inline-flex items-center pl-1 border-l border-white/10">
+                <Languages className="w-3.5 h-3.5 text-amber-400 ml-1.5 pointer-events-none" />
+                <select
+                  aria-label="Mais idiomas disponíveis"
+                  value={selectedDubId}
+                  onChange={(e) => {
+                    const found =
+                      availableDubs.find((d) => d.id === e.target.value) ||
+                      DEFAULT_LANGUAGE_PRESETS.find((d) => d.id === e.target.value);
+                    if (found) handleSelectLanguageOption(found);
+                  }}
+                  className="bg-transparent text-amber-300 hover:text-amber-200 px-2 py-1.5 text-xs font-semibold cursor-pointer focus:outline-none"
+                >
+                  {availableDubs.map((dub) => (
+                    <option key={dub.id} value={dub.id} className="bg-zinc-900 text-white">
+                      {dub.flag} {dub.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+          </div>
 
-          <button
-            type="button"
-            onClick={() => handleSelectAudioMode("legendado")}
-            className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
-              audioMode === "legendado"
-                ? "bg-amber-500 text-black shadow-sm"
-                : "text-zinc-300 hover:text-white hover:bg-white/5"
-            }`}
-          >
-            <Subtitles className="w-3.5 h-3.5" />
-            <span>Português (Legendado)</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => handleSelectAudioMode("original")}
-            className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
-              audioMode === "original"
-                ? "bg-amber-500 text-black shadow-sm"
-                : "text-zinc-300 hover:text-white hover:bg-white/5"
-            }`}
-          >
-            <Globe className="w-3.5 h-3.5" />
-            <span>Áudio Original (EN)</span>
-          </button>
+          {/* Quality Selector */}
+          {availableQualities.length > 1 && internalPipelineStage !== "embed" && (
+            <div className="flex items-center gap-1.5 bg-black/80 border border-white/15 rounded-xl px-2.5 py-1.5">
+              <Settings className="w-3.5 h-3.5 text-zinc-400" />
+              <select
+                aria-label="Qualidade de vídeo"
+                value={preferredQuality}
+                onChange={(e) => {
+                  if (videoRef.current && videoRef.current.currentTime > 1) {
+                    savedTimeRef.current = videoRef.current.currentTime;
+                  }
+                  setPreferredQuality(e.target.value);
+                  setCandidateIdx(0);
+                  setUseProxyForMp4(false);
+                }}
+                className="bg-transparent text-zinc-200 text-xs font-mono cursor-pointer focus:outline-none"
+              >
+                <option value="auto" className="bg-zinc-900">
+                  Auto ({currentStream?.quality || "1080p FHD"})
+                </option>
+                {availableQualities.map((q) => (
+                  <option key={q} value={q} className="bg-zinc-900">
+                    {q}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
       </div>
 
@@ -550,82 +792,26 @@ export const WorscoCinemaPlayer: React.FC<WorscoCinemaPlayerProps> = ({
         onContextMenu={(e) => e.preventDefault()}
         className="relative aspect-video w-full bg-black select-none overflow-hidden group"
       >
-        {useSandboxFallback ? (
-          <div className="relative w-full h-full flex flex-col items-center justify-center bg-zinc-950 text-center p-6">
-            {item.backdropUrl && (
-              <img
-                src={item.backdropUrl}
-                alt={displayTitle}
-                className="absolute inset-0 w-full h-full object-cover opacity-25 blur-xs pointer-events-none"
-              />
-            )}
-            <div className="relative z-10 max-w-md flex flex-col items-center">
-              <div className="w-14 h-14 rounded-full bg-amber-500/20 border border-amber-500/40 flex items-center justify-center mb-4">
-                <RotateCcw className="w-6 h-6 text-amber-400" />
-              </div>
-              <h3 className="text-base sm:text-lg font-bold text-white mb-1.5">
-                Sincronizando Stream 1080p FHD — {displayTitle}
-              </h3>
-              <p className="text-xs sm:text-sm text-zinc-300 mb-5">
-                O servidor principal está preparando a faixa de áudio{" "}
-                {audioMode === "dublado"
-                  ? "Dublado em Português (PT-BR)"
-                  : audioMode === "legendado"
-                  ? "Legendado em Português (PT-BR)"
-                  : "Original (EN)"}
-                . Clique abaixo para iniciar imediatamente.
-              </p>
-              <button
-                type="button"
-                onClick={() => {
-                  setUseSandboxFallback(false);
-                  setCandidateIdx(0);
-                  setUseProxyForMp4(false);
-                  if (allStreams.length === 0) {
-                    setIsResolving(true);
-                    const mediaType = item.type === "serie" ? "tv" : "movie";
-                    const retryParams = new URLSearchParams({
-                      tmdbId: String(item.tmdbId),
-                      imdbId: item.imdbId || "",
-                      type: mediaType,
-                      season: String(seasonNumber),
-                      episode: String(episodeNumber),
-                      title: item.originalTitle || item.title,
-                      year: String(item.year),
-                      audioMode,
-                      t: String(Date.now()),
-                    });
-                    fetch(`/api/cinema/resolve?${retryParams.toString()}`)
-                      .then((r) => r.json())
-                      .then((data) => {
-                        const resolved: ResolvedStream[] = Array.isArray(data.streams)
-                          ? data.streams
-                          : [];
-                        setAllStreams(resolved);
-                        setHasPtDub(Boolean(data.hasPtDub));
-                        setHasPtSub(Boolean(data.hasPtSub));
-                        if (resolved.length === 0) setUseSandboxFallback(true);
-                        setIsResolving(false);
-                      })
-                      .catch(() => {
-                        setUseSandboxFallback(true);
-                        setIsResolving(false);
-                      });
-                  }
-                }}
-                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-semibold text-xs sm:text-sm shadow-lg shadow-amber-500/25 transition cursor-pointer"
-              >
-                <Play className="w-4 h-4 fill-black" />
-                <span>Reproduzir Agora em 1080p FHD</span>
-              </button>
-            </div>
+        {internalPipelineStage === "embed" ? (
+          <div className="relative w-full h-full bg-black">
+            <iframe
+              key={`${item.id}-${seasonNumber}-${episodeNumber}-${selectedDubId}`}
+              src={embedPlayerUrl}
+              title={`${displayTitle} — Player Unificado`}
+              className="w-full h-full border-0"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
+              allowFullScreen
+              referrerPolicy="origin"
+              sandbox="allow-scripts allow-same-origin allow-forms allow-presentation"
+            />
           </div>
         ) : (
-          /* Primary Native HTML5 1080p MP4 / HLS Video Player (Zero Iframes, Zero Popups, Real Original/Dubbed Audio) */
+          /* Unified Native HTML5 1080p MP4 / HLS Video Player (Direct CDN Edge, Zero Popups, Multi-Audio) */
           <>
             <video
               ref={videoRef}
               poster={item.backdropUrl}
+              preload="auto"
               playsInline
               onClick={togglePlay}
               onDoubleClick={toggleFullscreen}
@@ -655,19 +841,16 @@ export const WorscoCinemaPlayer: React.FC<WorscoCinemaPlayerProps> = ({
 
             {/* Loading / Resolving Spinner Overlay */}
             {(isResolving || isBuffering) && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/65 backdrop-blur-xs pointer-events-none z-20">
+              <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 backdrop-blur-xs pointer-events-none z-20 p-4 text-center">
                 <Loader2 className="w-11 h-11 text-amber-400 animate-spin mb-3" />
                 <p className="text-xs sm:text-sm font-medium text-white tracking-wide">
                   {isResolving
-                    ? `Carregando ${displayTitle} em 1080p FHD...`
-                    : "Iniciando reprodução em alta definição..."}
+                    ? `Iniciando ${displayTitle}...`
+                    : "Reproduzindo em alta definição..."}
                 </p>
                 <p className="text-[11px] text-amber-400/90 mt-1">
-                  {audioMode === "dublado"
-                    ? "Áudio Original Dublado em Português (PT-BR)"
-                    : audioMode === "legendado"
-                    ? "Áudio Original com Legendas em Português (PT-BR)"
-                    : "Áudio Original em Inglês (EN)"}
+                  {activeDubObj.flag} {activeDubObj.label}
+                  {currentStream?.quality ? ` · ${currentStream.quality}` : ""}
                 </p>
               </div>
             )}
@@ -684,7 +867,7 @@ export const WorscoCinemaPlayer: React.FC<WorscoCinemaPlayerProps> = ({
               </div>
             )}
 
-            {/* Active Subtitle Overlay (when in Legendado/Original mode with VTT cues) */}
+            {/* Active Subtitle Overlay */}
             {showSubtitles && activeCueText && (
               <div className="absolute inset-x-4 bottom-20 sm:bottom-24 flex justify-center pointer-events-none z-20">
                 <div className="max-w-3xl px-4 py-2 rounded-lg bg-black/80 border border-white/10 text-center shadow-xl backdrop-blur-xs">
@@ -703,21 +886,12 @@ export const WorscoCinemaPlayer: React.FC<WorscoCinemaPlayerProps> = ({
             >
               <span className="px-3 py-1 rounded-full bg-black/80 border border-white/15 text-[11px] font-medium text-zinc-200 backdrop-blur-md flex items-center gap-1.5 shadow-md">
                 <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                {audioMode === "dublado" && hasPtDub
-                  ? "🇧🇷 Áudio Oficial Dublado em Português (PT-BR)"
-                  : audioMode === "dublado" && !hasPtDub
-                  ? "🇺🇸 Áudio Original · Legendas em Português (PT-BR)"
-                  : audioMode === "legendado"
-                  ? "🇧🇷 Áudio Original · Português (Legendado)"
-                  : "🇺🇸 Áudio Original em Inglês (EN)"}
+                {activeDubObj.flag} {activeDubObj.label}
                 {currentStream?.quality ? ` · ${currentStream.quality}` : ""}
+                {item.type === "serie"
+                  ? ` · T${seasonNumber}:E${episodeNumber}${episodeTitle ? ` (${episodeTitle})` : ""}`
+                  : ""}
               </span>
-
-              {audioMode === "dublado" && !hasPtDub && (
-                <span className="px-2.5 py-1 rounded-md bg-amber-500/20 border border-amber-500/40 text-[10px] text-amber-200 backdrop-blur-md">
-                  Faixa dublada indisponível no servidor para este título. Legendas em Português ativadas.
-                </span>
-              )}
             </div>
 
             {/* Bottom Custom Native Video Controls */}
@@ -746,8 +920,8 @@ export const WorscoCinemaPlayer: React.FC<WorscoCinemaPlayerProps> = ({
               </div>
 
               {/* Control Buttons Row */}
-              <div className="flex items-center justify-between gap-4">
-                <div className="flex items-center gap-2 sm:gap-3">
+              <div className="flex items-center justify-between gap-2 sm:gap-4">
+                <div className="flex items-center gap-1.5 sm:gap-2.5">
                   <button
                     type="button"
                     onClick={togglePlay}
@@ -778,6 +952,30 @@ export const WorscoCinemaPlayer: React.FC<WorscoCinemaPlayerProps> = ({
                   >
                     <RotateCw className="w-4 h-4" />
                   </button>
+
+                  {/* Episode Prev/Next Controls for Series */}
+                  {item.type === "serie" && onSelectEpisode && (
+                    <div className="flex items-center gap-1.5 ml-1">
+                      <button
+                        type="button"
+                        disabled={episodeNumber <= 1}
+                        onClick={() => onSelectEpisode(episodeNumber - 1)}
+                        className="p-2 rounded-lg bg-white/10 hover:bg-white/20 disabled:opacity-35 text-white transition cursor-pointer"
+                        title="Episódio Anterior"
+                      >
+                        <SkipBack className="w-4 h-4" />
+                      </button>
+                      <button
+                        type="button"
+                        disabled={episodeNumber >= totalEpisodes}
+                        onClick={() => onSelectEpisode(episodeNumber + 1)}
+                        className="p-2 rounded-lg bg-white/10 hover:bg-white/20 disabled:opacity-35 text-white transition cursor-pointer"
+                        title="Próximo Episódio"
+                      >
+                        <SkipForward className="w-4 h-4" />
+                      </button>
+                    </div>
+                  )}
 
                   {/* Volume Control */}
                   <div className="flex items-center gap-2 ml-1">
@@ -810,6 +1008,21 @@ export const WorscoCinemaPlayer: React.FC<WorscoCinemaPlayerProps> = ({
                 </div>
 
                 <div className="flex items-center gap-2">
+                  {/* Playback Speed Selector */}
+                  <select
+                    aria-label="Velocidade de reprodução"
+                    value={playbackRate}
+                    onChange={(e) => setPlaybackRate(Number(e.target.value))}
+                    className="hidden sm:block bg-white/10 border border-white/10 text-zinc-200 rounded-lg px-2 py-1.5 text-xs font-mono cursor-pointer focus:outline-none"
+                    title="Velocidade de Reprodução"
+                  >
+                    <option value={0.75} className="bg-zinc-900">0.75x</option>
+                    <option value={1} className="bg-zinc-900">1.0x</option>
+                    <option value={1.25} className="bg-zinc-900">1.25x</option>
+                    <option value={1.5} className="bg-zinc-900">1.5x</option>
+                    <option value={2} className="bg-zinc-900">2.0x</option>
+                  </select>
+
                   {/* Toggle Captions Button */}
                   <button
                     type="button"

@@ -8,8 +8,6 @@ import {
   Star,
   Clock,
   Film,
-  Tv,
-  Sparkles,
   ChevronRight,
   Check,
   Volume2,
@@ -28,6 +26,7 @@ import {
   toggleCinemaWatchlist,
   isCinemaInWatchlist,
   saveCinemaProgress,
+  prefetchCinemaStream,
   CinemaItem,
   CinemaEpisode,
 } from "@/lib/cinema";
@@ -232,15 +231,7 @@ export default function CinemaDetail() {
 
                 <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs tracking-wide text-zinc-300 pt-1">
                   <span className="font-semibold uppercase tracking-wider text-amber-400 flex items-center gap-1">
-                    {item.type === "filme" ? (
-                      <>
-                        <Film className="w-3.5 h-3.5" /> Filme Completo
-                      </>
-                    ) : (
-                      <>
-                        <Tv className="w-3.5 h-3.5" /> Série Completa
-                      </>
-                    )}
+                    {item.type === "filme" ? "Filme Completo" : "Série Completa"}
                   </span>
                   <span className="text-zinc-600">·</span>
                   <span className="font-medium text-white">{item.year}</span>
@@ -382,6 +373,9 @@ export default function CinemaDetail() {
                       return (
                         <div
                           key={ep.episodeNumber}
+                          onMouseEnter={() =>
+                            prefetchCinemaStream(item, selectedSeasonNumber, ep.episodeNumber, "dublado")
+                          }
                           onClick={() => handlePlayEpisode(ep)}
                           className={`group flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 rounded-xl border transition cursor-pointer ${
                             isCurrent
@@ -442,7 +436,6 @@ export default function CinemaDetail() {
               {/* Sinopse */}
               <section className="bg-zinc-900/40 border border-white/5 rounded-xl p-6 sm:p-8 backdrop-blur-sm">
                 <h2 className="text-lg font-serif font-semibold text-white mb-3 flex items-center gap-2">
-                  <Sparkles className="w-4 h-4 text-amber-400" />
                   Sinopse Oficial
                 </h2>
                 <p className="text-zinc-300 leading-relaxed text-base sm:text-lg font-sans">
@@ -500,8 +493,8 @@ export default function CinemaDetail() {
                       Áudio & Idiomas Disponíveis
                     </dt>
                     <dd className="text-zinc-200 font-medium mt-0.5 flex items-center gap-1.5">
-                      <Volume2 className="w-3.5 h-3.5 text-amber-400" />
-                      Português (Dublado & Legendado) · Inglês (Original)
+                      <Volume2 className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                      Português (Dublado & Legendado) · Inglês · Espanhol · Francês & Mais
                     </dd>
                   </div>
 

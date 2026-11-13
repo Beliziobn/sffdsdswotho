@@ -126,6 +126,8 @@ export function getCinemaStreamUrl(
     episodeNumber?: number;
     language?: CinemaLanguage;
     audioMode?: "dublado" | "legendado" | "original";
+    dubCode?: string;
+    dubType?: string;
   }
 ): string {
   const server = options?.server || "vidstuck";
@@ -149,14 +151,115 @@ export function getCinemaStreamUrl(
     return `https://www.youtube.com/embed/${ytId}?autoplay=1&modestbranding=1&rel=0&playsinline=1&hl=${subCode}&cc_lang_pref=${subCode}&cc_load_policy=1`;
   }
 
-  const dubLang = audioMode === "dublado" ? "ptbr" : audioMode === "legendado" ? "pt" : "en";
-  const dubType = audioMode === "legendado" ? "1" : "0";
+  const dubLang =
+    options?.dubCode ||
+    (audioMode === "dublado" ? "ptbr" : audioMode === "legendado" ? "pt" : "en");
+  const dubType =
+    options?.dubType !== undefined
+      ? options.dubType
+      : audioMode === "legendado"
+      ? "1"
+      : "0";
 
   if (item.type === "filme") {
     return `https://vidstuck.cc/embed/movie/${tmdbId}?autoplay=true&server=orion&dubLang=${dubLang}&dubType=${dubType}&color=f59e0b`;
   } else {
     return `https://vidstuck.cc/embed/tv/${tmdbId}/${season}/${episode}?autoplay=true&server=orion&dubLang=${dubLang}&dubType=${dubType}&color=f59e0b`;
   }
+}
+
+const clientResolveCache = new Map<
+  string,
+  { expiresAt: number; promise: Promise<any>; data?: any }
+>();
+
+export function fetchCinemaResolveCached(params: {
+  tmdbId: string | number;
+  imdbId?: string;
+  type: "movie" | "tv";
+  season?: string | number;
+  episode?: string | number;
+  title: string;
+  year: string | number;
+  audioMode?: string;
+  dubCode?: string;
+  dubType?: string;
+  server?: string;
+  forceBust?: boolean;
+}): Promise<any> {
+  const query = new URLSearchParams({
+    tmdbId: String(params.tmdbId),
+    imdbId: params.imdbId || "",
+    type: params.type,
+    season: String(params.season || 1),
+    episode: String(params.episode || 1),
+    title: params.title,
+    year: String(params.year),
+    audioMode: params.audioMode || "dublado",
+  });
+  if (params.dubCode) query.set("dubCode", params.dubCode);
+  if (params.dubType !== undefined && params.dubType !== "") {
+    query.set("dubType", params.dubType);
+  }
+  if (params.server) query.set("server", params.server);
+
+  const key = query.toString();
+  if (!params.forceBust) {
+    const cached = clientResolveCache.get(key);
+    if (cached && cached.expiresAt > Date.now()) {
+      return cached.data ? Promise.resolve(cached.data) : cached.promise;
+    }
+  } else {
+    query.set("t", String(Date.now()));
+  }
+
+  const reqPromise = fetch(`/api/cinema/resolve?${query.toString()}`)
+    .then((r) => {
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      return r.json();
+    })
+    .then((data) => {
+      if (Array.isArray(data?.streams) && data.streams.length > 0) {
+        clientResolveCache.set(key, {
+          expiresAt: Date.now() + 1000 * 60 * 20,
+          promise: Promise.resolve(data),
+          data,
+        });
+      } else {
+        clientResolveCache.delete(key);
+      }
+      return data;
+    })
+    .catch((err) => {
+      clientResolveCache.delete(key);
+      throw err;
+    });
+
+  clientResolveCache.set(key, {
+    expiresAt: Date.now() + 1000 * 30,
+    promise: reqPromise,
+  });
+
+  return reqPromise;
+}
+
+export function prefetchCinemaStream(
+  item: CinemaItem,
+  seasonNumber = 1,
+  episodeNumber = 1,
+  audioMode: "dublado" | "legendado" | "original" = "dublado"
+): void {
+  const mediaType = item.type === "serie" ? "tv" : "movie";
+  void fetchCinemaResolveCached({
+    tmdbId: item.tmdbId,
+    imdbId: item.imdbId,
+    type: mediaType,
+    season: seasonNumber,
+    episode: episodeNumber,
+    title: item.originalTitle || item.title,
+    year: item.year,
+    audioMode,
+  }).catch(() => {});
 }
 
 export const CINEMA_GENRES = [

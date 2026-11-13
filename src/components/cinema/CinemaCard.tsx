@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Play, Star, Plus, Check } from "lucide-react";
-import { CinemaItem, toggleCinemaWatchlist, isCinemaInWatchlist } from "@/lib/cinema";
+import { CinemaItem, toggleCinemaWatchlist, isCinemaInWatchlist, prefetchCinemaStream } from "@/lib/cinema";
 
 interface CinemaCardProps {
   item: CinemaItem;
@@ -28,8 +28,16 @@ export const CinemaCard = ({ item, onPlay, showProgress }: CinemaCardProps) => {
     }
   };
 
+  const handlePrefetch = () => {
+    prefetchCinemaStream(item, 1, 1, "dublado");
+  };
+
   return (
-    <div className="group relative flex flex-col">
+    <div
+      className="group relative flex flex-col"
+      onMouseEnter={handlePrefetch}
+      onTouchStart={handlePrefetch}
+    >
       <Link to={`/cinema/${item.id}`} className="block relative overflow-hidden rounded-md bg-zinc-900 border border-zinc-800/80 aspect-[2/3] transition-all duration-300 group-hover:border-zinc-700 group-hover:shadow-xl">
         {/* Poster Image */}
         <img

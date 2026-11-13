@@ -303,9 +303,8 @@ export const SecureAnimePlayer: React.FC<SecureAnimePlayerProps> = ({
       const isArchiveOrg = activeRawUrl.includes("archive.org");
       let triedSecondCandidate = false;
       videoEl.setAttribute("referrerpolicy", "no-referrer");
-      // For hakunaymatata (Orion), always use proxyMp4Url first because ?sign= is IP-bound to the server
-      const initialMp4Src = isArchiveOrg ? activeRawUrl : proxyMp4Url;
-      const secondaryMp4Src = isArchiveOrg ? proxyMp4Url : activeRawUrl;
+      const initialMp4Src = activeRawUrl;
+      const secondaryMp4Src = proxyMp4Url;
       videoEl.src = initialMp4Src;
       videoEl.load();
 
