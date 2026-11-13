@@ -26,6 +26,7 @@ interface SecureAnimePlayerProps {
   onPreviousEpisode?: () => void;
   hasNextEpisode?: boolean;
   hasPreviousEpisode?: boolean;
+  onDubChange?: (dubId: string) => void;
 }
 
 interface ResolvedOrionStream {
@@ -155,6 +156,7 @@ export const SecureAnimePlayer: React.FC<SecureAnimePlayerProps> = ({
   onPreviousEpisode,
   hasNextEpisode = false,
   hasPreviousEpisode = false,
+  onDubChange,
 }) => {
   // Rigorously enforce anti-redirect and popup blocking
   usePlayerAdBlock(true);
@@ -380,6 +382,7 @@ export const SecureAnimePlayer: React.FC<SecureAnimePlayerProps> = ({
     }
     setUseEmbedFallback(false);
     setSelectedDubId(dubOpt.id);
+    onDubChange?.(dubOpt.id);
     toast.success(`Idioma alterado para: ${dubOpt.label}`);
   };
 

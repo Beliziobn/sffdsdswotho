@@ -12,7 +12,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { formatPrice } from "@/lib/format";
 import { getOriginalPdfForBook } from "@/lib/originalPdfRegistry";
-import { executeTrackedDownload } from "@/lib/downloadsStore";
+import { downloadRealBook } from "@/lib/mediaDownloaders";
 import { CommunityReviews } from "@/components/CommunityReviews";
 import ShareDialog from "@/components/ShareDialog";
 import { ContentDetailSkeleton } from "@/components/skeletons/AppSkeletons";
@@ -36,23 +36,18 @@ const BookDetail = () => {
     if (!book || isDownloadingPdf) return;
     setIsDownloadingPdf(true);
     try {
-      const sourcePdfUrl =
-        originalPdf?.pdfUrl ||
-        (book as any).pdf_url ||
-        (book as any).download_url ||
-        undefined;
-      await executeTrackedDownload({
-        itemId: String(book.id),
-        type: originalPdf ? "pdf" : "book",
-        title: originalPdf?.title || book.title,
-        author: originalPdf?.author || book.author,
-        category: book.category,
-        description: book.description,
-        cover: book.cover_url || originalPdf?.coverUrl || undefined,
-        sourceUrl: sourcePdfUrl,
-        openHref: originalPdf ? `/ler/${book.id}?mode=pdf` : `/ler/${book.id}`,
-        fileName: `${originalPdf?.title || book.title}-${originalPdf?.author || book.author}.pdf`,
-        expectedFileSizeFormatted: originalPdf?.fileSizeFormatted,
+      await downloadRealBook({
+        book: {
+          id: String(book.id),
+          title: book.title,
+          author: book.author,
+          category: book.category,
+          description: book.description,
+          cover_url: book.cover_url,
+          pdf_url: (book as any).pdf_url,
+          download_url: (book as any).download_url,
+        },
+        chapters,
       });
       toast.success("Download concluído! Acesse e abra quando quiser em Meu Perfil → Downloads.");
     } catch {

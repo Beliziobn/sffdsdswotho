@@ -13,6 +13,7 @@ import {
   RefreshCw,
   Zap,
   Globe,
+  Download,
 } from "lucide-react";
 import {
   ANIMES_DATA,
@@ -32,6 +33,7 @@ import { useContentProtection } from "@/hooks/useContentProtection";
 import { toast } from "sonner";
 import { AnimatePresence } from "framer-motion";
 import { WorscoiIntroPlayer } from "@/components/WorscoiIntroPlayer";
+import { downloadRealMangaChapter } from "@/lib/mediaDownloaders";
 
 interface UnifiedChapter {
   id: string;
@@ -69,6 +71,7 @@ export const AnimeMangaReader = () => {
   const [isLoadingPages, setIsLoadingPages] = useState(true);
   const [pageError, setPageError] = useState<string | null>(null);
   const [showIntro, setShowIntro] = useState(false);
+  const [isDownloadingChapter, setIsDownloadingChapter] = useState(false);
 
   const [mangaLanguage, setMangaLanguage] = useState<"pt" | "en" | "ja">(() => {
     return (localStorage.getItem("worscoi_manga_language") as "pt" | "en" | "ja") || "pt";
@@ -334,6 +337,34 @@ export const AnimeMangaReader = () => {
     }
   };
 
+  const handleDownloadChapter = async () => {
+    if (!anime || !currentChapter || isDownloadingChapter) return;
+    setIsDownloadingChapter(true);
+    const toastId = toast.loading(
+      `Compilando Capítulo ${currentChapter.number} (${mangaLanguage.toUpperCase()}) em PDF...`
+    );
+    try {
+      await downloadRealMangaChapter({
+        anime,
+        chapter: currentChapter,
+        language: mangaLanguage,
+        preloadedPages: resolvedPages,
+      });
+      toast.success("Capítulo baixado! Acesse e abra em Meu Perfil → Downloads.", {
+        id: toastId,
+      });
+    } catch (err) {
+      toast.error(
+        err instanceof Error
+          ? err.message
+          : "Não foi possível baixar este capítulo no momento.",
+        { id: toastId }
+      );
+    } finally {
+      setIsDownloadingChapter(false);
+    }
+  };
+
   if (!anime) {
     return (
       <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center p-6 text-center">
@@ -476,6 +507,26 @@ export const AnimeMangaReader = () => {
                 Página
               </button>
             </div>
+
+            {/* Download Chapter PDF Button */}
+            {currentChapter && (
+              <button
+                type="button"
+                onClick={handleDownloadChapter}
+                disabled={isDownloadingChapter}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary hover:bg-primary/90 disabled:opacity-50 text-xs font-medium text-white transition-colors whitespace-nowrap shrink-0"
+                title="Baixar este capítulo completo em PDF"
+              >
+                {isDownloadingChapter ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Download className="h-3.5 w-3.5" />
+                )}
+                <span className="hidden md:inline">
+                  {isDownloadingChapter ? "Baixando..." : "Baixar Cap."}
+                </span>
+              </button>
+            )}
 
             {/* Fullscreen Button */}
             <button

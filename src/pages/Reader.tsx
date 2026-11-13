@@ -29,7 +29,7 @@ import {
   getDownloadPdfUrl,
 } from "@/lib/originalPdfRegistry";
 import OriginalPdfViewer from "@/components/books/OriginalPdfViewer";
-import { executeTrackedDownload } from "@/lib/downloadsStore";
+import { downloadRealBook } from "@/lib/mediaDownloaders";
 import { isExcludedItem } from "@/lib/excludedItems";
 
 type ThemeMode = "light" | "sepia" | "dark" | "oled";
@@ -102,17 +102,18 @@ const Reader = () => {
     if (!book || isDownloadingFallback) return;
     setIsDownloadingFallback(true);
     try {
-      await executeTrackedDownload({
-        itemId: String(book.id),
-        type: "book",
-        title: book.title || "Livro Digital",
-        author: book.author || "Autor Editorial",
-        category: book.category,
-        description: book.description,
-        cover: book.cover_url || undefined,
-        sourceUrl: (book as any)?.pdf_url || (book as any)?.download_url || undefined,
-        openHref: `/ler/${book.id}`,
-        fileName: `${book.title || "livro"}-${book.author || "autor"}.pdf`,
+      await downloadRealBook({
+        book: {
+          id: String(book.id),
+          title: book.title || "Livro Digital",
+          author: book.author || "Autor Editorial",
+          category: book.category,
+          description: book.description,
+          cover_url: book.cover_url,
+          pdf_url: (book as any)?.pdf_url,
+          download_url: (book as any)?.download_url,
+        },
+        chapters,
       });
       toast.success("Download concluído! Disponível em Meu Perfil → Downloads.");
     } catch {
@@ -380,6 +381,20 @@ const Reader = () => {
                 title="Configurações de Leitura (Fonte, Cor, Tamanho)"
               >
                 <Type className="h-4 w-4" />
+              </button>
+
+              {/* Download Full Book PDF */}
+              <button
+                type="button"
+                onClick={handleDownloadFallbackPdf}
+                disabled={isDownloadingFallback}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border ${currentTheme.border} ${currentTheme.card} hover:opacity-90 disabled:opacity-50 transition-all whitespace-nowrap shrink-0`}
+                title="Baixar obra completa em PDF"
+              >
+                <Download className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">
+                  {isDownloadingFallback ? "Baixando..." : "Baixar PDF"}
+                </span>
               </button>
 
               {/* Share */}

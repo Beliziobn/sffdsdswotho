@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { motion, useScroll, useTransform } from "framer-motion";
 import { Link, useParams } from "react-router-dom";
-import { BookOpen, ArrowRight, Eye, Heart, Check, Search, Filter, RefreshCw, Zap, Sparkles, Share2 } from "lucide-react";
+import { BookOpen, ArrowRight, Eye, Heart, Check, Search, Filter, RefreshCw, Zap, Sparkles, Share2, Download, Loader2 } from "lucide-react";
 import Navigation from "@/components/Navigation";
 import Footer from "@/components/Footer";
 import ContentSection from "@/components/ContentSection";
@@ -12,6 +12,8 @@ import { formatDate } from "@/lib/format";
 import { CommunityReviews } from "@/components/CommunityReviews";
 import ShareDialog from "@/components/ShareDialog";
 import { ContentDetailSkeleton } from "@/components/skeletons/AppSkeletons";
+import { downloadRealWebtoonEpisode } from "@/lib/mediaDownloaders";
+import { toast } from "sonner";
 
 const CHUNK_SIZE = 50;
 
@@ -31,6 +33,7 @@ const WebtoonDetail = () => {
   const [selectedArc, setSelectedArc] = useState("all");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
   const [isShareOpen, setIsShareOpen] = useState(false);
+  const [downloadingEpId, setDownloadingEpId] = useState<string | null>(null);
 
   // Dynamic SEO Synchronization
   useEffect(() => {
@@ -144,6 +147,44 @@ const WebtoonDetail = () => {
   const nextEpisode =
     episodes.find((e) => e.id === progress?.episode_id) ?? episodes[0];
 
+  const handleDownloadWebtoonEpisode = async (ep: typeof episodes[number]) => {
+    if (!item || downloadingEpId) return;
+    setDownloadingEpId(ep.id);
+    const toastId = toast.loading(`Baixando painéis de "${ep.title}"...`);
+    try {
+      const savedLang =
+        (localStorage.getItem("worscoi_webtoon_language") as "pt" | "en" | "ko") || "pt";
+      await downloadRealWebtoonEpisode({
+        webtoonId: String(item.id),
+        webtoonTitle: item.title,
+        author: item.author,
+        category: item.category,
+        coverUrl: item.cover,
+        episode: {
+          id: ep.id,
+          number: ep.number,
+          title: ep.title,
+          body: ep.body,
+          images: ep.images,
+          viewer_url: (ep as any).viewer_url,
+        },
+        language: savedLang,
+      });
+      toast.success("Capítulo baixado! Acesse e abra em Meu Perfil → Downloads.", {
+        id: toastId,
+      });
+    } catch (err) {
+      toast.error(
+        err instanceof Error
+          ? err.message
+          : "Não foi possível baixar este capítulo agora.",
+        { id: toastId }
+      );
+    } finally {
+      setDownloadingEpId(null);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background overflow-x-hidden">
       <Navigation />
@@ -208,6 +249,26 @@ const WebtoonDetail = () => {
                     {progress?.episode_id ? "Continuar lendo" : "Começar a ler"}
                     <ArrowRight className="ml-2 h-4 w-4" />
                   </Link>
+                </Button>
+              )}
+              {nextEpisode && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={Boolean(downloadingEpId)}
+                  onClick={() => handleDownloadWebtoonEpisode(nextEpisode)}
+                  className="rounded-md smooth-hover text-[11px] uppercase tracking-wider font-normal gap-2 border-emerald-500/40 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 whitespace-nowrap shrink-0"
+                >
+                  {downloadingEpId === nextEpisode.id ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Download className="h-3.5 w-3.5" />
+                  )}
+                  <span>
+                    {downloadingEpId === nextEpisode.id
+                      ? "Baixando..."
+                      : `Baixar Cap. ${nextEpisode.number}`}
+                  </span>
                 </Button>
               )}
               <Button
@@ -364,9 +425,25 @@ const WebtoonDetail = () => {
 
                       <div className="flex items-center justify-end gap-2 flex-shrink-0 self-end sm:self-center">
                         <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          disabled={Boolean(downloadingEpId)}
+                          onClick={() => handleDownloadWebtoonEpisode(ep)}
+                          title={`Baixar Capítulo ${ep.number} em PDF`}
+                          className="rounded-full text-xs px-3.5 h-8 border-border hover:border-emerald-500/50 whitespace-nowrap shrink-0"
+                        >
+                          {downloadingEpId === ep.id ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
+                          ) : (
+                            <Download className="h-3.5 w-3.5 mr-1.5" />
+                          )}
+                          <span>Baixar</span>
+                        </Button>
+                        <Button
                           asChild
                           size="sm"
-                          className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-full text-xs px-5 h-8 shadow-soft"
+                          className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-full text-xs px-5 h-8 shadow-soft whitespace-nowrap shrink-0"
                         >
                           <Link to={`/webtoon/${item.id}/ep/${ep.id}`}>
                             Ler Agora

@@ -14,6 +14,8 @@ import {
   Shield,
   Layers,
   ExternalLink,
+  Download,
+  Loader2,
 } from "lucide-react";
 import Navigation from "@/components/Navigation";
 import Footer from "@/components/Footer";
@@ -34,6 +36,7 @@ import { WorscoCinemaPlayer } from "@/components/cinema/WorscoCinemaPlayer";
 import { CinemaCard } from "@/components/cinema/CinemaCard";
 import { useContentProtection } from "@/hooks/useContentProtection";
 import { usePlayerAdBlock } from "@/hooks/usePlayerAdBlock";
+import { downloadRealCinemaVideo } from "@/lib/mediaDownloaders";
 import { toast } from "sonner";
 
 export default function CinemaDetail() {
@@ -50,6 +53,7 @@ export default function CinemaDetail() {
   );
   const [selectedSeasonNumber, setSelectedSeasonNumber] = useState(1);
   const [selectedEpisodeNumber, setSelectedEpisodeNumber] = useState<number>(1);
+  const [downloadingKey, setDownloadingKey] = useState<string | null>(null);
 
   useEffect(() => {
     const handleLangUpdate = (e: Event) => {
@@ -182,6 +186,40 @@ export default function CinemaDetail() {
     playerStageRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
+  const handleDownloadCinema = async (ep?: CinemaEpisode) => {
+    if (!item) return;
+    const epNum = item.type === "serie" ? ep?.episodeNumber ?? selectedEpisodeNumber : 1;
+    const key = `${item.id}-${selectedSeasonNumber}-${epNum}`;
+    if (downloadingKey) return;
+    setDownloadingKey(key);
+    const toastId = toast.loading(
+      item.type === "serie"
+        ? `Preparando download de T${selectedSeasonNumber}E${epNum}...`
+        : `Preparando download de "${item.title}"...`
+    );
+    try {
+      await downloadRealCinemaVideo({
+        item,
+        language: selectedLanguage,
+        seasonNumber: selectedSeasonNumber,
+        episodeNumber: epNum,
+        episodeTitle: ep?.title || activeEpisode?.title,
+      });
+      toast.success("Download concluído! Acesse e assista em Meu Perfil → Downloads.", {
+        id: toastId,
+      });
+    } catch (err) {
+      toast.error(
+        err instanceof Error
+          ? err.message
+          : "Não foi possível baixar este vídeo no momento.",
+        { id: toastId }
+      );
+    } finally {
+      setDownloadingKey(null);
+    }
+  };
+
   const currentSeason =
     item.seasons?.find((s) => s.seasonNumber === selectedSeasonNumber) || item.seasons?.[0];
   const episodesList = currentSeason?.episodes || [];
@@ -269,11 +307,39 @@ export default function CinemaDetail() {
                 </div>
               </div>
 
-              {/* Watchlist & Share Buttons */}
-              <div className="flex items-center gap-2.5 shrink-0">
+              {/* Download, Watchlist & Share Buttons */}
+              <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => handleDownloadCinema(activeEpisode)}
+                  disabled={Boolean(downloadingKey)}
+                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 disabled:opacity-60 text-black text-xs sm:text-sm font-semibold transition cursor-pointer shadow-sm whitespace-nowrap shrink-0"
+                  title={
+                    item.type === "serie"
+                      ? `Baixar Temporada ${selectedSeasonNumber} Episódio ${selectedEpisodeNumber}`
+                      : `Baixar ${item.title}`
+                  }
+                >
+                  {downloadingKey === `${item.id}-${selectedSeasonNumber}-${item.type === "serie" ? selectedEpisodeNumber : 1}` ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Baixando...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Download className="w-4 h-4" />
+                      <span>
+                        {item.type === "serie"
+                          ? `Baixar Ep. ${selectedEpisodeNumber}`
+                          : "Baixar Filme"}
+                      </span>
+                    </>
+                  )}
+                </button>
+
                 <button
                   onClick={handleToggleWatchlist}
-                  className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border text-xs sm:text-sm font-medium transition cursor-pointer backdrop-blur-md ${
+                  className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border text-xs sm:text-sm font-medium transition cursor-pointer backdrop-blur-md whitespace-nowrap shrink-0 ${
                     inWatchlist
                       ? "bg-amber-500/15 border-amber-500/50 text-amber-300"
                       : "bg-white/5 border-white/10 hover:bg-white/10 text-white"
@@ -294,7 +360,7 @@ export default function CinemaDetail() {
 
                 <button
                   onClick={handleShare}
-                  className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-zinc-300 hover:text-white text-xs sm:text-sm font-medium transition cursor-pointer"
+                  className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-zinc-300 hover:text-white text-xs sm:text-sm font-medium transition cursor-pointer whitespace-nowrap shrink-0"
                   title="Compartilhar"
                 >
                   <Share2 className="w-4 h-4" />
@@ -411,13 +477,30 @@ export default function CinemaDetail() {
                             </div>
                           </div>
 
-                          <div className="flex items-center gap-3 shrink-0 self-end sm:self-center text-xs text-zinc-400">
-                            <span className="flex items-center gap-1 font-mono">
+                          <div className="flex items-center gap-2.5 shrink-0 self-end sm:self-center text-xs text-zinc-400">
+                            <span className="flex items-center gap-1 font-mono mr-1">
                               <Clock className="w-3.5 h-3.5 text-zinc-500" />
                               {ep.duration}
                             </span>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDownloadCinema(ep);
+                              }}
+                              disabled={Boolean(downloadingKey)}
+                              title={`Baixar Episódio ${ep.episodeNumber}`}
+                              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg border border-white/15 bg-white/5 hover:bg-white/15 text-zinc-200 hover:text-white text-xs font-medium transition disabled:opacity-50 whitespace-nowrap shrink-0"
+                            >
+                              {downloadingKey === `${item.id}-${selectedSeasonNumber}-${ep.episodeNumber}` ? (
+                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                              ) : (
+                                <Download className="w-3.5 h-3.5" />
+                              )}
+                              <span>Baixar</span>
+                            </button>
                             <span
-                              className={`px-3 py-1 rounded-lg text-xs font-semibold transition ${
+                              className={`px-3 py-1 rounded-lg text-xs font-semibold transition whitespace-nowrap shrink-0 ${
                                 isCurrent
                                   ? "bg-amber-500 text-black"
                                   : "bg-amber-500/20 text-amber-300 group-hover:bg-amber-500 group-hover:text-black"

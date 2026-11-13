@@ -31,7 +31,9 @@ import {
   Layers,
   Search,
   X,
+  Download,
 } from "lucide-react";
+import { downloadRealAnimeEpisode, downloadRealMangaChapter } from "@/lib/mediaDownloaders";
 import { toast } from "sonner";
 import ShareDialog from "@/components/ShareDialog";
 
@@ -53,6 +55,8 @@ export const AnimeDetail = () => {
   const [isPlayingTrailer, setIsPlayingTrailer] = useState(false);
   const [playerAnime, setPlayerAnime] = useState<Anime | null>(null);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const [selectedDubId, setSelectedDubId] = useState("ptbr:0");
+  const [downloadingKey, setDownloadingKey] = useState<string | null>(null);
 
   // Dynamic SEO Synchronization
   useEffect(() => {
@@ -216,6 +220,70 @@ export const AnimeDetail = () => {
     playerSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
   };
 
+  const handleDownloadEpisode = async (ep: NonNullable<typeof activeEpisode>) => {
+    if (!anime || !activeSeason || downloadingKey) return;
+    const key = `ep-${activeSeason.seasonNumber}-${ep.number}`;
+    setDownloadingKey(key);
+    const toastId = toast.loading(
+      `Baixando ${anime.title} · T${activeSeason.seasonNumber} Ep.${ep.number}...`
+    );
+    try {
+      await downloadRealAnimeEpisode({
+        anime,
+        season: activeSeason,
+        episode: ep,
+        dubId: selectedDubId,
+      });
+      toast.success("Episódio baixado! Acesse e assista em Meu Perfil → Downloads.", {
+        id: toastId,
+      });
+    } catch (err) {
+      toast.error(
+        err instanceof Error
+          ? err.message
+          : "Não foi possível baixar este episódio no momento.",
+        { id: toastId }
+      );
+    } finally {
+      setDownloadingKey(null);
+    }
+  };
+
+  const handleDownloadMangaChapter = async (ch: {
+    id: string;
+    number: string | number;
+    numericNumber?: number;
+    title: string;
+    chapterUrl?: string;
+    mangadexChapterId?: string;
+    pages?: string[];
+  }) => {
+    if (!anime || downloadingKey) return;
+    const key = `manga-${ch.id}`;
+    setDownloadingKey(key);
+    const lang: "pt" | "en" | "ja" = mangaLangFilter === "en" ? "en" : "pt";
+    const toastId = toast.loading(`Compilando Mangá Cap. ${ch.number} em PDF...`);
+    try {
+      await downloadRealMangaChapter({
+        anime,
+        chapter: ch,
+        language: lang,
+      });
+      toast.success("Capítulo de mangá baixado! Abra em Meu Perfil → Downloads.", {
+        id: toastId,
+      });
+    } catch (err) {
+      toast.error(
+        err instanceof Error
+          ? err.message
+          : "Não foi possível baixar este capítulo no momento.",
+        { id: toastId }
+      );
+    } finally {
+      setDownloadingKey(null);
+    }
+  };
+
   const firstMangaChapter = anime.manga?.chapters[0];
   const currentBanner = activeSeason?.banner || anime.banner;
   const currentPoster = activeSeason?.poster || anime.cover;
@@ -284,6 +352,26 @@ export const AnimeDetail = () => {
                   <BookOpen className="h-4 w-4" />
                   Ler Mangá Online
                 </Link>
+              )}
+
+              {activeEpisode && activeSeason && (
+                <button
+                  type="button"
+                  disabled={Boolean(downloadingKey)}
+                  onClick={() => handleDownloadEpisode(activeEpisode)}
+                  className="w-full py-2.5 px-4 rounded-full border border-emerald-500/40 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-medium text-xs tracking-wider uppercase flex items-center justify-center gap-2 transition-colors disabled:opacity-50 whitespace-nowrap shrink-0"
+                >
+                  {downloadingKey === `ep-${activeSeason.seasonNumber}-${activeEpisode.number}` ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Download className="h-4 w-4" />
+                  )}
+                  <span>
+                    {downloadingKey === `ep-${activeSeason.seasonNumber}-${activeEpisode.number}`
+                      ? "Baixando Ep..."
+                      : `Baixar Ep. ${activeEpisode.number}`}
+                  </span>
+                </button>
               )}
 
               <button
@@ -450,6 +538,7 @@ export const AnimeDetail = () => {
                     season={activeSeason}
                     episode={activeEpisode}
                     onSelectEpisode={(epNum) => setActiveEpisodeNumber(epNum)}
+                    onDubChange={(dubId) => setSelectedDubId(dubId)}
                     onNextEpisode={() => {
                       const idx = currentSeasonEpisodes.findIndex(
                         (e) => e.number === activeEpisode.number
@@ -663,10 +752,27 @@ export const AnimeDetail = () => {
                             </p>
                           </div>
 
-                          <div className="sm:self-center">
+                          <div className="sm:self-center flex items-center gap-2 shrink-0">
                             <button
                               type="button"
-                              className={`px-4 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                              disabled={Boolean(downloadingKey)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDownloadEpisode(ep);
+                              }}
+                              title={`Baixar T${ep.seasonNumber}:Ep.${ep.number}`}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border bg-background hover:bg-accent text-foreground text-xs font-medium transition-colors disabled:opacity-50 whitespace-nowrap shrink-0"
+                            >
+                              {downloadingKey === `ep-${activeSeason.seasonNumber}-${ep.number}` ? (
+                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                              ) : (
+                                <Download className="h-3.5 w-3.5" />
+                              )}
+                              <span>Baixar</span>
+                            </button>
+                            <button
+                              type="button"
+                              className={`px-4 py-1.5 rounded-full text-xs font-medium transition-colors whitespace-nowrap shrink-0 ${
                                 isActive
                                   ? "bg-primary text-white"
                                   : "bg-secondary text-foreground group-hover:bg-primary group-hover:text-white"
@@ -826,10 +932,24 @@ export const AnimeDetail = () => {
                                 </div>
                               </div>
 
-                              <div className="flex-shrink-0 self-end sm:self-center">
+                              <div className="flex items-center gap-2 flex-shrink-0 self-end sm:self-center">
+                                <button
+                                  type="button"
+                                  disabled={Boolean(downloadingKey)}
+                                  onClick={() => handleDownloadMangaChapter(chapter)}
+                                  title={`Baixar Capítulo ${chapter.number} em PDF`}
+                                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full border border-border bg-background hover:bg-accent text-foreground text-xs font-medium transition-colors disabled:opacity-50 whitespace-nowrap shrink-0"
+                                >
+                                  {downloadingKey === `manga-${chapter.id}` ? (
+                                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                  ) : (
+                                    <Download className="h-3.5 w-3.5" />
+                                  )}
+                                  <span>Baixar</span>
+                                </button>
                                 <Link
                                   to={`/animes/${anime.id}/manga/${chapter.id}`}
-                                  className="inline-flex items-center gap-1.5 px-5 py-2 rounded-full bg-secondary hover:bg-primary hover:text-white text-foreground text-xs font-medium transition-colors"
+                                  className="inline-flex items-center gap-1.5 px-5 py-2 rounded-full bg-secondary hover:bg-primary hover:text-white text-foreground text-xs font-medium transition-colors whitespace-nowrap shrink-0"
                                 >
                                   <span>Ler Capítulo</span>
                                   <ArrowRight className="h-3.5 w-3.5" />
@@ -865,10 +985,24 @@ export const AnimeDetail = () => {
                                 </div>
                               </div>
 
-                              <div className="flex-shrink-0 self-end sm:self-center">
+                              <div className="flex items-center gap-2 flex-shrink-0 self-end sm:self-center">
+                                <button
+                                  type="button"
+                                  disabled={Boolean(downloadingKey)}
+                                  onClick={() => handleDownloadMangaChapter(chapter)}
+                                  title={`Baixar Capítulo ${chapter.number} em PDF`}
+                                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full border border-border bg-background hover:bg-accent text-foreground text-xs font-medium transition-colors disabled:opacity-50 whitespace-nowrap shrink-0"
+                                >
+                                  {downloadingKey === `manga-${chapter.id}` ? (
+                                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                  ) : (
+                                    <Download className="h-3.5 w-3.5" />
+                                  )}
+                                  <span>Baixar</span>
+                                </button>
                                 <Link
                                   to={`/animes/${anime.id}/manga/${chapter.id}`}
-                                  className="inline-flex items-center gap-1.5 px-5 py-2 rounded-full bg-secondary hover:bg-primary hover:text-white text-foreground text-xs font-medium transition-colors"
+                                  className="inline-flex items-center gap-1.5 px-5 py-2 rounded-full bg-secondary hover:bg-primary hover:text-white text-foreground text-xs font-medium transition-colors whitespace-nowrap shrink-0"
                                 >
                                   <span>Ler Capítulo</span>
                                   <ArrowRight className="h-3.5 w-3.5" />

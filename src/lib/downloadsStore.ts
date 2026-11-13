@@ -17,6 +17,7 @@ export type DownloadMediaType =
   | "article"
   | "cinema"
   | "anime"
+  | "manga"
   | "webtoon"
   | "document";
 
@@ -48,6 +49,20 @@ export interface UserDownloadEntry {
   progressStage?: "connecting" | "downloading" | "saving" | "completed" | "failed";
 }
 
+export interface TrackedDownloadProgressInfo {
+  progressPercent: number;
+  loadedBytes: number;
+  totalBytes?: number;
+  progressStage?: NonNullable<UserDownloadEntry["progressStage"]>;
+}
+
+export interface CustomDownloadResult {
+  buffer: ArrayBuffer;
+  mimeType: string;
+  resolvedDownloadUrl?: string;
+  fileName?: string;
+}
+
 export interface TrackedDownloadOptions {
   itemId: string;
   type?: DownloadMediaType;
@@ -59,7 +74,11 @@ export interface TrackedDownloadOptions {
   sourceUrl?: string;
   openHref?: string;
   fileName?: string;
+  mimeType?: string;
   expectedFileSizeFormatted?: string;
+  customDownloader?: (
+    onProgress: (info: TrackedDownloadProgressInfo) => void
+  ) => Promise<CustomDownloadResult>;
 }
 
 const DOWNLOADS_STORAGE_KEY = "worscoi_user_downloads_v1";
@@ -113,14 +132,17 @@ function sanitizeId(raw: string): string {
   return raw.replace(/[^a-zA-Z0-9_\-.]/g, "-").slice(0, 120) || "download";
 }
 
-function sanitizeFileName(rawName: string): string {
+function sanitizeFileName(rawName: string, defaultExt = ".pdf"): string {
   const cleaned = rawName
     .replace(/[\\/:*?"<>|]/g, " ")
     .replace(/\s+/g, " ")
     .trim()
     .slice(0, 220);
-  if (!cleaned) return "obra-wotho.pdf";
-  return cleaned.toLowerCase().endsWith(".pdf") ? cleaned : `${cleaned}.pdf`;
+  if (!cleaned) return `obra-wotho${defaultExt}`;
+  if (/\.(pdf|mp4|ts|webm|mkv|m4v|epub)$/i.test(cleaned)) {
+    return cleaned;
+  }
+  return `${cleaned}${defaultExt}`;
 }
 
 export function formatDownloadBytes(bytes?: number): string {
@@ -436,7 +458,7 @@ function triggerBrowserFileDownload(blob: Blob, fileName: string): void {
   window.setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
 }
 
-async function readResponseWithProgress(
+export async function readResponseWithProgress(
   res: Response,
   onProgress?: (info: {
     progressPercent: number;
@@ -510,6 +532,7 @@ async function resolveDownloadBytes(
     description?: string;
     fileName: string;
     itemId?: string;
+    mimeType?: string;
   },
   onProgress?: (info: {
     progressPercent: number;
@@ -543,10 +566,36 @@ async function resolveDownloadBytes(
       const buffer = await readResponseWithProgress(res, onProgress);
       return {
         buffer,
-        mimeType: res.headers.get("content-type") || "application/pdf",
+        mimeType: res.headers.get("content-type") || options.mimeType || "application/pdf",
         resolvedDownloadUrl: src.startsWith("blob:") ? "" : src.slice(0, 2000),
       };
     }
+  }
+
+  const looksLikeVideo =
+    Boolean(options.mimeType?.startsWith("video/")) ||
+    /\.(mp4|webm|ts|mkv|m4v)(\?|$)/i.test(options.fileName) ||
+    src.includes("/api/cinema/mp4-proxy");
+
+  if (looksLikeVideo && src && !src.includes(".m3u8")) {
+    const videoFetchUrl = src.startsWith("/")
+      ? src
+      : `/api/cinema/mp4-proxy?url=${encodeURIComponent(src)}`;
+    const res = await fetch(videoFetchUrl);
+    if (!res.ok) {
+      throw new Error(`HTTP ${res.status} ao transferir vídeo`);
+    }
+    const ct = (res.headers.get("content-type") || "").toLowerCase();
+    if (ct.includes("text/html")) {
+      throw new Error("O servidor de vídeo retornou uma página inválida.");
+    }
+    const buffer = await readResponseWithProgress(res, onProgress);
+    const mimeType = ct.startsWith("video/") ? ct : options.mimeType || "video/mp4";
+    return {
+      buffer,
+      mimeType,
+      resolvedDownloadUrl: videoFetchUrl,
+    };
   }
 
   const proxyUrl = buildProxyPdfFetchUrl(options);
@@ -555,7 +604,7 @@ async function resolveDownloadBytes(
     throw new Error(`HTTP ${res.status} ao transferir arquivo`);
   }
   const buffer = await readResponseWithProgress(res, onProgress);
-  const mimeType = res.headers.get("content-type") || "application/pdf";
+  const mimeType = res.headers.get("content-type") || options.mimeType || "application/pdf";
   return {
     buffer,
     mimeType,
@@ -568,9 +617,11 @@ export async function executeTrackedDownload(
 ): Promise<UserDownloadEntry> {
   const mediaType: DownloadMediaType = options.type || "pdf";
   const downloadId = sanitizeId(`${mediaType}-${options.itemId}`);
-  const fileName = sanitizeFileName(
+  const defaultExt = options.mimeType?.startsWith("video/") ? ".mp4" : ".pdf";
+  let fileName = sanitizeFileName(
     options.fileName ||
-      (options.author ? `${options.title} - ${options.author}.pdf` : `${options.title}.pdf`)
+      (options.author ? `${options.title} - ${options.author}${defaultExt}` : `${options.title}${defaultExt}`),
+    defaultExt
   );
 
   const fbUser = auth.currentUser;
@@ -594,7 +645,7 @@ export async function executeTrackedDownload(
     category: (options.category || "").slice(0, 100) || undefined,
     cover: (options.cover || "").slice(0, 1000) || undefined,
     fileName,
-    mimeType: "application/pdf",
+    mimeType: options.mimeType || "application/pdf",
     fileSizeFormatted: options.expectedFileSizeFormatted || prev?.fileSizeFormatted,
     downloadUrl:
       options.sourceUrl && !options.sourceUrl.startsWith("data:")
@@ -614,26 +665,45 @@ export async function executeTrackedDownload(
   emitDownloadsUpdated();
 
   try {
-    const { buffer, mimeType, resolvedDownloadUrl } = await resolveDownloadBytes(
-      {
-        sourceUrl: options.sourceUrl,
-        title: pendingEntry.title,
-        author: pendingEntry.author,
-        category: pendingEntry.category,
-        description: options.description,
-        fileName,
-        itemId: options.itemId,
-      },
-      ({ progressPercent, loadedBytes, totalBytes }) => {
-        liveProgressMap.set(downloadId, {
-          progressPercent,
-          loadedBytes,
-          totalBytes,
-          progressStage: "downloading",
-        });
-        emitDownloadsUpdated();
-      }
-    );
+    const progressHandler = ({
+      progressPercent,
+      loadedBytes,
+      totalBytes,
+      progressStage,
+    }: TrackedDownloadProgressInfo) => {
+      liveProgressMap.set(downloadId, {
+        progressPercent: Math.max(4, Math.min(95, Math.round(progressPercent))),
+        loadedBytes,
+        totalBytes,
+        progressStage: progressStage || "downloading",
+      });
+      emitDownloadsUpdated();
+    };
+
+    const resolvedResult = options.customDownloader
+      ? await options.customDownloader(progressHandler)
+      : await resolveDownloadBytes(
+          {
+            sourceUrl: options.sourceUrl,
+            title: pendingEntry.title,
+            author: pendingEntry.author,
+            category: pendingEntry.category,
+            description: options.description,
+            fileName,
+            itemId: options.itemId,
+            mimeType: options.mimeType,
+          },
+          progressHandler
+        );
+
+    const { buffer, mimeType } = resolvedResult;
+    const resolvedDownloadUrl = resolvedResult.resolvedDownloadUrl || "";
+    if (resolvedResult && "fileName" in resolvedResult && resolvedResult.fileName) {
+      fileName = sanitizeFileName(
+        resolvedResult.fileName,
+        mimeType === "video/mp2t" ? ".ts" : mimeType.startsWith("video/") ? ".mp4" : ".pdf"
+      );
+    }
 
     liveProgressMap.set(downloadId, {
       progressPercent: 96,
@@ -651,6 +721,7 @@ export async function executeTrackedDownload(
 
     const completedEntry: UserDownloadEntry = {
       ...pendingEntry,
+      fileName,
       mimeType,
       fileSizeBytes: buffer.byteLength,
       fileSizeFormatted: formatDownloadBytes(buffer.byteLength),
@@ -702,6 +773,7 @@ export async function getOrFetchDownloadBytes(
     category: entry.category,
     fileName: entry.fileName,
     itemId: entry.itemId,
+    mimeType: entry.mimeType,
   });
 
   await saveDownloadedFileToIdb(entry.id, buffer, mimeType);

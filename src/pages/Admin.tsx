@@ -3,30 +3,24 @@ import { useSearchParams, Link } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   AlertTriangle,
-  BarChart3,
   BookOpen,
   Check,
   CheckCircle2,
   Cloud,
-  Compass,
   Edit3,
   ExternalLink,
   Eye,
   FileText,
-  Film,
   Image as ImageIcon,
-  Layers,
   Loader2,
   Lock,
   LogOut,
-  Newspaper,
   Plus,
   RefreshCw,
   Save,
   Search,
   Sparkles,
   Trash2,
-  TrendingUp,
   Upload,
   Wand2,
   X,
@@ -36,12 +30,6 @@ import { onAuthStateChanged, type User as FirebaseUser } from "firebase/auth";
 import { compressImageFile, formatBytes } from "@/lib/imageUploadUtils";
 import Navigation from "@/components/Navigation";
 import Footer from "@/components/Footer";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Card } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/hooks/useAuth";
 import { useBooks, useNews, type Book, type NewsItem } from "@/hooks/useCatalog";
 import { ANIMES_DATA } from "@/lib/animes";
@@ -50,7 +38,6 @@ import { getSmartNewsCover } from "@/lib/newsImageResolver";
 import { NEWS_CATEGORIES as PORTAL_NEWS_CATEGORIES } from "@/lib/news";
 import {
   DIVERSE_PUBLICATION_TOPICS,
-  SPECIAL_ADMIN_EMAIL,
   acquireDiversePublications,
   deleteBookPublication,
   deleteNewsPublication,
@@ -69,7 +56,6 @@ import {
   saveAnimeEditorialOverride,
   saveBookPublication,
   saveCustomBookChapter,
-  saveNewsPublication,
   saveNewsPublicationWithSync,
   slugifyEditorial,
 } from "@/lib/editorialStore";
@@ -97,6 +83,16 @@ const NEWS_CATEGORIES = Array.from(
   ])
 );
 
+type StudioTabId = "overview" | "news" | "discover" | "books" | "animes";
+
+const STUDIO_VALID_TABS: StudioTabId[] = [
+  "overview",
+  "news",
+  "discover",
+  "books",
+  "animes",
+];
+
 const Admin = () => {
   const { user, isAdmin, loading, signOut } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -109,9 +105,18 @@ const Admin = () => {
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
   const [syncingCloud, setSyncingCloud] = useState(false);
-  const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(() => auth.currentUser);
+  const [lastSyncTime, setLastSyncTime] = useState<string | null>(null);
+  const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(
+    () => auth.currentUser
+  );
   const [isSavingNews, setIsSavingNews] = useState(false);
-  const [lastSaveCloudWarning, setLastSaveCloudWarning] = useState<string | null>(null);
+  const [lastSaveCloudWarning, setLastSaveCloudWarning] = useState<string | null>(
+    null
+  );
+
+  useEffect(() => {
+    document.title = "Studio Editorial — Wotho";
+  }, []);
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (fbUser) => {
@@ -124,8 +129,17 @@ const Admin = () => {
   }, []);
 
   // Active Tab
-  const initialTab = searchParams.get("tab") || "overview";
-  const [activeTab, setActiveTab] = useState(initialTab);
+  const initialTabParam = searchParams.get("tab") as StudioTabId | null;
+  const [activeTab, setActiveTab] = useState<StudioTabId>(
+    initialTabParam && STUDIO_VALID_TABS.includes(initialTabParam)
+      ? initialTabParam
+      : "overview"
+  );
+
+  const handleSelectTab = (tab: StudioTabId) => {
+    setActiveTab(tab);
+    setSearchParams(tab === "overview" ? {} : { tab }, { replace: true });
+  };
 
   // ==========================================================================
   // NEWS EDITOR STATE
@@ -141,7 +155,9 @@ const Admin = () => {
   const [editNewsCover, setEditNewsCover] = useState("");
   const [editNewsExcerpt, setEditNewsExcerpt] = useState("");
   const [editNewsContent, setEditNewsContent] = useState("");
-  const [editNewsAuthor, setEditNewsAuthor] = useState("Miguel Worscoi (Editor-Chefe)");
+  const [editNewsAuthor, setEditNewsAuthor] = useState(
+    "Miguel Worscoi (Editor-Chefe)"
+  );
   const [lastImprovements, setLastImprovements] = useState<string[]>([]);
   const [isUploadingNewsCover, setIsUploadingNewsCover] = useState(false);
   const [newsCoverMeta, setNewsCoverMeta] = useState<{
@@ -152,7 +168,9 @@ const Admin = () => {
     fileName?: string;
   } | null>(null);
   const [isDraggingNewsCover, setIsDraggingNewsCover] = useState(false);
-  const [newsCoverInputMode, setNewsCoverInputMode] = useState<"upload" | "url">("upload");
+  const [newsCoverInputMode, setNewsCoverInputMode] = useState<"upload" | "url">(
+    "upload"
+  );
   const newsFileInputRef = useRef<HTMLInputElement | null>(null);
 
   const handleNewsCoverFileSelect = async (file: File) => {
@@ -174,7 +192,11 @@ const Admin = () => {
         fileName: result.fileName,
       });
       toast.success(
-        `Capa otimizada (${result.width}x${result.height} · ${formatBytes(result.sizeBytes)})! Clique em "${isCreatingNewArticle ? "Publicar no Site" : "Salvar Alterações no Site"}" para enviar para todos os leitores.`
+        `Capa otimizada (${result.width}x${result.height} · ${formatBytes(result.sizeBytes)})! Clique em "${
+          isCreatingNewArticle
+            ? "Publicar no Site"
+            : "Salvar Alterações no Site"
+        }" para enviar para todos os leitores.`
       );
     } catch (err: any) {
       toast.error(err?.message || "Erro ao processar imagem de capa.");
@@ -189,7 +211,8 @@ const Admin = () => {
   // ==========================================================================
   // DIVERSE PUBLICATIONS DISCOVERY STATE
   // ==========================================================================
-  const [selectedDiverseTopic, setSelectedDiverseTopic] = useState("futebol-europeu");
+  const [selectedDiverseTopic, setSelectedDiverseTopic] =
+    useState("futebol-europeu");
   const [diverseItems, setDiverseItems] = useState<NewsItem[]>([]);
   const [loadingDiverse, setLoadingDiverse] = useState(false);
 
@@ -205,7 +228,8 @@ const Admin = () => {
   const [editBookCover, setEditBookCover] = useState("");
   const [editBookDescription, setEditBookDescription] = useState("");
   const [editBookPdfUrl, setEditBookPdfUrl] = useState("");
-  const [uploadedPdfData, setUploadedPdfData] = useState<ExtractedPdfBookData | null>(null);
+  const [uploadedPdfData, setUploadedPdfData] =
+    useState<ExtractedPdfBookData | null>(null);
   const [uploadedPdfFileName, setUploadedPdfFileName] = useState("");
   const [isProcessingPdf, setIsProcessingPdf] = useState(false);
   const [pdfProgressStep, setPdfProgressStep] = useState("");
@@ -219,10 +243,12 @@ const Admin = () => {
   // ANIMES EDITOR STATE
   // ==========================================================================
   const [animeSearch, setAnimeSearch] = useState("");
-  const [selectedAnimeId, setSelectedAnimeId] = useState<string>(ANIMES_DATA[0]?.id || "steel-ball-run");
-  const [animeOverridesMap, setAnimeOverridesMap] = useState<Record<string, Record<string, any>>>(() =>
-    getAnimeOverrides()
+  const [selectedAnimeId, setSelectedAnimeId] = useState<string>(
+    ANIMES_DATA[0]?.id || "steel-ball-run"
   );
+  const [animeOverridesMap, setAnimeOverridesMap] = useState<
+    Record<string, Record<string, any>>
+  >(() => getAnimeOverrides());
   const [editAnimeTitle, setEditAnimeTitle] = useState("");
   const [editAnimeSynopsis, setEditAnimeSynopsis] = useState("");
   const [editAnimeCover, setEditAnimeCover] = useState("");
@@ -236,11 +262,13 @@ const Admin = () => {
 
   // Sync URL query params (?tab=news&edit=slug or ?tab=books&editBook=id)
   useEffect(() => {
-    const tabParam = searchParams.get("tab");
+    const tabParam = searchParams.get("tab") as StudioTabId | null;
     const editSlug = searchParams.get("edit");
     const editBookId = searchParams.get("editBook");
 
-    if (tabParam) setActiveTab(tabParam);
+    if (tabParam && STUDIO_VALID_TABS.includes(tabParam)) {
+      setActiveTab(tabParam);
+    }
 
     if (editSlug && allNews.length > 0) {
       const target = allNews.find(
@@ -293,7 +321,8 @@ const Admin = () => {
     setEditNewsTitle(item.title || "");
     setEditNewsSlug(item.slug || slugifyEditorial(item.title || ""));
     setEditNewsCategory(item.category || "Geral");
-    const cover = item.cover_url || getSmartNewsCover(item.title, item.category);
+    const cover =
+      item.cover_url || getSmartNewsCover(item.title, item.category);
     setEditNewsCover(cover);
     if (cover && cover.startsWith("data:")) {
       const b64 = cover.split(",")[1] || "";
@@ -325,7 +354,7 @@ const Admin = () => {
     setEditNewsAuthor("Miguel Worscoi (Editor-Chefe)");
     setLastImprovements([]);
     setLastSaveCloudWarning(null);
-    setActiveTab("news");
+    handleSelectTab("news");
   };
 
   const selectBookForEditing = (book: Book) => {
@@ -337,7 +366,13 @@ const Admin = () => {
     setEditBookCover(book.cover_url || "");
     setEditBookDescription(book.description || "");
     const existingPdf = getOriginalPdfForBook(book.id);
-    setEditBookPdfUrl(existingPdf?.pdfUrl && !existingPdf.pdfUrl.startsWith("idb://") && !existingPdf.pdfUrl.startsWith("data:") ? existingPdf.pdfUrl : "");
+    setEditBookPdfUrl(
+      existingPdf?.pdfUrl &&
+        !existingPdf.pdfUrl.startsWith("idb://") &&
+        !existingPdf.pdfUrl.startsWith("data:")
+        ? existingPdf.pdfUrl
+        : ""
+    );
     setUploadedPdfData(null);
     setUploadedPdfFileName("");
   };
@@ -348,7 +383,9 @@ const Admin = () => {
     setEditBookTitle("");
     setEditBookAuthor("Miguel Worscoi");
     setEditBookCategory("Literatura & Filosofia");
-    setEditBookCover("https://images.unsplash.com/photo-1544947950-fa07a98d237f?w=800&auto=format&fit=crop&q=80");
+    setEditBookCover(
+      "https://images.unsplash.com/photo-1544947950-fa07a98d237f?w=800&auto=format&fit=crop&q=80"
+    );
     setEditBookDescription("");
     setEditBookPdfUrl("");
     setUploadedPdfData(null);
@@ -363,14 +400,17 @@ const Admin = () => {
     const totalBooks = allBooks.length;
     const totalAnimes = ANIMES_DATA.length;
     const totalWebtoons = BASE_CURATED_WEBTOONS.length;
-    const totalEpisodes = ANIMES_DATA.reduce((acc, a) => acc + (a.episodesCount || 0), 0);
+    const totalEpisodes = ANIMES_DATA.reduce(
+      (acc, a) => acc + (a.episodesCount || 0),
+      0
+    );
 
     const overridesMap = getNewsOverrides();
     const editedCount = Object.keys(overridesMap).length / 2;
 
     const categoryMap: Record<string, number> = {};
     let deepArticlesCount = 0;
-    let needsImprovementList: NewsItem[] = [];
+    const needsImprovementList: NewsItem[] = [];
 
     for (const n of allNews) {
       const cat = n.category || "Geral";
@@ -385,9 +425,16 @@ const Admin = () => {
       }
     }
 
-    const categoriesSorted = Object.entries(categoryMap).sort((a, b) => b[1] - a[1]);
+    const categoriesSorted = Object.entries(categoryMap).sort(
+      (a, b) => b[1] - a[1]
+    );
     const qualityScore =
-      totalNews > 0 ? Math.min(100, Math.round(((deepArticlesCount + totalNews * 0.4) / totalNews) * 100)) : 95;
+      totalNews > 0
+        ? Math.min(
+            100,
+            Math.round(((deepArticlesCount + totalNews * 0.4) / totalNews) * 100)
+          )
+        : 95;
 
     return {
       totalNews,
@@ -408,7 +455,10 @@ const Admin = () => {
     const q = newsSearch.trim().toLowerCase();
     return allNews
       .filter((n) => {
-        if (newsCategoryFilter !== "all" && n.category?.toLowerCase() !== newsCategoryFilter.toLowerCase()) {
+        if (
+          newsCategoryFilter !== "all" &&
+          n.category?.toLowerCase() !== newsCategoryFilter.toLowerCase()
+        ) {
           return false;
         }
         if (!q) return true;
@@ -455,11 +505,17 @@ const Admin = () => {
   // ==========================================================================
 
   useEffect(() => {
-    if (isSpecialAdminLoggedIn() && !auth.currentUser && !hasEditorialCloudProof()) {
+    if (
+      isSpecialAdminLoggedIn() &&
+      !auth.currentUser &&
+      !hasEditorialCloudProof()
+    ) {
       void refreshSpecialAdminSession().then((ok) => {
         if (!ok) {
           logoutSpecialAdmin();
-          toast.info("Sessão editorial atualizada por segurança. Entre novamente com a senha mestra.");
+          toast.info(
+            "Sessão editorial atualizada por segurança. Entre novamente com a senha mestra."
+          );
         }
       });
     }
@@ -471,9 +527,14 @@ const Admin = () => {
     if (res.ok) {
       setLastSaveCloudWarning(null);
       setLoginPassword("");
-      toast.success("Bem-vindo ao Studio Editorial Mestre, Miguel Worscoi! Publicações sincronizadas diretamente na nuvem para todos os usuários.");
+      toast.success(
+        "Bem-vindo ao Studio Editorial, Miguel Worscoi! Publicações sincronizadas na nuvem."
+      );
     } else {
-      toast.error(res.error || "Credenciais inválidas. Utilize o e-mail e senha especiais de administrador.");
+      toast.error(
+        res.error ||
+          "Credenciais inválidas. Utilize o e-mail e senha especiais de administrador."
+      );
     }
   };
 
@@ -484,16 +545,23 @@ const Admin = () => {
         setFirebaseUser(googleUser);
         setLastSaveCloudWarning(null);
         loginSpecialAdmin();
-        toast.success(`Autenticado com Google (${googleUser.email})! Nuvem Firestore ativada.`);
+        toast.success(
+          `Autenticado com Google (${googleUser.email}). Nuvem ativada.`
+        );
         void handleSyncCloudNow();
       }
     } catch (err: any) {
-      toast.error("Erro ao autenticar com Google: " + (err.message || String(err)));
+      toast.error(
+        "Erro ao autenticar com Google: " + (err.message || String(err))
+      );
     }
   };
 
   const ensureCloudSessionForPublish = async (): Promise<boolean> => {
-    if (isSpecialAdminLoggedIn() || (auth.currentUser && !auth.currentUser.isAnonymous)) {
+    if (
+      isSpecialAdminLoggedIn() ||
+      (auth.currentUser && !auth.currentUser.isAnonymous)
+    ) {
       return true;
     }
     try {
@@ -504,7 +572,8 @@ const Admin = () => {
         return true;
       }
     } catch (err: any) {
-      const msg = err?.message || "Não foi possível autenticar para sincronizar na nuvem.";
+      const msg =
+        err?.message || "Não foi possível autenticar para sincronizar na nuvem.";
       setLastSaveCloudWarning(msg);
       toast.warning("Falha na autenticação para nuvem", { description: msg });
     }
@@ -523,7 +592,9 @@ const Admin = () => {
       }
 
       if (!auth.currentUser && !isSpecialAdminLoggedIn()) {
-        toast.warning("Entre como administrador para sincronizar suas publicações na nuvem.");
+        toast.warning(
+          "Entre como administrador para sincronizar suas publicações na nuvem."
+        );
         return;
       }
 
@@ -547,11 +618,19 @@ const Admin = () => {
       ]);
 
       setLastSaveCloudWarning(null);
+      setLastSyncTime(
+        new Date().toLocaleTimeString("pt-BR", {
+          hour: "2-digit",
+          minute: "2-digit",
+        })
+      );
       toast.success(
-        `Nuvem sincronizada com sucesso! ${res.newsCount} notícias, ${res.booksCount} livros e ${res.animesCount} animes já estão refletindo para todos os usuários em tempo real.`
+        `Nuvem sincronizada: ${res.newsCount} notícias, ${res.booksCount} livros e ${res.animesCount} animes atualizados.`
       );
     } catch (err: any) {
-      toast.error("Erro ao sincronizar na nuvem: " + (err.message || String(err)));
+      toast.error(
+        "Erro ao sincronizar na nuvem: " + (err.message || String(err))
+      );
     } finally {
       setSyncingCloud(false);
     }
@@ -575,7 +654,9 @@ const Admin = () => {
       setEditNewsCover(getSmartNewsCover(result.title, editNewsCategory));
     }
     setLastImprovements(result.improvements);
-    toast.success("Publicação melhorada e estruturada com sucesso! Clique em Publicar/Salvar.");
+    toast.success(
+      "Estrutura editorial aprimorada. Clique em Publicar/Salvar para enviar."
+    );
   };
 
   const handleQuickImproveAndSave = async (item: NewsItem) => {
@@ -586,12 +667,13 @@ const Admin = () => {
       category: item.category,
     });
     await ensureCloudSessionForPublish();
-    const { item: saved, cloudSynced, cloudError } = await saveNewsPublicationWithSync({
-      ...item,
-      title: improved.title,
-      excerpt: improved.excerpt,
-      content: improved.content,
-    });
+    const { item: saved, cloudSynced, cloudError } =
+      await saveNewsPublicationWithSync({
+        ...item,
+        title: improved.title,
+        excerpt: improved.excerpt,
+        content: improved.content,
+      });
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ["news"] }),
       queryClient.invalidateQueries({ queryKey: ["news-feed"] }),
@@ -599,10 +681,14 @@ const Admin = () => {
     ]);
     selectArticleForEditing(saved);
     if (cloudSynced) {
-      toast.success(`"${saved.title.slice(0, 45)}..." foi melhorada e sincronizada para todos os leitores!`);
+      toast.success(
+        `"${saved.title.slice(0, 45)}..." aprimorada e sincronizada na nuvem.`
+      );
     } else {
-      toast.warning(`"${saved.title.slice(0, 45)}..." foi salva localmente.`, {
-        description: cloudError || "Verifique sua conexão com a internet e clique em Sincronizar Nuvem.",
+      toast.warning(`"${saved.title.slice(0, 45)}..." salva localmente.`, {
+        description:
+          cloudError ||
+          "Verifique sua conexão e clique em Sincronizar agora.",
       });
     }
   };
@@ -626,19 +712,21 @@ const Admin = () => {
       await ensureCloudSessionForPublish();
 
       const resolvedCover =
-        editNewsCover.trim() || getSmartNewsCover(editNewsTitle, editNewsCategory);
+        editNewsCover.trim() ||
+        getSmartNewsCover(editNewsTitle, editNewsCategory);
 
-      const { item: saved, cloudSynced, cloudError } = await saveNewsPublicationWithSync({
-        id: wasCreating ? undefined : selectedNewsId || undefined,
-        slug: editNewsSlug.trim() || slugifyEditorial(editNewsTitle),
-        title: editNewsTitle,
-        excerpt: editNewsExcerpt,
-        content: editNewsContent,
-        cover_url: resolvedCover,
-        category: editNewsCategory,
-        author: editNewsAuthor,
-        isNew: wasCreating,
-      });
+      const { item: saved, cloudSynced, cloudError } =
+        await saveNewsPublicationWithSync({
+          id: wasCreating ? undefined : selectedNewsId || undefined,
+          slug: editNewsSlug.trim() || slugifyEditorial(editNewsTitle),
+          title: editNewsTitle,
+          excerpt: editNewsExcerpt,
+          content: editNewsContent,
+          cover_url: resolvedCover,
+          category: editNewsCategory,
+          author: editNewsAuthor,
+          isNew: wasCreating,
+        });
 
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["news"] }),
@@ -655,22 +743,25 @@ const Admin = () => {
         setLastSaveCloudWarning(null);
         toast.success(
           wasCreating
-            ? "Publicação e capa enviadas para a nuvem! Todos os usuários já podem ver no site."
-            : "Publicação e capa atualizadas na nuvem para todos os usuários!"
+            ? "Publicação e capa enviadas para a nuvem."
+            : "Publicação e capa atualizadas na nuvem."
         );
       } else {
         const msg =
           cloudError ||
-          "Não foi possível enviar à nuvem neste momento. Clique em 'Sincronizar Nuvem' para tentar novamente.";
+          "Não foi possível enviar à nuvem neste momento. Clique em Sincronizar agora.";
         setLastSaveCloudWarning(msg);
         toast.warning("Salvo apenas localmente neste dispositivo", {
           description: msg,
         });
       }
     } catch (err: any) {
-      const msg = err?.message || "Erro inesperado ao publicar notícia na nuvem.";
+      const msg =
+        err?.message || "Erro inesperado ao publicar notícia na nuvem.";
       setLastSaveCloudWarning(msg);
-      toast.error("Falha ao enviar publicação para a nuvem", { description: msg });
+      toast.error("Falha ao enviar publicação para a nuvem", {
+        description: msg,
+      });
     } finally {
       setIsSavingNews(false);
     }
@@ -699,10 +790,11 @@ const Admin = () => {
 
   const handlePublishDiverseItem = async (item: NewsItem) => {
     await ensureCloudSessionForPublish();
-    const { item: saved, cloudSynced, cloudError } = await saveNewsPublicationWithSync({
-      ...item,
-      isNew: true,
-    });
+    const { item: saved, cloudSynced, cloudError } =
+      await saveNewsPublicationWithSync({
+        ...item,
+        isNew: true,
+      });
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ["news"] }),
       queryClient.invalidateQueries({ queryKey: ["news-feed"] }),
@@ -711,7 +803,8 @@ const Admin = () => {
       toast.success(`Publicado na nuvem: "${saved.title.slice(0, 50)}..."`);
     } else {
       toast.warning(`Salvo localmente: "${saved.title.slice(0, 50)}..."`, {
-        description: cloudError || "Verifique sua conexão e clique em Sincronizar Nuvem.",
+        description:
+          cloudError || "Verifique sua conexão e clique em Sincronizar agora.",
       });
     }
   };
@@ -731,16 +824,25 @@ const Admin = () => {
       queryClient.invalidateQueries({ queryKey: ["news-feed"] }),
     ]);
     if (syncedCount === diverseItems.length) {
-      toast.success(`${syncedCount} publicações sincronizadas na nuvem para todos os usuários!`);
+      toast.success(
+        `${syncedCount} publicações integradas ao acervo na nuvem.`
+      );
     } else {
-      toast.warning(`${diverseItems.length} salvas localmente (${syncedCount} na nuvem). Clique em Sincronizar Nuvem.`);
+      toast.warning(
+        `${diverseItems.length} salvas localmente (${syncedCount} na nuvem). Clique em Sincronizar agora.`
+      );
     }
   };
 
-  const handlePdfFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePdfFileSelect = async (
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (!file.name.toLowerCase().endsWith(".pdf") && file.type !== "application/pdf") {
+    if (
+      !file.name.toLowerCase().endsWith(".pdf") &&
+      file.type !== "application/pdf"
+    ) {
       toast.error("Por favor, selecione um arquivo em formato .PDF válido.");
       return;
     }
@@ -759,24 +861,34 @@ const Admin = () => {
       setUploadedPdfData(extracted);
 
       if (isCreatingNewBook || !editBookTitle.trim()) {
-        setEditBookTitle(extracted.suggestedTitle || file.name.replace(/\.pdf$/i, ""));
+        setEditBookTitle(
+          extracted.suggestedTitle || file.name.replace(/\.pdf$/i, "")
+        );
       }
-      if (extracted.suggestedAuthor && (!editBookAuthor.trim() || editBookAuthor === "Miguel Worscoi")) {
+      if (
+        extracted.suggestedAuthor &&
+        (!editBookAuthor.trim() || editBookAuthor === "Miguel Worscoi")
+      ) {
         setEditBookAuthor(extracted.suggestedAuthor);
       }
       if (extracted.coverDataUrl) {
         setEditBookCover(extracted.coverDataUrl);
       }
-      if (extracted.suggestedDescription && (!editBookDescription.trim() || isCreatingNewBook)) {
+      if (
+        extracted.suggestedDescription &&
+        (!editBookDescription.trim() || isCreatingNewBook)
+      ) {
         setEditBookDescription(extracted.suggestedDescription);
       }
 
       toast.success(
-        `PDF "${file.name}" carregado! ${extracted.pagesCount} páginas e ${extracted.extractedChapters.length} partes extraídas automaticamente.`
+        `PDF "${file.name}" lido · ${extracted.pagesCount} páginas e ${extracted.extractedChapters.length} capítulos extraídos.`
       );
     } catch (err: any) {
       console.error("Erro ao processar PDF:", err);
-      toast.error("Não foi possível ler o PDF. Verifique se o arquivo não está protegido por senha.");
+      toast.error(
+        "Não foi possível ler o PDF. Verifique se o arquivo não está protegido por senha."
+      );
     } finally {
       setIsProcessingPdf(false);
       e.target.value = "";
@@ -790,7 +902,7 @@ const Admin = () => {
     reader.onload = () => {
       if (typeof reader.result === "string") {
         setEditBookCover(reader.result);
-        toast.success("Capa personalizada carregada do dispositivo!");
+        toast.success("Capa carregada do dispositivo.");
       }
     };
     reader.readAsDataURL(file);
@@ -807,14 +919,19 @@ const Admin = () => {
     let originalPagesCount = 200;
     let fileSizeBytes = 2500000;
     let fileSizeFormatted = "PDF Completo";
-    let editionNotes = "Edição digital em PDF publicada pela curadoria editorial da Wotho.";
+    let editionNotes =
+      "Edição digital em PDF publicada pela curadoria editorial da Wotho.";
 
     if (uploadedPdfData) {
       const generatedId = isCreatingNewBook
         ? `book-editorial-${slugifyEditorial(editBookTitle)}-${Date.now().toString().slice(-4)}`
         : selectedBookId || "";
-      const idbUri = await savePdfBytesToIndexedDB(generatedId, uploadedPdfData.arrayBuffer);
-      pdfUrlToUse = uploadedPdfData.inlineDataUrl || idbUri || editBookPdfUrl.trim();
+      const idbUri = await savePdfBytesToIndexedDB(
+        generatedId,
+        uploadedPdfData.arrayBuffer
+      );
+      pdfUrlToUse =
+        uploadedPdfData.inlineDataUrl || idbUri || editBookPdfUrl.trim();
       originalPagesCount = uploadedPdfData.pagesCount;
       fileSizeBytes = uploadedPdfData.fileSizeBytes;
       fileSizeFormatted = uploadedPdfData.fileSizeFormatted;
@@ -837,7 +954,6 @@ const Admin = () => {
       source_repository: "Biblioteca Digital Luso-Brasileira",
     });
 
-    // If a PDF file was uploaded from device or external PDF URL was provided, register it locally
     if (pdfUrlToUse) {
       saveCustomUploadedPdfEntry({
         id: saved.id,
@@ -852,12 +968,13 @@ const Admin = () => {
         sourceRepository: "Biblioteca Digital Luso-Brasileira",
         editionNotes,
         isPublicDomain: false,
-        coverUrl: saved.cover_url || (uploadedPdfData ? uploadedPdfData.coverDataUrl : "/placeholder.svg"),
+        coverUrl:
+          saved.cover_url ||
+          (uploadedPdfData ? uploadedPdfData.coverDataUrl : "/placeholder.svg"),
         category: saved.category,
         description: saved.description,
       });
 
-      // Also save all extracted chapters so the book is readable in both PDF and Text mode across all devices
       if (uploadedPdfData?.extractedChapters) {
         for (const ch of uploadedPdfData.extractedChapters) {
           saveCustomBookChapter({
@@ -878,8 +995,8 @@ const Admin = () => {
     setUploadedPdfData(null);
     toast.success(
       uploadedPdfData
-        ? `Livro em PDF "${saved.title}" publicado com ${uploadedPdfData.pagesCount} páginas e capítulos sincronizados!`
-        : "Obra literária salva e atualizada no catálogo!"
+        ? `Livro em PDF "${saved.title}" publicado com ${uploadedPdfData.pagesCount} páginas.`
+        : "Obra atualizada na biblioteca."
     );
   };
 
@@ -899,11 +1016,13 @@ const Admin = () => {
       content: chapterContent,
       position: parseInt(chapterPosition) || 1,
     });
-    void queryClient.invalidateQueries({ queryKey: ["chapters", selectedBookId] });
+    void queryClient.invalidateQueries({
+      queryKey: ["chapters", selectedBookId],
+    });
     setChapterTitle("");
     setChapterContent("");
     setChapterPosition(String((parseInt(chapterPosition) || 1) + 1));
-    toast.success("Capítulo adicionado à obra com sucesso!");
+    toast.success("Capítulo adicionado à obra.");
   };
 
   const handleSaveAnimeEdit = (e: React.FormEvent) => {
@@ -916,12 +1035,14 @@ const Admin = () => {
       trailerYoutubeId: editAnimeTrailer,
     });
     setAnimeOverridesMap(getAnimeOverrides());
-    toast.success("Dados do anime atualizados com sucesso!");
+    toast.success("Dados do anime atualizados.");
   };
 
   // Word & paragraph counters for active article editor
   const editorStats = useMemo(() => {
-    const words = editNewsContent.trim() ? editNewsContent.trim().split(/\s+/).length : 0;
+    const words = editNewsContent.trim()
+      ? editNewsContent.trim().split(/\s+/).length
+      : 0;
     const paragraphs = editNewsContent
       .split(/\n\s*\n+/)
       .map((p) => p.trim())
@@ -930,49 +1051,51 @@ const Admin = () => {
     return { words, paragraphs, readMinutes };
   }, [editNewsContent]);
 
+  const cloudActive = Boolean(firebaseUser || isSpecialAdminLoggedIn());
+
   if (loading) {
     return (
-      <div className="min-h-screen bg-background">
+      <div className="min-h-screen bg-[#F5F5F7] dark:bg-[#141416] text-[#1D1D1F] dark:text-[#F5F5F7]">
         <Navigation variant="dark" />
-        <p className="pt-40 text-center text-sm text-muted-foreground font-light">
+        <p className="pt-44 text-center text-sm text-[#6E6E73] dark:text-[#A1A1A6]">
           Carregando Studio Editorial...
         </p>
       </div>
     );
   }
 
-  // If not logged in as Admin, show direct Master Login Gate
+  // Master Login Gate (Monochrome Spatial Executive Gate)
   if (!user || !isAdmin) {
     return (
-      <div className="min-h-screen bg-background flex flex-col justify-between">
+      <div className="min-h-screen bg-[#F5F5F7] dark:bg-[#141416] text-[#1D1D1F] dark:text-[#F5F5F7] flex flex-col justify-between">
         <Navigation variant="dark" />
-        <div className="pt-36 pb-24 px-6 flex items-center justify-center">
-          <Card className="w-full max-w-md p-8 border border-border bg-card shadow-soft">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="h-10 w-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
-                <Lock className="h-5 w-5" />
+        <main className="flex-1 pt-36 pb-24 px-5 flex items-center justify-center">
+          <div className="w-full max-w-[440px] bg-white dark:bg-[#1C1C1E] border border-black/[0.065] dark:border-white/[0.08] rounded-[20px] p-7 sm:p-8 shadow-[0_1px_2px_rgba(0,0,0,0.03),0_12px_32px_rgba(0,0,0,0.05)]">
+            <div className="flex items-center gap-3.5 mb-5">
+              <div className="h-10 w-10 rounded-full bg-[#F5F5F7] dark:bg-[#2C2C2E] text-[#1D1D1F] dark:text-[#F5F5F7] flex items-center justify-center shrink-0">
+                <Lock className="h-[18px] w-[18px]" />
               </div>
               <div>
-                <span className="text-[10px] uppercase tracking-widest text-primary font-semibold block">
+                <p className="text-xs font-medium text-[#86868B]">
                   Acesso Exclusivo
-                </span>
-                <h1 className="text-xl font-light text-foreground tracking-tight">
-                  Studio Editorial & Análise
+                </p>
+                <h1 className="text-2xl font-semibold tracking-[-0.03em] text-[#1D1D1F] dark:text-[#F5F5F7]">
+                  Studio Editorial
                 </h1>
               </div>
             </div>
 
-            <p className="text-xs text-muted-foreground font-light leading-relaxed mb-6">
-              Entre com sua conta Google de administrador ou com as credenciais especiais de Editor-Chefe para publicar livros, notícias e capítulos com sincronização em nuvem para todos os usuários.
+            <p className="text-[13.5px] text-[#6E6E73] dark:text-[#A1A1A6] leading-relaxed mb-6">
+              Entre com sua conta Google de administrador ou utilize suas
+              credenciais de Editor-Chefe para publicar no catálogo.
             </p>
 
-            <Button
+            <button
               type="button"
               onClick={handleGoogleAdminLogin}
-              variant="outline"
-              className="w-full mb-4 rounded-full text-[11px] uppercase tracking-wider flex items-center justify-center gap-2 border-primary/40 hover:bg-primary/5"
+              className="w-full mb-5 h-10 px-4 rounded-full border border-black/[0.1] dark:border-white/[0.14] bg-white dark:bg-[#2C2C2E] text-[13px] font-medium text-[#1D1D1F] dark:text-[#F5F5F7] hover:bg-[#F5F5F7] dark:hover:bg-[#3A3A3C] transition-colors inline-flex items-center justify-center gap-2.5 whitespace-nowrap"
             >
-              <svg className="w-4 h-4" viewBox="0 0 24 24">
+              <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
                 <path
                   fill="#4285F4"
                   d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
@@ -990,1080 +1113,1036 @@ const Admin = () => {
                   d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
                 />
               </svg>
-              Entrar com Google (Nuvem Firestore)
-            </Button>
+              Entrar com Google
+            </button>
 
-            <div className="relative my-4">
+            <div className="relative my-5">
               <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-border"></div>
+                <div className="w-full border-t border-black/[0.065] dark:border-white/[0.08]" />
               </div>
-              <div className="relative flex justify-center text-[10px] uppercase tracking-widest">
-                <span className="bg-card px-2 text-muted-foreground">Ou senha mestra</span>
+              <div className="relative flex justify-center text-xs">
+                <span className="bg-white dark:bg-[#1C1C1E] px-3 text-[#86868B]">
+                  ou credenciais editoriais
+                </span>
               </div>
             </div>
 
             <form onSubmit={handleDirectAdminLogin} className="space-y-4">
               <div className="space-y-1.5">
-                <Label className="text-xs uppercase tracking-wider text-muted-foreground">
+                <label
+                  htmlFor="admin-login-email"
+                  className="block text-[12.5px] font-medium text-[#6E6E73] dark:text-[#A1A1A6]"
+                >
                   E-mail Administrativo
-                </Label>
-                <Input
+                </label>
+                <input
+                  id="admin-login-email"
                   type="email"
                   value={loginEmail}
                   onChange={(e) => setLoginEmail(e.target.value)}
                   placeholder="miguelworscoi@gmail.com"
                   required
+                  className="w-full bg-[#F5F5F7] dark:bg-[#2C2C2E] border border-transparent rounded-[10px] px-3.5 py-2.5 text-sm text-[#1D1D1F] dark:text-[#F5F5F7] placeholder:text-[#86868B] outline-none transition-all focus:bg-white dark:focus:bg-[#1C1C1E] focus:border-black/15 dark:focus:border-white/25 focus:ring-2 focus:ring-black/[0.06]"
                 />
               </div>
+
               <div className="space-y-1.5">
-                <Label className="text-xs uppercase tracking-wider text-muted-foreground">
+                <label
+                  htmlFor="admin-login-pass"
+                  className="block text-[12.5px] font-medium text-[#6E6E73] dark:text-[#A1A1A6]"
+                >
                   Senha Mestra
-                </Label>
-                <Input
+                </label>
+                <input
+                  id="admin-login-pass"
                   type="password"
                   value={loginPassword}
                   onChange={(e) => setLoginPassword(e.target.value)}
                   placeholder="••••••"
                   required
+                  className="w-full bg-[#F5F5F7] dark:bg-[#2C2C2E] border border-transparent rounded-[10px] px-3.5 py-2.5 text-sm text-[#1D1D1F] dark:text-[#F5F5F7] placeholder:text-[#86868B] outline-none transition-all focus:bg-white dark:focus:bg-[#1C1C1E] focus:border-black/15 dark:focus:border-white/25 focus:ring-2 focus:ring-black/[0.06]"
                 />
               </div>
-              <Button
+
+              <button
                 type="submit"
-                className="w-full rounded-full text-[11px] uppercase tracking-wider bg-primary text-primary-foreground hover:bg-primary/90"
+                className="w-full h-10 rounded-full bg-[#1D1D1F] text-white dark:bg-[#F5F5F7] dark:text-[#1D1D1F] text-[13px] font-medium hover:bg-[#333336] dark:hover:bg-[#E5E5EA] transition-colors whitespace-nowrap"
               >
                 Acessar Painel Editorial
-              </Button>
+              </button>
             </form>
-          </Card>
-        </div>
+          </div>
+        </main>
         <Footer />
       </div>
     );
   }
 
+  const studioNavTabs: Array<{
+    id: StudioTabId;
+    label: string;
+    count?: number;
+  }> = [
+    { id: "overview", label: "Visão Geral" },
+    { id: "news", label: "Notícias", count: analytics.totalNews },
+    { id: "discover", label: "Explorar Lotes" },
+    { id: "books", label: "Biblioteca PDF", count: analytics.totalBooks },
+    {
+      id: "animes",
+      label: "Animes & Mangás",
+      count: analytics.totalAnimes,
+    },
+  ];
+
+  const inputClass =
+    "w-full bg-[#FAFAFC] dark:bg-[#2C2C2E] border border-black/[0.1] dark:border-white/[0.12] rounded-[10px] px-3.5 py-2 text-[13.5px] text-[#1D1D1F] dark:text-[#F5F5F7] placeholder:text-[#86868B] outline-none transition-all focus:bg-white dark:focus:bg-[#1C1C1E] focus:border-[#1D1D1F] dark:focus:border-[#F5F5F7]";
+
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-[#F5F5F7] dark:bg-[#141416] text-[#1D1D1F] dark:text-[#F5F5F7] flex flex-col">
       <Navigation variant="dark" />
 
-      <main className="pt-28 pb-24 px-4 sm:px-6 lg:px-12">
-        <div className="max-w-7xl mx-auto">
-          {/* Top Executive Header */}
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-8 mb-8 border-b border-border">
-            <div>
-              <div className="flex flex-wrap items-center gap-2 mb-2">
-                <span className="px-2.5 py-0.5 rounded-full bg-primary text-primary-foreground text-[10px] uppercase tracking-widest font-semibold">
-                  Editor-Chefe Mestre
-                </span>
-                <span className="text-xs text-muted-foreground font-light">
-                  {user.email}
-                </span>
+      <main className="flex-1 pt-20 pb-20">
+        {/* 1. ULTRA-DISCREET FROSTED UTILITY BAR */}
+        <div className="border-b border-black/[0.065] dark:border-white/[0.08] bg-[#F5F5F7]/85 dark:bg-[#141416]/85 backdrop-blur-xl">
+          <div className="max-w-[1220px] mx-auto px-5 sm:px-7 h-11 flex items-center justify-between gap-4 text-xs text-[#6E6E73] dark:text-[#A1A1A6]">
+            <div className="flex items-center gap-2 min-w-0 truncate">
+              <span
+                aria-hidden="true"
+                className="w-[7px] h-[7px] rounded-full shrink-0"
+                style={{ backgroundColor: cloudActive ? "#28CD41" : "#D97706" }}
+              />
+              <span className="truncate">
                 {firebaseUser ? (
-                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[10px] uppercase tracking-wider font-medium border border-emerald-500/20">
-                    <Cloud className="h-3 w-3" />
-                    Nuvem Conectada ({firebaseUser.email})
-                  </span>
+                  <>
+                    Nuvem conectada ·{" "}
+                    <strong className="font-medium text-[#1D1D1F] dark:text-[#F5F5F7]">
+                      {firebaseUser.email || user.email}
+                    </strong>
+                  </>
                 ) : isSpecialAdminLoggedIn() ? (
-                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[10px] uppercase tracking-wider font-medium border border-emerald-500/20">
-                    <Cloud className="h-3 w-3" />
-                    Nuvem Editorial Ativa (Publicação Direta)
-                  </span>
+                  <>
+                    Nuvem editorial ativa ·{" "}
+                    <strong className="font-medium text-[#1D1D1F] dark:text-[#F5F5F7]">
+                      {user.email}
+                    </strong>
+                  </>
                 ) : (
                   <button
                     type="button"
                     onClick={handleGoogleAdminLogin}
-                    className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-300 text-[10px] uppercase tracking-wider font-semibold border border-amber-500/30 hover:bg-amber-500/25 transition-colors"
+                    className="hover:text-[#1D1D1F] dark:hover:text-[#F5F5F7] transition-colors underline underline-offset-2"
                   >
-                    <AlertTriangle className="h-3 w-3" />
-                    Conectar Google (Opcional)
+                    Conectar Google para nuvem
                   </button>
                 )}
-              </div>
-              <h1 className="text-2xl sm:text-4xl font-light tracking-tight text-foreground">
-                Studio Editorial, Análise & Curadoria de Conteúdos
+              </span>
+              {lastSyncTime && (
+                <span className="hidden sm:inline text-[#86868B] tabular-nums shrink-0">
+                  · Sincronizado às {lastSyncTime}
+                </span>
+              )}
+            </div>
+
+            <div className="flex items-center gap-4 shrink-0">
+              <button
+                type="button"
+                onClick={handleSyncCloudNow}
+                disabled={syncingCloud}
+                className="inline-flex items-center gap-1.5 text-[#6E6E73] dark:text-[#A1A1A6] hover:text-[#1D1D1F] dark:hover:text-[#F5F5F7] disabled:opacity-50 transition-colors whitespace-nowrap shrink-0"
+              >
+                <RefreshCw
+                  className={`w-3 h-3 ${syncingCloud ? "animate-spin" : ""}`}
+                />
+                {syncingCloud ? "Sincronizando..." : "Sincronizar agora"}
+              </button>
+              <span
+                aria-hidden="true"
+                className="hidden sm:inline text-black/[0.14] dark:text-white/[0.15]"
+              >
+                |
+              </span>
+              <span className="hidden sm:inline text-[#86868B] whitespace-nowrap">
+                Editor-Chefe
+              </span>
+              <button
+                type="button"
+                onClick={() => void signOut()}
+                className="inline-flex items-center gap-1 text-[#6E6E73] dark:text-[#A1A1A6] hover:text-[#1D1D1F] dark:hover:text-[#F5F5F7] transition-colors whitespace-nowrap shrink-0"
+              >
+                <LogOut className="w-3 h-3" />
+                Sair
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div className="max-w-[1220px] mx-auto px-5 sm:px-7">
+          {/* 2. HERO HEADER — PROTAGONIST TITLE + 2 CLEAN CTAs */}
+          <header className="pt-9 pb-7 flex flex-col md:flex-row md:items-end justify-between gap-6">
+            <div>
+              <h1 className="text-[34px] sm:text-[44px] font-semibold tracking-[-0.036em] leading-[1.06] text-[#1D1D1F] dark:text-[#F5F5F7] text-balance">
+                Studio Editorial
               </h1>
-              <p className="text-xs sm:text-sm text-muted-foreground font-light mt-1">
-                Monitore o acervo, publique artigos, livros e animes que refletem imediatamente para todos os usuários em tempo real na nuvem.
+              <p className="mt-2 text-[15.5px] text-[#6E6E73] dark:text-[#A1A1A6] tracking-[-0.01em]">
+                Curadoria, análise e distribuição em tempo real.
               </p>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2.5">
-              <Button
-                onClick={handleSyncCloudNow}
-                disabled={syncingCloud}
-                variant="outline"
-                size="sm"
-                className="rounded-full text-[11px] uppercase tracking-wider border-emerald-500/40 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10"
-              >
-                <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${syncingCloud ? "animate-spin" : ""}`} />
-                {syncingCloud ? "Sincronizando..." : "Sincronizar Nuvem"}
-              </Button>
-              <Button
-                onClick={() => startNewArticle("Futebol")}
-                size="sm"
-                className="rounded-full text-[11px] uppercase tracking-wider bg-primary text-primary-foreground hover:bg-primary/90"
-              >
-                <Plus className="h-3.5 w-3.5 mr-1.5" />
-                Nova Publicação
-              </Button>
-              <Button
+            <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+              <button
+                type="button"
                 onClick={() => {
                   startNewBook();
-                  setActiveTab("books");
+                  handleSelectTab("books");
                 }}
-                variant="outline"
-                size="sm"
-                className="rounded-full text-[11px] uppercase tracking-wider border-primary/40 text-primary hover:bg-primary/10"
+                className="h-[38px] px-[18px] rounded-full border border-black/[0.1] dark:border-white/[0.14] bg-white dark:bg-[#1C1C1E] text-[13.5px] font-medium text-[#1D1D1F] dark:text-[#F5F5F7] hover:bg-[#EFEFF2] dark:hover:bg-[#2C2C2E] transition-colors inline-flex items-center gap-2 whitespace-nowrap shrink-0"
               >
-                <Upload className="h-3.5 w-3.5 mr-1.5" />
-                Publicar Livro PDF
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setActiveTab("discover")}
-                className="rounded-full text-[11px] uppercase tracking-wider"
+                Importar PDF
+              </button>
+              <button
+                type="button"
+                onClick={() => startNewArticle("Futebol")}
+                className="h-[38px] px-[18px] rounded-full bg-[#1D1D1F] text-white dark:bg-[#F5F5F7] dark:text-[#1D1D1F] text-[13.5px] font-medium hover:bg-[#333336] dark:hover:bg-[#E5E5EA] transition-colors inline-flex items-center gap-1.5 whitespace-nowrap shrink-0"
               >
-                <Compass className="h-3.5 w-3.5 mr-1.5" />
-                Conseguir Publicações
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => void signOut()}
-                className="rounded-full text-[11px] uppercase tracking-wider text-muted-foreground hover:text-foreground"
-              >
-                <LogOut className="h-3.5 w-3.5 mr-1.5" />
-                Sair
-              </Button>
+                <Plus className="w-4 h-4" />
+                Nova Publicação
+              </button>
             </div>
-          </div>
+          </header>
 
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-8">
-            <TabsList className="bg-secondary/80 p-1 rounded-xl flex flex-wrap h-auto gap-1">
-              <TabsTrigger value="overview" className="text-xs font-normal py-2 px-4 rounded-lg">
-                <BarChart3 className="h-3.5 w-3.5 mr-2" />
-                Análise de Conteúdos
-              </TabsTrigger>
-              <TabsTrigger value="news" className="text-xs font-normal py-2 px-4 rounded-lg">
-                <Edit3 className="h-3.5 w-3.5 mr-2" />
-                Editar & Melhorar Notícias ({analytics.totalNews})
-              </TabsTrigger>
-              <TabsTrigger value="discover" className="text-xs font-normal py-2 px-4 rounded-lg">
-                <Compass className="h-3.5 w-3.5 mr-2" />
-                Conseguir Publicações Diversas
-              </TabsTrigger>
-              <TabsTrigger value="books" className="text-xs font-normal py-2 px-4 rounded-lg">
-                <BookOpen className="h-3.5 w-3.5 mr-2" />
-                Editar Livros & Capítulos ({analytics.totalBooks})
-              </TabsTrigger>
-              <TabsTrigger value="animes" className="text-xs font-normal py-2 px-4 rounded-lg">
-                <Film className="h-3.5 w-3.5 mr-2" />
-                Animes & Mangás ({analytics.totalAnimes})
-              </TabsTrigger>
-            </TabsList>
+          {/* 3. SEGMENTED NAVIGATION BAR (macOS Style, Zero Scrollbar) */}
+          <nav
+            aria-label="Seções do Studio Editorial"
+            className="inline-flex max-w-full items-center bg-black/[0.045] dark:bg-[#2C2C2E] p-1 rounded-[13px] mb-7 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden gap-0.5"
+          >
+            {studioNavTabs.map((tab) => {
+              const active = activeTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => handleSelectTab(tab.id)}
+                  className={`whitespace-nowrap shrink-0 px-4 py-[7px] text-[13px] font-medium rounded-[9px] transition-all inline-flex items-center gap-1.5 ${
+                    active
+                      ? "bg-white dark:bg-[#1C1C1E] text-[#1D1D1F] dark:text-[#F5F5F7] shadow-[0_1px_4px_rgba(0,0,0,0.08)]"
+                      : "text-[#6E6E73] dark:text-[#A1A1A6] hover:text-[#1D1D1F] dark:hover:text-[#F5F5F7]"
+                  }`}
+                >
+                  <span>{tab.label}</span>
+                  {typeof tab.count === "number" && (
+                    <span className="text-[11.5px] font-normal text-[#86868B] tabular-nums">
+                      {tab.count}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </nav>
 
-            {/* ================================================================
-                TAB 1: VISÃO GERAL & ANÁLISE DE CONTEÚDOS
-               ================================================================ */}
-            <TabsContent value="overview" className="space-y-8">
-              {/* Top KPI Cards */}
+          {/* ================================================================
+              TAB 1: VISÃO GERAL
+             ================================================================ */}
+          {activeTab === "overview" && (
+            <section className="space-y-5">
+              {/* 4 KPI Cards — Rótulo curto + Número protagonista + 1 micro-indicador */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                <Card className="p-6 border border-border bg-card shadow-soft">
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="text-[11px] uppercase tracking-wider text-muted-foreground">
-                      Notícias & Reportagens
-                    </span>
-                    <Newspaper className="h-4 w-4 text-primary" />
+                <div className="bg-white dark:bg-[#1C1C1E] border border-black/[0.065] dark:border-white/[0.08] rounded-[18px] p-6 shadow-[0_2px_10px_rgba(0,0,0,0.025)] flex flex-col justify-between min-h-[132px]">
+                  <span className="text-[13px] font-medium text-[#6E6E73] dark:text-[#A1A1A6]">
+                    Notícias
+                  </span>
+                  <div className="text-[36px] font-semibold tracking-[-0.03em] leading-[1.1] text-[#1D1D1F] dark:text-[#F5F5F7] tabular-nums my-2">
+                    {loadingNews ? "—" : analytics.totalNews}
                   </div>
-                  <div className="text-3xl font-light text-foreground">
-                    {loadingNews ? "..." : analytics.totalNews}
-                  </div>
-                  <p className="text-xs text-muted-foreground font-light mt-2 flex items-center gap-1.5">
-                    <CheckCircle2 className="h-3.5 w-3.5 text-primary" />
-                    <span>{analytics.deepArticlesCount} matérias de alta profundidade</span>
-                  </p>
-                </Card>
+                  <span className="text-[12.5px] text-[#86868B] tabular-nums">
+                    {analytics.deepArticlesCount} aprofundadas
+                  </span>
+                </div>
 
-                <Card className="p-6 border border-border bg-card shadow-soft">
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="text-[11px] uppercase tracking-wider text-muted-foreground">
-                      Livros & Acervo PDF
-                    </span>
-                    <BookOpen className="h-4 w-4 text-primary" />
+                <div className="bg-white dark:bg-[#1C1C1E] border border-black/[0.065] dark:border-white/[0.08] rounded-[18px] p-6 shadow-[0_2px_10px_rgba(0,0,0,0.025)] flex flex-col justify-between min-h-[132px]">
+                  <span className="text-[13px] font-medium text-[#6E6E73] dark:text-[#A1A1A6]">
+                    Biblioteca PDF
+                  </span>
+                  <div className="text-[36px] font-semibold tracking-[-0.03em] leading-[1.1] text-[#1D1D1F] dark:text-[#F5F5F7] tabular-nums my-2">
+                    {loadingBooks ? "—" : analytics.totalBooks}
                   </div>
-                  <div className="text-3xl font-light text-foreground">
-                    {loadingBooks ? "..." : analytics.totalBooks}
-                  </div>
-                  <p className="text-xs text-muted-foreground font-light mt-2 flex items-center gap-1.5">
-                    <Layers className="h-3.5 w-3.5 text-primary" />
-                    <span>Obras integrais, científicas e bestsellers</span>
-                  </p>
-                </Card>
+                  <span className="text-[12.5px] text-[#86868B]">
+                    Obras integrais
+                  </span>
+                </div>
 
-                <Card className="p-6 border border-border bg-card shadow-soft">
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="text-[11px] uppercase tracking-wider text-muted-foreground">
-                      Animes, Mangás & Webtoons
-                    </span>
-                    <Film className="h-4 w-4 text-primary" />
-                  </div>
-                  <div className="text-3xl font-light text-foreground">
+                <div className="bg-white dark:bg-[#1C1C1E] border border-black/[0.065] dark:border-white/[0.08] rounded-[18px] p-6 shadow-[0_2px_10px_rgba(0,0,0,0.025)] flex flex-col justify-between min-h-[132px]">
+                  <span className="text-[13px] font-medium text-[#6E6E73] dark:text-[#A1A1A6]">
+                    Catálogo Geek
+                  </span>
+                  <div className="text-[36px] font-semibold tracking-[-0.03em] leading-[1.1] text-[#1D1D1F] dark:text-[#F5F5F7] tabular-nums my-2">
                     {analytics.totalAnimes + analytics.totalWebtoons}
                   </div>
-                  <p className="text-xs text-muted-foreground font-light mt-2">
-                    {analytics.totalAnimes} Animes ({analytics.totalEpisodes} episódios) · {analytics.totalWebtoons} Webtoons
-                  </p>
-                </Card>
+                  <span className="text-[12.5px] text-[#86868B] tabular-nums">
+                    {analytics.totalAnimes} Animes · {analytics.totalWebtoons}{" "}
+                    Webtoons
+                  </span>
+                </div>
 
-                <Card className="p-6 border border-border bg-card shadow-soft">
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="text-[11px] uppercase tracking-wider text-muted-foreground">
-                      Índice de Saúde Editorial
-                    </span>
-                    <TrendingUp className="h-4 w-4 text-primary" />
-                  </div>
-                  <div className="text-3xl font-light text-foreground">
+                <div className="bg-white dark:bg-[#1C1C1E] border border-black/[0.065] dark:border-white/[0.08] rounded-[18px] p-6 shadow-[0_2px_10px_rgba(0,0,0,0.025)] flex flex-col justify-between min-h-[132px]">
+                  <span className="text-[13px] font-medium text-[#6E6E73] dark:text-[#A1A1A6]">
+                    Saúde Editorial
+                  </span>
+                  <div className="text-[36px] font-semibold tracking-[-0.03em] leading-[1.1] text-[#1D1D1F] dark:text-[#F5F5F7] tabular-nums my-2">
                     {analytics.qualityScore}%
                   </div>
-                  <p className="text-xs text-muted-foreground font-light mt-2">
-                    Capas verificadas, subtítulos e texto integral
-                  </p>
-                </Card>
+                  <span className="text-[12.5px] text-[#86868B]">
+                    Capas e texto verificados
+                  </span>
+                </div>
               </div>
 
-              <div className="grid lg:grid-cols-3 gap-8">
-                {/* Category Distribution */}
-                <Card className="p-6 border border-border bg-card shadow-soft lg:col-span-1">
-                  <div className="flex items-center justify-between mb-4">
-                    <div>
-                      <span className="text-[10px] uppercase tracking-widest text-primary font-semibold block">
-                        Distribuição Editorial
-                      </span>
-                      <h2 className="text-lg font-light text-foreground">
-                        Publicações por Categoria
+              {/* Split Inferior: Por Categoria + Prontas para Aprimoramento */}
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+                {/* Category Distribution (Monochrome Bars) */}
+                <div className="lg:col-span-4 bg-white dark:bg-[#1C1C1E] border border-black/[0.065] dark:border-white/[0.08] rounded-[18px] p-6 shadow-[0_2px_10px_rgba(0,0,0,0.025)] flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center justify-between mb-5">
+                      <h2 className="text-[17px] font-semibold tracking-[-0.015em] text-[#1D1D1F] dark:text-[#F5F5F7]">
+                        Por Categoria
                       </h2>
                     </div>
-                  </div>
 
-                  <div className="space-y-3.5 mt-4">
-                    {analytics.categoriesSorted.map(([cat, count]) => {
-                      const pct =
-                        analytics.totalNews > 0
-                          ? Math.max(4, Math.round((count / analytics.totalNews) * 100))
-                          : 0;
-                      return (
-                        <div key={cat} className="space-y-1.5">
-                          <div className="flex items-center justify-between text-xs">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setNewsCategoryFilter(cat);
-                                setActiveTab("news");
-                              }}
-                              className="font-medium text-foreground hover:text-primary transition-colors text-left"
-                            >
-                              {cat}
-                            </button>
-                            <span className="text-muted-foreground font-light">
-                              {count} matérias ({pct}%)
-                            </span>
-                          </div>
-                          <div className="h-2 w-full rounded-full bg-secondary overflow-hidden">
-                            <div
-                              className="h-full bg-primary rounded-full transition-all"
-                              style={{ width: `${pct}%` }}
-                            />
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-
-                  <div className="mt-6 pt-5 border-t border-border">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setActiveTab("discover")}
-                      className="w-full rounded-lg text-xs font-normal"
-                    >
-                      <Compass className="h-3.5 w-3.5 mr-2 text-primary" />
-                      Importar Mais Publicações por Tema
-                    </Button>
-                  </div>
-                </Card>
-
-                {/* Publications Ready for 1-Click Improvement */}
-                <Card className="p-6 border border-border bg-card shadow-soft lg:col-span-2">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-5">
-                    <div>
-                      <span className="text-[10px] uppercase tracking-widest text-primary font-semibold block">
-                        Otimizador de Qualidade Worscoi
-                      </span>
-                      <h2 className="text-lg font-light text-foreground">
-                        Publicações do Site Prontas para Aprimoramento Editorial
-                      </h2>
-                      <p className="text-xs text-muted-foreground font-light">
-                        Clique em <strong>"Melhorar em 1 Clique"</strong> para expandir parágrafos, adicionar subtítulos e citações automaticamente, ou abra no editor completo.
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="space-y-3 max-h-[440px] overflow-y-auto pr-1">
-                    {analytics.needsImprovementList.map((item) => {
-                      const charLen = (item.content || "").length;
-                      return (
-                        <div
-                          key={item.id}
-                          className="p-4 rounded-xl border border-border bg-secondary/20 hover:bg-secondary/40 transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-4"
-                        >
-                          <div className="space-y-1 min-w-0 flex-1">
-                            <div className="flex items-center gap-2">
-                              <span className="px-2 py-0.5 rounded bg-secondary text-foreground text-[10px] uppercase tracking-wider font-medium">
-                                {item.category}
-                              </span>
-                              <span className="text-[11px] text-muted-foreground font-light">
-                                {charLen} caracteres
-                              </span>
-                            </div>
-                            <h3 className="text-sm font-medium text-foreground truncate">
-                              {item.title}
-                            </h3>
-                            <p className="text-xs text-muted-foreground font-light line-clamp-1">
-                              {item.excerpt}
-                            </p>
-                          </div>
-
-                          <div className="flex items-center gap-2 shrink-0">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => {
-                                selectArticleForEditing(item);
-                                setActiveTab("news");
-                              }}
-                              className="h-8 text-xs font-normal"
-                            >
-                              <Edit3 className="h-3 w-3 mr-1.5" />
-                              Editar
-                            </Button>
-                            <Button
-                              size="sm"
-                              onClick={() => handleQuickImproveAndSave(item)}
-                              className="h-8 text-xs font-normal bg-primary text-primary-foreground hover:bg-primary/90"
-                            >
-                              <Wand2 className="h-3 w-3 mr-1.5" />
-                              Melhorar em 1 Clique
-                            </Button>
-                          </div>
-                        </div>
-                      );
-                    })}
-                    {analytics.needsImprovementList.length === 0 && (
-                      <div className="py-12 text-center text-xs text-muted-foreground font-light">
-                        Todas as publicações recentes já estão com estrutura editorial completa!
-                      </div>
-                    )}
-                  </div>
-                </Card>
-              </div>
-            </TabsContent>
-
-            {/* ================================================================
-                TAB 2: EDITAR & MELHORAR PUBLICAÇÕES (NOTÍCIAS)
-               ================================================================ */}
-            <TabsContent value="news">
-              <div className="grid lg:grid-cols-12 gap-8 items-start">
-                {/* Left Column: Searchable List of All Existing Publications */}
-                <Card className="lg:col-span-4 p-5 border border-border bg-card shadow-soft space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <span className="text-[10px] uppercase tracking-widest text-primary font-semibold block">
-                        Acervo de Notícias
-                      </span>
-                      <h2 className="text-base font-medium text-foreground">
-                        Publicações no Site ({filteredNewsList.length})
-                      </h2>
-                    </div>
-                    <Button
-                      size="sm"
-                      onClick={() => startNewArticle("Futebol")}
-                      className="h-8 text-xs bg-primary text-primary-foreground hover:bg-primary/90"
-                    >
-                      <Plus className="h-3.5 w-3.5 mr-1" />
-                      Nova
-                    </Button>
-                  </div>
-
-                  <div className="space-y-2.5">
-                    <div className="relative">
-                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-                      <Input
-                        value={newsSearch}
-                        onChange={(e) => setNewsSearch(e.target.value)}
-                        placeholder="Buscar por título, clube, tema..."
-                        className="pl-9 text-xs h-9"
-                      />
-                    </div>
-
-                    <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
-                      <button
-                        type="button"
-                        onClick={() => setNewsCategoryFilter("all")}
-                        className={`px-2.5 py-1 rounded-md text-[11px] shrink-0 transition-colors ${
-                          newsCategoryFilter === "all"
-                            ? "bg-primary text-primary-foreground font-medium"
-                            : "bg-secondary text-muted-foreground hover:text-foreground"
-                        }`}
-                      >
-                        Todas
-                      </button>
-                      {NEWS_CATEGORIES.map((cat) => (
-                        <button
-                          key={cat}
-                          type="button"
-                          onClick={() => setNewsCategoryFilter(cat)}
-                          className={`px-2.5 py-1 rounded-md text-[11px] shrink-0 transition-colors ${
-                            newsCategoryFilter.toLowerCase() === cat.toLowerCase()
-                              ? "bg-primary text-primary-foreground font-medium"
-                              : "bg-secondary text-muted-foreground hover:text-foreground"
-                          }`}
-                        >
-                          {cat}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="space-y-2 max-h-[620px] overflow-y-auto pr-1">
-                    {filteredNewsList.map((item) => {
-                      const isSelected = !isCreatingNewArticle && selectedNewsId === item.id;
-                      return (
-                        <button
-                          key={item.id}
-                          type="button"
-                          onClick={() => selectArticleForEditing(item)}
-                          className={`w-full text-left p-3 rounded-xl border transition-all flex items-start gap-3 ${
-                            isSelected
-                              ? "border-primary bg-primary/5 shadow-sm"
-                              : "border-border/70 bg-background hover:bg-secondary/50"
-                          }`}
-                        >
-                          <img
-                            src={
-                              (item.cover_url || getSmartNewsCover(item.title, item.category)).replace(
-                                /&amp;/g,
-                                "&"
+                    <div className="space-y-4">
+                      {analytics.categoriesSorted.map(([cat, count]) => {
+                        const pct =
+                          analytics.totalNews > 0
+                            ? Math.max(
+                                4,
+                                Math.round((count / analytics.totalNews) * 100)
                               )
-                            }
-                            alt=""
-                            onError={(e) => {
-                              e.currentTarget.src = getSmartNewsCover(item.title, item.category);
-                            }}
-                            className="w-14 h-14 rounded-lg object-cover shrink-0 bg-secondary"
-                          />
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center justify-between gap-1 mb-0.5">
-                              <span className="text-[10px] uppercase tracking-wider text-primary font-semibold">
-                                {item.category}
-                              </span>
-                              <span className="text-[10px] text-muted-foreground font-light">
-                                {Math.round((item.content || "").length / 6)} pal.
-                              </span>
-                            </div>
-                            <p className="text-xs font-medium text-foreground line-clamp-2 leading-snug">
-                              {item.title}
-                            </p>
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </Card>
-
-                {/* Right Column: Full Publication Editor & Enhancer */}
-                <Card className="lg:col-span-8 p-6 sm:p-8 border border-border bg-card shadow-soft">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 mb-6 border-b border-border">
-                    <div>
-                      <span className="text-[10px] uppercase tracking-widest text-primary font-semibold block">
-                        {isCreatingNewArticle ? "Modo de Criação" : "Modo de Edição & Melhoria"}
-                      </span>
-                      <h2 className="text-xl font-light text-foreground">
-                        {isCreatingNewArticle
-                          ? "Criar Nova Publicação Editorial"
-                          : "Editar e Melhorar Publicação do Site"}
-                      </h2>
-                    </div>
-
-                    <div className="flex flex-wrap items-center gap-2">
-                      <Button
-                        type="button"
-                        onClick={handleImproveCurrentArticle}
-                        className="rounded-full text-xs bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm"
-                      >
-                        <Wand2 className="h-3.5 w-3.5 mr-1.5" />
-                        Melhorar Texto & Estrutura
-                      </Button>
-
-                      {!isCreatingNewArticle && editNewsSlug && (
-                        <Button
-                          asChild
-                          variant="outline"
-                          size="sm"
-                          className="rounded-full text-xs"
-                        >
-                          <Link to={`/noticias/${editNewsSlug}`} target="_blank">
-                            <ExternalLink className="h-3.5 w-3.5 mr-1.5" />
-                            Ver no Site
-                          </Link>
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-
-                  {lastSaveCloudWarning && (
-                    <div className="mb-6 p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                      <div className="space-y-1">
-                        <div className="font-semibold text-amber-800 dark:text-amber-300 flex items-center gap-1.5">
-                          <AlertTriangle className="h-4 w-4 shrink-0" />
-                          Publicação ainda não enviada para a nuvem global
-                        </div>
-                        <p className="text-muted-foreground font-light">
-                          {lastSaveCloudWarning}
-                        </p>
-                      </div>
-                      <Button
-                        type="button"
-                        size="sm"
-                        onClick={handleSyncCloudNow}
-                        disabled={syncingCloud}
-                        className="rounded-full text-xs shrink-0 bg-amber-600 text-white hover:bg-amber-700"
-                      >
-                        <Cloud className="h-3.5 w-3.5 mr-1.5" />
-                        {syncingCloud ? "Sincronizando..." : "Sincronizar Nuvem"}
-                      </Button>
-                    </div>
-                  )}
-
-                  {lastImprovements.length > 0 && (
-                    <div className="mb-6 p-4 rounded-xl bg-secondary/70 border border-border text-xs space-y-1">
-                      <div className="font-medium text-foreground flex items-center gap-1.5">
-                        <Sparkles className="h-3.5 w-3.5 text-primary" />
-                        Melhorias aplicadas pelo Otimizador Editorial:
-                      </div>
-                      <ul className="list-disc list-inside text-muted-foreground font-light space-y-0.5">
-                        {lastImprovements.map((imp, idx) => (
-                          <li key={idx}>{imp}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-
-                  <form
-                    onSubmit={handleSaveNewsArticle}
-                    onPaste={(e) => {
-                      const items = e.clipboardData?.items;
-                      if (!items) return;
-                      for (let i = 0; i < items.length; i++) {
-                        if (items[i].type.startsWith("image/")) {
-                          const pastedFile = items[i].getAsFile();
-                          if (pastedFile) {
-                            e.preventDefault();
-                            setNewsCoverInputMode("upload");
-                            void handleNewsCoverFileSelect(pastedFile);
-                            break;
-                          }
-                        }
-                      }
-                    }}
-                    className="space-y-5"
-                  >
-                    <div className="grid sm:grid-cols-3 gap-4">
-                      <div className="sm:col-span-2 space-y-1.5">
-                        <Label className="text-xs uppercase tracking-wider text-muted-foreground">
-                          Título da Publicação
-                        </Label>
-                        <Input
-                          value={editNewsTitle}
-                          onChange={(e) => {
-                            setEditNewsTitle(e.target.value);
-                            if (isCreatingNewArticle) {
-                              setEditNewsSlug(slugifyEditorial(e.target.value));
-                            }
-                          }}
-                          placeholder="Ex: Real Madrid e Manchester City protagonizam duelo tático histórico na Champions"
-                          required
-                        />
-                      </div>
-
-                      <div className="space-y-1.5">
-                        <Label className="text-xs uppercase tracking-wider text-muted-foreground">
-                          Categoria / Editoria
-                        </Label>
-                        <select
-                          value={editNewsCategory}
-                          onChange={(e) => setEditNewsCategory(e.target.value)}
-                          className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm text-foreground"
-                        >
-                          {NEWS_CATEGORIES.map((c) => (
-                            <option key={c} value={c}>
-                              {c}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    </div>
-
-                    <div className="grid sm:grid-cols-2 gap-4">
-                      <div className="space-y-1.5">
-                        <Label className="text-xs uppercase tracking-wider text-muted-foreground">
-                          Slug / URL Amigável
-                        </Label>
-                        <Input
-                          value={editNewsSlug}
-                          onChange={(e) => setEditNewsSlug(e.target.value)}
-                          placeholder="slug-da-noticia"
-                        />
-                      </div>
-
-                      <div className="space-y-1.5">
-                        <Label className="text-xs uppercase tracking-wider text-muted-foreground">
-                          Autor / Fonte Editorial
-                        </Label>
-                        <Input
-                          value={editNewsAuthor}
-                          onChange={(e) => setEditNewsAuthor(e.target.value)}
-                          placeholder="Miguel Worscoi (Editor-Chefe)"
-                        />
-                      </div>
-                    </div>
-
-                    {/* Cover Image Upload (Device File / Drag & Drop or Custom URL) */}
-                    <div className="space-y-3 p-4 rounded-xl border border-border/80 bg-secondary/20">
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-border/60">
-                        <div>
-                          <Label className="text-xs uppercase tracking-wider text-muted-foreground font-semibold flex items-center gap-1.5">
-                            <ImageIcon className="h-3.5 w-3.5 text-primary" />
-                            Capa da Notícia
-                          </Label>
-                          <span className="text-[11px] text-muted-foreground font-light">
-                            Faça upload de uma foto do seu dispositivo ou informe uma URL externa. A imagem será sincronizada na nuvem para todos os leitores.
-                          </span>
-                        </div>
-
-                        {/* Mode Switcher */}
-                        <div className="flex items-center gap-1 bg-background p-1 rounded-lg border border-border shrink-0 self-start sm:self-auto">
-                          <button
-                            type="button"
-                            onClick={() => setNewsCoverInputMode("upload")}
-                            className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors flex items-center gap-1 ${
-                              newsCoverInputMode === "upload"
-                                ? "bg-primary text-primary-foreground shadow-xs"
-                                : "text-muted-foreground hover:text-foreground"
-                            }`}
-                          >
-                            <Upload className="h-3 w-3" />
-                            Upload do Dispositivo
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setNewsCoverInputMode("url")}
-                            className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors flex items-center gap-1 ${
-                              newsCoverInputMode === "url"
-                                ? "bg-primary text-primary-foreground shadow-xs"
-                                : "text-muted-foreground hover:text-foreground"
-                            }`}
-                          >
-                            <ExternalLink className="h-3 w-3" />
-                            Link / URL
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* Hidden File Input */}
-                      <input
-                        ref={newsFileInputRef}
-                        type="file"
-                        accept="image/png,image/jpeg,image/webp,image/avif,image/gif"
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (file) void handleNewsCoverFileSelect(file);
-                        }}
-                        className="hidden"
-                      />
-
-                      {/* Mode A: Upload from Device */}
-                      {newsCoverInputMode === "upload" && (
-                        <div className="space-y-3">
-                          {/* Drag & Drop Zone */}
-                          <div
-                            onDragOver={(e) => {
-                              e.preventDefault();
-                              setIsDraggingNewsCover(true);
-                            }}
-                            onDragLeave={() => setIsDraggingNewsCover(false)}
-                            onDrop={(e) => {
-                              e.preventDefault();
-                              setIsDraggingNewsCover(false);
-                              const file = e.dataTransfer.files?.[0];
-                              if (file) void handleNewsCoverFileSelect(file);
-                            }}
-                            onClick={() => newsFileInputRef.current?.click()}
-                            className={`relative cursor-pointer rounded-xl border-2 border-dashed p-6 text-center transition-all ${
-                              isDraggingNewsCover
-                                ? "border-primary bg-primary/10 scale-[1.005]"
-                                : "border-border hover:border-primary/50 hover:bg-secondary/40"
-                            }`}
-                          >
-                            {isUploadingNewsCover ? (
-                              <div className="flex flex-col items-center justify-center gap-2 py-4">
-                                <Loader2 className="h-7 w-7 animate-spin text-primary" />
-                                <div className="text-xs font-medium text-foreground">
-                                  Otimizando imagem para alta resolução (WebP)...
-                                </div>
-                                <div className="text-[11px] text-muted-foreground">
-                                  Ajustando proporção e reduzindo peso para carregamento instantâneo.
-                                </div>
-                              </div>
-                            ) : (
-                              <div className="flex flex-col items-center justify-center gap-2">
-                                <div className="w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center shadow-xs">
-                                  <Upload className="h-5 w-5" />
-                                </div>
-                                <div className="text-xs font-medium text-foreground">
-                                  Clique para escolher uma imagem ou arraste o arquivo até aqui
-                                </div>
-                                <div className="text-[11px] text-muted-foreground max-w-md">
-                                  Aceita PNG, JPEG, WEBP ou AVIF até 20MB. A foto é convertida automaticamente em alta definição (1280x720) para rápida exibição.
-                                </div>
-                              </div>
-                            )}
-                          </div>
-
-                          {/* Live Preview & Metadata Details */}
-                          {editNewsCover ? (
-                            <div className="p-3.5 rounded-xl border border-border bg-background space-y-3">
-                              <div className="flex items-center justify-between text-xs">
-                                <span className="font-medium text-foreground flex items-center gap-1.5">
-                                  <Check className="h-3.5 w-3.5 text-emerald-500" />
-                                  Capa Atual Selecionada
-                                </span>
-                                <div className="flex items-center gap-2">
-                                  {newsCoverMeta?.sizeBytes && (
-                                    <span className="text-[11px] px-2 py-0.5 rounded-md bg-secondary text-muted-foreground font-mono">
-                                      {newsCoverMeta.width && `${newsCoverMeta.width}x${newsCoverMeta.height} · `}
-                                      {formatBytes(newsCoverMeta.sizeBytes)}
-                                      {newsCoverMeta.format && ` · ${newsCoverMeta.format.toUpperCase()}`}
-                                    </span>
-                                  )}
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setEditNewsCover("");
-                                      setNewsCoverMeta(null);
-                                      if (newsFileInputRef.current) newsFileInputRef.current.value = "";
-                                    }}
-                                    className="text-[11px] text-red-500 hover:text-red-600 flex items-center gap-1 transition-colors"
-                                  >
-                                    <X className="h-3 w-3" />
-                                    Remover
-                                  </button>
-                                </div>
-                              </div>
-
-                              <div className="relative rounded-lg overflow-hidden border border-border bg-black/40 h-44 sm:h-56 group">
-                                <img
-                                  src={editNewsCover}
-                                  alt="Preview da capa da notícia"
-                                  className="w-full h-full object-cover object-center transition-transform duration-300 group-hover:scale-102"
-                                  onError={(e) => {
-                                    e.currentTarget.src = getSmartNewsCover(editNewsTitle, editNewsCategory);
-                                  }}
-                                />
-                                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent pointer-events-none" />
-                                <div className="absolute bottom-2.5 left-3 right-3 flex items-center justify-between text-[11px] text-white">
-                                  <span className="truncate max-w-[70%] font-medium drop-shadow-sm">
-                                    {newsCoverMeta?.fileName || editNewsTitle || "Pré-visualização da Capa"}
-                                  </span>
-                                  <span className="px-2 py-0.5 rounded bg-black/60 backdrop-blur text-[10px] uppercase font-semibold">
-                                    {editNewsCover.startsWith("data:") ? "Upload Local" : "URL Externa"}
-                                  </span>
-                                </div>
-                              </div>
-
-                              <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
-                                <Button
-                                  type="button"
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => newsFileInputRef.current?.click()}
-                                  className="h-7 text-xs font-normal"
-                                >
-                                  <Upload className="h-3 w-3 mr-1.5" />
-                                  Substituir por Outra Foto
-                                </Button>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    const smart = getSmartNewsCover(editNewsTitle || editNewsCategory, editNewsCategory);
-                                    setEditNewsCover(smart);
-                                    setNewsCoverMeta(null);
-                                  }}
-                                  className="text-[11px] text-primary hover:underline flex items-center gap-1"
-                                >
-                                  <Sparkles className="h-3 w-3" />
-                                  Usar Capa Temática de Acervo
-                                </button>
-                              </div>
-                            </div>
-                          ) : (
-                            <div className="flex items-center justify-between text-xs text-muted-foreground pt-1">
-                              <span>Nenhuma imagem própria carregada no momento.</span>
+                            : 0;
+                        return (
+                          <div key={cat}>
+                            <div className="flex items-center justify-between text-[13.5px] mb-1.5">
                               <button
                                 type="button"
                                 onClick={() => {
-                                  const smart = getSmartNewsCover(editNewsTitle || editNewsCategory, editNewsCategory);
-                                  setEditNewsCover(smart);
-                                  setNewsCoverMeta(null);
+                                  setNewsCategoryFilter(cat);
+                                  handleSelectTab("news");
                                 }}
-                                className="text-[11px] text-primary hover:underline flex items-center gap-1"
+                                className="font-medium text-[#1D1D1F] dark:text-[#F5F5F7] hover:opacity-70 transition-opacity text-left truncate"
                               >
-                                <Sparkles className="h-3 w-3" />
-                                Sugerir Capa Temática HD
+                                {cat}
                               </button>
+                              <span className="text-[#86868B] tabular-nums shrink-0">
+                                {count} · {pct}%
+                              </span>
                             </div>
-                          )}
-                        </div>
-                      )}
-
-                      {/* Mode B: Manual URL Input */}
-                      {newsCoverInputMode === "url" && (
-                        <div className="space-y-3">
-                          <div className="flex gap-2 items-center">
-                            <Input
-                              value={editNewsCover}
-                              onChange={(e) => {
-                                setEditNewsCover(e.target.value);
-                                setNewsCoverMeta(null);
-                              }}
-                              placeholder="https://images.unsplash.com/... ou https://..."
-                              className="flex-1 text-xs"
-                            />
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={() => {
-                                const smart = getSmartNewsCover(editNewsTitle || editNewsCategory, editNewsCategory);
-                                setEditNewsCover(smart);
-                                setNewsCoverMeta(null);
-                              }}
-                              className="h-9 text-xs shrink-0"
-                            >
-                              <Sparkles className="h-3 w-3 mr-1 text-primary" />
-                              Sugerir Temática
-                            </Button>
-                          </div>
-
-                          {editNewsCover && (
-                            <div className="flex items-center gap-3 p-2.5 rounded-lg border border-border bg-background">
-                              <img
-                                src={editNewsCover}
-                                alt="Preview da capa"
-                                onError={(e) => {
-                                  e.currentTarget.src = getSmartNewsCover(editNewsTitle, editNewsCategory);
-                                }}
-                                className="h-16 w-28 rounded-md object-cover border border-border shrink-0 bg-secondary"
+                            <div className="h-1.5 w-full rounded-full bg-[#EFEFF4] dark:bg-[#2C2C2E] overflow-hidden">
+                              <div
+                                className="h-full bg-[#1D1D1F] dark:bg-[#F5F5F7] rounded-full transition-all"
+                                style={{ width: `${pct}%` }}
                               />
-                              <div className="min-w-0 flex-1 space-y-1">
-                                <div className="text-xs font-medium text-foreground truncate">
-                                  Preview da Imagem Externa
-                                </div>
-                                <div className="text-[11px] text-muted-foreground truncate font-mono">
-                                  {editNewsCover}
-                                </div>
-                              </div>
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => setEditNewsCover("")}
-                                className="h-8 text-xs text-muted-foreground hover:text-red-500"
-                              >
-                                Limpar
-                              </Button>
                             </div>
-                          )}
-                        </div>
-                      )}
+                          </div>
+                        );
+                      })}
                     </div>
-
-                    {/* Excerpt / Resumo Editorial */}
-                    <div className="space-y-1.5">
-                      <Label className="text-xs uppercase tracking-wider text-muted-foreground">
-                        Resumo Editorial (Lead / Subtítulo)
-                      </Label>
-                      <Textarea
-                        rows={2}
-                        value={editNewsExcerpt}
-                        onChange={(e) => setEditNewsExcerpt(e.target.value)}
-                        placeholder="Síntese de impacto exibida nos cards e na abertura da matéria..."
-                      />
-                    </div>
-
-                    {/* Main Body Content + Quick Formatting Toolbar */}
-                    <div className="space-y-2">
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <Label className="text-xs uppercase tracking-wider text-muted-foreground">
-                          Corpo Completo da Publicação
-                        </Label>
-                        <div className="flex items-center gap-1.5">
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setEditNewsContent((prev) => `${prev.trim()}\n\n### Novo Subtítulo Editorial\n\n`)
-                            }
-                            className="px-2 py-1 rounded bg-secondary hover:bg-secondary/80 text-[11px] text-foreground transition-colors"
-                          >
-                            + Subtítulo (H3)
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setEditNewsContent(
-                                (prev) => `${prev.trim()}\n\n> "Citação ou análise em destaque na reportagem."\n\n`
-                              )
-                            }
-                            className="px-2 py-1 rounded bg-secondary hover:bg-secondary/80 text-[11px] text-foreground transition-colors"
-                          >
-                            + Citação
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setEditNewsContent(
-                                (prev) =>
-                                  `${prev.trim()}\n\n• Primeiro ponto-chave de destaque\n• Segundo desdobramento confirmado\n• Terceiro indicador analisado\n\n`
-                              )
-                            }
-                            className="px-2 py-1 rounded bg-secondary hover:bg-secondary/80 text-[11px] text-foreground transition-colors"
-                          >
-                            + Lista de Tópicos
-                          </button>
-                        </div>
-                      </div>
-
-                      <Textarea
-                        rows={14}
-                        value={editNewsContent}
-                        onChange={(e) => setEditNewsContent(e.target.value)}
-                        placeholder="Escreva ou edite os parágrafos completos da matéria..."
-                        className="font-light leading-relaxed text-sm"
-                        required
-                      />
-
-                      <div className="flex flex-wrap items-center justify-between text-[11px] text-muted-foreground font-light pt-1">
-                        <span>
-                          {editorStats.words} palavras · {editorStats.paragraphs} blocos/parágrafos · ~{editorStats.readMinutes} min de leitura
-                        </span>
-                        <span>
-                          Dica: Use <code>### Título</code> para seções e <code>&gt; Frase</code> para citações.
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-border">
-                      {!isCreatingNewArticle ? (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          onClick={handleDeleteCurrentNews}
-                          className="text-xs text-destructive hover:text-destructive hover:bg-destructive/10"
-                        >
-                          <Trash2 className="h-3.5 w-3.5 mr-1.5" />
-                          Excluir Publicação
-                        </Button>
-                      ) : (
-                        <div />
-                      )}
-
-                      <div className="flex items-center gap-2.5">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          onClick={handleImproveCurrentArticle}
-                          className="rounded-full text-xs"
-                        >
-                          <Wand2 className="h-3.5 w-3.5 mr-1.5 text-primary" />
-                          Melhorar Antes de Salvar
-                        </Button>
-                        <Button
-                          type="submit"
-                          disabled={isSavingNews || isUploadingNewsCover}
-                          className="rounded-full text-xs uppercase tracking-wider bg-primary text-primary-foreground hover:bg-primary/90 px-6"
-                        >
-                          {isSavingNews ? (
-                            <>
-                              <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
-                              Publicando na Nuvem...
-                            </>
-                          ) : (
-                            <>
-                              <Save className="h-3.5 w-3.5 mr-1.5" />
-                              {isCreatingNewArticle ? "Publicar no Site" : "Salvar Alterações no Site"}
-                            </>
-                          )}
-                        </Button>
-                      </div>
-                    </div>
-                  </form>
-                </Card>
-              </div>
-            </TabsContent>
-
-            {/* ================================================================
-                TAB 3: CONSEGUIR PUBLICAÇÕES DIVERSAS (HUB DE DESCOBERTA & IMPORTAÇÃO)
-               ================================================================ */}
-            <TabsContent value="discover" className="space-y-6">
-              <Card className="p-6 sm:p-8 border border-border bg-card shadow-soft">
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 mb-6 border-b border-border">
-                  <div>
-                    <span className="text-[10px] uppercase tracking-widest text-primary font-semibold block">
-                      Aquisição & Sindicação Editorial
-                    </span>
-                    <h2 className="text-xl sm:text-2xl font-light text-foreground">
-                      Conseguir Publicações Diversas para o Site
-                    </h2>
-                    <p className="text-xs text-muted-foreground font-light mt-1">
-                      Escolha uma editoria abaixo para buscar e gerar reportagens completas de alta qualidade. Você pode publicar imediatamente em 1 clique ou abrir no editor para personalizar.
-                    </p>
                   </div>
 
-                  <div className="flex items-center gap-2.5 shrink-0">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={loadingDiverse}
-                      onClick={() => void handleFetchDiverse(selectedDiverseTopic)}
-                      className="rounded-full text-xs"
+                  <div className="mt-6 pt-5 border-t border-black/[0.065] dark:border-white/[0.08]">
+                    <button
+                      type="button"
+                      onClick={() => handleSelectTab("discover")}
+                      className="w-full h-9 px-4 rounded-full border border-black/[0.1] dark:border-white/[0.14] bg-white dark:bg-[#2C2C2E] text-xs font-medium text-[#1D1D1F] dark:text-[#F5F5F7] hover:bg-[#EFEFF4] dark:hover:bg-[#3A3A3C] transition-colors whitespace-nowrap"
                     >
-                      <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${loadingDiverse ? "animate-spin" : ""}`} />
-                      Atualizar Lote
-                    </Button>
-                    {diverseItems.length > 0 && (
-                      <Button
-                        size="sm"
-                        onClick={handlePublishAllDiverse}
-                        className="rounded-full text-xs bg-primary text-primary-foreground hover:bg-primary/90"
+                      Explorar lotes por editoria
+                    </button>
+                  </div>
+                </div>
+
+                {/* Queue Ready for 1-Click Enhancement */}
+                <div className="lg:col-span-8 bg-white dark:bg-[#1C1C1E] border border-black/[0.065] dark:border-white/[0.08] rounded-[18px] p-6 shadow-[0_2px_10px_rgba(0,0,0,0.025)]">
+                  <div className="flex items-center justify-between gap-4 mb-5">
+                    <h2 className="text-[17px] font-semibold tracking-[-0.015em] text-[#1D1D1F] dark:text-[#F5F5F7]">
+                      Prontas para Aprimoramento
+                    </h2>
+                    <span className="text-[12.5px] text-[#86868B] tabular-nums shrink-0">
+                      {analytics.needsImprovementList.length} na fila
+                    </span>
+                  </div>
+
+                  <div className="space-y-2.5 max-h-[460px] overflow-y-auto pr-1">
+                    {analytics.needsImprovementList.map((item) => {
+                      const charLen = (item.content || "").length;
+                      const mins = Math.max(2, Math.round(charLen / 1800));
+                      return (
+                        <div
+                          key={item.id}
+                          className="px-4 py-3.5 rounded-[12px] border border-black/[0.065] dark:border-white/[0.08] bg-[#FAFAFC] dark:bg-[#2C2C2E]/60 hover:bg-[#F2F2F7] dark:hover:bg-[#2C2C2E] transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+                        >
+                          <div className="min-w-0 flex-1 space-y-0.5">
+                            <div className="flex items-center gap-1.5 text-[11.5px] text-[#86868B] tabular-nums">
+                              <span className="font-medium text-[#6E6E73] dark:text-[#A1A1A6]">
+                                {item.category}
+                              </span>
+                              <span aria-hidden="true">·</span>
+                              <span>{mins} min</span>
+                              <span aria-hidden="true">·</span>
+                              <span>{charLen.toLocaleString("pt-BR")} chars</span>
+                            </div>
+                            <h3 className="text-[14.5px] font-medium text-[#1D1D1F] dark:text-[#F5F5F7] truncate">
+                              {item.title}
+                            </h3>
+                          </div>
+
+                          <div className="flex items-center gap-2 shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                selectArticleForEditing(item);
+                                handleSelectTab("news");
+                              }}
+                              className="h-8 px-3.5 rounded-full border border-black/[0.1] dark:border-white/[0.14] bg-white dark:bg-[#1C1C1E] text-xs font-medium text-[#1D1D1F] dark:text-[#F5F5F7] hover:bg-[#EFEFF4] dark:hover:bg-[#3A3A3C] transition-colors whitespace-nowrap shrink-0"
+                            >
+                              Editar
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleQuickImproveAndSave(item)}
+                              className="h-8 px-3.5 rounded-full bg-[#1D1D1F] text-white dark:bg-[#F5F5F7] dark:text-[#1D1D1F] text-xs font-medium hover:bg-[#333336] dark:hover:bg-[#E5E5EA] transition-colors whitespace-nowrap shrink-0"
+                            >
+                              Aprimorar
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+
+                    {analytics.needsImprovementList.length === 0 && (
+                      <div className="py-12 text-center text-[13.5px] text-[#86868B]">
+                        Todas as publicações recentes já foram otimizadas.
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </section>
+          )}
+
+          {/* ================================================================
+              TAB 2: NOTÍCIAS (MASTER-DETAIL)
+             ================================================================ */}
+          {activeTab === "news" && (
+            <section className="grid lg:grid-cols-12 gap-5 items-start">
+              {/* Left Sidebar: Acervo */}
+              <aside className="lg:col-span-4 bg-white dark:bg-[#1C1C1E] border border-black/[0.065] dark:border-white/[0.08] rounded-[18px] p-5 shadow-[0_2px_10px_rgba(0,0,0,0.025)] space-y-3.5">
+                <div className="flex items-center justify-between gap-2">
+                  <h2 className="text-[17px] font-semibold tracking-[-0.015em] text-[#1D1D1F] dark:text-[#F5F5F7]">
+                    Acervo{" "}
+                    <span className="text-xs font-normal text-[#86868B] tabular-nums ml-1">
+                      {filteredNewsList.length}
+                    </span>
+                  </h2>
+                  <button
+                    type="button"
+                    onClick={() => startNewArticle("Futebol")}
+                    className="h-8 px-3 rounded-full bg-[#1D1D1F] text-white dark:bg-[#F5F5F7] dark:text-[#1D1D1F] text-xs font-medium hover:bg-[#333336] dark:hover:bg-[#E5E5EA] transition-colors inline-flex items-center gap-1 whitespace-nowrap shrink-0"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    Nova
+                  </button>
+                </div>
+
+                <div className="relative">
+                  <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-[#86868B] pointer-events-none" />
+                  <input
+                    type="text"
+                    value={newsSearch}
+                    onChange={(e) => setNewsSearch(e.target.value)}
+                    placeholder="Buscar título ou tema..."
+                    className={`${inputClass} pl-8 py-2`}
+                  />
+                </div>
+
+                <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                  <button
+                    type="button"
+                    onClick={() => setNewsCategoryFilter("all")}
+                    className={`px-2.5 py-1 rounded-full text-[11.5px] font-medium whitespace-nowrap shrink-0 transition-colors ${
+                      newsCategoryFilter === "all"
+                        ? "bg-[#1D1D1F] text-white dark:bg-[#F5F5F7] dark:text-[#1D1D1F]"
+                        : "bg-[#F5F5F7] dark:bg-[#2C2C2E] text-[#6E6E73] dark:text-[#A1A1A6] hover:text-[#1D1D1F] dark:hover:text-[#F5F5F7]"
+                    }`}
+                  >
+                    Todas
+                  </button>
+                  {NEWS_CATEGORIES.map((cat) => {
+                    const active =
+                      newsCategoryFilter.toLowerCase() === cat.toLowerCase();
+                    return (
+                      <button
+                        key={cat}
+                        type="button"
+                        onClick={() => setNewsCategoryFilter(cat)}
+                        className={`px-2.5 py-1 rounded-full text-[11.5px] font-medium whitespace-nowrap shrink-0 transition-colors ${
+                          active
+                            ? "bg-[#1D1D1F] text-white dark:bg-[#F5F5F7] dark:text-[#1D1D1F]"
+                            : "bg-[#F5F5F7] dark:bg-[#2C2C2E] text-[#6E6E73] dark:text-[#A1A1A6] hover:text-[#1D1D1F] dark:hover:text-[#F5F5F7]"
+                        }`}
                       >
-                        <Plus className="h-3.5 w-3.5 mr-1.5" />
-                        Publicar Todas ({diverseItems.length})
-                      </Button>
+                        {cat}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <div className="space-y-1.5 max-h-[620px] overflow-y-auto pr-0.5">
+                  {filteredNewsList.map((item) => {
+                    const isSelected =
+                      !isCreatingNewArticle && selectedNewsId === item.id;
+                    return (
+                      <button
+                        key={item.id}
+                        type="button"
+                        onClick={() => selectArticleForEditing(item)}
+                        className={`w-full text-left p-2.5 rounded-[11px] transition-colors flex items-start gap-3 ${
+                          isSelected
+                            ? "bg-[#EBEBF0] dark:bg-[#2C2C2E]"
+                            : "hover:bg-[#F5F5F7] dark:hover:bg-[#2C2C2E]/60"
+                        }`}
+                      >
+                        <img
+                          src={(
+                            item.cover_url ||
+                            getSmartNewsCover(item.title, item.category)
+                          ).replace(/&amp;/g, "&")}
+                          alt=""
+                          referrerPolicy="no-referrer"
+                          onError={(e) => {
+                            e.currentTarget.src = getSmartNewsCover(
+                              item.title,
+                              item.category
+                            );
+                          }}
+                          className="w-12 h-12 rounded-[7px] object-cover shrink-0 bg-[#E5E5EA] dark:bg-[#3A3A3C]"
+                        />
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center justify-between gap-1 text-[11px] text-[#86868B] tabular-nums mb-0.5">
+                            <span className="truncate font-medium text-[#6E6E73] dark:text-[#A1A1A6]">
+                              {item.category}
+                            </span>
+                            <span className="shrink-0">
+                              {Math.round((item.content || "").length / 6)} pal.
+                            </span>
+                          </div>
+                          <p className="text-[13px] font-medium text-[#1D1D1F] dark:text-[#F5F5F7] line-clamp-2 leading-snug">
+                            {item.title}
+                          </p>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </aside>
+
+              {/* Right Column: Full Publication Editor */}
+              <div className="lg:col-span-8 bg-white dark:bg-[#1C1C1E] border border-black/[0.065] dark:border-white/[0.08] rounded-[18px] p-6 sm:p-8 shadow-[0_2px_10px_rgba(0,0,0,0.025)]">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 mb-6 border-b border-black/[0.065] dark:border-white/[0.08]">
+                  <h2 className="text-xl font-semibold tracking-[-0.02em] text-[#1D1D1F] dark:text-[#F5F5F7]">
+                    {isCreatingNewArticle
+                      ? "Nova Publicação"
+                      : "Editar Publicação"}
+                  </h2>
+
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleImproveCurrentArticle}
+                      className="h-8 px-3.5 rounded-full border border-black/[0.1] dark:border-white/[0.14] bg-white dark:bg-[#2C2C2E] text-xs font-medium text-[#1D1D1F] dark:text-[#F5F5F7] hover:bg-[#EFEFF4] dark:hover:bg-[#3A3A3C] transition-colors inline-flex items-center gap-1.5 whitespace-nowrap shrink-0"
+                    >
+                      <Wand2 className="w-3.5 h-3.5" />
+                      Aprimorar Estrutura
+                    </button>
+
+                    {!isCreatingNewArticle && editNewsSlug && (
+                      <Link
+                        to={`/noticias/${editNewsSlug}`}
+                        target="_blank"
+                        className="h-8 px-3.5 rounded-full border border-black/[0.1] dark:border-white/[0.14] bg-white dark:bg-[#2C2C2E] text-xs font-medium text-[#1D1D1F] dark:text-[#F5F5F7] hover:bg-[#EFEFF4] dark:hover:bg-[#3A3A3C] transition-colors inline-flex items-center gap-1.5 whitespace-nowrap shrink-0"
+                      >
+                        <ExternalLink className="w-3.5 h-3.5" />
+                        Ver no Site
+                      </Link>
                     )}
                   </div>
                 </div>
 
-                {/* Topic Selector Grid */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-8">
+                {lastSaveCloudWarning && (
+                  <div className="mb-6 p-4 rounded-[12px] bg-[#D97706]/10 border border-[#D97706]/25 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="space-y-1">
+                      <div className="font-semibold text-[#B45309] dark:text-[#FBBF24] flex items-center gap-1.5">
+                        <AlertTriangle className="h-4 w-4 shrink-0" />
+                        Publicação salva localmente — nuvem pendente
+                      </div>
+                      <p className="text-[#6E6E73] dark:text-[#A1A1A6]">
+                        {lastSaveCloudWarning}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleSyncCloudNow}
+                      disabled={syncingCloud}
+                      className="h-8 px-3.5 rounded-full bg-[#1D1D1F] text-white dark:bg-[#F5F5F7] dark:text-[#1D1D1F] text-xs font-medium inline-flex items-center gap-1.5 shrink-0 whitespace-nowrap"
+                    >
+                      <Cloud className="h-3.5 w-3.5" />
+                      {syncingCloud ? "Sincronizando..." : "Sincronizar agora"}
+                    </button>
+                  </div>
+                )}
+
+                {lastImprovements.length > 0 && (
+                  <div className="mb-6 p-4 rounded-[12px] bg-[#F5F5F7] dark:bg-[#2C2C2E] border border-black/[0.065] dark:border-white/[0.08] text-xs space-y-1.5">
+                    <div className="font-medium text-[#1D1D1F] dark:text-[#F5F5F7] flex items-center gap-1.5">
+                      <Sparkles className="h-3.5 w-3.5" />
+                      Melhorias aplicadas pelo Otimizador Editorial
+                    </div>
+                    <ul className="list-disc list-inside text-[#6E6E73] dark:text-[#A1A1A6] space-y-0.5">
+                      {lastImprovements.map((imp, idx) => (
+                        <li key={idx}>{imp}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                <form
+                  onSubmit={handleSaveNewsArticle}
+                  onPaste={(e) => {
+                    const items = e.clipboardData?.items;
+                    if (!items) return;
+                    for (let i = 0; i < items.length; i++) {
+                      if (items[i].type.startsWith("image/")) {
+                        const pastedFile = items[i].getAsFile();
+                        if (pastedFile) {
+                          e.preventDefault();
+                          setNewsCoverInputMode("upload");
+                          void handleNewsCoverFileSelect(pastedFile);
+                          break;
+                        }
+                      }
+                    }
+                  }}
+                  className="space-y-5"
+                >
+                  <div className="grid sm:grid-cols-3 gap-4">
+                    <div className="sm:col-span-2 space-y-1.5">
+                      <label className="block text-xs font-medium text-[#6E6E73] dark:text-[#A1A1A6]">
+                        Título da Publicação
+                      </label>
+                      <input
+                        type="text"
+                        value={editNewsTitle}
+                        onChange={(e) => {
+                          setEditNewsTitle(e.target.value);
+                          if (isCreatingNewArticle) {
+                            setEditNewsSlug(slugifyEditorial(e.target.value));
+                          }
+                        }}
+                        placeholder="Digite uma manchete clara..."
+                        required
+                        className={inputClass}
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="block text-xs font-medium text-[#6E6E73] dark:text-[#A1A1A6]">
+                        Editoria
+                      </label>
+                      <select
+                        value={editNewsCategory}
+                        onChange={(e) => setEditNewsCategory(e.target.value)}
+                        className={inputClass}
+                      >
+                        {NEWS_CATEGORIES.map((c) => (
+                          <option key={c} value={c}>
+                            {c}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="grid sm:grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <label className="block text-xs font-medium text-[#6E6E73] dark:text-[#A1A1A6]">
+                        Slug / URL Amigável
+                      </label>
+                      <input
+                        type="text"
+                        value={editNewsSlug}
+                        onChange={(e) => setEditNewsSlug(e.target.value)}
+                        placeholder="slug-da-noticia"
+                        className={inputClass}
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="block text-xs font-medium text-[#6E6E73] dark:text-[#A1A1A6]">
+                        Autor / Fonte Editorial
+                      </label>
+                      <input
+                        type="text"
+                        value={editNewsAuthor}
+                        onChange={(e) => setEditNewsAuthor(e.target.value)}
+                        placeholder="Miguel Worscoi (Editor-Chefe)"
+                        className={inputClass}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Cover Image Section — Clean Monochrome Bar + Preview */}
+                  <div className="space-y-3 pt-1">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <label className="text-xs font-medium text-[#6E6E73] dark:text-[#A1A1A6]">
+                        Capa da Notícia
+                      </label>
+
+                      <div className="inline-flex items-center bg-[#EFEFF2] dark:bg-[#2C2C2E] p-0.5 rounded-[9px]">
+                        <button
+                          type="button"
+                          onClick={() => setNewsCoverInputMode("upload")}
+                          className={`px-2.5 py-1 rounded-[7px] text-[11.5px] font-medium transition-all ${
+                            newsCoverInputMode === "upload"
+                              ? "bg-white dark:bg-[#1C1C1E] text-[#1D1D1F] dark:text-[#F5F5F7] shadow-xs"
+                              : "text-[#6E6E73] dark:text-[#A1A1A6]"
+                          }`}
+                        >
+                          Upload do Dispositivo
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setNewsCoverInputMode("url")}
+                          className={`px-2.5 py-1 rounded-[7px] text-[11.5px] font-medium transition-all ${
+                            newsCoverInputMode === "url"
+                              ? "bg-white dark:bg-[#1C1C1E] text-[#1D1D1F] dark:text-[#F5F5F7] shadow-xs"
+                              : "text-[#6E6E73] dark:text-[#A1A1A6]"
+                          }`}
+                        >
+                          URL Externa
+                        </button>
+                      </div>
+                    </div>
+
+                    <input
+                      ref={newsFileInputRef}
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp,image/avif,image/gif"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) void handleNewsCoverFileSelect(file);
+                      }}
+                      className="hidden"
+                    />
+
+                    {newsCoverInputMode === "upload" ? (
+                      <div className="space-y-3">
+                        <div
+                          onDragOver={(e) => {
+                            e.preventDefault();
+                            setIsDraggingNewsCover(true);
+                          }}
+                          onDragLeave={() => setIsDraggingNewsCover(false)}
+                          onDrop={(e) => {
+                            e.preventDefault();
+                            setIsDraggingNewsCover(false);
+                            const file = e.dataTransfer.files?.[0];
+                            if (file) void handleNewsCoverFileSelect(file);
+                          }}
+                          onClick={() => newsFileInputRef.current?.click()}
+                          className={`cursor-pointer flex items-center justify-between gap-4 px-4 py-3.5 rounded-[12px] border border-dashed transition-colors ${
+                            isDraggingNewsCover
+                              ? "border-[#1D1D1F] bg-[#EFEFF2] dark:border-[#F5F5F7] dark:bg-[#2C2C2E]"
+                              : "border-black/[0.15] dark:border-white/[0.18] bg-[#F5F5F7] dark:bg-[#2C2C2E]/60 hover:bg-[#EFEFF2] dark:hover:bg-[#2C2C2E]"
+                          }`}
+                        >
+                          <div className="min-w-0 text-[13px] text-[#6E6E73] dark:text-[#A1A1A6]">
+                            <strong className="block font-medium text-[#1D1D1F] dark:text-[#F5F5F7]">
+                              {isUploadingNewsCover
+                                ? "Otimizando imagem (WebP)..."
+                                : "Arraste ou selecione uma imagem de capa"}
+                            </strong>
+                            PNG, JPEG, WEBP ou AVIF · Otimizada em 1280×720
+                          </div>
+                          <span className="h-8 px-3.5 rounded-full border border-black/[0.1] dark:border-white/[0.14] bg-white dark:bg-[#1C1C1E] text-xs font-medium text-[#1D1D1F] dark:text-[#F5F5F7] inline-flex items-center gap-1.5 shrink-0 whitespace-nowrap">
+                            {isUploadingNewsCover ? (
+                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            ) : (
+                              <Upload className="w-3.5 h-3.5" />
+                            )}
+                            Escolher Imagem
+                          </span>
+                        </div>
+
+                        {editNewsCover ? (
+                          <div className="p-3.5 rounded-[12px] border border-black/[0.065] dark:border-white/[0.08] bg-[#FAFAFC] dark:bg-[#2C2C2E]/40 space-y-3">
+                            <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+                              <span className="font-medium text-[#1D1D1F] dark:text-[#F5F5F7] inline-flex items-center gap-1.5">
+                                <Check
+                                  className="w-3.5 h-3.5"
+                                  style={{ color: "#16A34A" }}
+                                />
+                                Capa selecionada
+                              </span>
+                              <div className="flex items-center gap-3">
+                                {newsCoverMeta?.sizeBytes && (
+                                  <span className="text-[11px] font-mono text-[#86868B] tabular-nums">
+                                    {newsCoverMeta.width &&
+                                      `${newsCoverMeta.width}×${newsCoverMeta.height} · `}
+                                    {formatBytes(newsCoverMeta.sizeBytes)}
+                                  </span>
+                                )}
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setEditNewsCover("");
+                                    setNewsCoverMeta(null);
+                                    if (newsFileInputRef.current)
+                                      newsFileInputRef.current.value = "";
+                                  }}
+                                  className="text-xs text-[#DC2626] hover:opacity-75 inline-flex items-center gap-1"
+                                >
+                                  <X className="w-3 h-3" />
+                                  Remover
+                                </button>
+                              </div>
+                            </div>
+
+                            <div className="relative rounded-[10px] overflow-hidden border border-black/[0.065] dark:border-white/[0.08] bg-[#1D1D1F] h-44 sm:h-52">
+                              <img
+                                src={editNewsCover}
+                                alt="Preview da capa da notícia"
+                                referrerPolicy="no-referrer"
+                                className="w-full h-full object-cover"
+                                onError={(e) => {
+                                  e.currentTarget.src = getSmartNewsCover(
+                                    editNewsTitle,
+                                    editNewsCategory
+                                  );
+                                }}
+                              />
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="flex items-center justify-between text-xs text-[#86868B]">
+                            <span>Nenhuma imagem selecionada.</span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditNewsCover(
+                                  getSmartNewsCover(
+                                    editNewsTitle || editNewsCategory,
+                                    editNewsCategory
+                                  )
+                                );
+                                setNewsCoverMeta(null);
+                              }}
+                              className="text-xs font-medium text-[#1D1D1F] dark:text-[#F5F5F7] hover:underline"
+                            >
+                              Sugerir capa temática
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="space-y-2.5">
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            value={editNewsCover}
+                            onChange={(e) => {
+                              setEditNewsCover(e.target.value);
+                              setNewsCoverMeta(null);
+                            }}
+                            placeholder="https://..."
+                            className={`${inputClass} flex-1`}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditNewsCover(
+                                getSmartNewsCover(
+                                  editNewsTitle || editNewsCategory,
+                                  editNewsCategory
+                                )
+                              );
+                              setNewsCoverMeta(null);
+                            }}
+                            className="px-3.5 rounded-[10px] border border-black/[0.1] dark:border-white/[0.14] bg-white dark:bg-[#2C2C2E] text-xs font-medium text-[#1D1D1F] dark:text-[#F5F5F7] hover:bg-[#EFEFF4] shrink-0 whitespace-nowrap"
+                          >
+                            Sugerir
+                          </button>
+                        </div>
+
+                        {editNewsCover && (
+                          <div className="flex items-center gap-3 p-2.5 rounded-[10px] border border-black/[0.065] dark:border-white/[0.08] bg-[#FAFAFC] dark:bg-[#2C2C2E]/40">
+                            <img
+                              src={editNewsCover}
+                              alt="Preview da capa"
+                              referrerPolicy="no-referrer"
+                              onError={(e) => {
+                                e.currentTarget.src = getSmartNewsCover(
+                                  editNewsTitle,
+                                  editNewsCategory
+                                );
+                              }}
+                              className="h-14 w-24 rounded-[6px] object-cover shrink-0 bg-[#E5E5EA]"
+                            />
+                            <div className="min-w-0 flex-1 text-xs text-[#86868B] truncate font-mono">
+                              {editNewsCover}
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => setEditNewsCover("")}
+                              className="text-xs text-[#6E6E73] hover:text-[#DC2626] px-2"
+                            >
+                              Limpar
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Excerpt */}
+                  <div className="space-y-1.5">
+                    <label className="block text-xs font-medium text-[#6E6E73] dark:text-[#A1A1A6]">
+                      Resumo Executivo
+                    </label>
+                    <textarea
+                      rows={2}
+                      value={editNewsExcerpt}
+                      onChange={(e) => setEditNewsExcerpt(e.target.value)}
+                      placeholder="Síntese exibida nos cartões e na abertura da matéria..."
+                      className={`${inputClass} resize-y`}
+                    />
+                  </div>
+
+                  {/* Body Content */}
+                  <div className="space-y-2">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <label className="text-xs font-medium text-[#6E6E73] dark:text-[#A1A1A6]">
+                        Corpo da Publicação
+                      </label>
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setEditNewsContent(
+                              (prev) =>
+                                `${prev.trim()}\n\n### Novo Subtítulo Editorial\n\n`
+                            )
+                          }
+                          className="px-2.5 py-1 rounded-md bg-[#F5F5F7] dark:bg-[#2C2C2E] hover:bg-[#EBEBF0] text-[11.5px] font-medium text-[#1D1D1F] dark:text-[#F5F5F7] transition-colors"
+                        >
+                          + Subtítulo
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setEditNewsContent(
+                              (prev) =>
+                                `${prev.trim()}\n\n> "Citação ou análise em destaque."\n\n`
+                            )
+                          }
+                          className="px-2.5 py-1 rounded-md bg-[#F5F5F7] dark:bg-[#2C2C2E] hover:bg-[#EBEBF0] text-[11.5px] font-medium text-[#1D1D1F] dark:text-[#F5F5F7] transition-colors"
+                        >
+                          + Citação
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setEditNewsContent(
+                              (prev) =>
+                                `${prev.trim()}\n\n• Primeiro ponto-chave\n• Segundo desdobramento\n• Terceiro indicador\n\n`
+                            )
+                          }
+                          className="px-2.5 py-1 rounded-md bg-[#F5F5F7] dark:bg-[#2C2C2E] hover:bg-[#EBEBF0] text-[11.5px] font-medium text-[#1D1D1F] dark:text-[#F5F5F7] transition-colors"
+                        >
+                          + Tópicos
+                        </button>
+                      </div>
+                    </div>
+
+                    <textarea
+                      rows={13}
+                      value={editNewsContent}
+                      onChange={(e) => setEditNewsContent(e.target.value)}
+                      placeholder="Escreva ou edite os parágrafos completos da matéria..."
+                      required
+                      className={`${inputClass} resize-y leading-relaxed`}
+                    />
+
+                    <div className="flex flex-wrap items-center justify-between text-[11.5px] text-[#86868B] tabular-nums">
+                      <span>
+                        {editorStats.words} palavras · {editorStats.paragraphs}{" "}
+                        blocos · ~{editorStats.readMinutes} min de leitura
+                      </span>
+                      <span>
+                        Use <code>### Título</code> para seções
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-black/[0.065] dark:border-white/[0.08]">
+                    {!isCreatingNewArticle ? (
+                      <button
+                        type="button"
+                        onClick={handleDeleteCurrentNews}
+                        className="h-9 px-3 rounded-full text-xs font-medium text-[#DC2626] hover:bg-[#DC2626]/10 transition-colors inline-flex items-center gap-1.5 whitespace-nowrap"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        Excluir
+                      </button>
+                    ) : (
+                      <div />
+                    )}
+
+                    <div className="flex flex-wrap items-center gap-2.5">
+                      <button
+                        type="button"
+                        onClick={handleImproveCurrentArticle}
+                        className="h-9 px-4 rounded-full border border-black/[0.1] dark:border-white/[0.14] bg-white dark:bg-[#2C2C2E] text-xs font-medium text-[#1D1D1F] dark:text-[#F5F5F7] hover:bg-[#EFEFF4] dark:hover:bg-[#3A3A3C] transition-colors whitespace-nowrap"
+                      >
+                        Aprimorar Antes de Salvar
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={isSavingNews || isUploadingNewsCover}
+                        className="h-9 px-5 rounded-full bg-[#1D1D1F] text-white dark:bg-[#F5F5F7] dark:text-[#1D1D1F] text-xs font-medium hover:bg-[#333336] dark:hover:bg-[#E5E5EA] disabled:opacity-50 transition-colors inline-flex items-center gap-1.5 whitespace-nowrap"
+                      >
+                        {isSavingNews ? (
+                          <>
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            Publicando...
+                          </>
+                        ) : (
+                          <>
+                            <Save className="w-3.5 h-3.5" />
+                            {isCreatingNewArticle
+                              ? "Publicar no Site"
+                              : "Salvar Alterações"}
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                </form>
+              </div>
+            </section>
+          )}
+
+          {/* ================================================================
+              TAB 3: EXPLORAR LOTES (SINDICAÇÃO LIMPA — PILLS + CAPAS)
+             ================================================================ */}
+          {activeTab === "discover" && (
+            <section className="space-y-5">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div className="flex items-center gap-2 flex-wrap">
                   {DIVERSE_PUBLICATION_TOPICS.map((topic) => {
                     const active = selectedDiverseTopic === topic.id;
                     return (
@@ -2071,617 +2150,656 @@ const Admin = () => {
                         key={topic.id}
                         type="button"
                         onClick={() => void handleFetchDiverse(topic.id)}
-                        className={`p-4 rounded-xl border text-left transition-all ${
+                        className={`h-[34px] px-4 rounded-full text-[13px] font-medium border transition-colors whitespace-nowrap shrink-0 ${
                           active
-                            ? "border-primary bg-primary/5 shadow-sm"
-                            : "border-border bg-background hover:bg-secondary/50"
+                            ? "bg-[#1D1D1F] text-white border-[#1D1D1F] dark:bg-[#F5F5F7] dark:text-[#1D1D1F] dark:border-[#F5F5F7]"
+                            : "bg-white dark:bg-[#1C1C1E] text-[#6E6E73] dark:text-[#A1A1A6] border-black/[0.1] dark:border-white/[0.12] hover:text-[#1D1D1F] dark:hover:text-[#F5F5F7]"
                         }`}
                       >
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="text-[10px] uppercase tracking-wider font-semibold text-primary">
-                            {topic.category}
-                          </span>
-                        </div>
-                        <p className="text-xs font-medium text-foreground mb-1">
-                          {topic.label}
-                        </p>
-                        <p className="text-[11px] text-muted-foreground font-light line-clamp-2">
-                          {topic.description}
-                        </p>
+                        {topic.label}
                       </button>
                     );
                   })}
                   <button
                     type="button"
                     onClick={() => void handleFetchDiverse("all")}
-                    className={`p-4 rounded-xl border text-left transition-all ${
+                    className={`h-[34px] px-4 rounded-full text-[13px] font-medium border transition-colors whitespace-nowrap shrink-0 ${
                       selectedDiverseTopic === "all"
-                        ? "border-primary bg-primary/5 shadow-sm"
-                        : "border-border bg-background hover:bg-secondary/50"
+                        ? "bg-[#1D1D1F] text-white border-[#1D1D1F] dark:bg-[#F5F5F7] dark:text-[#1D1D1F] dark:border-[#F5F5F7]"
+                        : "bg-white dark:bg-[#1C1C1E] text-[#6E6E73] dark:text-[#A1A1A6] border-black/[0.1] dark:border-white/[0.12] hover:text-[#1D1D1F] dark:hover:text-[#F5F5F7]"
                     }`}
                   >
-                    <span className="text-[10px] uppercase tracking-wider font-semibold text-primary block mb-1">
-                      Multi-Editoria
-                    </span>
-                    <p className="text-xs font-medium text-foreground mb-1">
-                      Pacote Completo Diversificado
-                    </p>
-                    <p className="text-[11px] text-muted-foreground font-light line-clamp-2">
-                      Combina Futebol Europeu, Ciência, Tecnologia, Animes, Literatura e Economia.
-                    </p>
+                    Multi-Editoria
                   </button>
                 </div>
 
-                {/* Discovered / Generated Publications List */}
-                {loadingDiverse ? (
-                  <div className="py-16 text-center text-xs text-muted-foreground font-light">
-                    Buscando e estruturando publicações diversas em alta definição...
-                  </div>
-                ) : (
-                  <div className="grid md:grid-cols-2 gap-5">
-                    {diverseItems.map((item) => (
-                      <div
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    type="button"
+                    disabled={loadingDiverse}
+                    onClick={() => void handleFetchDiverse(selectedDiverseTopic)}
+                    className="h-[34px] px-4 rounded-full border border-black/[0.1] dark:border-white/[0.14] bg-white dark:bg-[#1C1C1E] text-xs font-medium text-[#1D1D1F] dark:text-[#F5F5F7] hover:bg-[#EFEFF4] dark:hover:bg-[#2C2C2E] disabled:opacity-50 transition-colors inline-flex items-center gap-1.5 whitespace-nowrap shrink-0"
+                  >
+                    <RefreshCw
+                      className={`w-3.5 h-3.5 ${
+                        loadingDiverse ? "animate-spin" : ""
+                      }`}
+                    />
+                    Atualizar
+                  </button>
+                  {diverseItems.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={handlePublishAllDiverse}
+                      className="h-[34px] px-4 rounded-full bg-[#1D1D1F] text-white dark:bg-[#F5F5F7] dark:text-[#1D1D1F] text-xs font-medium hover:bg-[#333336] dark:hover:bg-[#E5E5EA] transition-colors inline-flex items-center gap-1.5 whitespace-nowrap shrink-0"
+                    >
+                      Publicar Lote ({diverseItems.length})
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {loadingDiverse ? (
+                <div className="bg-white dark:bg-[#1C1C1E] border border-black/[0.065] dark:border-white/[0.08] rounded-[18px] py-16 text-center text-[13.5px] text-[#86868B]">
+                  Carregando lotes editoriais...
+                </div>
+              ) : diverseItems.length === 0 ? (
+                <div className="bg-white dark:bg-[#1C1C1E] border border-black/[0.065] dark:border-white/[0.08] rounded-[18px] py-16 text-center text-[13.5px] text-[#86868B]">
+                  Nenhum item pendente neste lote.
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                  {diverseItems.map((item) => {
+                    const wordsCount = Math.round(
+                      (item.content || "").length / 6
+                    );
+                    const readMins = Math.max(2, Math.round(wordsCount / 180));
+                    return (
+                      <article
                         key={item.slug}
-                        className="rounded-xl border border-border bg-background overflow-hidden flex flex-col justify-between shadow-soft"
+                        className="bg-white dark:bg-[#1C1C1E] border border-black/[0.065] dark:border-white/[0.08] rounded-[18px] overflow-hidden shadow-[0_2px_10px_rgba(0,0,0,0.025)] flex flex-col justify-between"
                       >
                         <div>
-                          <div className="aspect-[16/9] bg-secondary relative overflow-hidden">
+                          <div className="relative h-48 bg-[#E5E5EA] dark:bg-[#2C2C2E] overflow-hidden">
                             <img
-                              src={item.cover_url || getSmartNewsCover(item.title, item.category)}
+                              src={
+                                item.cover_url ||
+                                getSmartNewsCover(item.title, item.category)
+                              }
                               alt={item.title}
+                              referrerPolicy="no-referrer"
                               onError={(e) => {
-                                e.currentTarget.src = getSmartNewsCover(item.title, item.category);
+                                e.currentTarget.src = getSmartNewsCover(
+                                  item.title,
+                                  item.category
+                                );
                               }}
                               className="w-full h-full object-cover"
                             />
-                            <span className="absolute top-3 left-3 px-2.5 py-1 rounded-full bg-black/70 backdrop-blur text-white text-[10px] uppercase tracking-wider font-semibold">
+                            <span className="absolute top-3 left-3 bg-[#1D1D1F]/75 backdrop-blur-md text-white text-[11px] font-medium px-2.5 py-1 rounded-full">
                               {item.category}
                             </span>
                           </div>
 
-                          <div className="p-5 space-y-2.5">
-                            <h3 className="text-base font-medium text-foreground leading-snug">
+                          <div className="p-5 space-y-2">
+                            <h3 className="text-[16px] font-semibold tracking-[-0.015em] leading-[1.35] text-[#1D1D1F] dark:text-[#F5F5F7]">
                               {item.title}
                             </h3>
-                            <p className="text-xs text-muted-foreground font-light line-clamp-3 leading-relaxed">
+                            <p className="text-[13px] text-[#6E6E73] dark:text-[#A1A1A6] line-clamp-2 leading-relaxed">
                               {item.excerpt}
                             </p>
                           </div>
                         </div>
 
-                        <div className="px-5 pb-5 pt-3 border-t border-border/60 flex items-center justify-between gap-2">
-                          <span className="text-[11px] text-muted-foreground font-light">
-                            {Math.round((item.content || "").length / 6)} palavras · Texto completo
+                        <div className="px-5 pb-5 pt-2 flex items-center justify-between gap-2">
+                          <span className="text-xs text-[#86868B] tabular-nums">
+                            Leitura · {readMins} min
                           </span>
-                          <div className="flex items-center gap-2">
-                            <Button
-                              size="sm"
-                              variant="outline"
+                          <div className="flex items-center gap-2 shrink-0">
+                            <button
+                              type="button"
                               onClick={() => {
                                 selectArticleForEditing(item);
                                 setIsCreatingNewArticle(true);
-                                setActiveTab("news");
+                                handleSelectTab("news");
                               }}
-                              className="h-8 text-xs font-normal"
+                              className="h-8 px-3 rounded-full border border-black/[0.1] dark:border-white/[0.14] bg-white dark:bg-[#2C2C2E] text-xs font-medium text-[#1D1D1F] dark:text-[#F5F5F7] hover:bg-[#EFEFF4] dark:hover:bg-[#3A3A3C] transition-colors whitespace-nowrap"
                             >
-                              <Edit3 className="h-3 w-3 mr-1.5" />
-                              Personalizar
-                            </Button>
-                            <Button
-                              size="sm"
+                              Editar
+                            </button>
+                            <button
+                              type="button"
                               onClick={() => handlePublishDiverseItem(item)}
-                              className="h-8 text-xs font-normal bg-primary text-primary-foreground hover:bg-primary/90"
+                              className="h-8 px-3.5 rounded-full bg-[#1D1D1F] text-white dark:bg-[#F5F5F7] dark:text-[#1D1D1F] text-xs font-medium hover:bg-[#333336] dark:hover:bg-[#E5E5EA] transition-colors whitespace-nowrap"
                             >
-                              <Plus className="h-3 w-3 mr-1" />
-                              Publicar Agora
-                            </Button>
+                              Publicar
+                            </button>
                           </div>
                         </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </Card>
-            </TabsContent>
+                      </article>
+                    );
+                  })}
+                </div>
+              )}
+            </section>
+          )}
 
-            {/* ================================================================
-                TAB 4: EDITAR LIVROS & CAPÍTULOS DO SITE
-               ================================================================ */}
-            <TabsContent value="books">
-              <div className="grid lg:grid-cols-12 gap-8 items-start">
-                {/* Books List */}
-                <Card className="lg:col-span-4 p-5 border border-border bg-card shadow-soft space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <span className="text-[10px] uppercase tracking-widest text-primary font-semibold block">
-                        Biblioteca Digital
-                      </span>
-                      <h2 className="text-base font-medium text-foreground">
-                        Obras no Site ({filteredBooksList.length})
-                      </h2>
-                    </div>
-                    <Button
-                      size="sm"
-                      onClick={startNewBook}
-                      className="h-8 text-xs bg-primary text-primary-foreground hover:bg-primary/90"
-                    >
-                      <Plus className="h-3.5 w-3.5 mr-1" />
-                      Novo Livro
-                    </Button>
-                  </div>
+          {/* ================================================================
+              TAB 4: BIBLIOTECA PDF (MASTER-DETAIL + COMPACT PDF BAR)
+             ================================================================ */}
+          {activeTab === "books" && (
+            <section className="grid lg:grid-cols-12 gap-5 items-start">
+              {/* Left Sidebar: Obras */}
+              <aside className="lg:col-span-4 bg-white dark:bg-[#1C1C1E] border border-black/[0.065] dark:border-white/[0.08] rounded-[18px] p-5 shadow-[0_2px_10px_rgba(0,0,0,0.025)] space-y-3.5">
+                <div className="flex items-center justify-between gap-2">
+                  <h2 className="text-[17px] font-semibold tracking-[-0.015em] text-[#1D1D1F] dark:text-[#F5F5F7]">
+                    Obras{" "}
+                    <span className="text-xs font-normal text-[#86868B] tabular-nums ml-1">
+                      {filteredBooksList.length}
+                    </span>
+                  </h2>
+                  <button
+                    type="button"
+                    onClick={startNewBook}
+                    className="h-8 px-3 rounded-full border border-black/[0.1] dark:border-white/[0.14] bg-white dark:bg-[#2C2C2E] text-xs font-medium text-[#1D1D1F] dark:text-[#F5F5F7] hover:bg-[#EFEFF4] dark:hover:bg-[#3A3A3C] transition-colors whitespace-nowrap shrink-0"
+                  >
+                    + Novo
+                  </button>
+                </div>
 
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-                    <Input
-                      value={bookSearch}
-                      onChange={(e) => setBookSearch(e.target.value)}
-                      placeholder="Buscar livro por título, autor..."
-                      className="pl-9 text-xs h-9"
-                    />
-                  </div>
+                <div className="relative">
+                  <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-[#86868B] pointer-events-none" />
+                  <input
+                    type="text"
+                    value={bookSearch}
+                    onChange={(e) => setBookSearch(e.target.value)}
+                    placeholder="Buscar título ou autor..."
+                    className={`${inputClass} pl-8 py-2`}
+                  />
+                </div>
 
-                  <div className="space-y-2 max-h-[580px] overflow-y-auto pr-1">
-                    {filteredBooksList.map((b) => {
-                      const isSelected = !isCreatingNewBook && selectedBookId === b.id;
-                      return (
-                        <button
-                          key={b.id}
-                          type="button"
-                          onClick={() => selectBookForEditing(b)}
-                          className={`w-full text-left p-3 rounded-xl border transition-all flex items-start gap-3 ${
-                            isSelected
-                              ? "border-primary bg-primary/5 shadow-sm"
-                              : "border-border/70 bg-background hover:bg-secondary/50"
-                          }`}
-                        >
-                          <img
-                            src={b.cover_url || "/placeholder.svg"}
-                            alt={b.title}
-                            className="w-11 h-16 rounded object-cover shrink-0 bg-secondary"
-                          />
-                          <div className="min-w-0 flex-1">
-                            <span className="text-[10px] uppercase tracking-wider text-primary font-semibold block truncate">
-                              {b.category}
-                            </span>
-                            <p className="text-xs font-medium text-foreground line-clamp-1">
-                              {b.title}
-                            </p>
-                            <p className="text-[11px] text-muted-foreground font-light truncate">
-                              {b.author}
-                            </p>
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </Card>
-
-                {/* Book Editor + Chapter Publisher */}
-                <div className="lg:col-span-8 space-y-6">
-                  <Card className="p-6 sm:p-8 border border-border bg-card shadow-soft">
-                    <div className="flex items-center justify-between pb-5 mb-6 border-b border-border">
-                      <div>
-                        <span className="text-[10px] uppercase tracking-widest text-primary font-semibold block">
-                          Curadoria Literária
-                        </span>
-                        <h2 className="text-xl font-light text-foreground">
-                          {isCreatingNewBook ? "Publicar Nova Obra no Catálogo" : "Editar Obra Literária"}
-                        </h2>
-                      </div>
-                      {!isCreatingNewBook && selectedBookId && (
-                        <Button asChild variant="outline" size="sm" className="rounded-full text-xs">
-                          <Link to={`/livro/${selectedBookId}`} target="_blank">
-                            <Eye className="h-3.5 w-3.5 mr-1.5" />
-                            Ver Livro no Site
-                          </Link>
-                        </Button>
-                      )}
-                    </div>
-
-                    {/* Direct PDF Book Upload Box from Admin Device */}
-                    <div className="mb-6 p-5 rounded-2xl border-2 border-dashed border-primary/40 bg-primary/5 space-y-3">
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                        <div className="space-y-1">
-                          <span className="text-[10px] uppercase tracking-widest text-primary font-semibold flex items-center gap-1.5">
-                            <Upload className="h-3.5 w-3.5" />
-                            Upload Direto do Dispositivo (PDF Completo)
-                          </span>
-                          <h3 className="text-sm font-medium text-foreground">
-                            Enviar Arquivo de Livro em PDF do seu Computador ou Celular
-                          </h3>
-                          <p className="text-xs text-muted-foreground font-light">
-                            O sistema extrai automaticamente o título, gera a capa em alta definição a partir da 1ª página, organiza os capítulos e disponibiliza o PDF completo para leitura e download no site.
+                <div className="space-y-1.5 max-h-[580px] overflow-y-auto pr-0.5">
+                  {filteredBooksList.map((b) => {
+                    const isSelected =
+                      !isCreatingNewBook && selectedBookId === b.id;
+                    return (
+                      <button
+                        key={b.id}
+                        type="button"
+                        onClick={() => selectBookForEditing(b)}
+                        className={`w-full text-left p-2.5 rounded-[11px] transition-colors flex items-center gap-3 ${
+                          isSelected
+                            ? "bg-[#EBEBF0] dark:bg-[#2C2C2E]"
+                            : "hover:bg-[#F5F5F7] dark:hover:bg-[#2C2C2E]/60"
+                        }`}
+                      >
+                        <img
+                          src={b.cover_url || "/placeholder.svg"}
+                          alt={b.title}
+                          referrerPolicy="no-referrer"
+                          className="w-10 h-14 rounded-[6px] object-cover shrink-0 bg-[#E5E5EA] dark:bg-[#3A3A3C]"
+                        />
+                        <div className="min-w-0 flex-1">
+                          <p className="text-[13.5px] font-medium text-[#1D1D1F] dark:text-[#F5F5F7] truncate">
+                            {b.title}
+                          </p>
+                          <p className="text-xs text-[#6E6E73] dark:text-[#A1A1A6] truncate mt-0.5">
+                            {b.author}
                           </p>
                         </div>
-
-                        <label className="cursor-pointer shrink-0 inline-flex items-center justify-center rounded-full bg-primary text-primary-foreground hover:bg-primary/90 px-4 py-2.5 text-xs uppercase tracking-wider font-medium transition-colors shadow-sm">
-                          <Upload className="h-3.5 w-3.5 mr-2" />
-                          {isProcessingPdf ? "Processando PDF..." : "Escolher Arquivo .PDF"}
-                          <input
-                            type="file"
-                            accept=".pdf,application/pdf"
-                            onChange={handlePdfFileSelect}
-                            disabled={isProcessingPdf}
-                            className="hidden"
-                          />
-                        </label>
-                      </div>
-
-                      {isProcessingPdf && (
-                        <div className="space-y-1.5 pt-2">
-                          <div className="flex items-center justify-between text-xs text-primary font-medium">
-                            <span>{pdfProgressStep}</span>
-                            <span>{pdfProgressPct}%</span>
-                          </div>
-                          <div className="h-2 w-full rounded-full bg-secondary overflow-hidden">
-                            <div
-                              className="h-full bg-primary transition-all duration-300"
-                              style={{ width: `${pdfProgressPct}%` }}
-                            />
-                          </div>
-                        </div>
-                      )}
-
-                      {uploadedPdfData && !isProcessingPdf && (
-                        <div className="p-3.5 rounded-xl bg-background/90 border border-primary/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                          <div className="flex items-center gap-3">
-                            {uploadedPdfData.coverDataUrl && (
-                              <img
-                                src={uploadedPdfData.coverDataUrl}
-                                alt="Capa gerada do PDF"
-                                className="w-12 h-16 object-cover rounded border border-border shrink-0"
-                              />
-                            )}
-                            <div>
-                              <p className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
-                                <CheckCircle2 className="h-3.5 w-3.5" />
-                                Arquivo PDF pronto para publicar: {uploadedPdfFileName}
-                              </p>
-                              <p className="text-[11px] text-muted-foreground font-light mt-0.5">
-                                {uploadedPdfData.pagesCount} páginas · {uploadedPdfData.fileSizeFormatted} · {uploadedPdfData.extractedChapters.length} partes/capítulos extraídos automaticamente
-                              </p>
-                            </div>
-                          </div>
-                          <span className="text-[10px] uppercase tracking-wider px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-medium shrink-0">
-                            Capa + Texto + PDF Integral
-                          </span>
-                        </div>
-                      )}
-                    </div>
-
-                    <form onSubmit={handleSaveBook} className="space-y-4">
-                      <div className="grid sm:grid-cols-2 gap-4">
-                        <div className="space-y-1.5">
-                          <Label className="text-xs uppercase tracking-wider text-muted-foreground">
-                            Título da Obra
-                          </Label>
-                          <Input
-                            value={editBookTitle}
-                            onChange={(e) => setEditBookTitle(e.target.value)}
-                            placeholder="Ex: Meditações, Hábitos Atômicos..."
-                            required
-                          />
-                        </div>
-                        <div className="space-y-1.5">
-                          <Label className="text-xs uppercase tracking-wider text-muted-foreground">
-                            Autor(a)
-                          </Label>
-                          <Input
-                            value={editBookAuthor}
-                            onChange={(e) => setEditBookAuthor(e.target.value)}
-                            placeholder="Nome do autor ou autora"
-                            required
-                          />
-                        </div>
-                      </div>
-
-                      <div className="grid sm:grid-cols-2 gap-4">
-                        <div className="space-y-1.5">
-                          <Label className="text-xs uppercase tracking-wider text-muted-foreground">
-                            Categoria / Gênero
-                          </Label>
-                          <Input
-                            value={editBookCategory}
-                            onChange={(e) => setEditBookCategory(e.target.value)}
-                            placeholder="Ex: Filosofia, Romance, Finanças, Ciência..."
-                          />
-                        </div>
-                        <div className="space-y-1.5">
-                          <div className="flex items-center justify-between">
-                            <Label className="text-xs uppercase tracking-wider text-muted-foreground">
-                              Capa do Livro (URL ou Upload)
-                            </Label>
-                            <label className="cursor-pointer text-[10px] uppercase tracking-wider text-primary hover:underline font-medium flex items-center gap-1">
-                              <ImageIcon className="h-3 w-3" />
-                              Enviar Imagem
-                              <input
-                                type="file"
-                                accept="image/*"
-                                onChange={handleCoverFileSelect}
-                                className="hidden"
-                              />
-                            </label>
-                          </div>
-                          <Input
-                            value={editBookCover}
-                            onChange={(e) => setEditBookCover(e.target.value)}
-                            placeholder="Gerada automaticamente do PDF ou cole uma URL..."
-                          />
-                        </div>
-                      </div>
-
-                      <div className="space-y-1.5">
-                        <Label className="text-xs uppercase tracking-wider text-muted-foreground">
-                          Link Direto de PDF Externo (Opcional — caso não envie arquivo do dispositivo)
-                        </Label>
-                        <Input
-                          value={editBookPdfUrl}
-                          onChange={(e) => setEditBookPdfUrl(e.target.value)}
-                          placeholder="https://exemplo.com/arquivo-do-livro.pdf (opcional)"
-                        />
-                      </div>
-
-                      <div className="space-y-1.5">
-                        <Label className="text-xs uppercase tracking-wider text-muted-foreground">
-                          Sinopse & Apresentação Editorial
-                        </Label>
-                        <Textarea
-                          rows={5}
-                          value={editBookDescription}
-                          onChange={(e) => setEditBookDescription(e.target.value)}
-                          required
-                        />
-                      </div>
-
-                      <div className="flex items-center justify-between pt-3">
-                        {!isCreatingNewBook && selectedBookId ? (
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            onClick={() => {
-                              deleteBookPublication(selectedBookId);
-                              deleteCustomUploadedPdfEntry(selectedBookId);
-                              void queryClient.invalidateQueries({ queryKey: ["books"] });
-                              toast.success("Obra ocultada do catálogo.");
-                              startNewBook();
-                            }}
-                            className="text-xs text-destructive hover:text-destructive"
-                          >
-                            <Trash2 className="h-3.5 w-3.5 mr-1.5" />
-                            Remover Obra
-                          </Button>
-                        ) : (
-                          <div />
-                        )}
-                        <Button
-                          type="submit"
-                          disabled={isProcessingPdf}
-                          className="rounded-full text-xs uppercase tracking-wider bg-primary text-primary-foreground hover:bg-primary/90 px-6"
-                        >
-                          <Save className="h-3.5 w-3.5 mr-1.5" />
-                          {uploadedPdfData
-                            ? "Publicar Livro PDF no Site Agora"
-                            : "Salvar Obra no Catálogo"}
-                        </Button>
-                      </div>
-                    </form>
-                  </Card>
-
-                  {/* Add Chapter to Selected Book */}
-                  {selectedBookId && (
-                    <Card className="p-6 sm:p-8 border border-border bg-card shadow-soft">
-                      <h3 className="text-base font-medium text-foreground mb-1 flex items-center gap-2">
-                        <FileText className="h-4 w-4 text-primary" />
-                        Adicionar / Atualizar Capítulo em "{editBookTitle}"
-                      </h3>
-                      <p className="text-xs text-muted-foreground font-light mb-5">
-                        Insira capítulos completos para leitura direta no leitor Worscoi.
-                      </p>
-
-                      <form onSubmit={handleAddChapterToBook} className="space-y-4">
-                        <div className="grid sm:grid-cols-4 gap-4">
-                          <div className="sm:col-span-3 space-y-1.5">
-                            <Label className="text-xs uppercase tracking-wider text-muted-foreground">
-                              Título do Capítulo
-                            </Label>
-                            <Input
-                              value={chapterTitle}
-                              onChange={(e) => setChapterTitle(e.target.value)}
-                              placeholder="Capítulo 1: O Princípio Fundamental"
-                              required
-                            />
-                          </div>
-                          <div className="space-y-1.5">
-                            <Label className="text-xs uppercase tracking-wider text-muted-foreground">
-                              Posição / Nº
-                            </Label>
-                            <Input
-                              type="number"
-                              min="1"
-                              value={chapterPosition}
-                              onChange={(e) => setChapterPosition(e.target.value)}
-                              required
-                            />
-                          </div>
-                        </div>
-
-                        <div className="space-y-1.5">
-                          <Label className="text-xs uppercase tracking-wider text-muted-foreground">
-                            Texto Integral do Capítulo
-                          </Label>
-                          <Textarea
-                            rows={8}
-                            value={chapterContent}
-                            onChange={(e) => setChapterContent(e.target.value)}
-                            placeholder="Escreva ou cole o texto integral do capítulo..."
-                            required
-                          />
-                        </div>
-
-                        <Button
-                          type="submit"
-                          className="rounded-full text-xs uppercase tracking-wider bg-primary text-primary-foreground hover:bg-primary/90"
-                        >
-                          <Plus className="h-3.5 w-3.5 mr-1.5" />
-                          Publicar Capítulo
-                        </Button>
-                      </form>
-                    </Card>
-                  )}
+                      </button>
+                    );
+                  })}
                 </div>
-              </div>
-            </TabsContent>
+              </aside>
 
-            {/* ================================================================
-                TAB 5: EDITAR ANIMES & MANGÁS
-               ================================================================ */}
-            <TabsContent value="animes">
-              <div className="grid lg:grid-cols-12 gap-8 items-start">
-                <Card className="lg:col-span-4 p-5 border border-border bg-card shadow-soft space-y-4">
-                  <div>
-                    <span className="text-[10px] uppercase tracking-widest text-primary font-semibold block">
-                      Catálogo de Animes & Mangás
-                    </span>
-                    <h2 className="text-base font-medium text-foreground">
-                      Franquias Ativas ({filteredAnimesList.length})
+              {/* Right Column: Detail Editor + Chapter Publisher */}
+              <div className="lg:col-span-8 space-y-5">
+                <div className="bg-white dark:bg-[#1C1C1E] border border-black/[0.065] dark:border-white/[0.08] rounded-[18px] p-6 sm:p-8 shadow-[0_2px_10px_rgba(0,0,0,0.025)]">
+                  <div className="flex flex-wrap items-center justify-between gap-3 pb-5 mb-6 border-b border-black/[0.065] dark:border-white/[0.08]">
+                    <h2 className="text-xl font-semibold tracking-[-0.02em] text-[#1D1D1F] dark:text-[#F5F5F7]">
+                      {isCreatingNewBook ? "Nova Obra" : "Editar Obra"}
                     </h2>
-                  </div>
-
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-                    <Input
-                      value={animeSearch}
-                      onChange={(e) => setAnimeSearch(e.target.value)}
-                      placeholder="Buscar anime (ex: Steel Ball Run, One Piece)..."
-                      className="pl-9 text-xs h-9"
-                    />
-                  </div>
-
-                  <div className="space-y-2 max-h-[580px] overflow-y-auto pr-1">
-                    {filteredAnimesList.map((anime) => {
-                      const active = selectedAnimeId === anime.id;
-                      const patch = animeOverridesMap[anime.id] || {};
-                      return (
-                        <button
-                          key={anime.id}
-                          type="button"
-                          onClick={() => setSelectedAnimeId(anime.id)}
-                          className={`w-full text-left p-3 rounded-xl border transition-all flex items-start gap-3 ${
-                            active
-                              ? "border-primary bg-primary/5 shadow-sm"
-                              : "border-border/70 bg-background hover:bg-secondary/50"
-                          }`}
-                        >
-                          <img
-                            src={patch.cover || anime.cover}
-                            alt={anime.title}
-                            className="w-11 h-16 rounded object-cover shrink-0 bg-secondary"
-                          />
-                          <div className="min-w-0 flex-1">
-                            <span className="text-[10px] uppercase tracking-wider text-primary font-semibold block">
-                              {anime.seasons.length} temp. · {anime.episodesCount} ep.
-                            </span>
-                            <p className="text-xs font-medium text-foreground line-clamp-1">
-                              {patch.title || anime.title}
-                            </p>
-                            <p className="text-[11px] text-muted-foreground font-light truncate">
-                              {anime.studio} · Mangá: {anime.manga.chaptersCount} caps
-                            </p>
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </Card>
-
-                <Card className="lg:col-span-8 p-6 sm:p-8 border border-border bg-card shadow-soft">
-                  <div className="flex items-center justify-between pb-5 mb-6 border-b border-border">
-                    <div>
-                      <span className="text-[10px] uppercase tracking-widest text-primary font-semibold block">
-                        Curadoria de Anime & Mangá
-                      </span>
-                      <h2 className="text-xl font-light text-foreground">
-                        Editar Metadados, Sinopse & Mídia do Anime
-                      </h2>
-                    </div>
-                    <Button asChild variant="outline" size="sm" className="rounded-full text-xs">
-                      <Link to={`/animes/${selectedAnimeId}`} target="_blank">
-                        <ExternalLink className="h-3.5 w-3.5 mr-1.5" />
-                        Abrir Página do Anime
+                    {!isCreatingNewBook && selectedBookId && (
+                      <Link
+                        to={`/livro/${selectedBookId}`}
+                        target="_blank"
+                        className="h-8 px-3.5 rounded-full border border-black/[0.1] dark:border-white/[0.14] bg-white dark:bg-[#2C2C2E] text-xs font-medium text-[#1D1D1F] dark:text-[#F5F5F7] hover:bg-[#EFEFF4] dark:hover:bg-[#3A3A3C] transition-colors inline-flex items-center gap-1.5 whitespace-nowrap"
+                      >
+                        <Eye className="w-3.5 h-3.5" />
+                        Ver Livro no Site
                       </Link>
-                    </Button>
+                    )}
                   </div>
 
-                  <form onSubmit={handleSaveAnimeEdit} className="space-y-4">
+                  {/* Compact 1-Line PDF Upload Bar */}
+                  <div className="mb-6 rounded-[12px] border border-dashed border-black/[0.16] dark:border-white/[0.18] bg-[#F5F5F7] dark:bg-[#2C2C2E]/60 px-4 py-3.5 space-y-3">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div className="text-[13px] text-[#6E6E73] dark:text-[#A1A1A6]">
+                        <strong className="block font-medium text-[#1D1D1F] dark:text-[#F5F5F7]">
+                          Importar arquivo PDF
+                        </strong>
+                        Extração automática de título, capa, páginas e
+                        capítulos.
+                      </div>
+
+                      <label className="cursor-pointer h-8 px-3.5 rounded-full border border-black/[0.1] dark:border-white/[0.14] bg-white dark:bg-[#1C1C1E] text-xs font-medium text-[#1D1D1F] dark:text-[#F5F5F7] hover:bg-[#EFEFF4] dark:hover:bg-[#3A3A3C] transition-colors inline-flex items-center gap-1.5 shrink-0 self-start sm:self-auto whitespace-nowrap">
+                        <Upload className="w-3.5 h-3.5" />
+                        {isProcessingPdf ? "Lendo PDF..." : "Escolher .PDF"}
+                        <input
+                          type="file"
+                          accept=".pdf,application/pdf"
+                          onChange={handlePdfFileSelect}
+                          disabled={isProcessingPdf}
+                          className="hidden"
+                        />
+                      </label>
+                    </div>
+
+                    {isProcessingPdf && (
+                      <div className="space-y-1.5 pt-1">
+                        <div className="flex items-center justify-between text-xs font-medium text-[#1D1D1F] dark:text-[#F5F5F7] tabular-nums">
+                          <span>{pdfProgressStep}</span>
+                          <span>{pdfProgressPct}%</span>
+                        </div>
+                        <div className="h-1.5 w-full rounded-full bg-black/[0.08] dark:bg-white/[0.1] overflow-hidden">
+                          <div
+                            className="h-full bg-[#1D1D1F] dark:bg-[#F5F5F7] transition-all duration-300"
+                            style={{ width: `${pdfProgressPct}%` }}
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    {uploadedPdfData && !isProcessingPdf && (
+                      <div className="p-3 rounded-[10px] bg-white dark:bg-[#1C1C1E] border border-black/[0.065] dark:border-white/[0.08] flex items-center gap-3">
+                        {uploadedPdfData.coverDataUrl && (
+                          <img
+                            src={uploadedPdfData.coverDataUrl}
+                            alt="Capa extraída do PDF"
+                            className="w-10 h-14 object-cover rounded-[6px] border border-black/[0.08] shrink-0"
+                          />
+                        )}
+                        <div className="min-w-0 flex-1">
+                          <p
+                            className="text-xs font-semibold flex items-center gap-1.5 truncate"
+                            style={{ color: "#15803D" }}
+                          >
+                            <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                            {uploadedPdfFileName}
+                          </p>
+                          <p className="text-[11.5px] text-[#86868B] tabular-nums mt-0.5">
+                            {uploadedPdfData.pagesCount} páginas ·{" "}
+                            {uploadedPdfData.fileSizeFormatted} ·{" "}
+                            {uploadedPdfData.extractedChapters.length} capítulos
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <form onSubmit={handleSaveBook} className="space-y-4">
                     <div className="grid sm:grid-cols-2 gap-4">
                       <div className="space-y-1.5">
-                        <Label className="text-xs uppercase tracking-wider text-muted-foreground">
-                          Título Oficial Exibido
-                        </Label>
-                        <Input
-                          value={editAnimeTitle}
-                          onChange={(e) => setEditAnimeTitle(e.target.value)}
+                        <label className="block text-xs font-medium text-[#6E6E73] dark:text-[#A1A1A6]">
+                          Título
+                        </label>
+                        <input
+                          type="text"
+                          value={editBookTitle}
+                          onChange={(e) => setEditBookTitle(e.target.value)}
+                          placeholder="Título da obra"
                           required
+                          className={inputClass}
                         />
                       </div>
                       <div className="space-y-1.5">
-                        <Label className="text-xs uppercase tracking-wider text-muted-foreground">
-                          YouTube Trailer ID Oficial
-                        </Label>
-                        <Input
-                          value={editAnimeTrailer}
-                          onChange={(e) => setEditAnimeTrailer(e.target.value)}
+                        <label className="block text-xs font-medium text-[#6E6E73] dark:text-[#A1A1A6]">
+                          Autor(es)
+                        </label>
+                        <input
+                          type="text"
+                          value={editBookAuthor}
+                          onChange={(e) => setEditBookAuthor(e.target.value)}
+                          placeholder="Nome do autor ou autora"
+                          required
+                          className={inputClass}
                         />
                       </div>
                     </div>
 
                     <div className="grid sm:grid-cols-2 gap-4">
                       <div className="space-y-1.5">
-                        <Label className="text-xs uppercase tracking-wider text-muted-foreground">
-                          URL do Poster (Capa Vertical)
-                        </Label>
-                        <Input
-                          value={editAnimeCover}
-                          onChange={(e) => setEditAnimeCover(e.target.value)}
+                        <label className="block text-xs font-medium text-[#6E6E73] dark:text-[#A1A1A6]">
+                          Área / Gênero
+                        </label>
+                        <input
+                          type="text"
+                          value={editBookCategory}
+                          onChange={(e) => setEditBookCategory(e.target.value)}
+                          placeholder="Filosofia, Ciência, Literatura..."
+                          className={inputClass}
                         />
                       </div>
+
                       <div className="space-y-1.5">
-                        <Label className="text-xs uppercase tracking-wider text-muted-foreground">
-                          URL do Banner Panorâmico
-                        </Label>
-                        <Input
-                          value={editAnimeBanner}
-                          onChange={(e) => setEditAnimeBanner(e.target.value)}
+                        <div className="flex items-center justify-between">
+                          <label className="text-xs font-medium text-[#6E6E73] dark:text-[#A1A1A6]">
+                            Capa (URL)
+                          </label>
+                          <label className="cursor-pointer text-[11.5px] font-medium text-[#1D1D1F] dark:text-[#F5F5F7] hover:underline inline-flex items-center gap-1">
+                            <ImageIcon className="w-3 h-3" />
+                            Enviar imagem
+                            <input
+                              type="file"
+                              accept="image/*"
+                              onChange={handleCoverFileSelect}
+                              className="hidden"
+                            />
+                          </label>
+                        </div>
+                        <input
+                          type="text"
+                          value={editBookCover}
+                          onChange={(e) => setEditBookCover(e.target.value)}
+                          placeholder="URL da capa..."
+                          className={inputClass}
                         />
                       </div>
                     </div>
 
                     <div className="space-y-1.5">
-                      <Label className="text-xs uppercase tracking-wider text-muted-foreground">
-                        Sinopse Editorial Completa
-                      </Label>
-                      <Textarea
-                        rows={6}
-                        value={editAnimeSynopsis}
-                        onChange={(e) => setEditAnimeSynopsis(e.target.value)}
-                        required
+                      <label className="block text-xs font-medium text-[#6E6E73] dark:text-[#A1A1A6]">
+                        Link PDF Externo (opcional)
+                      </label>
+                      <input
+                        type="text"
+                        value={editBookPdfUrl}
+                        onChange={(e) => setEditBookPdfUrl(e.target.value)}
+                        placeholder="https://..."
+                        className={inputClass}
                       />
                     </div>
 
-                    <div className="flex justify-end pt-3">
-                      <Button
+                    <div className="space-y-1.5">
+                      <label className="block text-xs font-medium text-[#6E6E73] dark:text-[#A1A1A6]">
+                        Sinopse Editorial
+                      </label>
+                      <textarea
+                        rows={4}
+                        value={editBookDescription}
+                        onChange={(e) => setEditBookDescription(e.target.value)}
+                        required
+                        className={`${inputClass} resize-y`}
+                      />
+                    </div>
+
+                    <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-black/[0.065] dark:border-white/[0.08]">
+                      {!isCreatingNewBook && selectedBookId ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            deleteBookPublication(selectedBookId);
+                            deleteCustomUploadedPdfEntry(selectedBookId);
+                            void queryClient.invalidateQueries({
+                              queryKey: ["books"],
+                            });
+                            toast.success("Obra ocultada do catálogo.");
+                            startNewBook();
+                          }}
+                          className="h-9 px-3 rounded-full text-xs font-medium text-[#DC2626] hover:bg-[#DC2626]/10 transition-colors inline-flex items-center gap-1.5 whitespace-nowrap"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          Remover Obra
+                        </button>
+                      ) : (
+                        <div />
+                      )}
+                      <button
                         type="submit"
-                        className="rounded-full text-xs uppercase tracking-wider bg-primary text-primary-foreground hover:bg-primary/90 px-6"
+                        disabled={isProcessingPdf}
+                        className="h-9 px-5 rounded-full bg-[#1D1D1F] text-white dark:bg-[#F5F5F7] dark:text-[#1D1D1F] text-xs font-medium hover:bg-[#333336] dark:hover:bg-[#E5E5EA] disabled:opacity-50 transition-colors inline-flex items-center gap-1.5 whitespace-nowrap"
                       >
-                        <Save className="h-3.5 w-3.5 mr-1.5" />
-                        Salvar Alterações do Anime
-                      </Button>
+                        <Save className="w-3.5 h-3.5" />
+                        {uploadedPdfData
+                          ? "Publicar Livro PDF"
+                          : "Salvar Alterações"}
+                      </button>
                     </div>
                   </form>
-                </Card>
+                </div>
+
+                {/* Add Chapter to Selected Book */}
+                {selectedBookId && (
+                  <div className="bg-white dark:bg-[#1C1C1E] border border-black/[0.065] dark:border-white/[0.08] rounded-[18px] p-6 sm:p-8 shadow-[0_2px_10px_rgba(0,0,0,0.025)]">
+                    <h3 className="text-[17px] font-semibold tracking-[-0.015em] text-[#1D1D1F] dark:text-[#F5F5F7] mb-1 flex items-center gap-2">
+                      <FileText className="w-4 h-4 text-[#6E6E73]" />
+                      Capítulos de "{editBookTitle}"
+                    </h3>
+                    <p className="text-xs text-[#86868B] mb-5">
+                      Adicione ou atualize capítulos para leitura direta no
+                      site.
+                    </p>
+
+                    <form
+                      onSubmit={handleAddChapterToBook}
+                      className="space-y-4"
+                    >
+                      <div className="grid sm:grid-cols-4 gap-4">
+                        <div className="sm:col-span-3 space-y-1.5">
+                          <label className="block text-xs font-medium text-[#6E6E73] dark:text-[#A1A1A6]">
+                            Título do Capítulo
+                          </label>
+                          <input
+                            type="text"
+                            value={chapterTitle}
+                            onChange={(e) => setChapterTitle(e.target.value)}
+                            placeholder="Capítulo 1: O Princípio Fundamental"
+                            required
+                            className={inputClass}
+                          />
+                        </div>
+                        <div className="space-y-1.5">
+                          <label className="block text-xs font-medium text-[#6E6E73] dark:text-[#A1A1A6]">
+                            Posição / Nº
+                          </label>
+                          <input
+                            type="number"
+                            min="1"
+                            value={chapterPosition}
+                            onChange={(e) => setChapterPosition(e.target.value)}
+                            required
+                            className={`${inputClass} tabular-nums`}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="block text-xs font-medium text-[#6E6E73] dark:text-[#A1A1A6]">
+                          Texto Integral
+                        </label>
+                        <textarea
+                          rows={7}
+                          value={chapterContent}
+                          onChange={(e) => setChapterContent(e.target.value)}
+                          placeholder="Escreva ou cole o texto completo do capítulo..."
+                          required
+                          className={`${inputClass} resize-y`}
+                        />
+                      </div>
+
+                      <button
+                        type="submit"
+                        className="h-9 px-5 rounded-full bg-[#1D1D1F] text-white dark:bg-[#F5F5F7] dark:text-[#1D1D1F] text-xs font-medium hover:bg-[#333336] dark:hover:bg-[#E5E5EA] transition-colors inline-flex items-center gap-1.5 whitespace-nowrap"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        Publicar Capítulo
+                      </button>
+                    </form>
+                  </div>
+                )}
               </div>
-            </TabsContent>
-          </Tabs>
+            </section>
+          )}
+
+          {/* ================================================================
+              TAB 5: ANIMES & MANGÁS (MASTER-DETAIL)
+             ================================================================ */}
+          {activeTab === "animes" && (
+            <section className="grid lg:grid-cols-12 gap-5 items-start">
+              <aside className="lg:col-span-4 bg-white dark:bg-[#1C1C1E] border border-black/[0.065] dark:border-white/[0.08] rounded-[18px] p-5 shadow-[0_2px_10px_rgba(0,0,0,0.025)] space-y-3.5">
+                <div className="flex items-center justify-between gap-2">
+                  <h2 className="text-[17px] font-semibold tracking-[-0.015em] text-[#1D1D1F] dark:text-[#F5F5F7]">
+                    Franquias{" "}
+                    <span className="text-xs font-normal text-[#86868B] tabular-nums ml-1">
+                      {filteredAnimesList.length}
+                    </span>
+                  </h2>
+                </div>
+
+                <div className="relative">
+                  <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-[#86868B] pointer-events-none" />
+                  <input
+                    type="text"
+                    value={animeSearch}
+                    onChange={(e) => setAnimeSearch(e.target.value)}
+                    placeholder="Buscar anime ou estúdio..."
+                    className={`${inputClass} pl-8 py-2`}
+                  />
+                </div>
+
+                <div className="space-y-1.5 max-h-[580px] overflow-y-auto pr-0.5">
+                  {filteredAnimesList.map((anime) => {
+                    const active = selectedAnimeId === anime.id;
+                    const patch = animeOverridesMap[anime.id] || {};
+                    return (
+                      <button
+                        key={anime.id}
+                        type="button"
+                        onClick={() => setSelectedAnimeId(anime.id)}
+                        className={`w-full text-left p-2.5 rounded-[11px] transition-colors flex items-center gap-3 ${
+                          active
+                            ? "bg-[#EBEBF0] dark:bg-[#2C2C2E]"
+                            : "hover:bg-[#F5F5F7] dark:hover:bg-[#2C2C2E]/60"
+                        }`}
+                      >
+                        <img
+                          src={patch.cover || anime.cover}
+                          alt={anime.title}
+                          referrerPolicy="no-referrer"
+                          className="w-10 h-14 rounded-[6px] object-cover shrink-0 bg-[#E5E5EA] dark:bg-[#3A3A3C]"
+                        />
+                        <div className="min-w-0 flex-1">
+                          <div className="text-[11px] text-[#86868B] tabular-nums">
+                            {anime.seasons.length} temp. · {anime.episodesCount}{" "}
+                            ep.
+                          </div>
+                          <p className="text-[13.5px] font-medium text-[#1D1D1F] dark:text-[#F5F5F7] truncate">
+                            {patch.title || anime.title}
+                          </p>
+                          <p className="text-xs text-[#6E6E73] dark:text-[#A1A1A6] truncate">
+                            {anime.studio}
+                          </p>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </aside>
+
+              <div className="lg:col-span-8 bg-white dark:bg-[#1C1C1E] border border-black/[0.065] dark:border-white/[0.08] rounded-[18px] p-6 sm:p-8 shadow-[0_2px_10px_rgba(0,0,0,0.025)]">
+                <div className="flex flex-wrap items-center justify-between gap-3 pb-5 mb-6 border-b border-black/[0.065] dark:border-white/[0.08]">
+                  <h2 className="text-xl font-semibold tracking-[-0.02em] text-[#1D1D1F] dark:text-[#F5F5F7]">
+                    Editar Anime & Mangá
+                  </h2>
+                  <Link
+                    to={`/animes/${selectedAnimeId}`}
+                    target="_blank"
+                    className="h-8 px-3.5 rounded-full border border-black/[0.1] dark:border-white/[0.14] bg-white dark:bg-[#2C2C2E] text-xs font-medium text-[#1D1D1F] dark:text-[#F5F5F7] hover:bg-[#EFEFF4] dark:hover:bg-[#3A3A3C] transition-colors inline-flex items-center gap-1.5 whitespace-nowrap"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" />
+                    Abrir Página
+                  </Link>
+                </div>
+
+                <form onSubmit={handleSaveAnimeEdit} className="space-y-4">
+                  <div className="grid sm:grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <label className="block text-xs font-medium text-[#6E6E73] dark:text-[#A1A1A6]">
+                        Título Oficial Exibido
+                      </label>
+                      <input
+                        type="text"
+                        value={editAnimeTitle}
+                        onChange={(e) => setEditAnimeTitle(e.target.value)}
+                        required
+                        className={inputClass}
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="block text-xs font-medium text-[#6E6E73] dark:text-[#A1A1A6]">
+                        YouTube Trailer ID
+                      </label>
+                      <input
+                        type="text"
+                        value={editAnimeTrailer}
+                        onChange={(e) => setEditAnimeTrailer(e.target.value)}
+                        className={inputClass}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid sm:grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <label className="block text-xs font-medium text-[#6E6E73] dark:text-[#A1A1A6]">
+                        URL do Poster
+                      </label>
+                      <input
+                        type="text"
+                        value={editAnimeCover}
+                        onChange={(e) => setEditAnimeCover(e.target.value)}
+                        className={inputClass}
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="block text-xs font-medium text-[#6E6E73] dark:text-[#A1A1A6]">
+                        URL do Banner Panorâmico
+                      </label>
+                      <input
+                        type="text"
+                        value={editAnimeBanner}
+                        onChange={(e) => setEditAnimeBanner(e.target.value)}
+                        className={inputClass}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="block text-xs font-medium text-[#6E6E73] dark:text-[#A1A1A6]">
+                      Sinopse Editorial
+                    </label>
+                    <textarea
+                      rows={6}
+                      value={editAnimeSynopsis}
+                      onChange={(e) => setEditAnimeSynopsis(e.target.value)}
+                      required
+                      className={`${inputClass} resize-y`}
+                    />
+                  </div>
+
+                  <div className="flex justify-end pt-3 border-t border-black/[0.065] dark:border-white/[0.08]">
+                    <button
+                      type="submit"
+                      className="h-9 px-5 rounded-full bg-[#1D1D1F] text-white dark:bg-[#F5F5F7] dark:text-[#1D1D1F] text-xs font-medium hover:bg-[#333336] dark:hover:bg-[#E5E5EA] transition-colors inline-flex items-center gap-1.5 whitespace-nowrap"
+                    >
+                      <Save className="w-3.5 h-3.5" />
+                      Salvar Alterações
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </section>
+          )}
         </div>
       </main>
 

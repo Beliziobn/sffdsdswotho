@@ -19,6 +19,8 @@ import {
   Sliders,
   CheckCircle2,
   ExternalLink,
+  Download,
+  Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
@@ -26,6 +28,7 @@ import { toast } from "@/hooks/use-toast";
 import { useContent, useEpisodes, useSaveProgress, useTrackInteraction } from "@/hooks/useContents";
 import { useLibraryStore } from "@/store/useLibraryStore";
 import { fetchOfficialChapterPanels, getProxiedWebtoonImageUrl } from "@/lib/webtoonOfficialSync";
+import { downloadRealWebtoonEpisode } from "@/lib/mediaDownloaders";
 
 export const WebtoonReader = () => {
   const { id, episodeId } = useParams<{ id: string; episodeId: string }>();
@@ -62,6 +65,7 @@ export const WebtoonReader = () => {
   const [livePanels, setLivePanels] = useState<string[]>([]);
   const [isFetchingPanels, setIsFetchingPanels] = useState(false);
   const [fetchFailed, setFetchFailed] = useState(false);
+  const [isDownloadingEp, setIsDownloadingEp] = useState(false);
 
   const [webtoonLanguage, setWebtoonLanguage] = useState<"pt" | "en" | "ko">(() => {
     return (localStorage.getItem("worscoi_webtoon_language") as "pt" | "en" | "ko") || "pt";
@@ -242,6 +246,49 @@ export const WebtoonReader = () => {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
+  const handleDownloadCurrentEpisode = async () => {
+    if (!webtoon || !activeEpisode || isDownloadingEp) return;
+    setIsDownloadingEp(true);
+    toast({
+      title: `Compilando Capítulo ${activeEpisode.number} (${webtoonLanguage.toUpperCase()})...`,
+      description: "Transferindo os painéis reais em alta definição para PDF.",
+    });
+    try {
+      await downloadRealWebtoonEpisode({
+        webtoonId: String(webtoon.id),
+        webtoonTitle: webtoon.title,
+        author: webtoon.author,
+        category: webtoon.category,
+        coverUrl: webtoon.cover,
+        episode: {
+          id: activeEpisode.id,
+          number: activeEpisode.number,
+          title: activeEpisode.title,
+          body: activeEpisode.body,
+          images: activeEpisode.images,
+          viewer_url: (activeEpisode as any).viewer_url,
+        },
+        language: webtoonLanguage,
+        preloadedPanels: currentPanels,
+      });
+      toast({
+        title: "Download concluído!",
+        description: "Acesse e abra este capítulo em Meu Perfil → Downloads.",
+      });
+    } catch (err) {
+      toast({
+        title: "Falha ao baixar capítulo",
+        description:
+          err instanceof Error
+            ? err.message
+            : "Não foi possível transferir os painéis no momento.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDownloadingEp(false);
+    }
+  };
+
   const widthClasses = {
     compact: "max-w-[640px]",
     normal: "max-w-[800px]",
@@ -395,6 +442,25 @@ export const WebtoonReader = () => {
               >
                 {isAutoScrolling ? <Pause className="h-3.5 w-3.5 mr-1" /> : <Play className="h-3.5 w-3.5 mr-1" />}
                 <span className="hidden md:inline">{isAutoScrolling ? "Pausar" : "Auto-Rolagem"}</span>
+              </Button>
+
+              {/* Download Episode PDF Button */}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleDownloadCurrentEpisode}
+                disabled={isDownloadingEp}
+                className="text-xs h-8 px-2.5 border-emerald-500/40 bg-emerald-600/20 text-emerald-300 hover:text-white hover:bg-emerald-600 whitespace-nowrap shrink-0"
+                title="Baixar este capítulo completo em PDF"
+              >
+                {isDownloadingEp ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />
+                ) : (
+                  <Download className="h-3.5 w-3.5 mr-1" />
+                )}
+                <span className="hidden md:inline">
+                  {isDownloadingEp ? "Baixando..." : "Baixar"}
+                </span>
               </Button>
 
               {/* Episodes Drawer Trigger */}
