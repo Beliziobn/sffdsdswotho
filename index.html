@@ -32,7 +32,11 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 
     <link rel="canonical" href="https://wotho.vercel.app/" />
+    <link rel="alternate" hreflang="pt-BR" href="https://wotho.vercel.app/" />
+    <link rel="alternate" hreflang="x-default" href="https://wotho.vercel.app/" />
     <link rel="sitemap" type="application/xml" title="Sitemap" href="/sitemap.xml" />
+    <link rel="sitemap" type="application/xml" title="Sitemap Index" href="/sitemap-index.xml" />
+    <link rel="alternate" type="application/rss+xml" title="Wotho RSS Feed" href="/rss.xml" />
     <link rel="alternate" type="text/plain" title="LLMs Context" href="/llms.txt" />
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -174,7 +178,7 @@
     <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-W9XSHXQS" height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <!-- End Google Tag Manager (noscript) -->
 
-    <div id="root">
+    <div id="root"><!--WOTHO_SSR_START-->
       <div
         id="wotho-boot-shell"
         style="min-height:100vh;width:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;box-sizing:border-box;background:#09090b;color:#fafafa;font-family:'DM Sans',system-ui,-apple-system,sans-serif;text-align:center;"
@@ -220,12 +224,24 @@
             100% { transform: translateX(240%); }
           }
         </style>
-      </div>
+      </div><!--WOTHO_SSR_END-->
     </div>
     <noscript>
-      <main style="max-width:720px;margin:64px auto;padding:24px;font-family:'DM Sans',sans-serif;color:#18181b;">
-        <h1>Wotho — Livros, notícias globais, streaming e webtoons</h1>
-        <p>Ative o JavaScript no seu navegador para acessar a plataforma Wotho.</p>
+      <main style="max-width:760px;margin:48px auto;padding:24px;font-family:'DM Sans',sans-serif;color:#18181b;line-height:1.6;">
+        <h1>Wotho — Livros Digitais, Notícias Globais, Streaming e Webtoons</h1>
+        <p>Plataforma digital dedicada à leitura de livros completos no navegador, jornalismo global em tempo real, streaming de cinema e animes em HD e webtoons em leitura vertical.</p>
+        <nav aria-label="Seções Principais" style="display:flex;flex-wrap:wrap;gap:14px;margin:20px 0;">
+          <a href="/livros">Livros Digitais &amp; ENEM</a>
+          <a href="/noticias">Notícias Globais</a>
+          <a href="/cinema">Cinema &amp; Séries</a>
+          <a href="/animes">Animes &amp; Mangás</a>
+          <a href="/webtoons">Webtoons</a>
+          <a href="/sobre">Sobre a Wotho</a>
+          <a href="/contato">Contato</a>
+          <a href="/mapa-do-site">Mapa do Site</a>
+          <a href="/sitemap.xml">Sitemap XML</a>
+        </nav>
+        <p>Ative o JavaScript no seu navegador para acessar todos os recursos interativos da Wotho.</p>
       </main>
     </noscript>
     <script>

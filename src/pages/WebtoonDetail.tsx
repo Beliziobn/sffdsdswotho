@@ -14,6 +14,7 @@ import ShareDialog from "@/components/ShareDialog";
 import { ContentDetailSkeleton } from "@/components/skeletons/AppSkeletons";
 import { downloadRealWebtoonEpisode } from "@/lib/mediaDownloaders";
 import { toast } from "sonner";
+import { CANONICAL_BASE_URL, buildBreadcrumbSchema, usePageSeo } from "@/lib/seo";
 
 const CHUNK_SIZE = 50;
 
@@ -36,22 +37,42 @@ const WebtoonDetail = () => {
   const [downloadingEpId, setDownloadingEpId] = useState<string | null>(null);
 
   // Dynamic SEO Synchronization
-  useEffect(() => {
-    if (!item) return;
-    const pageTitle = `${item.title} — Webtoon Online | Wotho`;
-    document.title = pageTitle;
-    const desc = item.description || `Leia o webtoon "${item.title}" em formato scroll vertical na íntegra na Wotho.`;
-    const metaDesc = document.querySelector('meta[name="description"]');
-    if (metaDesc) metaDesc.setAttribute("content", desc);
-    const ogTitle = document.querySelector('meta[property="og:title"]');
-    if (ogTitle) ogTitle.setAttribute("content", pageTitle);
-    const ogDesc = document.querySelector('meta[property="og:description"]');
-    if (ogDesc) ogDesc.setAttribute("content", desc);
-    const twTitle = document.querySelector('meta[name="twitter:title"]');
-    if (twTitle) twTitle.setAttribute("content", pageTitle);
-    const twDesc = document.querySelector('meta[name="twitter:description"]');
-    if (twDesc) twDesc.setAttribute("content", desc);
-  }, [item]);
+  usePageSeo(
+    item
+      ? {
+          title: `${item.title} — Webtoon Online em Português | Wotho`,
+          description:
+            item.description ||
+            `Leia o webtoon "${item.title}" em formato scroll vertical na íntegra na Wotho.`,
+          canonicalPath: `/webtoon/${item.id}`,
+          ogType: "article",
+          ogImage: item.cover || `${CANONICAL_BASE_URL}/og-image.jpg`,
+          ogImageAlt: item.title,
+          jsonLd: [
+            {
+              "@context": "https://schema.org",
+              "@type": "CreativeWorkSeries",
+              name: item.title,
+              description: item.description,
+              image: item.cover || `${CANONICAL_BASE_URL}/og-image.jpg`,
+              inLanguage: "pt-BR",
+              url: `${CANONICAL_BASE_URL}/webtoon/${item.id}`,
+              genre: item.category,
+              ...(item.author ? { author: { "@type": "Person", name: item.author } } : {}),
+              publisher: {
+                "@type": "Organization",
+                name: "Wotho",
+              },
+            },
+            buildBreadcrumbSchema([
+              { name: "Wotho", path: "/" },
+              { name: "Webtoons", path: "/webtoons" },
+              { name: item.title, path: `/webtoon/${item.id}` },
+            ]),
+          ],
+        }
+      : null
+  );
 
   // Generate chunks (1-50, 51-100, etc.)
   const chunks = useMemo(() => {
@@ -629,27 +650,6 @@ const WebtoonDetail = () => {
         onOpenChange={setIsShareOpen}
         title={`${item.title} — Webtoon Online | Wotho`}
         text={item.description || `Confira o webtoon "${item.title}" para leitura vertical na Wotho.`}
-      />
-
-      {/* Schema.org CreativeWorkSeries Structured Data */}
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{
-          __html: JSON.stringify({
-            "@context": "https://schema.org",
-            "@type": "CreativeWorkSeries",
-            name: item.title,
-            description: item.description,
-            image: item.cover || "https://wotho.vercel.app/og-image.jpg",
-            inLanguage: "pt-BR",
-            url: `https://wotho.vercel.app${window.location.pathname}`,
-            genre: item.category,
-            publisher: {
-              "@type": "Organization",
-              name: "Wotho",
-            },
-          }),
-        }}
       />
 
       <Footer />

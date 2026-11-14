@@ -1,9 +1,34 @@
 {
   "trailingSlash": false,
+  "functions": {
+    "api/[...route].ts": {
+      "includeFiles": "{index.html,dist/index.html,api/_seoCatalog.json,public/robots.txt,public/sitemap.xml}"
+    }
+  },
   "rewrites": [
     {
       "source": "/sitemap.xml",
-      "destination": "/sitemap.xml"
+      "destination": "/api/[...route]?route=sitemap.xml"
+    },
+    {
+      "source": "/sitemap-index.xml",
+      "destination": "/api/[...route]?route=sitemap-index.xml"
+    },
+    {
+      "source": "/news-sitemap.xml",
+      "destination": "/api/[...route]?route=news-sitemap.xml"
+    },
+    {
+      "source": "/rss.xml",
+      "destination": "/api/[...route]?route=rss.xml"
+    },
+    {
+      "source": "/feed.xml",
+      "destination": "/api/[...route]?route=rss.xml"
+    },
+    {
+      "source": "/sitemap-(pages|books|cinema|animes|webtoons|news).xml",
+      "destination": "/api/[...route]?route=sitemap-$1.xml"
     },
     {
       "source": "/robots.txt",
@@ -14,13 +39,24 @@
       "destination": "/api/[...route]?route=$1"
     },
     {
-      "source": "/((?!api/|assets/|chapters/|pdf/|sitemap\\.xml|robots\\.txt|.*\\..*).*)",
+      "source": "/((?!api/|assets/|chapters/|pdf/|sitemap.*\\.xml|news-sitemap\\.xml|rss\\.xml|feed\\.xml|robots\\.txt|llms.*\\.txt|.*\\..*).*)",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": ".*(Googlebot|Google-InspectionTool|AdsBot-Google|Mediapartners-Google|Storebot-Google|GoogleOther|Bingbot|Slurp|DuckDuckBot|Applebot|Yandex|facebookexternalhit|Twitterbot|LinkedInBot|WhatsApp|Slackbot|TelegramBot|Discordbot).*"
+        }
+      ],
+      "destination": "/api/[...route]?route=seo-prerender&path=/$1"
+    },
+    {
+      "source": "/((?!api/|assets/|chapters/|pdf/|sitemap.*\\.xml|news-sitemap\\.xml|rss\\.xml|feed\\.xml|robots\\.txt|llms.*\\.txt|.*\\..*).*)",
       "destination": "/index.html"
     }
   ],
   "headers": [
     {
-      "source": "/sitemap.xml",
+      "source": "/(sitemap.*\\.xml|news-sitemap\\.xml)",
       "headers": [
         {
           "key": "Content-Type",
@@ -37,6 +73,23 @@
         {
           "key": "Cache-Control",
           "value": "public, max-age=3600, s-maxage=3600"
+        }
+      ]
+    },
+    {
+      "source": "/(rss\\.xml|feed\\.xml)",
+      "headers": [
+        {
+          "key": "Content-Type",
+          "value": "application/rss+xml; charset=utf-8"
+        },
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "*"
+        },
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=1800, s-maxage=1800"
         }
       ]
     },
@@ -58,6 +111,33 @@
         {
           "key": "Cache-Control",
           "value": "public, max-age=3600, s-maxage=3600"
+        }
+      ]
+    },
+    {
+      "source": "/api/(.*)",
+      "headers": [
+        {
+          "key": "X-Robots-Tag",
+          "value": "noindex, nofollow"
+        }
+      ]
+    },
+    {
+      "source": "/(admin|auth|perfil|meu-perfil|biblioteca|buscar|para-voce|continuar-lendo|redefinir-senha|compra/.*)",
+      "headers": [
+        {
+          "key": "X-Robots-Tag",
+          "value": "noindex, follow"
+        }
+      ]
+    },
+    {
+      "source": "/(ler|leitura)/(.*)",
+      "headers": [
+        {
+          "key": "X-Robots-Tag",
+          "value": "noindex, follow"
         }
       ]
     },

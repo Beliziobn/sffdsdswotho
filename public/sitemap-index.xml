@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <sitemap>
+    <loc>https://wotho.vercel.app/sitemap-pages.xml</loc>
+    <lastmod>2026-11-14T16:15:47.529Z</lastmod>
+  </sitemap>
+  <sitemap>
+    <loc>https://wotho.vercel.app/sitemap-books.xml</loc>
+    <lastmod>2026-11-14T16:15:47.529Z</lastmod>
+  </sitemap>
+  <sitemap>
+    <loc>https://wotho.vercel.app/sitemap-cinema.xml</loc>
+    <lastmod>2026-11-14T16:15:47.529Z</lastmod>
+  </sitemap>
+  <sitemap>
+    <loc>https://wotho.vercel.app/sitemap-animes.xml</loc>
+    <lastmod>2026-11-14T16:15:47.529Z</lastmod>
+  </sitemap>
+  <sitemap>
+    <loc>https://wotho.vercel.app/sitemap-webtoons.xml</loc>
+    <lastmod>2026-11-14T16:15:47.529Z</lastmod>
+  </sitemap>
+  <sitemap>
+    <loc>https://wotho.vercel.app/sitemap-news.xml</loc>
+    <lastmod>2026-11-14T16:15:47.529Z</lastmod>
+  </sitemap>
+  <sitemap>
+    <loc>https://wotho.vercel.app/news-sitemap.xml</loc>
+    <lastmod>2026-11-14T16:15:47.529Z</lastmod>
+  </sitemap>
+</sitemapindex>

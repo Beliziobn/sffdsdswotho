@@ -5,7 +5,19 @@ import { defineConfig, Plugin } from 'vite';
 import Parser from 'rss-parser';
 import { generateBookPdf } from './src/lib/pdfGenerator';
 import { ORIGINAL_PDF_REGISTRY, getOriginalPdfForBook } from './src/lib/originalPdfRegistry';
-import { buildSitemapXml } from './scripts/generate_sitemap.js';
+import {
+  buildSitemapXml,
+  buildSitemapIndexXml,
+  buildSubSitemapXml,
+  buildNewsSitemapXml,
+  buildRssXml,
+  loadSeoCatalog,
+} from './scripts/generate_sitemap.js';
+import {
+  injectSeoIntoHtml,
+  isSearchOrSocialBot,
+  handleSeoPrerenderRequest,
+} from './api/_seoPrerender.js';
 import { cinemaStreamingPlugin } from './src/lib/cinemaServerPlugin';
 import {
   handleMangaChaptersRequest,
@@ -2204,53 +2216,118 @@ function officialWebtoonIntegrationPlugin(): Plugin {
 }
 
 function sitemapPlugin(): Plugin {
-  const dynamicCache = new Map<string, { xml: string; time: number }>();
+  const dynamicCache = new Map<string, { body: string; time: number }>();
 
-  const ROUTE_SEO: Record<string, { title: string; desc: string }> = {
-    '/': {
-      title: 'Wotho — Livros Digitais, Notícias Globais, Streaming e Webtoons',
-      desc: 'Explore a Wotho: biblioteca digital no navegador, jornalismo global em tempo real, streaming de cinema e animes em HD e webtoons em leitura vertical.',
-    },
-    '/livros': {
-      title: 'Biblioteca de Livros Digitais no Navegador — Wotho',
-      desc: 'Leia bestsellers modernos, filosofia, clássicos universais, conteúdos do ENEM e artigos científicos completos diretamente no navegador na Wotho.',
-    },
-    '/webtoons': {
-      title: 'Webtoons & Quadrinhos em Leitura Vertical — Wotho',
-      desc: 'Leia histórias em quadrinhos e webtoons em formato scroll vertical de alta definição diretamente no navegador na Wotho.',
-    },
-    '/animes': {
-      title: 'Animes e Mangás em Streaming — Wotho',
-      desc: 'Catálogo selecionado de animes dublados e legendados em português, episódios, trailers e capítulos de mangá integrados na Wotho.',
-    },
-    '/cinema': {
-      title: 'Cinema & Séries em Streaming HD — Wotho',
-      desc: 'Assista a filmes e séries aclamados com player em alta definição, áudio dublado em português (PT-BR) e legendas completas na Wotho.',
-    },
-    '/noticias': {
-      title: 'Notícias Globais em Tempo Real — Wotho',
-      desc: 'Cobertura jornalística independente e atualizada sobre tecnologia, ciência, economia, política, futebol, cultura e grandes ideias na Wotho.',
-    },
-    '/sobre': {
-      title: 'Sobre a Wotho — Plataforma de Cultura, Streaming e Leitura',
-      desc: 'Conheça a Wotho: plataforma digital de livros no navegador, jornalismo global, webtoons e streaming de cinema e animes.',
-    },
-    '/contato': {
-      title: 'Contato e Atendimento — Wotho',
-      desc: 'Entre em contato com a equipe da Wotho para dúvidas, sugestões de obras, pautas jornalísticas, parcerias editoriais ou suporte.',
-    },
-    '/mapa-do-site': {
-      title: 'Mapa do Site (Sitemap) — Wotho',
-      desc: 'Índice estruturado com todas as páginas canônicas, catálogos e acervo completo da plataforma Wotho.',
-    },
-    '/termos': {
-      title: 'Termos de Uso — Wotho',
-      desc: 'Condições gerais de navegação, leitura digital e uso dos serviços da plataforma Wotho.',
-    },
-    '/privacidade': {
-      title: 'Política de Privacidade — Wotho',
-      desc: 'Diretrizes de proteção de dados, conformidade LGPD e privacidade dos usuários da Wotho.',
-    },
+  const attachSeoMiddlewares = (server: any) => {
+    server.middlewares.use(async (req: any, res: any, next: any) => {
+      const urlRaw = req.url || '/';
+      const [urlPath, queryString = ''] = urlRaw.split('?');
+      const origin = 'https://wotho.vercel.app';
+
+      const serveXmlCached = (key: string, ttlMs: number, builder: () => string, contentType = 'application/xml; charset=utf-8') => {
+        const cached = dynamicCache.get(key);
+        if (cached && Date.now() - cached.time < ttlMs) {
+          res.statusCode = 200;
+          res.setHeader('Content-Type', contentType);
+          res.setHeader('Cache-Control', `public, max-age=${Math.floor(ttlMs / 1000)}`);
+          res.end(cached.body);
+          return true;
+        }
+        try {
+          const body = builder();
+          dynamicCache.set(key, { body, time: Date.now() });
+          res.statusCode = 200;
+          res.setHeader('Content-Type', contentType);
+          res.setHeader('Cache-Control', `public, max-age=${Math.floor(ttlMs / 1000)}`);
+          res.end(body);
+          return true;
+        } catch {
+          return false;
+        }
+      };
+
+      if (urlPath === '/sitemap.xml' || urlPath === '/api/sitemap.xml') {
+        if (serveXmlCached('sitemap.xml', 3600000, () => buildSitemapXml(origin).xml)) return;
+        const sitemapPath = path.resolve(__dirname, 'public/sitemap.xml');
+        if (fs.existsSync(sitemapPath)) {
+          res.statusCode = 200;
+          res.setHeader('Content-Type', 'application/xml; charset=utf-8');
+          res.end(fs.readFileSync(sitemapPath, 'utf-8'));
+          return;
+        }
+      }
+
+      if (urlPath === '/sitemap-index.xml' || urlPath === '/api/sitemap-index.xml') {
+        if (serveXmlCached('sitemap-index.xml', 3600000, () => buildSitemapIndexXml(origin).xml)) return;
+      }
+
+      if (urlPath === '/news-sitemap.xml' || urlPath === '/api/news-sitemap.xml') {
+        if (serveXmlCached('news-sitemap.xml', 1800000, () => buildNewsSitemapXml(origin).xml)) return;
+      }
+
+      if (urlPath === '/rss.xml' || urlPath === '/feed.xml' || urlPath === '/api/rss.xml') {
+        if (serveXmlCached('rss.xml', 1800000, () => buildRssXml(origin).xml, 'application/rss+xml; charset=utf-8')) return;
+      }
+
+      if (/^\/(?:api\/)?sitemap-(pages|books|cinema|animes|webtoons|news)\.xml$/.test(urlPath)) {
+        const cleanSection = urlPath.replace(/^\/(?:api\/)?/, '');
+        if (serveXmlCached(cleanSection, 3600000, () => buildSubSitemapXml(cleanSection, origin).xml)) return;
+      }
+
+      if (urlPath === '/robots.txt') {
+        const robotsPath = path.resolve(__dirname, 'public/robots.txt');
+        res.statusCode = 200;
+        res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+        res.setHeader('Cache-Control', 'public, max-age=3600');
+        if (fs.existsSync(robotsPath)) {
+          res.end(fs.readFileSync(robotsPath, 'utf-8'));
+        } else {
+          res.end(`User-agent: *\nAllow: /\n\nSitemap: ${origin}/sitemap.xml\n`);
+        }
+        return;
+      }
+
+      if (urlPath === '/api/seo/status') {
+        const cat = loadSeoCatalog();
+        res.statusCode = 200;
+        res.setHeader('Content-Type', 'application/json; charset=utf-8');
+        res.end(
+          JSON.stringify({
+            ok: true,
+            domain: origin,
+            generatedAt: cat.generatedAt,
+            counts: {
+              books: cat.books?.length || 0,
+              cinema: cat.cinema?.length || 0,
+              animes: cat.animes?.length || 0,
+              webtoons: cat.webtoons?.length || 0,
+              news: cat.news?.length || 0,
+            },
+          })
+        );
+        return;
+      }
+
+      // Intercept crawler requests for SPA routes and return semantic SEO HTML
+      const ua = req.headers?.['user-agent'] || '';
+      const forceBot = /(?:^|&)_bot=1(?:&|$)/.test(queryString);
+      const isHtmlRoute =
+        req.method === 'GET' &&
+        !urlPath.startsWith('/api/') &&
+        !urlPath.startsWith('/assets/') &&
+        !urlPath.startsWith('/src/') &&
+        !urlPath.startsWith('/@') &&
+        !urlPath.startsWith('/node_modules/') &&
+        !/\.[a-z0-9]{1,8}$/i.test(urlPath);
+
+      if (isHtmlRoute && (isSearchOrSocialBot(ua) || forceBot)) {
+        req.query = { ...(req.query || {}), path: urlPath };
+        await handleSeoPrerenderRequest(req, res);
+        return;
+      }
+
+      next();
+    });
   };
 
   return {
@@ -2261,142 +2338,17 @@ function sitemapPlugin(): Plugin {
       if (cleanPath.endsWith('/index.html')) {
         cleanPath = cleanPath.replace(/\/index\.html$/, '') || '/';
       }
-      const canonicalUrl = cleanPath === '/' ? 'https://wotho.vercel.app/' : `https://wotho.vercel.app${cleanPath}`;
-
-      let meta = ROUTE_SEO[cleanPath];
-      if (!meta) {
-        if (cleanPath.startsWith('/livros/')) {
-          meta = {
-            title: 'Livro Digital — Leitura Online na Wotho',
-            desc: 'Leia a obra completa diretamente no navegador com controle de fontes, modos de leitura e índice de capítulos.',
-          };
-        } else if (cleanPath.startsWith('/cinema/')) {
-          meta = {
-            title: 'Cinema Wotho — Filme ou Série em Streaming',
-            desc: 'Assista a produções consagradas com áudio dublado em português (PT-BR) ou original com legendas completas na Wotho.',
-          };
-        } else if (cleanPath.startsWith('/animes/')) {
-          meta = {
-            title: 'Anime & Mangá em Streaming — Wotho',
-            desc: 'Episódios em português, ficha técnica, sinopse detalhada e capítulos de mangá vinculados para leitura direta na Wotho.',
-          };
-        } else if (cleanPath.startsWith('/webtoon/')) {
-          meta = {
-            title: 'Webtoon — Leitura Vertical em Alta Definição — Wotho',
-            desc: 'Acompanhe episódios ilustrados em scroll contínuo e painéis de alta resolução na Wotho.',
-          };
-        } else if (cleanPath.startsWith('/noticias/')) {
-          meta = {
-            title: 'Notícia — Cobertura Especial Wotho',
-            desc: 'Reportagem aprofundada sobre cultura, tecnologia, mercado, entretenimento e grandes ideias na Wotho.',
-          };
-        } else {
-          meta = ROUTE_SEO['/'];
-        }
-      }
-
-      let transformed = html;
-
-      // 1. Rewrite <title>
-      transformed = transformed.replace(/<title>[\s\S]*?<\/title>/, `<title>${meta.title}</title>`);
-
-      // 2. Rewrite meta description
-      transformed = transformed.replace(
-        /<meta\s+name="description"\s+content="[^"]*"\s*\/?>/i,
-        `<meta name="description" content="${meta.desc}" />`
-      );
-
-      // 3. Rewrite canonical link
-      transformed = transformed.replace(
-        /<link\s+rel="canonical"\s+href="[^"]*"\s*\/?>/i,
-        `<link rel="canonical" href="${canonicalUrl}" />`
-      );
-
-      // 4. Rewrite og:url, og:title, og:description
-      transformed = transformed.replace(
-        /<meta\s+property="og:url"\s+content="[^"]*"\s*\/?>/i,
-        `<meta property="og:url" content="${canonicalUrl}" />`
-      );
-      transformed = transformed.replace(
-        /<meta\s+property="og:title"\s+content="[^"]*"\s*\/?>/i,
-        `<meta property="og:title" content="${meta.title}" />`
-      );
-      transformed = transformed.replace(
-        /<meta\s+property="og:description"\s+content="[^"]*"\s*\/?>/i,
-        `<meta property="og:description" content="${meta.desc}" />`
-      );
-
-      // 5. Rewrite twitter:url, twitter:title, twitter:description
-      transformed = transformed.replace(
-        /<meta\s+name="twitter:url"\s+content="[^"]*"\s*\/?>/i,
-        `<meta name="twitter:url" content="${canonicalUrl}" />`
-      );
-      transformed = transformed.replace(
-        /<meta\s+name="twitter:title"\s+content="[^"]*"\s*\/?>/i,
-        `<meta name="twitter:title" content="${meta.title}" />`
-      );
-      transformed = transformed.replace(
-        /<meta\s+name="twitter:description"\s+content="[^"]*"\s*\/?>/i,
-        `<meta name="twitter:description" content="${meta.desc}" />`
-      );
-
+      const { html: transformed } = injectSeoIntoHtml(html, cleanPath, {
+        origin: 'https://wotho.vercel.app',
+        isBot: false,
+      });
       return transformed;
     },
     configureServer(server) {
-      server.middlewares.use((req, res, next) => {
-        const urlPath = (req.url || '').split('?')[0];
-        if (urlPath === '/sitemap.xml') {
-          const origin = 'https://wotho.vercel.app';
-
-          const cached = dynamicCache.get(origin);
-          if (cached && Date.now() - cached.time < 3600000) {
-            res.statusCode = 200;
-            res.setHeader('Content-Type', 'application/xml; charset=utf-8');
-            res.setHeader('Cache-Control', 'public, max-age=3600');
-            res.end(cached.xml);
-            return;
-          }
-
-          try {
-            const { xml } = buildSitemapXml(origin);
-            dynamicCache.set(origin, { xml, time: Date.now() });
-            res.statusCode = 200;
-            res.setHeader('Content-Type', 'application/xml; charset=utf-8');
-            res.setHeader('Cache-Control', 'public, max-age=3600');
-            res.end(xml);
-            return;
-          } catch {
-            const sitemapPath = path.resolve(__dirname, 'public/sitemap.xml');
-            if (fs.existsSync(sitemapPath)) {
-              const xml = fs.readFileSync(sitemapPath, 'utf-8');
-              res.statusCode = 200;
-              res.setHeader('Content-Type', 'application/xml; charset=utf-8');
-              res.setHeader('Cache-Control', 'public, max-age=3600');
-              res.end(xml);
-              return;
-            }
-          }
-        }
-        if (urlPath === '/robots.txt') {
-          const robotsPath = path.resolve(__dirname, 'public/robots.txt');
-          if (fs.existsSync(robotsPath)) {
-            const content = fs.readFileSync(robotsPath, 'utf-8');
-            res.statusCode = 200;
-            res.setHeader('Content-Type', 'text/plain; charset=utf-8');
-            res.setHeader('Cache-Control', 'public, max-age=3600');
-            res.end(content);
-            return;
-          }
-
-          const robotsContent = `User-agent: *\nAllow: /\n\nSitemap: https://wotho.vercel.app/sitemap.xml\n`;
-          res.statusCode = 200;
-          res.setHeader('Content-Type', 'text/plain; charset=utf-8');
-          res.setHeader('Cache-Control', 'public, max-age=3600');
-          res.end(robotsContent);
-          return;
-        }
-        next();
-      });
+      attachSeoMiddlewares(server);
+    },
+    configurePreviewServer(server) {
+      attachSeoMiddlewares(server);
     },
   };
 }

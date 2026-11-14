@@ -16,6 +16,7 @@ import { downloadRealBook } from "@/lib/mediaDownloaders";
 import { CommunityReviews } from "@/components/CommunityReviews";
 import ShareDialog from "@/components/ShareDialog";
 import { ContentDetailSkeleton } from "@/components/skeletons/AppSkeletons";
+import { CANONICAL_BASE_URL, buildBreadcrumbSchema, usePageSeo } from "@/lib/seo";
 
 const BookDetail = () => {
   const { id } = useParams();
@@ -58,22 +59,45 @@ const BookDetail = () => {
   };
 
   // Dynamic SEO Synchronization
-  useEffect(() => {
-    if (!book) return;
-    const pageTitle = `${book.title} — ${book.author} | Wotho Livros`;
-    document.title = pageTitle;
-    const desc = book.description || `Leia "${book.title}" por ${book.author} online no navegador na Wotho.`;
-    const metaDesc = document.querySelector('meta[name="description"]');
-    if (metaDesc) metaDesc.setAttribute("content", desc);
-    const ogTitle = document.querySelector('meta[property="og:title"]');
-    if (ogTitle) ogTitle.setAttribute("content", pageTitle);
-    const ogDesc = document.querySelector('meta[property="og:description"]');
-    if (ogDesc) ogDesc.setAttribute("content", desc);
-    const twTitle = document.querySelector('meta[name="twitter:title"]');
-    if (twTitle) twTitle.setAttribute("content", pageTitle);
-    const twDesc = document.querySelector('meta[name="twitter:description"]');
-    if (twDesc) twDesc.setAttribute("content", desc);
-  }, [book]);
+  usePageSeo(
+    book
+      ? {
+          title: `${book.title} — ${book.author} | Wotho Livros`,
+          description:
+            book.description ||
+            `Leia "${book.title}" por ${book.author} online diretamente no navegador na Wotho.`,
+          canonicalPath: `/livros/${book.id}`,
+          ogType: "book",
+          ogImage: book.cover_url || `${CANONICAL_BASE_URL}/og-image.jpg`,
+          ogImageAlt: `${book.title} — ${book.author}`,
+          jsonLd: [
+            {
+              "@context": "https://schema.org",
+              "@type": String(book.id).startsWith("sci-") ? "ScholarlyArticle" : "Book",
+              name: book.title,
+              author: {
+                "@type": "Person",
+                name: book.author,
+              },
+              description: book.description,
+              image: book.cover_url || `${CANONICAL_BASE_URL}/og-image.jpg`,
+              inLanguage: "pt-BR",
+              url: `${CANONICAL_BASE_URL}/livros/${book.id}`,
+              ...(book.category ? { genre: book.category } : {}),
+              publisher: {
+                "@type": "Organization",
+                name: "Wotho",
+              },
+            },
+            buildBreadcrumbSchema([
+              { name: "Wotho", path: "/" },
+              { name: "Livros", path: "/livros" },
+              { name: book.title, path: `/livros/${book.id}` },
+            ]),
+          ],
+        }
+      : null
+  );
 
   const originalPdf = useMemo(() => (id ? getOriginalPdfForBook(id) : undefined), [id]);
 
@@ -493,30 +517,6 @@ const BookDetail = () => {
         onOpenChange={setIsShareOpen}
         title={`${book.title} — ${book.author} | Wotho Livros`}
         text={book.description || `Confira a obra "${book.title}" para leitura online na Wotho.`}
-      />
-
-      {/* Schema.org Book Structured Data */}
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{
-          __html: JSON.stringify({
-            "@context": "https://schema.org",
-            "@type": "Book",
-            name: book.title,
-            author: {
-              "@type": "Person",
-              name: book.author,
-            },
-            description: book.description,
-            image: book.cover_url || "https://wotho.vercel.app/og-image.jpg",
-            inLanguage: "pt-BR",
-            url: `https://wotho.vercel.app${window.location.pathname}`,
-            publisher: {
-              "@type": "Organization",
-              name: "Wotho",
-            },
-          }),
-        }}
       />
 
       <Footer />

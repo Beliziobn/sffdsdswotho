@@ -5,8 +5,59 @@
 
 User-agent: Googlebot
 Allow: /
+Allow: /api/sitemap.xml
+Disallow: /api/
+Disallow: /admin
+Disallow: /auth
+Disallow: /perfil
+Disallow: /meu-perfil
+Disallow: /redefinir-senha
+Disallow: /compra/
+Disallow: /biblioteca
+Disallow: /continuar-lendo
+Disallow: /para-voce
+Disallow: /buscar
+
+User-agent: Googlebot-Image
+Allow: /
+
+User-agent: Googlebot-News
+Allow: /noticias
+Allow: /news-sitemap.xml
+
+User-agent: Googlebot-Video
+Allow: /cinema
+Allow: /animes
+
+User-agent: AdsBot-Google
+Allow: /
+
+User-agent: APIs-Google
+Allow: /
+
+User-agent: Bingbot
+Allow: /
+Disallow: /api/
+Disallow: /admin
+Disallow: /auth
+Disallow: /perfil
+Disallow: /meu-perfil
+Disallow: /compra/
 
 User-agent: *
 Allow: /
+Disallow: /api/
+Disallow: /admin
+Disallow: /auth
+Disallow: /perfil
+Disallow: /meu-perfil
+Disallow: /redefinir-senha
+Disallow: /compra/
+Disallow: /biblioteca
+Disallow: /continuar-lendo
+Disallow: /para-voce
+Disallow: /buscar
 
 Sitemap: https://wotho.vercel.app/sitemap.xml
+Sitemap: https://wotho.vercel.app/sitemap-index.xml
+Sitemap: https://wotho.vercel.app/news-sitemap.xml

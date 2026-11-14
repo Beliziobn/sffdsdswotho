@@ -27,6 +27,15 @@ import {
   handleAdminSessionRequest,
   handleAdminLogoutRequest,
 } from './_adminHandler.js';
+import { handleSeoPrerenderRequest } from './_seoPrerender.js';
+import {
+  buildSitemapXml,
+  buildSitemapIndexXml,
+  buildSubSitemapXml,
+  buildNewsSitemapXml,
+  buildRssXml,
+  loadSeoCatalog,
+} from '../scripts/generate_sitemap.js';
 
 export default async function handler(req: any, res: any) {
   // Global CORS & preflight
@@ -115,6 +124,11 @@ export default async function handler(req: any, res: any) {
     case '/api/books/chapters':
       return handleBooksChaptersRequest(req, res);
 
+    // Googlebot & Social Crawler Prerender
+    case '/api/seo-prerender':
+    case '/seo-prerender':
+      return handleSeoPrerenderRequest(req, res);
+
     // Sitemaps & Feeds
     case '/api/sitemap.xml':
     case '/sitemap.xml': {
@@ -122,12 +136,92 @@ export default async function handler(req: any, res: any) {
       res.setHeader('Content-Type', 'application/xml; charset=utf-8');
       res.setHeader('Cache-Control', 'public, max-age=3600, s-maxage=3600');
       try {
-        const { buildSitemapXml } = await import('../scripts/generate_sitemap.js');
         const { xml } = buildSitemapXml('https://wotho.vercel.app');
         res.end(xml);
       } catch {
         res.end('<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n  <url><loc>https://wotho.vercel.app/</loc></url>\n</urlset>');
       }
+      return;
+    }
+
+    case '/api/sitemap-index.xml':
+    case '/sitemap-index.xml': {
+      res.statusCode = 200;
+      res.setHeader('Content-Type', 'application/xml; charset=utf-8');
+      res.setHeader('Cache-Control', 'public, max-age=3600, s-maxage=3600');
+      const { xml } = buildSitemapIndexXml('https://wotho.vercel.app');
+      res.end(xml);
+      return;
+    }
+
+    case '/api/news-sitemap.xml':
+    case '/news-sitemap.xml': {
+      res.statusCode = 200;
+      res.setHeader('Content-Type', 'application/xml; charset=utf-8');
+      res.setHeader('Cache-Control', 'public, max-age=1800, s-maxage=1800');
+      const { xml } = buildNewsSitemapXml('https://wotho.vercel.app');
+      res.end(xml);
+      return;
+    }
+
+    case '/api/rss.xml':
+    case '/rss.xml':
+    case '/api/feed.xml':
+    case '/feed.xml': {
+      res.statusCode = 200;
+      res.setHeader('Content-Type', 'application/rss+xml; charset=utf-8');
+      res.setHeader('Cache-Control', 'public, max-age=1800, s-maxage=1800');
+      const { xml } = buildRssXml('https://wotho.vercel.app');
+      res.end(xml);
+      return;
+    }
+
+    case '/api/sitemap-pages.xml':
+    case '/sitemap-pages.xml':
+    case '/api/sitemap-books.xml':
+    case '/sitemap-books.xml':
+    case '/api/sitemap-cinema.xml':
+    case '/sitemap-cinema.xml':
+    case '/api/sitemap-animes.xml':
+    case '/sitemap-animes.xml':
+    case '/api/sitemap-webtoons.xml':
+    case '/sitemap-webtoons.xml':
+    case '/api/sitemap-news.xml':
+    case '/sitemap-news.xml': {
+      res.statusCode = 200;
+      res.setHeader('Content-Type', 'application/xml; charset=utf-8');
+      res.setHeader('Cache-Control', 'public, max-age=3600, s-maxage=3600');
+      const sectionName = pathname.replace(/^\/api\//, '/').replace(/^\//, '');
+      const { xml } = buildSubSitemapXml(sectionName, 'https://wotho.vercel.app');
+      res.end(xml);
+      return;
+    }
+
+    case '/api/seo/status': {
+      const cat = loadSeoCatalog();
+      res.statusCode = 200;
+      res.setHeader('Content-Type', 'application/json; charset=utf-8');
+      res.setHeader('Cache-Control', 'public, max-age=300');
+      res.end(
+        JSON.stringify({
+          ok: true,
+          domain: 'https://wotho.vercel.app',
+          generatedAt: cat.generatedAt,
+          counts: {
+            books: cat.books?.length || 0,
+            cinema: cat.cinema?.length || 0,
+            animes: cat.animes?.length || 0,
+            webtoons: cat.webtoons?.length || 0,
+            news: cat.news?.length || 0,
+          },
+          sitemaps: [
+            'https://wotho.vercel.app/sitemap.xml',
+            'https://wotho.vercel.app/sitemap-index.xml',
+            'https://wotho.vercel.app/news-sitemap.xml',
+            'https://wotho.vercel.app/rss.xml',
+          ],
+        })
+      );
       return;
     }
 

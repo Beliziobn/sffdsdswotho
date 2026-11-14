@@ -38,6 +38,7 @@ import { useContentProtection } from "@/hooks/useContentProtection";
 import { usePlayerAdBlock } from "@/hooks/usePlayerAdBlock";
 import { downloadRealCinemaVideo } from "@/lib/mediaDownloaders";
 import { toast } from "sonner";
+import { CANONICAL_BASE_URL, buildBreadcrumbSchema, usePageSeo } from "@/lib/seo";
 
 export default function CinemaDetail() {
   const { id } = useParams<{ id: string }>();
@@ -74,6 +75,58 @@ export default function CinemaDetail() {
     setCinemaLanguagePreference(lang);
   };
 
+  usePageSeo(
+    item
+      ? {
+          title: `${item.title} (${item.year}) — Cinema & Séries Wotho`,
+          description:
+            item.synopsis ||
+            `Assista ${item.title} (${item.year}) em alta definição com áudio dublado PT-BR e legendas na Wotho.`,
+          canonicalPath: `/cinema/${item.id}`,
+          ogType: item.type === "serie" ? "video.tv_show" : "video.movie",
+          ogImage: item.posterUrl || item.backdropUrl || `${CANONICAL_BASE_URL}/og-image.jpg`,
+          ogImageAlt: `${item.title} (${item.year})`,
+          jsonLd: [
+            {
+              "@context": "https://schema.org",
+              "@type": item.type === "serie" ? "TVSeries" : "Movie",
+              name: item.title,
+              alternateName: item.originalTitle || undefined,
+              description: item.synopsis,
+              image: item.posterUrl || item.backdropUrl || `${CANONICAL_BASE_URL}/og-image.jpg`,
+              datePublished: String(item.year),
+              inLanguage: "pt-BR",
+              url: `${CANONICAL_BASE_URL}/cinema/${item.id}`,
+              genre: item.genres,
+              ...(item.director ? { director: { "@type": "Person", name: item.director } } : {}),
+              ...(Array.isArray(item.cast) && item.cast.length > 0
+                ? { actor: item.cast.slice(0, 6).map((name) => ({ "@type": "Person", name })) }
+                : {}),
+              ...(item.rating
+                ? {
+                    aggregateRating: {
+                      "@type": "AggregateRating",
+                      ratingValue: item.rating,
+                      bestRating: 10,
+                      ratingCount: item.ratingCount || 500,
+                    },
+                  }
+                : {}),
+              publisher: {
+                "@type": "Organization",
+                name: "Wotho",
+              },
+            },
+            buildBreadcrumbSchema([
+              { name: "Wotho", path: "/" },
+              { name: "Cinema & Séries", path: "/cinema" },
+              { name: item.title, path: `/cinema/${item.id}` },
+            ]),
+          ],
+        }
+      : null
+  );
+
   useEffect(() => {
     if (!id) return;
     const found = getCinemaById(id);
@@ -88,21 +141,6 @@ export default function CinemaDetail() {
       } else {
         setSelectedEpisodeNumber(1);
       }
-      const pageTitle = `${found.title} (${found.year}) — Cinema Wotho`;
-      document.title = pageTitle;
-      const desc =
-        found.synopsis ||
-        `Assista ${found.title} (${found.year}) em alta definição na Wotho.`;
-      const metaDesc = document.querySelector('meta[name="description"]');
-      if (metaDesc) metaDesc.setAttribute("content", desc);
-      const ogTitle = document.querySelector('meta[property="og:title"]');
-      if (ogTitle) ogTitle.setAttribute("content", pageTitle);
-      const ogDesc = document.querySelector('meta[property="og:description"]');
-      if (ogDesc) ogDesc.setAttribute("content", desc);
-      const twTitle = document.querySelector('meta[name="twitter:title"]');
-      if (twTitle) twTitle.setAttribute("content", pageTitle);
-      const twDesc = document.querySelector('meta[name="twitter:description"]');
-      if (twDesc) twDesc.setAttribute("content", desc);
       window.scrollTo(0, 0);
     } else {
       setItem(null);

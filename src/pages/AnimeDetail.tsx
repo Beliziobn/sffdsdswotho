@@ -36,6 +36,7 @@ import {
 import { downloadRealAnimeEpisode, downloadRealMangaChapter } from "@/lib/mediaDownloaders";
 import { toast } from "sonner";
 import ShareDialog from "@/components/ShareDialog";
+import { CANONICAL_BASE_URL, buildBreadcrumbSchema, usePageSeo } from "@/lib/seo";
 
 export const AnimeDetail = () => {
   useContentProtection();
@@ -59,22 +60,56 @@ export const AnimeDetail = () => {
   const [downloadingKey, setDownloadingKey] = useState<string | null>(null);
 
   // Dynamic SEO Synchronization
-  useEffect(() => {
-    if (!anime) return;
-    const pageTitle = `${anime.title} — Streaming de Anime & Mangá | Wotho`;
-    document.title = pageTitle;
-    const desc = anime.synopsis || `Assista ${anime.title} e leia mangás vinculados na plataforma Wotho.`;
-    const metaDesc = document.querySelector('meta[name="description"]');
-    if (metaDesc) metaDesc.setAttribute("content", desc);
-    const ogTitle = document.querySelector('meta[property="og:title"]');
-    if (ogTitle) ogTitle.setAttribute("content", pageTitle);
-    const ogDesc = document.querySelector('meta[property="og:description"]');
-    if (ogDesc) ogDesc.setAttribute("content", desc);
-    const twTitle = document.querySelector('meta[name="twitter:title"]');
-    if (twTitle) twTitle.setAttribute("content", pageTitle);
-    const twDesc = document.querySelector('meta[name="twitter:description"]');
-    if (twDesc) twDesc.setAttribute("content", desc);
-  }, [anime]);
+  usePageSeo(
+    anime
+      ? {
+          title: `${anime.title} — Streaming de Anime & Mangá | Wotho`,
+          description:
+            anime.synopsis ||
+            `Assista ${anime.title} e leia mangás vinculados na plataforma Wotho.`,
+          canonicalPath: `/animes/${anime.id}`,
+          ogType: "video.tv_show",
+          ogImage: anime.cover || anime.banner || `${CANONICAL_BASE_URL}/og-image.jpg`,
+          ogImageAlt: anime.title,
+          jsonLd: [
+            {
+              "@context": "https://schema.org",
+              "@type": "TVSeries",
+              name: anime.title,
+              alternateName: anime.japaneseTitle || undefined,
+              description: anime.synopsis,
+              image: anime.cover || anime.banner || `${CANONICAL_BASE_URL}/og-image.jpg`,
+              inLanguage: "pt-BR",
+              url: `${CANONICAL_BASE_URL}/animes/${anime.id}`,
+              genre: anime.genres,
+              numberOfEpisodes: anime.episodesCount,
+              ...(anime.studio
+                ? { productionCompany: { "@type": "Organization", name: anime.studio } }
+                : {}),
+              ...(anime.rating
+                ? {
+                    aggregateRating: {
+                      "@type": "AggregateRating",
+                      ratingValue: anime.rating,
+                      bestRating: 10,
+                      ratingCount: anime.ratingCount || 1000,
+                    },
+                  }
+                : {}),
+              publisher: {
+                "@type": "Organization",
+                name: "Wotho",
+              },
+            },
+            buildBreadcrumbSchema([
+              { name: "Wotho", path: "/" },
+              { name: "Animes", path: "/animes" },
+              { name: anime.title, path: `/animes/${anime.id}` },
+            ]),
+          ],
+        }
+      : null
+  );
 
   // MangaDex & Multi-Source Live Chapter State
   const [onlineChapters, setOnlineChapters] = useState<MangaDexChapter[]>([]);
@@ -1069,27 +1104,6 @@ export const AnimeDetail = () => {
         onOpenChange={setIsShareModalOpen}
         title={`${anime.title} — Streaming de Anime & Mangá | Wotho`}
         text={anime.synopsis || `Assista ${anime.title} na plataforma Wotho.`}
-      />
-
-      {/* Schema.org TVSeries Structured Data */}
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{
-          __html: JSON.stringify({
-            "@context": "https://schema.org",
-            "@type": "TVSeries",
-            name: anime.title,
-            description: anime.synopsis,
-            image: anime.cover || anime.banner || "https://wotho.vercel.app/og-image.jpg",
-            inLanguage: "pt-BR",
-            url: `https://wotho.vercel.app${window.location.pathname}`,
-            genre: anime.genres,
-            publisher: {
-              "@type": "Organization",
-              name: "Wotho",
-            },
-          }),
-        }}
       />
 
       <Footer />

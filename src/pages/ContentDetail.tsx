@@ -15,6 +15,7 @@ import { getOriginalPdfForBook } from "@/lib/originalPdfRegistry";
 import { downloadRealBook } from "@/lib/mediaDownloaders";
 import { CommunityReviews } from "@/components/CommunityReviews";
 import { ContentDetailSkeleton } from "@/components/skeletons/AppSkeletons";
+import { CANONICAL_BASE_URL, buildBreadcrumbSchema, usePageSeo } from "@/lib/seo";
 
 const ContentDetail = () => {
   const { id } = useParams();
@@ -34,6 +35,40 @@ const ContentDetail = () => {
     if (id) track(id, "view");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
+
+  usePageSeo(
+    item
+      ? {
+          title: `${item.title} — ${item.author} | Wotho`,
+          description:
+            item.description ||
+            `Leia "${item.title}" por ${item.author} online diretamente no navegador na Wotho.`,
+          canonicalPath: `/conteudo/${item.id}`,
+          ogType: item.type === "academic" ? "article" : "book",
+          ogImage: item.cover || `${CANONICAL_BASE_URL}/og-image.jpg`,
+          ogImageAlt: `${item.title} — ${item.author}`,
+          jsonLd: [
+            {
+              "@context": "https://schema.org",
+              "@type": item.type === "academic" ? "ScholarlyArticle" : "Book",
+              name: item.title,
+              author: { "@type": "Person", name: item.author || "Wotho" },
+              description: item.description,
+              image: item.cover || `${CANONICAL_BASE_URL}/og-image.jpg`,
+              inLanguage: "pt-BR",
+              url: `${CANONICAL_BASE_URL}/conteudo/${item.id}`,
+              genre: item.category,
+              publisher: { "@type": "Organization", name: "Wotho" },
+            },
+            buildBreadcrumbSchema([
+              { name: "Wotho", path: "/" },
+              { name: "Livros & Acervo", path: "/livros" },
+              { name: item.title, path: `/conteudo/${item.id}` },
+            ]),
+          ],
+        }
+      : null
+  );
 
   if (isLoading) {
     return (

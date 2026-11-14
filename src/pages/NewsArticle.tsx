@@ -21,6 +21,7 @@ import { expandNewsToDeepReport, organizeIntoReadableParagraphs, EnrichedNews } 
 import { getSmartNewsCover } from "@/lib/newsImageResolver";
 import ShareDialog from "@/components/ShareDialog";
 import { NewsArticleSkeleton } from "@/components/skeletons/AppSkeletons";
+import { CANONICAL_BASE_URL, buildBreadcrumbSchema, usePageSeo } from "@/lib/seo";
 
 const NewsArticle = () => {
   const { slug } = useParams();
@@ -41,28 +42,64 @@ const NewsArticle = () => {
     return expandNewsToDeepReport(rawArticle);
   }, [rawArticle]);
 
-  // Synchronize document title and OpenGraph metadata dynamically
+  const resolvedCoverImage = article
+    ? liveCover ||
+      getSmartNewsCover(article.title, article.category, article.cover_url || undefined)
+    : undefined;
+
+  usePageSeo(
+    article
+      ? {
+          title: `${article.title} — Wotho Notícias`,
+          description: article.excerpt || article.title,
+          canonicalPath: `/noticias/${article.slug}`,
+          ogType: "article",
+          ogImage: resolvedCoverImage || `${CANONICAL_BASE_URL}/og-image.jpg`,
+          ogImageAlt: article.title,
+          articlePublishedTime: article.published_at || undefined,
+          articleSection: article.category || "Notícias",
+          jsonLd: [
+            {
+              "@context": "https://schema.org",
+              "@type": "NewsArticle",
+              headline: article.title,
+              image: [resolvedCoverImage || `${CANONICAL_BASE_URL}/og-image.jpg`],
+              datePublished: article.published_at,
+              dateModified: article.published_at,
+              articleSection: article.category || "Notícias",
+              author: [
+                {
+                  "@type": "Organization",
+                  name: article.source_name || "Redação Wotho",
+                },
+              ],
+              publisher: {
+                "@type": "Organization",
+                name: "Wotho",
+                logo: {
+                  "@type": "ImageObject",
+                  url: `${CANONICAL_BASE_URL}/favicon-512x512.png`,
+                },
+              },
+              description: article.excerpt || article.title,
+              mainEntityOfPage: {
+                "@type": "WebPage",
+                "@id": `${CANONICAL_BASE_URL}/noticias/${article.slug}`,
+              },
+            },
+            buildBreadcrumbSchema([
+              { name: "Wotho", path: "/" },
+              { name: "Notícias", path: "/noticias" },
+              { name: article.title, path: `/noticias/${article.slug}` },
+            ]),
+          ],
+        }
+      : null
+  );
+
+  // Record reading history when opening article
   useEffect(() => {
     if (!article) return;
-    const pageTitle = `${article.title} — Wotho Notícias`;
-    document.title = pageTitle;
-
-    const desc = article.excerpt || article.title;
-    const metaDesc = document.querySelector('meta[name="description"]');
-    if (metaDesc) metaDesc.setAttribute("content", desc);
-
-    const ogTitle = document.querySelector('meta[property="og:title"]');
-    if (ogTitle) ogTitle.setAttribute("content", pageTitle);
-
-    const ogDesc = document.querySelector('meta[property="og:description"]');
-    if (ogDesc) ogDesc.setAttribute("content", desc);
-
-    const twTitle = document.querySelector('meta[name="twitter:title"]');
-    if (twTitle) twTitle.setAttribute("content", pageTitle);
-
-    const twDesc = document.querySelector('meta[name="twitter:description"]');
-    if (twDesc) twDesc.setAttribute("content", desc);
-
     import("@/lib/userProfileStore").then(({ recordUserHistory }) => {
       recordUserHistory({
         itemId: article.slug || article.id,
@@ -452,44 +489,6 @@ const NewsArticle = () => {
         onOpenChange={setIsShareModalOpen}
         title={article.title}
         text={article.excerpt || "Leia esta reportagem completa na Wotho:"}
-      />
-
-      {/* Schema.org NewsArticle Structured Data */}
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{
-          __html: JSON.stringify({
-            "@context": "https://schema.org",
-            "@type": "NewsArticle",
-            headline: article.title,
-            image: [
-              liveCover ||
-                article.cover_url ||
-                "https://wotho.vercel.app/og-image.jpg",
-            ],
-            datePublished: article.published_at,
-            dateModified: article.published_at,
-            author: [
-              {
-                "@type": "Organization",
-                name: "Redação Wotho",
-              },
-            ],
-            publisher: {
-              "@type": "Organization",
-              name: "Wotho",
-              logo: {
-                "@type": "ImageObject",
-                url: "https://wotho.vercel.app/favicon-512x512.png",
-              },
-            },
-            description: article.excerpt || article.title,
-            mainEntityOfPage: {
-              "@type": "WebPage",
-              "@id": `https://wotho.vercel.app${window.location.pathname}`,
-            },
-          }),
-        }}
       />
 
       <Footer />

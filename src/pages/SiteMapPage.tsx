@@ -261,7 +261,15 @@ const SiteMapPage = () => {
             <ShieldCheck className="h-4 w-4 text-primary" />
             Padrão de Indexação e Protocolo Sitemaps
           </div>
-          Todas as URLs deste índice correspondem a rotas canônicas verificadas, com metadados sincronizados, links diretos e suporte a leitura instantânea no navegador. O arquivo XML canônico correspondente é gerado dinamicamente em conformidade com as diretrizes do Google Search Console.
+          <p>
+            Todas as URLs deste índice correspondem a rotas canônicas verificadas, com metadados sincronizados, links diretos e suporte a leitura instantânea no navegador. Os arquivos XML canônicos são gerados em conformidade com as diretrizes do Google Search Console.
+          </p>
+          <div className="flex flex-wrap gap-4 mt-3 text-[11px] font-mono">
+            <a href="/sitemap.xml" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">/sitemap.xml</a>
+            <a href="/sitemap-index.xml" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">/sitemap-index.xml</a>
+            <a href="/news-sitemap.xml" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">/news-sitemap.xml</a>
+            <a href="/rss.xml" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">/rss.xml</a>
+          </div>
         </div>
       </main>
 

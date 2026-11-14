@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
+  <url>
+    <loc>https://wotho.vercel.app/</loc>
+    <lastmod>2026-11-14</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>1.0</priority>
+    <image:image>
+      <image:loc>https://wotho.vercel.app/og-image.jpg</image:loc>
+      <image:title>Wotho — Livros Digitais, Notícias Globais, Streaming e Webtoons</image:title>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://wotho.vercel.app/livros</loc>
+    <lastmod>2026-11-14</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.9</priority>
+    <image:image>
+      <image:loc>https://wotho.vercel.app/og-image.jpg</image:loc>
+      <image:title>Biblioteca de Livros Digitais no Navegador — Wotho</image:title>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://wotho.vercel.app/noticias</loc>
+    <lastmod>2026-11-14</lastmod>
+    <changefreq>hourly</changefreq>
+    <priority>0.9</priority>
+    <image:image>
+      <image:loc>https://wotho.vercel.app/og-image.jpg</image:loc>
+      <image:title>Notícias Globais em Tempo Real — Wotho</image:title>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://wotho.vercel.app/cinema</loc>
+    <lastmod>2026-11-14</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.9</priority>
+    <image:image>
+      <image:loc>https://wotho.vercel.app/og-image.jpg</image:loc>
+      <image:title>Cinema &amp; Séries em Streaming HD — Wotho</image:title>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://wotho.vercel.app/animes</loc>
+    <lastmod>2026-11-14</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.9</priority>
+    <image:image>
+      <image:loc>https://wotho.vercel.app/og-image.jpg</image:loc>
+      <image:title>Animes e Mangás em Streaming — Wotho</image:title>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://wotho.vercel.app/webtoons</loc>
+    <lastmod>2026-11-14</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.9</priority>
+    <image:image>
+      <image:loc>https://wotho.vercel.app/og-image.jpg</image:loc>
+      <image:title>Webtoons &amp; Quadrinhos em Leitura Vertical — Wotho</image:title>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://wotho.vercel.app/sobre</loc>
+    <lastmod>2026-11-14</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+    <image:image>
+      <image:loc>https://wotho.vercel.app/og-image.jpg</image:loc>
+      <image:title>Sobre a Wotho — Plataforma de Cultura, Streaming e Leitura</image:title>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://wotho.vercel.app/contato</loc>
+    <lastmod>2026-11-14</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+    <image:image>
+      <image:loc>https://wotho.vercel.app/og-image.jpg</image:loc>
+      <image:title>Contato e Atendimento — Wotho</image:title>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://wotho.vercel.app/mapa-do-site</loc>
+    <lastmod>2026-11-14</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.6</priority>
+    <image:image>
+      <image:loc>https://wotho.vercel.app/og-image.jpg</image:loc>
+      <image:title>Mapa do Site (Sitemap) — Wotho</image:title>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://wotho.vercel.app/termos</loc>
+    <lastmod>2026-11-14</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.4</priority>
+    <image:image>
+      <image:loc>https://wotho.vercel.app/og-image.jpg</image:loc>
+      <image:title>Termos de Uso — Wotho</image:title>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://wotho.vercel.app/privacidade</loc>
+    <lastmod>2026-11-14</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.4</priority>
+    <image:image>
+      <image:loc>https://wotho.vercel.app/og-image.jpg</image:loc>
+      <image:title>Política de Privacidade — Wotho</image:title>
+    </image:image>
+  </url>
+</urlset>

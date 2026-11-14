@@ -1,0 +1,394 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
+  <url>
+    <loc>https://wotho.vercel.app/animes/solo-leveling</loc>
+    <lastmod>2026-11-14</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+    <image:image>
+      <image:loc>https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx176496-9BDMjAZGEbq4.png</image:loc>
+      <image:title>Solo Leveling: Arise from the Shadow</image:title>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://wotho.vercel.app/animes/frieren-beyond-journeys-end</loc>
+    <lastmod>2026-11-14</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+    <image:image>
+      <image:loc>https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx154587-qQTzQnEJJ3oB.jpg</image:loc>
+      <image:title>Frieren e a Jornada Para o Além</image:title>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://wotho.vercel.app/animes/orb-movements-of-the-earth</loc>
+    <lastmod>2026-11-14</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+    <image:image>
+      <image:loc>https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx151514-Y0d82Ah2ZOHX.jpg</image:loc>
+      <image:title>Orb: Sobre os Movimentos da Terra (Chi.)</image:title>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://wotho.vercel.app/animes/dandadan</loc>
+    <lastmod>2026-11-14</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+    <image:image>
+      <image:loc>https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx171018-60q1B6GK2Ghb.jpg</image:loc>
+      <image:title>DAN DA DAN</image:title>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://wotho.vercel.app/animes/attack-on-titan</loc>
+    <lastmod>2026-11-14</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+    <image:image>
+      <image:loc>https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx110277-sKUNXAsWMNFw.jpg</image:loc>
+      <image:title>Attack on Titan (Shingeki no Kyojin)</image:title>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://wotho.vercel.app/animes/vinland-saga</loc>
+    <lastmod>2026-11-14</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+    <image:image>
+      <image:loc>https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx136430-gsBsJjA7hGh9.jpg</image:loc>
+      <image:title>Vinland Saga</image:title>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://wotho.vercel.app/animes/demon-slayer-infinity-castle</loc>
+    <lastmod>2026-11-14</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+    <image:image>
+      <image:loc>https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx101922-WBsBl0ClmgYL.jpg</image:loc>
+      <image:title>Demon Slayer: Kimetsu no Yaiba</image:title>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://wotho.vercel.app/animes/jujutsu-kaisen-culling-game</loc>
+    <lastmod>2026-11-14</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+    <image:image>
+      <image:loc>https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx145064-hSNRJM03pvv1.jpg</image:loc>
+      <image:title>Jujutsu Kaisen: Shibuya &amp; Jogo do Abate</image:title>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://wotho.vercel.app/animes/bleach-tybw</loc>
+    <lastmod>2026-11-14</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+    <image:image>
+      <image:loc>https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx169755-Rqb7MjnzdTc6.jpg</image:loc>
+      <image:title>Bleach: Thousand-Year Blood War</image:title>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://wotho.vercel.app/animes/monster</loc>
+    <lastmod>2026-11-14</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+    <image:image>
+      <image:loc>https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx19-gtMC64182sm4.jpg</image:loc>
+      <image:title>Monster (Naoki Urasawa&apos;s Monster)</image:title>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://wotho.vercel.app/animes/apothecary-diaries</loc>
+    <lastmod>2026-11-14</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+    <image:image>
+      <image:loc>https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx176301-TIGmldLffQGX.jpg</image:loc>
+      <image:title>Diários de uma Apotecária (Kusuriya no Hitorigoto)</image:title>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://wotho.vercel.app/animes/re-zero</loc>
+    <lastmod>2026-11-14</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+    <image:image>
+      <image:loc>https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx163134-yieRFbvUOH9a.jpg</image:loc>
+      <image:title>Re:ZERO — Começando uma Vida em Outro Mundo</image:title>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://wotho.vercel.app/animes/kaiju-no-8</loc>
+    <lastmod>2026-11-14</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+    <image:image>
+      <image:loc>https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx178754-Dgrub8xgC03M.jpg</image:loc>
+      <image:title>Kaiju No. 8</image:title>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://wotho.vercel.app/animes/chainsaw-man</loc>
+    <lastmod>2026-11-14</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+    <image:image>
+      <image:loc>https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx127230-DdP4vAdssLoz.png</image:loc>
+      <image:title>Chainsaw Man &amp; Arco da Reze</image:title>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://wotho.vercel.app/animes/oshi-no-ko</loc>
+    <lastmod>2026-11-14</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+    <image:image>
+      <image:loc>https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx166531-dAL5MsqDHUkj.jpg</image:loc>
+      <image:title>[OSHI NO KO]: Minha Estrela Favorita</image:title>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://wotho.vercel.app/animes/blue-lock</loc>
+    <lastmod>2026-11-14</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+    <image:image>
+      <image:loc>https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx163146-BVZPgyzkqi82.png</image:loc>
+      <image:title>BLUE LOCK: Vs. U-20 Japan</image:title>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://wotho.vercel.app/animes/cyberpunk-edgerunners</loc>
+    <lastmod>2026-11-14</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+    <image:image>
+      <image:loc>https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx120377-ayZPoxiWt4Li.jpg</image:loc>
+      <image:title>Cyberpunk: Edgerunners</image:title>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://wotho.vercel.app/animes/dungeon-meshi</loc>
+    <lastmod>2026-11-14</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+    <image:image>
+      <image:loc>https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx153518-IVXPDY5ph3kO.jpg</image:loc>
+      <image:title>Dungeon Meshi (Delicious in Dungeon)</image:title>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://wotho.vercel.app/animes/spy-x-family</loc>
+    <lastmod>2026-11-14</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+    <image:image>
+      <image:loc>https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx140960-Kb6R5nYQfjmP.jpg</image:loc>
+      <image:title>SPY x FAMILY</image:title>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://wotho.vercel.app/animes/tower-of-god</loc>
+    <lastmod>2026-11-14</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+    <image:image>
+      <image:loc>https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx153406-dU2RLKgMUF2U.jpg</image:loc>
+      <image:title>Tower of God: O Retorno do Príncipe &amp; Batalha da Oficina</image:title>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://wotho.vercel.app/animes/black-clover</loc>
+    <lastmod>2026-11-14</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+    <image:image>
+      <image:loc>https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx97940-fyh8o7gNbha0.png</image:loc>
+      <image:title>Black Clover: A Saga Completa dos Cavaleiros Mágicos</image:title>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://wotho.vercel.app/animes/jojos-bizarre-adventure</loc>
+    <lastmod>2026-11-14</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+    <image:image>
+      <image:loc>https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx102883-S9KzdMJhDswJ.png</image:loc>
+      <image:title>JoJo&apos;s Bizarre Adventure: Phantom Blood a Stone Ocean</image:title>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://wotho.vercel.app/animes/steel-ball-run</loc>
+    <lastmod>2026-11-14</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+    <image:image>
+      <image:loc>https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx210482-P1VNKbqdJ6Zj.jpg</image:loc>
+      <image:title>STEEL BALL RUN JoJo&apos;s Bizarre Adventure (1st &amp; 2nd Stage)</image:title>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://wotho.vercel.app/animes/dragon-ball</loc>
+    <lastmod>2026-11-14</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+    <image:image>
+      <image:loc>https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx170083-GTwRrhTApcLR.png</image:loc>
+      <image:title>Dragon Ball: Clássico, Z, Super &amp; Daima</image:title>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://wotho.vercel.app/animes/naruto</loc>
+    <lastmod>2026-11-14</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+    <image:image>
+      <image:loc>https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx1735-kGfVm0YqCPcu.png</image:loc>
+      <image:title>Naruto Clássico &amp; Naruto Shippuden</image:title>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://wotho.vercel.app/animes/boruto</loc>
+    <lastmod>2026-11-14</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+    <image:image>
+      <image:loc>https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx97938-BnF6M5yTaNB1.jpg</image:loc>
+      <image:title>Boruto: Naruto Next Generations &amp; Two Blue Vortex</image:title>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://wotho.vercel.app/animes/one-piece</loc>
+    <lastmod>2026-11-14</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+    <image:image>
+      <image:loc>https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx21-ELSYx3yMPcKM.jpg</image:loc>
+      <image:title>One Piece: De East Blue a Wano &amp; Egghead</image:title>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://wotho.vercel.app/animes/hunter-x-hunter</loc>
+    <lastmod>2026-11-14</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+    <image:image>
+      <image:loc>https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx11061-y5gsT1hoHuHw.png</image:loc>
+      <image:title>Hunter x Hunter (2011): Sagas Completas</image:title>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://wotho.vercel.app/animes/my-hero-academia</loc>
+    <lastmod>2026-11-14</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+    <image:image>
+      <image:loc>https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx163139-JchZhUFlNTWU.jpg</image:loc>
+      <image:title>My Hero Academia (Boku no Hero Academia)</image:title>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://wotho.vercel.app/animes/death-note</loc>
+    <lastmod>2026-11-14</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+    <image:image>
+      <image:loc>https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx1535-kUgkcrfOrkUM.jpg</image:loc>
+      <image:title>Death Note: O Duelo entre Kira e L</image:title>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://wotho.vercel.app/animes/fullmetal-alchemist-brotherhood</loc>
+    <lastmod>2026-11-14</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+    <image:image>
+      <image:loc>https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx5114-nSWCgQlmOMtj.jpg</image:loc>
+      <image:title>Fullmetal Alchemist: Brotherhood</image:title>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://wotho.vercel.app/animes/sakamoto-days</loc>
+    <lastmod>2026-11-14</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+    <image:image>
+      <image:loc>https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx177709-e5Qx6RlsBgD5.png</image:loc>
+      <image:title>Sakamoto Days</image:title>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://wotho.vercel.app/animes/dr-stone</loc>
+    <lastmod>2026-11-14</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+    <image:image>
+      <image:loc>https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx172019-3cfZbrYBmV23.jpg</image:loc>
+      <image:title>Dr. STONE: Science Future &amp; New World</image:title>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://wotho.vercel.app/animes/mob-psycho-100</loc>
+    <lastmod>2026-11-14</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+    <image:image>
+      <image:loc>https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx140439-bPKmhe1wNxc9.jpg</image:loc>
+      <image:title>Mob Psycho 100: Trilogia Completa</image:title>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://wotho.vercel.app/animes/shangri-la-frontier</loc>
+    <lastmod>2026-11-14</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+    <image:image>
+      <image:loc>https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx151970-xtIx3VqEk02X.jpg</image:loc>
+      <image:title>Shangri-La Frontier: Kusoge Hunter, Kamige ni Idoman to Su</image:title>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://wotho.vercel.app/animes/mashle</loc>
+    <lastmod>2026-11-14</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+    <image:image>
+      <image:loc>https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx151801-XxVf22Le6C8o.png</image:loc>
+      <image:title>Mashle: Magia e Músculos (Exame de Visionário Divino)</image:title>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://wotho.vercel.app/animes/wind-breaker</loc>
+    <lastmod>2026-11-14</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+    <image:image>
+      <image:loc>https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx163270-wboZJp0ybwVK.jpg</image:loc>
+      <image:title>Wind Breaker: Os Protetores de Makochi</image:title>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://wotho.vercel.app/animes/jigokuraku</loc>
+    <lastmod>2026-11-14</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+    <image:image>
+      <image:loc>https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx128893-Gc2t8b8M0mVu.jpg</image:loc>
+      <image:title>Hell&apos;s Paradise: Jigokuraku</image:title>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://wotho.vercel.app/animes/classroom-of-the-elite</loc>
+    <lastmod>2026-11-14</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+    <image:image>
+      <image:loc>https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx98659-WNyPLIZDpGGY.jpg</image:loc>
+      <image:title>Classroom of the Elite: Trilogia Primeiro Ano</image:title>
+    </image:image>
+  </url>
+</urlset>
