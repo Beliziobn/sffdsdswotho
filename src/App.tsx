@@ -125,12 +125,12 @@ const App = () => (
       <Sonner />
       <SpeedInsights />
       <BrowserRouter>
-        <ScrollToTop />
-        <CanonicalManager />
-        <CookieConsent />
-        <TermsGate />
-        <OfflineBanner />
         <AppErrorBoundary>
+          <ScrollToTop />
+          <CanonicalManager />
+          <CookieConsent />
+          <TermsGate />
+          <OfflineBanner />
           <Suspense fallback={<RouteLoadingFallback />}>
           <Routes>
             <Route path="/" element={<Index />} />

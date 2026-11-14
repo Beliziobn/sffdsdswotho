@@ -1,12 +1,20 @@
 <!doctype html>
 <html lang="pt-BR">
   <head>
-    <!-- Google Tag Manager -->
-    <script async src="https://www.googletagmanager.com/gtm.js?id=GTM-W9XSHXQS"></script>
+    <!-- Google Tag Manager (deferred & error-safe so adblockers/preview iframes never block boot) -->
     <script>
       window.dataLayer = window.dataLayer || [];
       function gtag(){dataLayer.push(arguments);}
       gtag('js', new Date());
+      window.addEventListener('load', function () {
+        try {
+          var s = document.createElement('script');
+          s.async = true;
+          s.src = 'https://www.googletagmanager.com/gtm.js?id=GTM-W9XSHXQS';
+          s.onerror = function () {};
+          document.head.appendChild(s);
+        } catch (e) {}
+      });
     </script>
     <meta charset="UTF-8" />
     <meta name="google-site-verification" content="n_nVQKGN9hqwtcg5XjGbYyX8xzfR0aaTIEiLNZuZgwk" />
@@ -259,7 +267,7 @@
         };
 
         if (navigator.onLine === false) {
-          setTimeout(showOfflineState, 1200);
+          setTimeout(showOfflineState, 1500);
         }
 
         window.addEventListener("offline", function () {
@@ -271,8 +279,14 @@
           function (e) {
             if (window.__WOTHO_APP_MOUNTED__) return;
             var target = e && e.target;
-            if (target && (target.tagName === "SCRIPT" || target.tagName === "LINK")) {
-              showOfflineState();
+            if (target && target.tagName === "SCRIPT") {
+              var src = target.getAttribute("src") || target.src || "";
+              var isAppEntry =
+                src.indexOf("/src/main.tsx") !== -1 ||
+                /\/assets\/(index|vendor-react)-[^/]+\.js/.test(src);
+              if (isAppEntry) {
+                setTimeout(showOfflineState, 1500);
+              }
             }
           },
           true

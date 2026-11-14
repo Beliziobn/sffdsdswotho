@@ -38,6 +38,24 @@ function readBrokerReply(data: unknown, requestId: string): BrokerReply | null {
  * On a Lovable preview surface, broker the auth session to the editor over
  * postMessage so the project's preview surfaces share one login; else localStorage.
  */
+const memoryFallbackMap = new Map<string, string>();
+const memoryFallbackStorage: PreviewAuthStorage = {
+  getItem: (key) => memoryFallbackMap.get(key) ?? null,
+  setItem: (key, value) => { memoryFallbackMap.set(key, value); },
+  removeItem: (key) => { memoryFallbackMap.delete(key); },
+};
+
+function getSafeLocalStorage(): PreviewAuthStorage {
+  try {
+    const testKey = '__wotho_storage_probe__';
+    window.localStorage.setItem(testKey, '1');
+    window.localStorage.removeItem(testKey);
+    return window.localStorage;
+  } catch {
+    return memoryFallbackStorage;
+  }
+}
+
 export function brokeredPreviewStorage(): PreviewAuthStorage | undefined {
   if (typeof window === 'undefined') return undefined;
   const host = location.hostname;
@@ -54,7 +72,7 @@ export function brokeredPreviewStorage(): PreviewAuthStorage | undefined {
   // detached frame has no parent and not every browser implements ancestorOrigins.
   const parentWindow = window.parent as Window | null;
   const framed = parentWindow !== null && parentWindow !== window;
-  if (!projectId || !framed) return localStorage;
+  if (!projectId || !framed) return getSafeLocalStorage();
 
   // Post only to the real editor ancestor, validated as a Lovable origin, so the
   // session token can never reach an untrusted embedder.
