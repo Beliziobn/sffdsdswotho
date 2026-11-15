@@ -13,6 +13,9 @@ import {
   Languages,
   RotateCcw,
   Loader2,
+  Check,
+  ChevronDown,
+  Captions,
 } from "lucide-react";
 import { AnimeEpisode, AnimeSeason } from "@/lib/animes";
 import { toast } from "sonner";
@@ -177,12 +180,26 @@ export const SecureAnimePlayer: React.FC<SecureAnimePlayerProps> = ({
   const [candidateIdx, setCandidateIdx] = useState(0);
   const [isResolvingOrion, setIsResolvingOrion] = useState(false);
   const [useEmbedFallback, setUseEmbedFallback] = useState(false);
+  const [isAudioMenuOpen, setIsAudioMenuOpen] = useState(false);
+  const [subtitleTrack, setSubtitleTrack] = useState<"pt-br" | "en" | "off">("pt-br");
 
   const containerRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const hlsInstanceRef = useRef<Hls | null>(null);
+  const audioMenuRef = useRef<HTMLDivElement>(null);
   const savedTimeRef = useRef<number>(0);
   const wasPlayingRef = useRef<boolean>(false);
+
+  useEffect(() => {
+    if (!isAudioMenuOpen) return;
+    const handleOutside = (e: MouseEvent) => {
+      if (audioMenuRef.current && !audioMenuRef.current.contains(e.target as Node)) {
+        setIsAudioMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleOutside);
+    return () => document.removeEventListener("mousedown", handleOutside);
+  }, [isAudioMenuOpen]);
 
   const animeId = episode.animeId || season.animeId;
   const isSteelBallRun = animeId === "steel-ball-run";
@@ -845,53 +862,142 @@ export const SecureAnimePlayer: React.FC<SecureAnimePlayerProps> = ({
     }
   };
 
+  const allAudioOptions = useMemo(() => {
+    const map = new Map<string, AvailableDubOption>();
+    DEFAULT_ANIME_DUB_PRESETS.forEach((p) => map.set(p.id, p));
+    availableDubs.forEach((d) => map.set(d.id, d));
+    return Array.from(map.values());
+  }, [availableDubs]);
+
+  const subtitleLabel =
+    subtitleTrack === "pt-br"
+      ? "Português (PT-BR)"
+      : subtitleTrack === "en"
+      ? "English (CC)"
+      : "Desativadas";
+
   return (
     <div
       ref={containerRef}
-      className="rounded-2xl overflow-hidden border border-neutral-200 bg-white text-neutral-900 shadow-2xl transition-all duration-300 w-full"
+      className="rounded-2xl overflow-hidden border border-border bg-card text-foreground shadow-2xl transition-all duration-300 w-full"
     >
-      {/* Unified Multi-Language Control Header */}
-      <div className="px-4 py-3 bg-white border-b border-neutral-200 flex flex-wrap items-center justify-end gap-2 text-xs">
-        <div className="flex flex-wrap items-center gap-1 bg-neutral-100 border border-neutral-200 rounded-xl p-1">
-          {quickDubPresets.map((preset) => {
-            const isSelected = selectedDubId === preset.id;
-            return (
-              <button
-                key={preset.id}
-                type="button"
-                onClick={() => handleSelectDubOption(preset)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 cursor-pointer ${
-                  isSelected
-                    ? "bg-primary text-white shadow-sm"
-                    : "text-neutral-600 hover:text-neutral-900"
-                }`}
-                title={preset.label}
-              >
-                <span>{preset.shortLabel}</span>
-              </button>
-            );
-          })}
+      {/* Unified Apple TV+-style Audio & Subtitles Control Strip */}
+      <div className="px-4 py-2.5 bg-card border-b border-border flex items-center justify-between gap-3 text-xs">
+        <div className="min-w-0 flex items-center gap-2 text-muted-foreground">
+          <span className="font-semibold text-foreground truncate">
+            T{season.seasonNumber} · Ep. {episode.number}
+          </span>
+          <span aria-hidden="true">·</span>
+          <span className="truncate hidden sm:inline">{episode.title}</span>
+        </div>
 
-          {availableDubs.length > quickDubPresets.length && (
-            <div className="relative inline-flex items-center pl-1 border-l border-neutral-300">
-              <Languages className="h-3.5 w-3.5 text-primary ml-1.5 pointer-events-none" />
-              <select
-                aria-label="Mais idiomas disponíveis"
-                value={selectedDubId}
-                onChange={(e) => {
-                  const found =
-                    availableDubs.find((d) => d.id === e.target.value) ||
-                    DEFAULT_ANIME_DUB_PRESETS.find((d) => d.id === e.target.value);
-                  if (found) handleSelectDubOption(found);
-                }}
-                className="bg-transparent text-neutral-800 hover:text-primary px-2 py-1.5 text-xs font-semibold cursor-pointer focus:outline-none"
-              >
-                {availableDubs.map((dub) => (
-                  <option key={dub.id} value={dub.id} className="bg-white text-neutral-900">
-                    {dub.flag} {dub.label}
-                  </option>
-                ))}
-              </select>
+        {/* Single Unified Audio & Subtitles Popover */}
+        <div ref={audioMenuRef} className="relative shrink-0">
+          <button
+            type="button"
+            onClick={() => setIsAudioMenuOpen((prev) => !prev)}
+            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-secondary hover:bg-accent border border-border text-foreground font-medium transition-colors cursor-pointer whitespace-nowrap"
+            aria-expanded={isAudioMenuOpen}
+            aria-haspopup="menu"
+          >
+            <Languages className="h-3.5 w-3.5 text-primary" />
+            <span>{activeDubObj.shortLabel}</span>
+            <span className="text-muted-foreground hidden sm:inline">
+              · Leg: {subtitleTrack === "off" ? "Off" : subtitleTrack.toUpperCase()}
+            </span>
+            <ChevronDown
+              className={`h-3.5 w-3.5 text-muted-foreground transition-transform ${
+                isAudioMenuOpen ? "rotate-180" : ""
+              }`}
+            />
+          </button>
+
+          {isAudioMenuOpen && (
+            <div
+              role="menu"
+              className="absolute right-0 mt-2 w-[320px] sm:w-[440px] rounded-xl bg-card/95 backdrop-blur-2xl border border-border shadow-2xl p-4 z-40 grid grid-cols-1 sm:grid-cols-2 gap-4"
+            >
+              {/* Column 1: Audio Tracks */}
+              <div>
+                <div className="flex items-center gap-1.5 text-[11px] font-semibold text-muted-foreground mb-2 pb-1.5 border-b border-border">
+                  <Languages className="h-3.5 w-3.5 text-primary" />
+                  <span>Faixa de Áudio</span>
+                </div>
+                <div className="space-y-1 max-h-56 overflow-y-auto pr-1">
+                  {allAudioOptions.map((opt) => {
+                    const isSelected = selectedDubId === opt.id;
+                    return (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        onClick={() => {
+                          handleSelectDubOption(opt);
+                          if (opt.audioMode === "dublado") {
+                            setSubtitleTrack("off");
+                          } else if (subtitleTrack === "off") {
+                            setSubtitleTrack("pt-br");
+                          }
+                          setIsAudioMenuOpen(false);
+                        }}
+                        className={`w-full px-2.5 py-2 rounded-lg text-left text-xs flex items-center justify-between gap-2 transition-colors cursor-pointer ${
+                          isSelected
+                            ? "bg-primary/15 text-primary font-semibold"
+                            : "text-foreground hover:bg-accent"
+                        }`}
+                      >
+                        <span className="truncate">{opt.label}</span>
+                        {isSelected && <Check className="h-3.5 w-3.5 shrink-0" />}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Column 2: Subtitles */}
+              <div>
+                <div className="flex items-center gap-1.5 text-[11px] font-semibold text-muted-foreground mb-2 pb-1.5 border-b border-border">
+                  <Captions className="h-3.5 w-3.5 text-primary" />
+                  <span>Legendas</span>
+                </div>
+                <div className="space-y-1">
+                  {(
+                    [
+                      { id: "pt-br", label: "Português (PT-BR)", targetDubId: "pt:1" },
+                      { id: "en", label: "English (CC)", targetDubId: "ja:0" },
+                      { id: "off", label: "Desativadas", targetDubId: null },
+                    ] as const
+                  ).map((sub) => {
+                    const active = subtitleTrack === sub.id;
+                    return (
+                      <button
+                        key={sub.id}
+                        type="button"
+                        onClick={() => {
+                          setSubtitleTrack(sub.id);
+                          if (sub.targetDubId && selectedDubId !== "ptbr:0") {
+                            const match = allAudioOptions.find((o) => o.id === sub.targetDubId);
+                            if (match) handleSelectDubOption(match);
+                          }
+                          toast.info(`Legendas: ${sub.label}`);
+                          setIsAudioMenuOpen(false);
+                        }}
+                        className={`w-full px-2.5 py-2 rounded-lg text-left text-xs flex items-center justify-between gap-2 transition-colors cursor-pointer ${
+                          active
+                            ? "bg-primary/15 text-primary font-semibold"
+                            : "text-foreground hover:bg-accent"
+                        }`}
+                      >
+                        <span>{sub.label}</span>
+                        {active && <Check className="h-3.5 w-3.5 shrink-0" />}
+                      </button>
+                    );
+                  })}
+                </div>
+                <p className="mt-3 pt-2 border-t border-border/60 text-[10px] text-muted-foreground leading-relaxed">
+                  Áudio ativo: <strong className="text-foreground">{activeDubObj.label}</strong> · Legendas:{" "}
+                  <strong className="text-foreground">{subtitleLabel}</strong>
+                </p>
+              </div>
             </div>
           )}
         </div>
@@ -943,15 +1049,14 @@ export const SecureAnimePlayer: React.FC<SecureAnimePlayerProps> = ({
               className="w-full h-full object-contain bg-black"
             />
 
-            {/* Active Language Status Pill inside Video Stage */}
-            <div className="absolute top-3 left-3 z-20 pointer-events-none">
-              <span className="px-2.5 py-1 rounded-full bg-black/75 border border-white/15 text-[11px] font-medium text-white backdrop-blur-md flex items-center gap-1.5 shadow">
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+            {/* Quiet Active Track Indicator (Appears cleanly on hover) */}
+            <div className="absolute top-3 left-3 z-20 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+              <span className="px-2.5 py-1 rounded-md bg-black/75 border border-white/15 text-[11px] font-medium text-white backdrop-blur-md">
                 {activeStream &&
                 (selectedDubId === "ptbr:0" || selectedDubId === "pt:0") &&
                 activeStream.audioMode !== "dublado"
-                  ? `🇯🇵 ${activeStream.label || "Japonês Original (Sem Dublagem PT-BR)"}`
-                  : `${activeDubObj.flag} ${activeDubObj.label}`}
+                  ? activeStream.label || "Japonês Original (Sem Dublagem PT-BR)"
+                  : activeDubObj.label}
               </span>
             </div>
 

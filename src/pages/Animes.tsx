@@ -1,18 +1,38 @@
 import { useState, useMemo, useEffect } from "react";
+import { Link } from "react-router-dom";
 import Navigation from "@/components/Navigation";
 import Footer from "@/components/Footer";
 import AnimeHero from "@/components/AnimeHero";
 import AnimeCard, { AnimeGrid } from "@/components/AnimeCard";
 import AnimePlayerModal from "@/components/AnimePlayerModal";
+import AnimeSpotlightModal from "@/components/anime/AnimeSpotlightModal";
+import ProtectedImage from "@/components/ProtectedImage";
 import {
   ANIMES_DATA,
   ANIME_GENRES,
   Anime,
   getAnimeWatchlist,
 } from "@/lib/animes";
+import {
+  getPhilosophicalMeta,
+  isOriginalAnimationWork,
+} from "@/lib/canonBridge";
 import { useContentProtection } from "@/hooks/useContentProtection";
-import { Search, Flame, Calendar, Film, Bookmark, Sparkles, Brain, Zap } from "lucide-react";
-import { Link } from "react-router-dom";
+import {
+  Search,
+  Calendar,
+  Film,
+  Bookmark,
+  Brain,
+  ArrowRight,
+  ArrowLeftRight,
+  Star,
+  Bell,
+  BellRing,
+  Command,
+  BookOpen,
+} from "lucide-react";
+import { toast } from "sonner";
 
 const BROADCAST_DAYS = [
   "Segunda",
@@ -24,6 +44,18 @@ const BROADCAST_DAYS = [
   "Domingo",
 ] as const;
 
+const SIMULCAST_REMINDERS_KEY = "wotho_simulcast_reminders";
+
+function getStoredReminders(): string[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = localStorage.getItem(SIMULCAST_REMINDERS_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
 export const Animes = () => {
   useContentProtection();
 
@@ -32,8 +64,10 @@ export const Animes = () => {
     "all" | "recent" | "deep" | "airing" | "completed" | "popular" | "watchlist" | "manga"
   >("all");
   const [searchQuery, setSearchQuery] = useState("");
-  const [activeDay, setActiveDay] = useState<typeof BROADCAST_DAYS[number]>("Sábado");
+  const [isSpotlightOpen, setIsSpotlightOpen] = useState(false);
+  const [activeDay, setActiveDay] = useState<(typeof BROADCAST_DAYS)[number]>("Sábado");
   const [watchlistIds, setWatchlistIds] = useState<string[]>([]);
+  const [reminderIds, setReminderIds] = useState<string[]>(() => getStoredReminders());
   const [playerAnime, setPlayerAnime] = useState<Anime | null>(null);
 
   useEffect(() => {
@@ -43,8 +77,42 @@ export const Animes = () => {
     return () => window.removeEventListener("worscoi_watchlist_updated", handleWatchlistChange);
   }, []);
 
-  const featuredAnime = useMemo(() => {
-    return ANIMES_DATA.find((a) => a.featured) ?? ANIMES_DATA[0];
+  // Global Cmd+K / Ctrl+K / "/" Spotlight shortcut
+  useEffect(() => {
+    const handleShortcut = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      const isInput =
+        target &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.isContentEditable);
+
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setIsSpotlightOpen((prev) => !prev);
+      } else if (!isInput && e.key === "/") {
+        e.preventDefault();
+        setIsSpotlightOpen(true);
+      }
+    };
+    window.addEventListener("keydown", handleShortcut);
+    return () => window.removeEventListener("keydown", handleShortcut);
+  }, []);
+
+  const heroSlides = useMemo(() => {
+    const preferredOrder = [
+      "frieren-beyond-journeys-end",
+      "one-piece",
+      "orb-movements-of-the-earth",
+      "solo-leveling",
+      "steel-ball-run",
+    ];
+    const picked: Anime[] = [];
+    for (const id of preferredOrder) {
+      const found = ANIMES_DATA.find((a) => a.id === id);
+      if (found) picked.push(found);
+    }
+    return picked.length > 0 ? picked : ANIMES_DATA.filter((a) => a.featured).slice(0, 5);
   }, []);
 
   const filteredAnimes = useMemo(() => {
@@ -67,7 +135,7 @@ export const Animes = () => {
       if (filterMode === "airing" && anime.status !== "Em lançamento") return false;
       if (filterMode === "completed" && anime.status !== "Completo") return false;
       if (filterMode === "watchlist" && !watchlistIds.includes(anime.id)) return false;
-      if (filterMode === "manga" && (!anime.manga || anime.manga.chapters.length === 0)) return false;
+      if (filterMode === "manga" && isOriginalAnimationWork(anime)) return false;
 
       return true;
     }).sort((a, b) => {
@@ -78,13 +146,11 @@ export const Animes = () => {
   }, [searchQuery, selectedGenre, filterMode, watchlistIds]);
 
   const topRanking = useMemo(() => {
-    return [...ANIMES_DATA]
-      .sort((a, b) => (a.rank ?? 99) - (b.rank ?? 99))
-      .slice(0, 8);
+    return [...ANIMES_DATA].sort((a, b) => (a.rank ?? 99) - (b.rank ?? 99)).slice(0, 8);
   }, []);
 
   const deepPhilosophicalList = useMemo(() => {
-    return ANIMES_DATA.filter((a) => a.isDeepPhilosophical).slice(0, 8);
+    return ANIMES_DATA.filter((a) => a.isDeepPhilosophical).slice(0, 6);
   }, []);
 
   const dayAnimes = useMemo(() => {
@@ -100,159 +166,131 @@ export const Animes = () => {
     []
   );
 
+  const toggleSimulcastReminder = (anime: Anime) => {
+    setReminderIds((prev) => {
+      const exists = prev.includes(anime.id);
+      const next = exists ? prev.filter((id) => id !== anime.id) : [...prev, anime.id];
+      try {
+        localStorage.setItem(SIMULCAST_REMINDERS_KEY, JSON.stringify(next));
+      } catch {}
+      if (!exists) {
+        toast.success(`Lembrete ativado para ${anime.title}`, {
+          description: `Notificaremos você na exibição de ${anime.broadcastDay}.`,
+        });
+      } else {
+        toast.info(`Lembrete removido de ${anime.title}`);
+      }
+      return next;
+    });
+  };
+
   return (
     <div className="min-h-screen bg-background overflow-x-hidden">
       <Navigation />
 
-      {/* Featured Anime Hero */}
-      <AnimeHero item={featuredAnime} onPlayTrailer={(item) => setPlayerAnime(item)} />
+      {/* Atmospheric Hero Stage */}
+      <AnimeHero
+        item={heroSlides[0]}
+        items={heroSlides}
+        onPlayTrailer={(item) => setPlayerAnime(item)}
+      />
 
       {/* Main Catalog Section */}
       <section id="catalogo-animes" className="py-12 lg:py-16">
         <div className="container mx-auto px-6 lg:px-12">
-          {/* Top Bar with Title and Search */}
-          <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-8">
+          {/* Header + Command Spotlight Bar */}
+          <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6 mb-8">
             <div>
-              <div className="flex items-center gap-2 text-primary text-xs uppercase tracking-wider mb-2 font-medium">
-                <Film className="h-4 w-4" />
-                <span>
-                  Catálogo Oficial • {ANIMES_DATA.length} Séries • {totalSeasonsCount} Temporadas •{" "}
-                  {totalEpisodesCount} Episódios
-                </span>
-              </div>
-              <h2 className="text-2xl md:text-3xl font-light tracking-tight text-foreground">
-                Séries, Obras Profundas, Temporadas & Top Lançamentos Atuais
+              <p className="text-xs text-muted-foreground mb-2 tabular-nums">
+                Catálogo Oficial · {ANIMES_DATA.length} séries · {totalSeasonsCount} temporadas ·{" "}
+                {totalEpisodesCount} episódios
+              </p>
+              <h2 className="text-2xl md:text-3xl font-semibold tracking-tight text-foreground text-balance">
+                Catálogo de Animes & Mangás Sincronizados
               </h2>
             </div>
 
-            {/* Search Input */}
-            <div className="relative w-full md:w-80">
-              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <input
-                type="text"
-                placeholder="Buscar anime, gênero ou estúdio..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 text-xs md:text-sm bg-card border border-border rounded-full focus:outline-none focus:ring-1 focus:ring-primary text-foreground placeholder:text-muted-foreground transition-all"
-              />
-              {searchQuery && (
-                <button
-                  type="button"
-                  onClick={() => setSearchQuery("")}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground hover:text-foreground"
-                >
-                  ✕
-                </button>
-              )}
+            {/* Dual Search + Spotlight Trigger */}
+            <div className="flex items-center gap-2 w-full lg:w-auto">
+              <div className="relative flex-1 lg:w-72">
+                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <input
+                  type="text"
+                  placeholder="Filtrar catálogo por título ou estúdio..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-10 pr-8 py-2 text-xs sm:text-sm bg-card border border-border rounded-xl focus:outline-none focus:ring-1 focus:ring-primary text-foreground placeholder:text-muted-foreground transition-all"
+                />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchQuery("")}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-muted-foreground hover:text-foreground cursor-pointer"
+                    aria-label="Limpar filtro"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setIsSpotlightOpen(true)}
+                className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-secondary hover:bg-accent border border-border text-xs font-medium text-foreground transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+                title='Abrir Spotlight: busque por obra, "ep 4" ou "cap 8"'
+              >
+                <Command className="h-3.5 w-3.5 text-primary" />
+                <span className="hidden sm:inline">Spotlight</span>
+                <kbd className="text-[10px] font-mono text-muted-foreground bg-background px-1.5 py-0.5 rounded border border-border">
+                  ⌘K
+                </kbd>
+              </button>
             </div>
           </div>
 
-          {/* Filter Mode Tabs */}
-          <div className="flex flex-wrap items-center gap-2 pb-4 mb-4 border-b border-border text-xs">
-            <button
-              type="button"
-              onClick={() => setFilterMode("all")}
-              className={`px-4 py-1.5 rounded-full transition-colors ${
-                filterMode === "all"
-                  ? "bg-foreground text-background font-medium"
-                  : "bg-accent/60 text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              Todos ({ANIMES_DATA.length})
-            </button>
-            <button
-              type="button"
-              onClick={() => setFilterMode("recent")}
-              className={`px-4 py-1.5 rounded-full transition-colors flex items-center gap-1.5 ${
-                filterMode === "recent"
-                  ? "bg-primary text-white font-medium"
-                  : "bg-accent/60 text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              <Zap className="h-3.5 w-3.5" />
-              <span>Top Mais Recentes</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setFilterMode("deep")}
-              className={`px-4 py-1.5 rounded-full transition-colors flex items-center gap-1.5 ${
-                filterMode === "deep"
-                  ? "bg-primary text-white font-medium"
-                  : "bg-accent/60 text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              <Brain className="h-3.5 w-3.5" />
-              <span>Obras Profundas & Filosóficas</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setFilterMode("airing")}
-              className={`px-4 py-1.5 rounded-full transition-colors ${
-                filterMode === "airing"
-                  ? "bg-foreground text-background font-medium"
-                  : "bg-accent/60 text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              Em Lançamento
-            </button>
-            <button
-              type="button"
-              onClick={() => setFilterMode("popular")}
-              className={`px-4 py-1.5 rounded-full transition-colors ${
-                filterMode === "popular"
-                  ? "bg-foreground text-background font-medium"
-                  : "bg-accent/60 text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              Mais Populares
-            </button>
-            <button
-              type="button"
-              onClick={() => setFilterMode("completed")}
-              className={`px-4 py-1.5 rounded-full transition-colors ${
-                filterMode === "completed"
-                  ? "bg-foreground text-background font-medium"
-                  : "bg-accent/60 text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              Completos
-            </button>
-            <button
-              type="button"
-              onClick={() => setFilterMode("manga")}
-              className={`px-4 py-1.5 rounded-full transition-colors flex items-center gap-1.5 ${
-                filterMode === "manga"
-                  ? "bg-foreground text-background font-medium"
-                  : "bg-accent/60 text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              <span>Com Mangá para Ler</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setFilterMode("watchlist")}
-              className={`px-4 py-1.5 rounded-full transition-colors flex items-center gap-1.5 ${
-                filterMode === "watchlist"
-                  ? "bg-foreground text-background font-medium"
-                  : "bg-accent/60 text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              <Bookmark className="h-3 w-3" />
-              Minha Lista ({watchlistIds.length})
-            </button>
+          {/* Segmented Mode Control */}
+          <div className="flex flex-wrap items-center gap-1.5 p-1 bg-secondary/70 border border-border rounded-xl mb-5 w-fit max-w-full">
+            {(
+              [
+                { id: "all", label: `Todos (${ANIMES_DATA.length})` },
+                { id: "recent", label: "Mais Recentes" },
+                { id: "deep", label: "Obras Profundas" },
+                { id: "manga", label: "Anime ⇄ Mangá" },
+                { id: "airing", label: "Em Lançamento" },
+                { id: "completed", label: "Completos" },
+                { id: "popular", label: "Populares" },
+                { id: "watchlist", label: `Minha Lista (${watchlistIds.length})` },
+              ] as const
+            ).map((tab) => {
+              const active = filterMode === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setFilterMode(tab.id)}
+                  className={`px-3.5 py-1.5 rounded-lg text-xs font-medium transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+                    active
+                      ? "bg-card text-foreground shadow-sm border border-border/80"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              );
+            })}
           </div>
 
-          {/* Genre Pills */}
-          <div className="flex items-center gap-2 overflow-x-auto pb-3 mb-8 no-scrollbar">
+          {/* Clean Single-Line Genre Selector */}
+          <div className="flex items-center gap-2 overflow-x-auto pb-3 mb-8 no-scrollbar border-b border-border/60">
             {ANIME_GENRES.map((genre) => (
               <button
                 key={genre}
                 type="button"
                 onClick={() => setSelectedGenre(genre)}
-                className={`text-[11px] uppercase tracking-wider font-light px-3.5 py-1.5 rounded-full whitespace-nowrap border transition-all ${
+                className={`text-xs font-medium px-3 py-1.5 rounded-lg whitespace-nowrap shrink-0 transition-colors cursor-pointer ${
                   selectedGenre === genre
-                    ? "bg-primary text-white border-primary shadow-sm"
-                    : "bg-card text-foreground/80 border-border hover:bg-accent"
+                    ? "bg-primary text-white"
+                    : "text-muted-foreground hover:text-foreground hover:bg-accent"
                 }`}
               >
                 {genre}
@@ -260,16 +298,16 @@ export const Animes = () => {
             ))}
           </div>
 
-          {/* Anime Grid */}
+          {/* Zero-Noise Catalog Grid */}
           {filteredAnimes.length === 0 ? (
-            <div className="text-center py-20 px-4 border border-dashed border-border rounded-xl">
+            <div className="text-center py-20 px-4 border border-dashed border-border rounded-2xl">
               <Film className="h-10 w-10 mx-auto text-muted-foreground/40 mb-3" />
               <h3 className="text-base font-medium text-foreground mb-1">
                 Nenhum anime encontrado
               </h3>
-              <p className="text-xs text-muted-foreground max-w-sm mx-auto mb-4 font-light">
+              <p className="text-xs text-muted-foreground max-w-sm mx-auto mb-4">
                 {filterMode === "watchlist"
-                  ? "Você ainda não salvou nenhum anime na sua lista. Clique no ícone de marcador para salvar seus favoritos!"
+                  ? "Você ainda não salvou nenhum anime na sua lista. Clique no marcador sobre o pôster para salvar favoritos."
                   : "Tente ajustar seus filtros de busca ou escolher outro gênero."}
               </p>
               <button
@@ -279,7 +317,7 @@ export const Animes = () => {
                   setFilterMode("all");
                   setSearchQuery("");
                 }}
-                className="text-xs text-primary font-medium hover:underline"
+                className="text-xs text-primary font-medium hover:underline cursor-pointer"
               >
                 Limpar todos os filtros
               </button>
@@ -298,91 +336,180 @@ export const Animes = () => {
         </div>
       </section>
 
-      {/* Curadoria Especial: Obras Profundas, Filosóficas & Psicológicas */}
-      <section className="py-16 bg-accent/30 border-t border-border/60">
+      {/* Editorial Bento Showcase: Obras Profundas & Filosóficas */}
+      <section className="py-16 border-t border-border/60 bg-secondary/25">
         <div className="container mx-auto px-6 lg:px-12">
-          <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-8">
+          <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-10">
             <div>
-              <div className="flex items-center gap-1.5 text-xs uppercase tracking-wider text-primary font-medium mb-1">
+              <div className="flex items-center gap-2 text-xs font-semibold text-primary mb-1.5">
                 <Brain className="h-4 w-4" />
                 <span>Curadoria Seinen, Filosófica & Psicológica</span>
               </div>
-              <h2 className="text-2xl md:text-3xl font-light tracking-tight text-foreground">
+              <h2 className="text-2xl md:text-3xl font-semibold tracking-tight text-foreground text-balance">
                 Obras Profundas que Transformam a Visão de Mundo
               </h2>
             </div>
-            <p className="text-xs text-muted-foreground font-light max-w-md">
-              Narrativas densas sobre ciência, ética, história, natureza humana e dilemas existenciais.
+            <p className="text-xs sm:text-sm text-muted-foreground max-w-md">
+              Narrativas densas sobre ciência, ética, memória, história e dilemas existenciais.
             </p>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
-            {deepPhilosophicalList.map((anime) => (
-              <AnimeCard
-                key={anime.id}
-                item={anime}
-                onOpenPlayer={(item) => setPlayerAnime(item)}
-              />
-            ))}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {deepPhilosophicalList.map((anime) => {
+              const phil = getPhilosophicalMeta(anime);
+              const original = isOriginalAnimationWork(anime);
+              return (
+                <article
+                  key={anime.id}
+                  className="group rounded-2xl bg-card border border-border p-4 sm:p-5 flex gap-4 sm:gap-5 hover:shadow-lg transition-all"
+                >
+                  <Link
+                    to={`/animes/${anime.id}`}
+                    className="w-24 sm:w-32 aspect-[2/3] rounded-xl overflow-hidden bg-accent shrink-0 border border-border/70"
+                  >
+                    <ProtectedImage
+                      src={anime.cover}
+                      alt={anime.title}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                    />
+                  </Link>
+
+                  <div className="flex-1 min-w-0 flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-center gap-2 text-[11px] text-muted-foreground mb-1 tabular-nums">
+                        <span className="font-medium text-foreground/80">{phil.themeLabel}</span>
+                        <span aria-hidden="true">·</span>
+                        <span>{anime.studio}</span>
+                        <span aria-hidden="true">·</span>
+                        <span className="inline-flex items-center gap-0.5 text-amber-500 font-semibold">
+                          <Star className="h-3 w-3 fill-current" />
+                          {anime.rating.toFixed(1)}
+                        </span>
+                      </div>
+
+                      <Link to={`/animes/${anime.id}`}>
+                        <h3 className="text-base sm:text-lg font-semibold text-foreground group-hover:text-primary transition-colors line-clamp-1">
+                          {anime.title}
+                        </h3>
+                      </Link>
+
+                      <blockquote className="mt-2 pt-2 border-t border-border/60 text-xs sm:text-sm italic text-foreground/85 leading-relaxed line-clamp-2">
+                        {phil.quote}
+                      </blockquote>
+                      <p className="text-[11px] text-muted-foreground mt-1">{phil.authorNote}</p>
+                    </div>
+
+                    <div className="flex flex-wrap items-center justify-between gap-2 pt-3 mt-3 border-t border-border/60">
+                      <Link
+                        to={`/animes/${anime.id}`}
+                        className="inline-flex items-center gap-1.5 text-xs font-semibold text-foreground hover:text-primary transition-colors"
+                      >
+                        <span>Explorar obra completa</span>
+                        <ArrowRight className="h-3.5 w-3.5" />
+                      </Link>
+
+                      {!original && anime.manga?.chaptersCount ? (
+                        <Link
+                          to={`/animes/${anime.id}?tab=manga`}
+                          className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+                        >
+                          <ArrowLeftRight className="h-3 w-3" />
+                          <span>Mangá ({anime.manga.chaptersCount} caps)</span>
+                        </Link>
+                      ) : null}
+                    </div>
+                  </div>
+                </article>
+              );
+            })}
           </div>
         </div>
       </section>
 
-      {/* Top 8 Ranking em Alta */}
-      <section className="py-16 bg-secondary/40 border-y border-border/50">
+      {/* Sculptural Typographic Ranking (Clean Numeral Beside Poster, Zero Watermark on Art) */}
+      <section className="py-16 border-t border-border/60">
         <div className="container mx-auto px-6 lg:px-12">
-          <div className="flex items-center justify-between mb-8">
+          <div className="mb-10">
+            <p className="text-xs font-semibold text-primary mb-1.5">
+              Ranking Editorial da Temporada
+            </p>
+            <h2 className="text-2xl md:text-3xl font-semibold tracking-tight text-foreground">
+              Mais Assistidos na Wotho
+            </h2>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5">
+            {topRanking.map((anime, index) => {
+              const rankStr = String(index + 1).padStart(2, "0");
+              const original = isOriginalAnimationWork(anime);
+              return (
+                <Link
+                  key={anime.id}
+                  to={`/animes/${anime.id}`}
+                  className="group rounded-2xl bg-card border border-border p-3.5 flex items-center gap-3.5 hover:border-primary/50 hover:shadow-md transition-all"
+                >
+                  <span className="text-3xl sm:text-4xl font-semibold tracking-tighter text-muted-foreground/40 group-hover:text-primary transition-colors tabular-nums w-10 text-center shrink-0">
+                    {rankStr}
+                  </span>
+
+                  <div className="w-14 aspect-[2/3] rounded-lg overflow-hidden bg-accent shrink-0 border border-border/60">
+                    <ProtectedImage
+                      src={anime.cover}
+                      alt={anime.title}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    />
+                  </div>
+
+                  <div className="min-w-0 flex-1">
+                    <h3 className="text-sm font-semibold text-foreground line-clamp-1 group-hover:text-primary transition-colors">
+                      {anime.title}
+                    </h3>
+                    <p className="text-xs text-muted-foreground truncate mt-0.5 tabular-nums">
+                      {anime.studio} · ★ {anime.rating.toFixed(1)}
+                    </p>
+                    <p className="text-[11px] text-muted-foreground/80 mt-1 tabular-nums">
+                      {anime.episodesCount} eps{" "}
+                      {!original && anime.manga?.chaptersCount
+                        ? `· ${anime.manga.chaptersCount} caps`
+                        : "· Original"}
+                    </p>
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+
+      {/* Interactive Simulcast Horizon */}
+      <section className="py-16 bg-secondary/25 border-t border-border/60">
+        <div className="container mx-auto px-6 lg:px-12">
+          <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-8">
             <div>
-              <div className="flex items-center gap-1.5 text-xs uppercase tracking-wider text-primary font-medium mb-1">
-                <Flame className="h-4 w-4" />
-                <span>Ranking Oficial Atualizado</span>
+              <div className="flex items-center gap-2 text-xs font-semibold text-primary mb-1.5">
+                <Calendar className="h-4 w-4" />
+                <span>Horizonte Simulcast Semanal</span>
               </div>
-              <h2 className="text-2xl md:text-3xl font-light tracking-tight text-foreground">
-                Top 8 Animes Mais Assistidos da Temporada
+              <h2 className="text-2xl md:text-3xl font-semibold tracking-tight text-foreground">
+                Calendário de Novos Episódios
               </h2>
             </div>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {topRanking.map((anime, index) => (
-              <AnimeCard
-                key={anime.id}
-                item={anime}
-                rank={index + 1}
-                onOpenPlayer={(item) => setPlayerAnime(item)}
-              />
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Simulcast / Grade de Lançamento Semanal */}
-      <section className="py-16">
-        <div className="container mx-auto px-6 lg:px-12">
-          <div className="text-center max-w-xl mx-auto mb-10">
-            <div className="flex items-center justify-center gap-1.5 text-xs uppercase tracking-wider text-primary font-medium mb-2">
-              <Calendar className="h-4 w-4" />
-              <span>Simulcast Semanal</span>
-            </div>
-            <h2 className="text-2xl md:text-3xl font-light tracking-tight text-foreground mb-2">
-              Calendário de Novos Episódios
-            </h2>
-            <p className="text-xs text-muted-foreground font-light">
-              Acompanhe as estreias semanais simultâneas com legendas e dublagens em português.
+            <p className="text-xs sm:text-sm text-muted-foreground max-w-md">
+              Ative lembretes com 1 clique para acompanhar estreias simultâneas com áudio e legendas em português.
             </p>
           </div>
 
-          {/* Days bar */}
-          <div className="flex items-center justify-center gap-2 overflow-x-auto pb-4 mb-8">
+          {/* Days Segmented Bar */}
+          <div className="flex items-center gap-1.5 overflow-x-auto p-1 bg-card border border-border rounded-xl mb-8 w-fit max-w-full">
             {BROADCAST_DAYS.map((day) => (
               <button
                 key={day}
                 type="button"
                 onClick={() => setActiveDay(day)}
-                className={`px-4 py-2 rounded-lg text-xs font-medium transition-all ${
+                className={`px-4 py-2 rounded-lg text-xs font-medium transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
                   activeDay === day
-                    ? "bg-foreground text-background shadow-soft"
-                    : "bg-card border border-border text-muted-foreground hover:text-foreground"
+                    ? "bg-foreground text-background shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
                 }`}
               >
                 {day}
@@ -391,75 +518,111 @@ export const Animes = () => {
           </div>
 
           {dayAnimes.length === 0 ? (
-            <p className="text-center text-xs text-muted-foreground py-10 font-light">
+            <p className="text-center text-xs text-muted-foreground py-12">
               Nenhum episódio programado para exibição em {activeDay}.
             </p>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-w-5xl mx-auto">
-              {dayAnimes.map((anime) => (
-                <div
-                  key={anime.id}
-                  className="flex items-center gap-4 p-3 bg-card border border-border rounded-xl shadow-soft hover:shadow-md transition-shadow"
-                >
-                  <img
-                    src={anime.cover}
-                    alt={anime.title}
-                    className="w-16 h-22 object-cover rounded-md flex-shrink-0"
-                  />
-                  <div className="flex-1 min-w-0">
-                    <span className="text-[10px] uppercase tracking-wider text-primary font-medium">
-                      Exibição às {anime.broadcastDay}s • {anime.seasons.length}{" "}
-                      {anime.seasons.length === 1 ? "Temp." : "Temps."}
-                    </span>
-                    <h4 className="text-sm font-medium text-foreground truncate">{anime.title}</h4>
-                    <p className="text-xs text-muted-foreground truncate">
-                      {anime.studio} • {anime.episodesCount} eps
-                    </p>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {dayAnimes.map((anime) => {
+                const reminded = reminderIds.includes(anime.id);
+                return (
+                  <div
+                    key={anime.id}
+                    className="flex items-center gap-4 p-3.5 bg-card border border-border rounded-xl hover:shadow-md transition-all"
+                  >
                     <Link
                       to={`/animes/${anime.id}`}
-                      className="text-xs text-primary font-light hover:underline inline-block mt-1"
+                      className="w-14 aspect-[2/3] rounded-lg overflow-hidden shrink-0 border border-border/60"
                     >
-                      Acessar temporadas →
+                      <ProtectedImage
+                        src={anime.cover}
+                        alt={anime.title}
+                        className="w-full h-full object-cover"
+                      />
                     </Link>
+
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[11px] font-medium text-primary tabular-nums">
+                        {anime.broadcastDay} · {anime.seasons.length}{" "}
+                        {anime.seasons.length === 1 ? "temporada" : "temporadas"}
+                      </p>
+                      <Link to={`/animes/${anime.id}`}>
+                        <h4 className="text-sm font-semibold text-foreground truncate hover:text-primary transition-colors">
+                          {anime.title}
+                        </h4>
+                      </Link>
+                      <p className="text-xs text-muted-foreground truncate mt-0.5 tabular-nums">
+                        {anime.studio} · {anime.episodesCount} eps
+                      </p>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => toggleSimulcastReminder(anime)}
+                      className={`h-9 px-3 rounded-lg border text-xs font-medium inline-flex items-center gap-1.5 shrink-0 transition-colors cursor-pointer ${
+                        reminded
+                          ? "bg-primary/15 border-primary text-primary"
+                          : "bg-secondary hover:bg-accent border-border text-foreground"
+                      }`}
+                      title={reminded ? "Remover lembrete" : "Ativar lembrete de episódio"}
+                    >
+                      {reminded ? (
+                        <>
+                          <BellRing className="h-3.5 w-3.5" />
+                          <span className="hidden sm:inline">Ativo</span>
+                        </>
+                      ) : (
+                        <>
+                          <Bell className="h-3.5 w-3.5" />
+                          <span className="hidden sm:inline">Lembrar</span>
+                        </>
+                      )}
+                    </button>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
       </section>
 
-      {/* Cross-Promo Webtoons & Mangás */}
-      <section className="py-12 bg-accent/40 border-t border-border">
+      {/* Cross-Promo Webtoons */}
+      <section className="py-12 bg-card border-t border-border">
         <div className="container mx-auto px-6 lg:px-12 flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="flex items-center gap-4">
-            <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center text-primary flex-shrink-0">
-              <Sparkles className="h-6 w-6" />
+            <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center text-primary shrink-0">
+              <BookOpen className="h-6 w-6" />
             </div>
             <div>
-              <h3 className="text-base font-medium text-foreground">
-                Gosta de ler a história original?
+              <h3 className="text-base font-semibold text-foreground">
+                Explorar Origens em Webtoon & Mangá
               </h3>
-              <p className="text-xs text-muted-foreground font-light">
-                Explore também os Webtoons e Mangás que inspiraram essas grandes animações na Wotho.
+              <p className="text-xs text-muted-foreground">
+                Leia diretamente na plataforma as séries digitais e quadrinhos que originaram essas animações.
               </p>
             </div>
           </div>
 
           <Link
             to="/webtoons"
-            className="inline-flex items-center gap-2 bg-foreground text-background px-6 py-2.5 rounded-full text-xs font-medium uppercase tracking-wider hover:bg-foreground/90 transition-colors whitespace-nowrap shadow-soft"
+            className="inline-flex items-center gap-2 bg-foreground text-background px-5 py-2.5 rounded-xl text-xs font-semibold hover:bg-foreground/90 transition-colors whitespace-nowrap shrink-0"
           >
-            Explorar Webtoons
+            <span>Explorar Webtoons</span>
+            <ArrowRight className="h-3.5 w-3.5" />
           </Link>
         </div>
       </section>
 
-      {/* Trailer & Player Modal */}
+      {/* Modals */}
       <AnimePlayerModal
         anime={playerAnime}
         isOpen={!!playerAnime}
         onClose={() => setPlayerAnime(null)}
+      />
+
+      <AnimeSpotlightModal
+        isOpen={isSpotlightOpen}
+        onClose={() => setIsSpotlightOpen(false)}
       />
 
       <Footer />

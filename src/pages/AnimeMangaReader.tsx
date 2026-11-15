@@ -14,7 +14,9 @@ import {
   Zap,
   Globe,
   Download,
+  ArrowLeftRight,
 } from "lucide-react";
+import { resolveCanonBridge } from "@/lib/canonBridge";
 import {
   ANIMES_DATA,
   Anime,
@@ -507,6 +509,22 @@ export const AnimeMangaReader = () => {
                 Página
               </button>
             </div>
+
+            {/* Bidirectional CanonBridge Jump to Matching Anime Episode */}
+            {currentChapter && (() => {
+              const bridge = resolveCanonBridge(anime, "manga", currentChapter.numericNumber || 1);
+              if (!bridge.supported) return null;
+              return (
+                <Link
+                  to={`/animes/${anime.id}?tab=episodes&season=${bridge.targetSeason}&ep=${bridge.targetEpisode}`}
+                  className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/10 hover:bg-white/20 border border-white/15 text-xs font-medium text-white transition-colors whitespace-nowrap shrink-0 tabular-nums"
+                  title={bridge.bannerText}
+                >
+                  <ArrowLeftRight className="h-3.5 w-3.5 text-primary" />
+                  <span>{bridge.equivSpan}</span>
+                </Link>
+              );
+            })()}
 
             {/* Download Chapter PDF Button */}
             {currentChapter && (

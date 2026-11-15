@@ -1,18 +1,28 @@
 import { useState, useMemo, useEffect, useRef } from "react";
-import { useParams, Link, useNavigate } from "react-router-dom";
+import { useParams, Link, useNavigate, useSearchParams } from "react-router-dom";
 import Navigation from "@/components/Navigation";
 import Footer from "@/components/Footer";
 import AnimeCard from "@/components/AnimeCard";
 import AnimePlayerModal from "@/components/AnimePlayerModal";
 import SecureAnimePlayer from "@/components/SecureAnimePlayer";
 import { CommunityReviews } from "@/components/CommunityReviews";
+import ProtectedImage from "@/components/ProtectedImage";
 import {
   ANIMES_DATA,
   Anime,
+  getMangaProgress,
   isAnimeInWatchlist,
   toggleAnimeWatchlist,
 } from "@/lib/animes";
 import { fetchMangaDexChapters, fetchAnimeMangaChapters, MangaDexChapter } from "@/lib/mangadex";
+import {
+  getAnimeAmbientTheme,
+  getCleanEpisodeSynopsis,
+  getCleanEpisodeTitle,
+  isEpisodeCanon,
+  isOriginalAnimationWork,
+  resolveCanonBridge,
+} from "@/lib/canonBridge";
 import { useContentProtection } from "@/hooks/useContentProtection";
 import {
   Play,
@@ -22,16 +32,20 @@ import {
   Share2,
   Tv,
   ArrowLeft,
-  Volume2,
   BookOpen,
   Sparkles,
   ArrowRight,
+  ArrowLeftRight,
   Loader2,
-  ShieldCheck,
   Layers,
   Search,
   X,
   Download,
+  Info,
+  LayoutList,
+  LayoutGrid,
+  Film,
+  Check,
 } from "lucide-react";
 import { downloadRealAnimeEpisode, downloadRealMangaChapter } from "@/lib/mediaDownloaders";
 import { toast } from "sonner";
@@ -41,6 +55,7 @@ import { CANONICAL_BASE_URL, buildBreadcrumbSchema, usePageSeo } from "@/lib/seo
 export const AnimeDetail = () => {
   useContentProtection();
   const { id } = useParams<{ id: string }>();
+  const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const playerSectionRef = useRef<HTMLDivElement>(null);
 
@@ -48,16 +63,47 @@ export const AnimeDetail = () => {
     return ANIMES_DATA.find((a) => a.id === id || a.slug === id);
   }, [id]);
 
+  const initialTab = searchParams.get("tab") === "manga" ? "manga" : "episodes";
+  const initialSeason = Math.max(1, parseInt(searchParams.get("season") || "1", 10) || 1);
+  const initialEp = Math.max(1, parseInt(searchParams.get("ep") || "1", 10) || 1);
+
   const [inWatchlist, setInWatchlist] = useState(false);
-  const [activeTab, setActiveTab] = useState<"episodes" | "manga">("episodes");
-  const [activeSeasonNumber, setActiveSeasonNumber] = useState(1);
-  const [activeEpisodeNumber, setActiveEpisodeNumber] = useState(1);
+  const [activeTab, setActiveTab] = useState<"episodes" | "manga">(initialTab);
+  const [activeSeasonNumber, setActiveSeasonNumber] = useState(initialSeason);
+  const [activeEpisodeNumber, setActiveEpisodeNumber] = useState(initialEp);
   const [episodeSearch, setEpisodeSearch] = useState("");
+  const [paceFilter, setPaceFilter] = useState<"all" | "canon">("all");
+  const [episodeDensity, setEpisodeDensity] = useState<"list" | "grid">("list");
+  const [showTechnicalSpecs, setShowTechnicalSpecs] = useState(false);
   const [isPlayingTrailer, setIsPlayingTrailer] = useState(false);
   const [playerAnime, setPlayerAnime] = useState<Anime | null>(null);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [selectedDubId, setSelectedDubId] = useState("ptbr:0");
   const [downloadingKey, setDownloadingKey] = useState<string | null>(null);
+
+  // Sync URL query params if navigated via Spotlight / Quick-Lens
+  useEffect(() => {
+    const qTab = searchParams.get("tab");
+    const qSeason = parseInt(searchParams.get("season") || "", 10);
+    const qEp = parseInt(searchParams.get("ep") || "", 10);
+    const qChap = parseInt(searchParams.get("chap") || "", 10);
+
+    if (qTab === "manga") {
+      setActiveTab("manga");
+    } else if (qTab === "episodes") {
+      setActiveTab("episodes");
+    }
+    if (Number.isFinite(qSeason) && qSeason > 0) {
+      setActiveSeasonNumber(qSeason);
+    }
+    if (Number.isFinite(qEp) && qEp > 0) {
+      setActiveEpisodeNumber(qEp);
+      setActiveTab("episodes");
+    }
+    if (Number.isFinite(qChap) && qChap > 0 && anime) {
+      setActiveTab("manga");
+    }
+  }, [searchParams, anime]);
 
   // Dynamic SEO Synchronization
   usePageSeo(
@@ -117,9 +163,14 @@ export const AnimeDetail = () => {
   const [mangaLangFilter, setMangaLangFilter] = useState<"pt-br" | "en" | "all">("pt-br");
 
   useEffect(() => {
-    setActiveSeasonNumber(1);
-    setActiveEpisodeNumber(1);
+    const qTab = searchParams.get("tab") === "manga" ? "manga" : "episodes";
+    const qSeason = parseInt(searchParams.get("season") || "1", 10) || 1;
+    const qEp = parseInt(searchParams.get("ep") || "1", 10) || 1;
+    setActiveTab(qTab);
+    setActiveSeasonNumber(qSeason);
+    setActiveEpisodeNumber(qEp);
     setEpisodeSearch("");
+    setPaceFilter("all");
   }, [id]);
 
   useEffect(() => {
@@ -133,23 +184,28 @@ export const AnimeDetail = () => {
 
   useEffect(() => {
     if (!anime) return;
-    import("@/lib/userProfileStore").then(({ recordUserHistory }) => {
-      recordUserHistory({
-        itemId: anime.id,
-        type: "anime",
-        title: anime.title,
-        subtitle: `${anime.studio} · ${anime.year}`,
-        cover: anime.cover,
-        href: `/animes/${anime.id}`,
-        progressPercent: Math.min(100, Math.max(12, Math.round((activeEpisodeNumber / Math.max(1, anime.episodesCount || 12)) * 100))),
-        detailLabel: `Temporada ${activeSeasonNumber} · Episódio ${activeEpisodeNumber} (Dublado PT-BR)`,
-      });
-    }).catch(() => {});
+    import("@/lib/userProfileStore")
+      .then(({ recordUserHistory }) => {
+        recordUserHistory({
+          itemId: anime.id,
+          type: "anime",
+          title: anime.title,
+          subtitle: `${anime.studio} · ${anime.year}`,
+          cover: anime.cover,
+          href: `/animes/${anime.id}`,
+          progressPercent: Math.min(
+            100,
+            Math.max(12, Math.round((activeEpisodeNumber / Math.max(1, anime.episodesCount || 12)) * 100))
+          ),
+          detailLabel: `Temporada ${activeSeasonNumber} · Episódio ${activeEpisodeNumber}`,
+        });
+      })
+      .catch(() => {});
   }, [anime, activeSeasonNumber, activeEpisodeNumber]);
 
   // Fetch real chapters from Multi-Source Manga & MangaDex engine
   useEffect(() => {
-    if (!anime) return;
+    if (!anime || isOriginalAnimationWork(anime)) return;
     let isMounted = true;
     setIsLoadingChapters(true);
 
@@ -192,16 +248,27 @@ export const AnimeDetail = () => {
     return activeSeason?.episodes || anime?.episodes || [];
   }, [activeSeason, anime]);
 
-  const filteredEpisodes = useMemo(() => {
-    if (!episodeSearch.trim()) return currentSeasonEpisodes;
-    const q = episodeSearch.toLowerCase().trim();
+  const fillerCountInSeason = useMemo(() => {
+    if (!anime) return 0;
     return currentSeasonEpisodes.filter(
+      (ep) => !isEpisodeCanon(anime.id, ep.seasonNumber, ep.number)
+    ).length;
+  }, [anime, currentSeasonEpisodes]);
+
+  const filteredEpisodes = useMemo(() => {
+    let base = currentSeasonEpisodes;
+    if (paceFilter === "canon" && anime) {
+      base = base.filter((ep) => isEpisodeCanon(anime.id, ep.seasonNumber, ep.number));
+    }
+    if (!episodeSearch.trim()) return base;
+    const q = episodeSearch.toLowerCase().trim();
+    return base.filter(
       (ep) =>
         ep.title.toLowerCase().includes(q) ||
         ep.synopsis.toLowerCase().includes(q) ||
         String(ep.number) === q
     );
-  }, [currentSeasonEpisodes, episodeSearch]);
+  }, [currentSeasonEpisodes, paceFilter, episodeSearch, anime]);
 
   const activeEpisode = useMemo(() => {
     return (
@@ -211,18 +278,47 @@ export const AnimeDetail = () => {
     );
   }, [currentSeasonEpisodes, activeEpisodeNumber, anime]);
 
+  const isOriginal = useMemo(() => (anime ? isOriginalAnimationWork(anime) : false), [anime]);
+  const ambientTheme = useMemo(() => (anime ? getAnimeAmbientTheme(anime) : null), [anime]);
+  const savedMangaProgress = useMemo(() => (anime ? getMangaProgress(anime.id) : null), [anime]);
+
+  const activeBridge = useMemo(() => {
+    if (!anime || !activeEpisode) return null;
+    return resolveCanonBridge(
+      anime,
+      "anime",
+      activeEpisode.number,
+      activeSeason?.seasonNumber || 1
+    );
+  }, [anime, activeEpisode, activeSeason]);
+
+  // Resolve target manga chapter route ID for a given chapter number
+  const getMangaReaderPath = (chapterNum: number) => {
+    if (!anime) return "/animes";
+    const matchOnline = onlineChapters.find(
+      (ch) => Math.round(ch.numericNumber) === chapterNum
+    );
+    if (matchOnline) return `/animes/${anime.id}/manga/${encodeURIComponent(matchOnline.id)}`;
+    const matchLocal = anime.manga?.chapters?.find((ch) => ch.number === chapterNum);
+    if (matchLocal) return `/animes/${anime.id}/manga/${encodeURIComponent(matchLocal.id)}`;
+    const firstChapter = onlineChapters[0]?.id || anime.manga?.chapters?.[0]?.id;
+    return firstChapter
+      ? `/animes/${anime.id}/manga/${encodeURIComponent(firstChapter)}`
+      : `/animes/${anime.id}/manga`;
+  };
+
   if (!anime) {
     return (
       <div className="min-h-screen bg-background flex flex-col justify-between">
         <Navigation />
         <div className="container mx-auto px-6 py-32 text-center">
-          <h2 className="text-2xl font-light mb-4 text-foreground">Anime não encontrado</h2>
+          <h2 className="text-2xl font-semibold mb-3 text-foreground">Anime não encontrado</h2>
           <p className="text-sm text-muted-foreground mb-6">
             O anime solicitado não foi localizado em nosso catálogo.
           </p>
           <button
             onClick={() => navigate("/animes")}
-            className="px-6 py-2.5 bg-foreground text-background rounded-full text-xs uppercase tracking-wider font-medium"
+            className="px-6 py-2.5 bg-foreground text-background rounded-xl text-xs font-semibold cursor-pointer"
           >
             Voltar para Animes
           </button>
@@ -246,13 +342,22 @@ export const AnimeDetail = () => {
     }
   };
 
-  const handleShare = () => {
-    setIsShareModalOpen(true);
-  };
-
-  const handleSelectEpisodeAndScroll = (epNumber: number) => {
+  const handleSelectEpisodeAndScroll = (epNumber: number, seasonNum?: number) => {
+    if (seasonNum && seasonNum !== activeSeasonNumber) {
+      setActiveSeasonNumber(seasonNum);
+    }
+    setActiveTab("episodes");
     setActiveEpisodeNumber(epNumber);
-    playerSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.set("tab", "episodes");
+      if (seasonNum) next.set("season", String(seasonNum));
+      next.set("ep", String(epNumber));
+      return next;
+    }, { replace: true });
+    window.setTimeout(() => {
+      playerSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 60);
   };
 
   const handleDownloadEpisode = async (ep: NonNullable<typeof activeEpisode>) => {
@@ -269,7 +374,8 @@ export const AnimeDetail = () => {
         episode: ep,
         dubId: selectedDubId,
       });
-      toast.success("Episódio baixado! Acesse e assista em Meu Perfil → Downloads.", {
+      toast.success("Episódio baixado e verificado (SHA-256 ✓).", {
+        description: "Disponível em Meu Perfil → Downloads.",
         id: toastId,
       });
     } catch (err) {
@@ -304,7 +410,8 @@ export const AnimeDetail = () => {
         chapter: ch,
         language: lang,
       });
-      toast.success("Capítulo de mangá baixado! Abra em Meu Perfil → Downloads.", {
+      toast.success("Capítulo de mangá baixado em PDF!", {
+        description: "Abra em Meu Perfil → Downloads.",
         id: toastId,
       });
     } catch (err) {
@@ -319,7 +426,7 @@ export const AnimeDetail = () => {
     }
   };
 
-  const firstMangaChapter = anime.manga?.chapters[0];
+  const firstMangaChapter = onlineChapters[0] || anime.manga?.chapters[0];
   const currentBanner = activeSeason?.banner || anime.banner;
   const currentPoster = activeSeason?.poster || anime.cover;
 
@@ -327,246 +434,305 @@ export const AnimeDetail = () => {
     <div className="min-h-screen bg-background text-foreground">
       <Navigation />
 
-      {/* Cinematic Banner Header */}
-      <div className="relative w-full h-[55vh] min-h-[380px] overflow-hidden" data-protected-media>
+      {/* Atmospheric Banner Header */}
+      <div className="relative w-full h-[46vh] min-h-[340px] overflow-hidden" data-protected-media>
         <img
           src={currentBanner}
           alt={anime.title}
-          className="absolute inset-0 w-full h-full object-cover object-center filter brightness-60 transition-all duration-500"
+          className="absolute inset-0 w-full h-full object-cover object-center brightness-[0.45] transition-all duration-500"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-transparent" />
+        {ambientTheme && (
+          <div
+            className="absolute inset-0 opacity-60"
+            style={{
+              background: `radial-gradient(ellipse 70% 60% at 70% 25%, rgba(${ambientTheme.ambientRgb}, 0.25), transparent 70%)`,
+            }}
+          />
+        )}
+        <div className="absolute inset-0 bg-gradient-to-t from-background via-background/70 to-transparent" />
         <div className="absolute inset-0 bg-gradient-to-r from-background/90 via-background/40 to-transparent" />
 
-        <div className="relative h-full container mx-auto px-6 lg:px-12 flex flex-col justify-end pb-8">
+        <div className="relative h-full container mx-auto px-6 lg:px-12 flex flex-col justify-end pb-10">
           <Link
             to="/animes"
-            className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground mb-6 transition-colors"
+            className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground mb-8 w-fit transition-colors"
           >
             <ArrowLeft className="h-4 w-4" />
-            <span>Voltar para catálogo de animes</span>
+            <span>Voltar para o catálogo</span>
           </Link>
         </div>
       </div>
 
-      {/* Main Details Body */}
+      {/* Main Layout */}
       <div className="container mx-auto px-6 lg:px-12 -mt-24 relative z-10 pb-20">
         <div className="grid grid-cols-1 md:grid-cols-12 gap-8 lg:gap-12">
-          {/* Left Column: Official Poster + Meta Actions */}
-          <div className="md:col-span-4 lg:col-span-3 flex flex-col items-center md:items-start">
-            <div className="w-56 md:w-full aspect-[3/4] rounded-xl overflow-hidden shadow-2xl border-2 border-border/80 bg-accent mb-6 relative group">
-              <img
+          {/* Left Column: Clean 2:3 Poster + Unified Single Decision Action Cluster */}
+          <aside className="md:col-span-4 lg:col-span-3 flex flex-col items-center md:items-start">
+            <div className="w-52 md:w-full aspect-[2/3] rounded-2xl overflow-hidden shadow-2xl border border-border/80 bg-accent mb-5">
+              <ProtectedImage
                 src={currentPoster}
-                alt={`${anime.title} - ${activeSeason?.title || "Poster Oficial"}`}
+                alt={`${anime.title} — Temporada ${activeSeason?.seasonNumber || 1}`}
                 className="w-full h-full object-cover transition-all duration-300"
               />
-              <div className="absolute bottom-2 left-2 right-2 bg-black/75 backdrop-blur-md px-2.5 py-1 rounded text-[10px] text-white flex items-center justify-between">
-                <span>Temporada {activeSeason?.seasonNumber || 1}</span>
-                <span className="text-emerald-400 font-medium">Poster Oficial HD</span>
-              </div>
             </div>
 
-            {/* Action Buttons */}
+            {/* Single Decision Action Cluster (No 5-button tower) */}
             <div className="w-full space-y-2.5">
-              <button
-                type="button"
-                onClick={() => {
-                  setActiveTab("episodes");
-                  setIsPlayingTrailer(true);
-                }}
-                className="w-full py-3 px-4 rounded-full bg-foreground text-background hover:bg-foreground/90 font-medium text-xs tracking-wider uppercase flex items-center justify-center gap-2 shadow-soft transition-colors"
-              >
-                <Play className="h-4 w-4 fill-current" />
-                Trailer Oficial da Obra
-              </button>
-
-              {firstMangaChapter && (
-                <Link
-                  to={`/animes/${anime.id}/manga/${firstMangaChapter.id}`}
-                  className="w-full py-2.5 px-4 rounded-full bg-primary text-white hover:bg-primary/90 font-medium text-xs tracking-wider uppercase flex items-center justify-center gap-2 shadow-soft transition-colors"
-                >
-                  <BookOpen className="h-4 w-4" />
-                  Ler Mangá Online
-                </Link>
-              )}
-
               {activeEpisode && activeSeason && (
                 <button
                   type="button"
-                  disabled={Boolean(downloadingKey)}
-                  onClick={() => handleDownloadEpisode(activeEpisode)}
-                  className="w-full py-2.5 px-4 rounded-full border border-emerald-500/40 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-medium text-xs tracking-wider uppercase flex items-center justify-center gap-2 transition-colors disabled:opacity-50 whitespace-nowrap shrink-0"
+                  onClick={() => handleSelectEpisodeAndScroll(activeEpisode.number)}
+                  className="w-full py-3 px-4 rounded-xl bg-foreground text-background hover:bg-foreground/90 font-semibold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-lg transition-transform active:scale-[0.99] cursor-pointer whitespace-nowrap"
                 >
-                  {downloadingKey === `ep-${activeSeason.seasonNumber}-${activeEpisode.number}` ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Download className="h-4 w-4" />
-                  )}
+                  <Play className="h-4 w-4 fill-current" />
                   <span>
-                    {downloadingKey === `ep-${activeSeason.seasonNumber}-${activeEpisode.number}`
-                      ? "Baixando Ep..."
-                      : `Baixar Ep. ${activeEpisode.number}`}
+                    Assistir T{activeSeason.seasonNumber}: Ep. {activeEpisode.number}
                   </span>
                 </button>
               )}
 
-              <button
-                type="button"
-                onClick={handleWatchlist}
-                className={`w-full py-2.5 px-4 rounded-full border text-xs tracking-wider uppercase flex items-center justify-center gap-2 transition-colors ${
-                  inWatchlist
-                    ? "bg-primary/10 border-primary text-primary font-medium"
-                    : "bg-card border-border hover:bg-accent text-foreground font-light"
-                }`}
-              >
-                {inWatchlist ? (
-                  <>
-                    <BookmarkCheck className="h-4 w-4 fill-current" />
-                    Salvo na Minha Lista
-                  </>
-                ) : (
-                  <>
-                    <Bookmark className="h-4 w-4" />
-                    Salvar na Lista
-                  </>
-                )}
-              </button>
+              {/* Contextual CanonBridge Action OR Original Indicator */}
+              {!isOriginal && activeBridge ? (
+                <Link
+                  to={getMangaReaderPath(activeBridge.targetChapter)}
+                  className="w-full py-2.5 px-4 rounded-xl bg-primary text-white hover:bg-primary/90 font-medium text-xs flex items-center justify-center gap-2 shadow-sm transition-colors whitespace-nowrap"
+                >
+                  <ArrowLeftRight className="h-3.5 w-3.5" />
+                  <span>{activeBridge.ctaLabel}</span>
+                </Link>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setIsPlayingTrailer(true)}
+                  className="w-full py-2.5 px-4 rounded-xl bg-secondary hover:bg-accent border border-border text-foreground font-medium text-xs flex items-center justify-center gap-2 transition-colors cursor-pointer whitespace-nowrap"
+                >
+                  <Film className="h-3.5 w-3.5 text-primary" />
+                  <span>Assistir Trailer Oficial</span>
+                </button>
+              )}
 
-              <button
-                type="button"
-                onClick={handleShare}
-                className="w-full py-2.5 px-4 rounded-full border border-border bg-card hover:bg-accent text-xs tracking-wider uppercase text-foreground font-light flex items-center justify-center gap-2 transition-colors"
-              >
-                <Share2 className="h-4 w-4" />
-                Compartilhar
-              </button>
+              {/* Compact 4-Icon Utility Strip */}
+              <div className="grid grid-cols-4 gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={handleWatchlist}
+                  className={`h-10 rounded-xl border flex items-center justify-center transition-colors cursor-pointer ${
+                    inWatchlist
+                      ? "bg-primary/15 border-primary text-primary"
+                      : "bg-card border-border hover:bg-accent text-foreground"
+                  }`}
+                  title={inWatchlist ? "Salvo na Minha Lista" : "Salvar na Lista"}
+                  aria-label="Salvar na Lista"
+                >
+                  {inWatchlist ? (
+                    <BookmarkCheck className="h-4 w-4 fill-current" />
+                  ) : (
+                    <Bookmark className="h-4 w-4" />
+                  )}
+                </button>
+
+                {activeEpisode && activeSeason ? (
+                  <button
+                    type="button"
+                    disabled={Boolean(downloadingKey)}
+                    onClick={() => handleDownloadEpisode(activeEpisode)}
+                    className="h-10 rounded-xl border border-border bg-card hover:bg-accent text-foreground flex items-center justify-center transition-colors disabled:opacity-50 cursor-pointer"
+                    title={`Baixar T${activeSeason.seasonNumber}:Ep.${activeEpisode.number} (SHA-256 Verificado)`}
+                    aria-label="Baixar Episódio"
+                  >
+                    {downloadingKey ===
+                    `ep-${activeSeason.seasonNumber}-${activeEpisode.number}` ? (
+                      <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                    ) : (
+                      <Download className="h-4 w-4" />
+                    )}
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setIsPlayingTrailer(true)}
+                    className="h-10 rounded-xl border border-border bg-card hover:bg-accent text-foreground flex items-center justify-center transition-colors cursor-pointer"
+                    title="Trailer"
+                    aria-label="Trailer"
+                  >
+                    <Film className="h-4 w-4" />
+                  </button>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => setShowTechnicalSpecs((prev) => !prev)}
+                  className={`h-10 rounded-xl border flex items-center justify-center transition-colors cursor-pointer ${
+                    showTechnicalSpecs
+                      ? "bg-accent border-primary/50 text-primary"
+                      : "bg-card border-border hover:bg-accent text-foreground"
+                  }`}
+                  title="Ficha Técnica e Registros"
+                  aria-label="Ficha Técnica"
+                  aria-expanded={showTechnicalSpecs}
+                >
+                  <Info className="h-4 w-4" />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setIsShareModalOpen(true)}
+                  className="h-10 rounded-xl border border-border bg-card hover:bg-accent text-foreground flex items-center justify-center transition-colors cursor-pointer"
+                  title="Compartilhar obra"
+                  aria-label="Compartilhar"
+                >
+                  <Share2 className="h-4 w-4" />
+                </button>
+              </div>
             </div>
 
-            {/* Quick Metadata Box */}
-            <div className="w-full mt-6 p-4 rounded-xl bg-card border border-border space-y-3 text-xs">
-              <div className="flex justify-between pb-2 border-b border-border">
-                <span className="text-muted-foreground font-light">Status Anime:</span>
-                <span className="font-medium text-primary">{anime.status}</span>
-              </div>
-              <div className="flex justify-between pb-2 border-b border-border">
-                <span className="text-muted-foreground font-light">Estúdio:</span>
-                <span className="font-medium text-foreground">{anime.studio}</span>
-              </div>
-              <div className="flex justify-between pb-2 border-b border-border">
-                <span className="text-muted-foreground font-light">Temporadas:</span>
-                <span className="font-medium text-foreground">{anime.seasons?.length || 1}</span>
-              </div>
-              <div className="flex justify-between pb-2 border-b border-border">
-                <span className="text-muted-foreground font-light">Total de Episódios:</span>
-                <span className="font-medium text-foreground">{anime.episodesCount}</span>
-              </div>
-              <div className="flex justify-between pb-2 border-b border-border">
-                <span className="text-muted-foreground font-light">Capítulos Mangá:</span>
-                <span className="font-medium text-foreground">{anime.manga?.chaptersCount || 0}</span>
-              </div>
-              <div className="flex justify-between pb-2 border-b border-border">
-                <span className="text-muted-foreground font-light">Autor da Obra:</span>
-                <span className="font-medium text-foreground">{anime.manga?.author || anime.studio}</span>
-              </div>
-              <div className="flex justify-between pb-2 border-b border-border">
-                <span className="text-muted-foreground font-light">Áudio:</span>
-                <span className="font-medium text-foreground">{anime.audio}</span>
-              </div>
-              {anime.imdbId && (
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground font-light">Registro IMDb / MAL:</span>
-                  <span className="font-mono text-[11px] text-foreground">
-                    {anime.imdbId} / #{anime.malId}
+            {/* Expandable On-Demand Technical Specifications */}
+            {showTechnicalSpecs && (
+              <div className="w-full mt-4 p-4 rounded-xl bg-card border border-border space-y-2.5 text-xs animate-in fade-in duration-150">
+                <div className="flex justify-between pb-2 border-b border-border/70">
+                  <span className="text-muted-foreground">Status</span>
+                  <span className="font-medium text-foreground">{anime.status}</span>
+                </div>
+                <div className="flex justify-between pb-2 border-b border-border/70">
+                  <span className="text-muted-foreground">Estúdio</span>
+                  <span className="font-medium text-foreground">{anime.studio}</span>
+                </div>
+                <div className="flex justify-between pb-2 border-b border-border/70 tabular-nums">
+                  <span className="text-muted-foreground">Temporadas / Eps</span>
+                  <span className="font-medium text-foreground">
+                    {anime.seasons?.length || 1} · {anime.episodesCount} eps
                   </span>
                 </div>
-              )}
-            </div>
-          </div>
+                <div className="flex justify-between pb-2 border-b border-border/70 tabular-nums">
+                  <span className="text-muted-foreground">Obra Original</span>
+                  <span className="font-medium text-foreground">
+                    {isOriginal
+                      ? "Original para Animação"
+                      : `${anime.manga?.chaptersCount || 0} capítulos`}
+                  </span>
+                </div>
+                <div className="flex justify-between pb-2 border-b border-border/70">
+                  <span className="text-muted-foreground">Autor</span>
+                  <span className="font-medium text-foreground truncate max-w-[140px]">
+                    {anime.manga?.author || anime.studio}
+                  </span>
+                </div>
+                {anime.imdbId && (
+                  <div className="flex justify-between tabular-nums">
+                    <span className="text-muted-foreground">IMDb / MAL</span>
+                    <span className="font-mono text-[11px] text-foreground">
+                      {anime.imdbId} · #{anime.malId}
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
+          </aside>
 
-          {/* Right Column: Title, Synopsis, Tabs (Watch or Read) */}
+          {/* Right Column: Editorial Overview + CanonBridge Switcher + Player / Chapters */}
           <div className="md:col-span-8 lg:col-span-9">
-            {/* Header badges */}
-            <div className="flex flex-wrap items-center gap-2 mb-3">
-              <span className="text-[11px] uppercase tracking-wider px-2.5 py-1 rounded bg-primary/10 text-primary font-medium">
-                {anime.status}
-              </span>
-              <div className="flex items-center gap-1 text-xs font-medium text-amber-500 bg-amber-500/10 px-2 py-1 rounded">
+            {/* Zero-Pill Editorial Eyebrow */}
+            <div className="flex flex-wrap items-center gap-2.5 text-xs text-muted-foreground mb-2.5 tabular-nums">
+              <span className="font-semibold text-primary">{anime.status}</span>
+              <span aria-hidden="true">·</span>
+              <span className="inline-flex items-center gap-1 text-amber-500 font-semibold">
                 <Star className="h-3.5 w-3.5 fill-current" />
-                <span>{anime.rating.toFixed(1)}</span>
-                <span className="text-muted-foreground font-light">
-                  ({anime.ratingCount.toLocaleString()} avaliações)
-                </span>
-              </div>
-              <div className="flex items-center gap-1 text-xs text-muted-foreground bg-accent px-2 py-1 rounded">
-                <Volume2 className="h-3.5 w-3.5 text-primary" />
-                <span>{anime.audio}</span>
-              </div>
+                {anime.rating.toFixed(1)}
+              </span>
+              <span>({anime.ratingCount.toLocaleString()} avaliações)</span>
+              <span aria-hidden="true">·</span>
+              <span>{anime.audio}</span>
             </div>
 
-            <h1 className="text-3xl md:text-5xl font-light text-foreground tracking-tight mb-1">
+            <h1 className="text-3xl md:text-4xl lg:text-5xl font-semibold text-foreground tracking-tight text-balance mb-1.5">
               {anime.title}
             </h1>
-            <p className="text-xs md:text-sm text-muted-foreground italic mb-6">
-              {anime.japaneseTitle} • {anime.studio} ({anime.year})
+            <p className="text-xs sm:text-sm text-muted-foreground mb-3">
+              {anime.japaneseTitle} · {anime.studio} · {anime.year}
             </p>
 
-            {/* Genres */}
-            <div className="flex flex-wrap gap-2 mb-6">
-              {Array.from(new Set(anime.genres || [])).map((genre, idx) => (
-                <span
-                  key={`${genre}-${idx}`}
-                  className="text-xs px-3 py-1 rounded-full bg-accent text-accent-foreground font-light"
-                >
-                  {genre}
-                </span>
-              ))}
-            </div>
+            {/* Unboxed Typographic Genres */}
+            <p className="text-xs text-muted-foreground mb-6">
+              {Array.from(new Set(anime.genres || [])).join(" · ")}
+            </p>
 
             {/* Synopsis */}
-            <div className="mb-8">
-              <h3 className="text-sm font-medium uppercase tracking-wider text-muted-foreground mb-2">
-                Sinopse Oficial
-              </h3>
-              <p className="text-sm md:text-base text-foreground/80 font-light leading-relaxed">
+            <div className="mb-8 max-w-3xl">
+              <p className="text-sm md:text-base text-foreground/85 leading-relaxed">
                 {anime.synopsis}
               </p>
             </div>
 
-            {/* Section Switcher Tabs: Watch Anime vs Read Manga */}
-            <div className="flex items-center gap-3 p-1.5 bg-secondary/60 rounded-xl mb-8 border border-border">
-              <button
-                type="button"
-                onClick={() => setActiveTab("episodes")}
-                className={`flex-1 py-3 px-4 rounded-lg text-xs md:text-sm font-medium tracking-wide flex items-center justify-center gap-2 transition-all ${
-                  activeTab === "episodes"
-                    ? "bg-card text-foreground shadow-soft border border-border"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                <Tv className="h-4 w-4 text-primary" />
-                <span>
-                  Assistir Anime ({anime.seasons.length}{" "}
-                  {anime.seasons.length === 1 ? "Temporada" : "Temporadas"} • {anime.episodesCount} Eps)
-                </span>
-              </button>
+            {/* Unified Segmented Mode Switcher + CanonBridge™ Status Strip */}
+            <div className="rounded-2xl bg-card border border-border p-3 mb-8 flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+              <div className="flex items-center gap-1 p-1 bg-secondary/70 rounded-xl w-full lg:w-auto">
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("episodes")}
+                  className={`flex-1 lg:flex-initial px-4 py-2 rounded-lg text-xs font-semibold flex items-center justify-center gap-2 transition-colors whitespace-nowrap cursor-pointer ${
+                    activeTab === "episodes"
+                      ? "bg-card text-foreground shadow-sm border border-border/80"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  <Tv className="h-3.5 w-3.5 text-primary" />
+                  <span>
+                    Anime ({anime.seasons.length}{" "}
+                    {anime.seasons.length === 1 ? "Temp." : "Temps."} · {anime.episodesCount} eps)
+                  </span>
+                </button>
 
-              <button
-                type="button"
-                onClick={() => setActiveTab("manga")}
-                className={`flex-1 py-3 px-4 rounded-lg text-xs md:text-sm font-medium tracking-wide flex items-center justify-center gap-2 transition-all ${
-                  activeTab === "manga"
-                    ? "bg-card text-foreground shadow-soft border border-border"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                <BookOpen className="h-4 w-4 text-primary" />
-                <span>Ler Mangá Original ({anime.manga?.chaptersCount || 0} Capítulos)</span>
-              </button>
+                {!isOriginal && (
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab("manga")}
+                    className={`flex-1 lg:flex-initial px-4 py-2 rounded-lg text-xs font-semibold flex items-center justify-center gap-2 transition-colors whitespace-nowrap cursor-pointer ${
+                      activeTab === "manga"
+                        ? "bg-card text-foreground shadow-sm border border-border/80"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    <BookOpen className="h-3.5 w-3.5 text-primary" />
+                    <span>Mangá ({anime.manga?.chaptersCount || 0} caps)</span>
+                  </button>
+                )}
+              </div>
+
+              {/* CanonBridge™ Live Equivalence Banner */}
+              <div className="flex flex-wrap items-center justify-between lg:justify-end gap-3 px-2 text-xs">
+                {!isOriginal && activeBridge ? (
+                  <>
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <ArrowLeftRight className="h-3.5 w-3.5 text-primary shrink-0" />
+                      <span>
+                        <strong className="text-foreground">CanonBridge:</strong>{" "}
+                        {activeBridge.bannerText}
+                      </span>
+                    </div>
+                    <Link
+                      to={getMangaReaderPath(activeBridge.targetChapter)}
+                      className="inline-flex items-center gap-1 text-primary font-semibold hover:underline whitespace-nowrap shrink-0"
+                    >
+                      <span>Ler Cap. {activeBridge.targetChapter}</span>
+                      <ArrowRight className="h-3 w-3" />
+                    </Link>
+                  </>
+                ) : (
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <Sparkles className="h-3.5 w-3.5 text-primary shrink-0" />
+                    <span>
+                      <strong className="text-foreground">Obra Original para Animação</strong> ·{" "}
+                      História concebida diretamente para TV/Cinema
+                    </span>
+                  </div>
+                )}
+              </div>
             </div>
 
-            {/* TAB 1: WATCH ANIME (Episodes Player & Complete Seasons Hierarchy) */}
+            {/* TAB 1: WATCH ANIME */}
             {activeTab === "episodes" && activeSeason && activeEpisode && (
               <div ref={playerSectionRef}>
-                {/* Secure Anti-Redirect Video Player */}
+                {/* Secure Anti-Redirect Video Player with Unified Audio & Subtitles Popover */}
                 <div className="mb-8">
                   <SecureAnimePlayer
                     animeTitle={anime.title}
@@ -621,208 +787,366 @@ export const AnimeDetail = () => {
                   />
                 </div>
 
-                {/* Season Selector Bar (Navegação Hierárquica em 3 Níveis: Anime -> Season -> Episode) */}
-                <div className="mb-8 p-5 rounded-2xl bg-card border border-border shadow-soft">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
-                    <div className="flex items-center gap-2">
+                {/* Season Selector */}
+                {anime.seasons && anime.seasons.length > 1 && (
+                  <div className="mb-8 p-4 sm:p-5 rounded-2xl bg-card border border-border">
+                    <div className="flex items-center gap-2 mb-4">
                       <Layers className="h-4 w-4 text-primary" />
-                      <h3 className="text-base font-medium text-foreground">
-                        Temporadas Oficiais Mapeadas ({anime.seasons?.length || 1})
+                      <h3 className="text-sm font-semibold text-foreground">
+                        Temporadas ({anime.seasons.length})
                       </h3>
                     </div>
-                  </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                    {anime.seasons?.map((s) => {
-                      const isSeasonActive = s.seasonNumber === activeSeason.seasonNumber;
-                      return (
-                        <button
-                          key={s.id}
-                          type="button"
-                          onClick={() => {
-                            setActiveSeasonNumber(s.seasonNumber);
-                            setEpisodeSearch("");
-                            if (s.episodes.length > 0) {
-                              setActiveEpisodeNumber(s.episodes[0].number);
-                            }
-                          }}
-                          className={`p-3 rounded-xl border text-left transition-all flex items-center gap-3 ${
-                            isSeasonActive
-                              ? "bg-primary text-white border-primary shadow-md shadow-primary/20"
-                              : "bg-secondary/40 border-border hover:bg-secondary/80 text-foreground"
-                          }`}
-                        >
-                          <img
-                            src={s.poster}
-                            alt={s.title}
-                            className="w-12 h-16 object-cover rounded-lg flex-shrink-0 border border-white/10"
-                          />
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center justify-between gap-1 mb-0.5">
-                              <span className="text-xs font-semibold">
-                                Temporada {s.seasonNumber}
-                              </span>
-                              <span
-                                className={`text-[10px] px-1.5 py-0.5 rounded font-mono ${
-                                  isSeasonActive
-                                    ? "bg-white/20 text-white"
-                                    : "bg-background text-muted-foreground"
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                      {anime.seasons.map((s) => {
+                        const isSeasonActive = s.seasonNumber === activeSeason.seasonNumber;
+                        return (
+                          <button
+                            key={s.id}
+                            type="button"
+                            onClick={() => {
+                              setActiveSeasonNumber(s.seasonNumber);
+                              setEpisodeSearch("");
+                              if (s.episodes.length > 0) {
+                                setActiveEpisodeNumber(s.episodes[0].number);
+                              }
+                            }}
+                            className={`p-3 rounded-xl border text-left transition-all flex items-center gap-3 cursor-pointer ${
+                              isSeasonActive
+                                ? "bg-primary text-white border-primary shadow-md"
+                                : "bg-secondary/40 border-border hover:bg-secondary/80 text-foreground"
+                            }`}
+                          >
+                            <img
+                              src={s.poster}
+                              alt={s.title}
+                              className="w-11 aspect-[2/3] object-cover rounded-lg shrink-0 border border-white/10"
+                            />
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center justify-between gap-1 mb-0.5 tabular-nums">
+                                <span className="text-xs font-semibold">
+                                  Temporada {s.seasonNumber}
+                                </span>
+                                <span
+                                  className={`text-[11px] ${
+                                    isSeasonActive ? "text-white/85" : "text-muted-foreground"
+                                  }`}
+                                >
+                                  {s.year}
+                                </span>
+                              </div>
+                              <p
+                                className={`text-xs truncate font-medium ${
+                                  isSeasonActive ? "text-white" : "text-foreground/90"
                                 }`}
                               >
-                                {s.year}
-                              </span>
+                                {s.title.replace(/^Temporada\s*\d+\s*:\s*/i, "").trim()}
+                              </p>
+                              <p
+                                className={`text-[11px] mt-0.5 tabular-nums ${
+                                  isSeasonActive ? "text-white/80" : "text-muted-foreground"
+                                }`}
+                              >
+                                {s.episodesCount} episódios
+                              </p>
                             </div>
-                            <p
-                              className={`text-xs truncate font-medium ${
-                                isSeasonActive ? "text-white/95" : "text-foreground/90"
-                              }`}
-                            >
-                              {s.title.replace(/^Temporada\s*\d+\s*:\s*/i, "").trim()}
-                            </p>
-                            <p
-                              className={`text-[10px] mt-1 ${
-                                isSeasonActive ? "text-white/80" : "text-muted-foreground"
-                              }`}
-                            >
-                              {s.episodesCount} episódios completos
-                            </p>
-                          </div>
-                        </button>
-                      );
-                    })}
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
-                </div>
+                )}
 
-                {/* Episodes List Section for Current Season */}
+                {/* Episodes Header + Pace Filter + Density Toggle */}
                 <div className="mb-12">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+                  <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6">
                     <div>
-                      <h3 className="text-xl font-light text-foreground">
+                      <h3 className="text-xl font-semibold text-foreground">
                         {activeSeason.title}
                       </h3>
-                      <p className="text-xs text-muted-foreground font-light">
-                        {currentSeasonEpisodes.length} episódios completos com fontes de vídeo únicas e verificadas
+                      <p className="text-xs text-muted-foreground mt-0.5 tabular-nums">
+                        {filteredEpisodes.length} de {currentSeasonEpisodes.length} episódios
+                        {fillerCountInSeason > 0 && paceFilter === "canon"
+                          ? ` (${fillerCountInSeason} fillers ocultados)`
+                          : ""}
                       </p>
                     </div>
 
-                    {/* Episode Filter Input */}
-                    {currentSeasonEpisodes.length > 6 && (
-                      <div className="relative w-full sm:w-64">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-                        <input
-                          type="text"
-                          value={episodeSearch}
-                          onChange={(e) => setEpisodeSearch(e.target.value)}
-                          placeholder="Filtrar episódio por nº ou título..."
-                          className="w-full pl-9 pr-8 py-1.5 rounded-full bg-card border border-border text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-                        />
-                        {episodeSearch && (
-                          <button
-                            type="button"
-                            onClick={() => setEpisodeSearch("")}
-                            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                          >
-                            <X className="h-3.5 w-3.5" />
-                          </button>
-                        )}
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="space-y-3">
-                    {filteredEpisodes.map((ep) => {
-                      const isActive = ep.number === activeEpisode.number;
-                      return (
-                        <div
-                          key={ep.id}
-                          onClick={() => handleSelectEpisodeAndScroll(ep.number)}
-                          className={`group p-3 md:p-4 rounded-xl border transition-all cursor-pointer flex flex-col sm:flex-row sm:items-center gap-4 ${
-                            isActive
-                              ? "bg-accent border-primary shadow-soft"
-                              : "bg-card border-border hover:bg-accent/40"
+                    <div className="flex flex-wrap items-center gap-2.5">
+                      {/* Pace Intelligence Filter (All vs Canon Only) */}
+                      <div className="flex items-center p-1 bg-secondary/70 border border-border rounded-lg text-xs">
+                        <button
+                          type="button"
+                          onClick={() => setPaceFilter("all")}
+                          className={`px-3 py-1 rounded-md font-medium transition-colors cursor-pointer ${
+                            paceFilter === "all"
+                              ? "bg-card text-foreground shadow-sm"
+                              : "text-muted-foreground hover:text-foreground"
                           }`}
                         >
-                          <div className="relative w-full sm:w-40 aspect-video rounded-lg overflow-hidden flex-shrink-0 bg-secondary">
-                            <img
-                              src={ep.thumbnail}
-                              alt={ep.title}
-                              loading="lazy"
-                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                            />
-                            <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
-                              <div
-                                className={`h-8 w-8 rounded-full flex items-center justify-center ${
+                          Todos
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setPaceFilter("canon")}
+                          className={`px-3 py-1 rounded-md font-medium transition-colors flex items-center gap-1 cursor-pointer ${
+                            paceFilter === "canon"
+                              ? "bg-card text-primary shadow-sm"
+                              : "text-muted-foreground hover:text-foreground"
+                          }`}
+                        >
+                          <Sparkles className="h-3 w-3" />
+                          <span>Apenas Canônicos</span>
+                        </button>
+                      </div>
+
+                      {/* Density Toggle (Editorial List vs Compact Grid) */}
+                      <div className="flex items-center p-1 bg-secondary/70 border border-border rounded-lg">
+                        <button
+                          type="button"
+                          onClick={() => setEpisodeDensity("list")}
+                          className={`p-1.5 rounded-md transition-colors cursor-pointer ${
+                            episodeDensity === "list"
+                              ? "bg-card text-foreground shadow-sm"
+                              : "text-muted-foreground hover:text-foreground"
+                          }`}
+                          title="Lista Editorial"
+                          aria-label="Lista Editorial"
+                        >
+                          <LayoutList className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setEpisodeDensity("grid")}
+                          className={`p-1.5 rounded-md transition-colors cursor-pointer ${
+                            episodeDensity === "grid"
+                              ? "bg-card text-foreground shadow-sm"
+                              : "text-muted-foreground hover:text-foreground"
+                          }`}
+                          title="Grade Compacta"
+                          aria-label="Grade Compacta"
+                        >
+                          <LayoutGrid className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+
+                      {/* Episode Search */}
+                      {currentSeasonEpisodes.length > 6 && (
+                        <div className="relative w-full sm:w-56">
+                          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                          <input
+                            type="text"
+                            value={episodeSearch}
+                            onChange={(e) => setEpisodeSearch(e.target.value)}
+                            placeholder="Filtrar nº ou título..."
+                            className="w-full pl-8 pr-7 py-1.5 rounded-lg bg-card border border-border text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                          />
+                          {episodeSearch && (
+                            <button
+                              type="button"
+                              onClick={() => setEpisodeSearch("")}
+                              className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer"
+                            >
+                              <X className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Episode List / Compact Grid */}
+                  {episodeDensity === "list" ? (
+                    <div className="space-y-3">
+                      {filteredEpisodes.map((ep) => {
+                        const isActive = ep.number === activeEpisode.number;
+                        const epBridge = resolveCanonBridge(
+                          anime,
+                          "anime",
+                          ep.number,
+                          ep.seasonNumber
+                        );
+                        const cleanTitle = getCleanEpisodeTitle(ep);
+                        const cleanSummary = getCleanEpisodeSynopsis(anime, ep);
+
+                        return (
+                          <div
+                            key={ep.id}
+                            onClick={() => handleSelectEpisodeAndScroll(ep.number)}
+                            className={`group p-3.5 rounded-xl border transition-all cursor-pointer flex flex-col sm:flex-row sm:items-center gap-4 ${
+                              isActive
+                                ? "bg-accent border-primary shadow-sm"
+                                : "bg-card border-border hover:bg-accent/40"
+                            }`}
+                          >
+                            <div className="relative w-full sm:w-40 aspect-video rounded-lg overflow-hidden shrink-0 bg-secondary">
+                              <img
+                                src={ep.thumbnail}
+                                alt={cleanTitle}
+                                loading="lazy"
+                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                              />
+                              <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
+                                <div
+                                  className={`h-8 w-8 rounded-full flex items-center justify-center ${
+                                    isActive
+                                      ? "bg-primary text-white"
+                                      : "bg-white/85 text-neutral-900 group-hover:bg-primary group-hover:text-white"
+                                  } transition-colors`}
+                                >
+                                  <Play className="h-3.5 w-3.5 fill-current ml-0.5" />
+                                </div>
+                              </div>
+                              <span className="absolute bottom-1 right-1 px-1.5 py-0.5 rounded bg-black/80 text-[10px] text-white font-mono tabular-nums">
+                                {ep.duration}
+                              </span>
+                            </div>
+
+                            <div className="flex-1 min-w-0">
+                              <div className="flex flex-wrap items-center gap-2 text-xs mb-1 tabular-nums">
+                                <span className="font-mono font-semibold text-primary">
+                                  T{ep.seasonNumber}:Ep. {ep.number}
+                                </span>
+                                {epBridge.isFiller ? (
+                                  <span className="text-[11px] text-amber-500 font-medium">
+                                    · Filler
+                                  </span>
+                                ) : !isOriginal && epBridge.supported ? (
+                                  <Link
+                                    to={getMangaReaderPath(epBridge.targetChapter)}
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="text-[11px] text-muted-foreground hover:text-primary transition-colors inline-flex items-center gap-1"
+                                    title={`Abrir no Mangá (${epBridge.equivSpan})`}
+                                  >
+                                    <span>·</span>
+                                    <ArrowLeftRight className="h-3 w-3 text-primary" />
+                                    <span>{epBridge.equivSpan}</span>
+                                  </Link>
+                                ) : null}
+                              </div>
+
+                              <h4 className="text-sm font-semibold text-foreground truncate group-hover:text-primary transition-colors">
+                                {cleanTitle}
+                              </h4>
+                              <p className="text-xs text-muted-foreground line-clamp-2 mt-1 leading-relaxed">
+                                {cleanSummary}
+                              </p>
+                            </div>
+
+                            <div className="sm:self-center flex items-center gap-2 shrink-0">
+                              <button
+                                type="button"
+                                disabled={Boolean(downloadingKey)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDownloadEpisode(ep);
+                                }}
+                                title={`Baixar T${ep.seasonNumber}:Ep.${ep.number} · Integridade SHA-256 verificada`}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border bg-background hover:bg-accent text-foreground text-xs font-medium transition-colors disabled:opacity-50 whitespace-nowrap shrink-0 cursor-pointer"
+                              >
+                                {downloadingKey ===
+                                `ep-${activeSeason.seasonNumber}-${ep.number}` ? (
+                                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                ) : (
+                                  <Download className="h-3.5 w-3.5" />
+                                )}
+                                <span>Baixar</span>
+                              </button>
+                              <button
+                                type="button"
+                                className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
                                   isActive
                                     ? "bg-primary text-white"
-                                    : "bg-white/80 text-foreground group-hover:bg-primary group-hover:text-white"
-                                } transition-colors`}
+                                    : "bg-secondary text-foreground group-hover:bg-primary group-hover:text-white"
+                                }`}
                               >
-                                <Play className="h-3.5 w-3.5 fill-current ml-0.5" />
-                              </div>
+                                {isActive ? "Reproduzindo" : "Assistir"}
+                              </button>
                             </div>
-                            <span className="absolute bottom-1 right-1 px-1.5 py-0.5 rounded bg-black/80 text-[10px] text-white font-mono">
-                              {ep.duration}
-                            </span>
                           </div>
-
-                          <div className="flex-1 min-w-0">
-                            <div className="flex flex-wrap items-center gap-2 mb-1">
-                              <span className="text-xs font-mono font-medium text-primary">
-                                T{ep.seasonNumber}:Ep. {ep.number}
-                              </span>
-                              {ep.isFree && (
-                                <span className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-green-500/10 text-green-600 font-medium">
-                                  HD Oficial
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    /* Compact Grid Mode */
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
+                      {filteredEpisodes.map((ep) => {
+                        const isActive = ep.number === activeEpisode.number;
+                        const epBridge = resolveCanonBridge(
+                          anime,
+                          "anime",
+                          ep.number,
+                          ep.seasonNumber
+                        );
+                        const cleanTitle = getCleanEpisodeTitle(ep);
+                        return (
+                          <div
+                            key={ep.id}
+                            onClick={() => handleSelectEpisodeAndScroll(ep.number)}
+                            className={`group p-3 rounded-xl border transition-all cursor-pointer flex flex-col justify-between ${
+                              isActive
+                                ? "bg-accent border-primary shadow-sm"
+                                : "bg-card border-border hover:bg-accent/40"
+                            }`}
+                          >
+                            <div>
+                              <div className="relative aspect-video rounded-lg overflow-hidden bg-secondary mb-2.5">
+                                <img
+                                  src={ep.thumbnail}
+                                  alt={cleanTitle}
+                                  loading="lazy"
+                                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                                />
+                                <span className="absolute bottom-1 right-1 px-1.5 py-0.5 rounded bg-black/80 text-[10px] text-white font-mono tabular-nums">
+                                  {ep.duration}
                                 </span>
-                              )}
-                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-secondary text-muted-foreground font-mono">
-                                Hash: {ep.contentHash.slice(0, 12)}
+                                <span className="absolute top-1.5 left-1.5 px-2 py-0.5 rounded bg-black/75 text-[10px] font-semibold text-white tabular-nums">
+                                  Ep. {ep.number}
+                                </span>
+                              </div>
+
+                              <h4 className="text-xs font-semibold text-foreground line-clamp-1 group-hover:text-primary transition-colors">
+                                {cleanTitle}
+                              </h4>
+                              <p className="text-[11px] text-muted-foreground mt-0.5 tabular-nums">
+                                {epBridge.isFiller
+                                  ? "Episódio Filler"
+                                  : !isOriginal && epBridge.supported
+                                  ? `Adapta ${epBridge.equivSpan}`
+                                  : `Temporada ${ep.seasonNumber}`}
+                              </p>
+                            </div>
+
+                            <div className="flex items-center justify-between gap-2 mt-3 pt-2.5 border-t border-border/60">
+                              <button
+                                type="button"
+                                disabled={Boolean(downloadingKey)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDownloadEpisode(ep);
+                                }}
+                                title="Baixar episódio"
+                                className="text-[11px] text-muted-foreground hover:text-foreground inline-flex items-center gap-1 cursor-pointer"
+                              >
+                                <Download className="h-3 w-3" />
+                                <span>Baixar</span>
+                              </button>
+                              <span
+                                className={`text-[11px] font-semibold ${
+                                  isActive ? "text-primary" : "text-foreground/80 group-hover:text-primary"
+                                }`}
+                              >
+                                {isActive ? "No Player" : "Assistir →"}
                               </span>
                             </div>
-                            <h4 className="text-sm font-medium text-foreground truncate group-hover:text-primary transition-colors">
-                              {ep.title}
-                            </h4>
-                            <p className="text-xs text-muted-foreground line-clamp-2 mt-1 font-light">
-                              {ep.synopsis}
-                            </p>
                           </div>
-
-                          <div className="sm:self-center flex items-center gap-2 shrink-0">
-                            <button
-                              type="button"
-                              disabled={Boolean(downloadingKey)}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleDownloadEpisode(ep);
-                              }}
-                              title={`Baixar T${ep.seasonNumber}:Ep.${ep.number}`}
-                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border bg-background hover:bg-accent text-foreground text-xs font-medium transition-colors disabled:opacity-50 whitespace-nowrap shrink-0"
-                            >
-                              {downloadingKey === `ep-${activeSeason.seasonNumber}-${ep.number}` ? (
-                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                              ) : (
-                                <Download className="h-3.5 w-3.5" />
-                              )}
-                              <span>Baixar</span>
-                            </button>
-                            <button
-                              type="button"
-                              className={`px-4 py-1.5 rounded-full text-xs font-medium transition-colors whitespace-nowrap shrink-0 ${
-                                isActive
-                                  ? "bg-primary text-white"
-                                  : "bg-secondary text-foreground group-hover:bg-primary group-hover:text-white"
-                              }`}
-                            >
-                              {isActive ? "Reproduzindo" : "Assistir"}
-                            </button>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
 
-                {/* Community Reviews & Ratings for Anime */}
+                {/* Community Reviews */}
                 <CommunityReviews
                   itemId={anime.id}
                   itemType="anime"
@@ -833,42 +1157,44 @@ export const AnimeDetail = () => {
               </div>
             )}
 
-            {/* TAB 2: READ MANGA (Chapters List & Viewer) */}
-            {activeTab === "manga" && (
+            {/* TAB 2: READ MANGA (Streamlined Editorial Header + CanonBridge Reverse Links) */}
+            {activeTab === "manga" && !isOriginal && (
               <div>
-                {/* Manga Headline Card */}
-                <div className="p-6 rounded-2xl bg-gradient-to-r from-accent/80 via-accent/40 to-transparent border border-border mb-8 flex flex-col sm:flex-row items-center gap-6">
-                  <img
-                    src={anime.manga?.cover || anime.cover}
-                    alt={anime.manga?.title || anime.title}
-                    className="w-32 aspect-[3/4] object-cover rounded-xl shadow-xl border border-border flex-shrink-0"
-                  />
-                  <div className="flex-1 text-center sm:text-left">
-
-                    <h3 className="text-xl md:text-2xl font-light text-foreground tracking-tight mb-2">
+                <div className="p-5 rounded-2xl bg-card border border-border mb-8 flex flex-col sm:flex-row sm:items-center justify-between gap-5">
+                  <div className="min-w-0">
+                    <p className="text-xs text-primary font-semibold mb-1">
+                      Obra Original Sincronizada
+                    </p>
+                    <h3 className="text-xl font-semibold text-foreground truncate">
                       {anime.manga?.title}
                     </h3>
-                    <p className="text-xs text-muted-foreground font-light mb-1">
-                      Roteiro: <strong className="text-foreground">{anime.manga?.author}</strong> • Arte:{" "}
-                      <strong className="text-foreground">{anime.manga?.artist}</strong>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Roteiro: <strong className="text-foreground">{anime.manga?.author}</strong> ·
+                      Arte: <strong className="text-foreground">{anime.manga?.artist}</strong>
+                      {anime.manga?.serialization ? ` · ${anime.manga.serialization}` : ""}
                     </p>
-                    {anime.manga?.serialization && (
-                      <p className="text-xs text-muted-foreground font-light mb-4">
-                        Serialização: <strong className="text-foreground">{anime.manga.serialization}</strong>
-                      </p>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+                    {savedMangaProgress && (
+                      <Link
+                        to={getMangaReaderPath(savedMangaProgress.chapterNumber)}
+                        className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-secondary hover:bg-accent border border-border text-foreground text-xs font-semibold transition-colors whitespace-nowrap"
+                      >
+                        <Check className="h-3.5 w-3.5 text-primary" />
+                        <span>Continuar Cap. {savedMangaProgress.chapterNumber}</span>
+                      </Link>
                     )}
 
-                    <div className="flex flex-wrap items-center justify-center sm:justify-start gap-3">
-                      {firstMangaChapter && (
-                        <Link
-                          to={`/animes/${anime.id}/manga/${onlineChapters[0]?.id || firstMangaChapter.id}`}
-                          className="inline-flex items-center gap-2 px-6 py-2.5 rounded-full bg-primary hover:bg-primary/90 text-white text-xs font-medium uppercase tracking-wider transition-colors shadow-soft"
-                        >
-                          <BookOpen className="h-4 w-4" />
-                          Começar do Capítulo 1
-                        </Link>
-                      )}
-                    </div>
+                    {firstMangaChapter && (
+                      <Link
+                        to={`/animes/${anime.id}/manga/${encodeURIComponent(firstMangaChapter.id)}`}
+                        className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary hover:bg-primary/90 text-white text-xs font-semibold transition-colors whitespace-nowrap"
+                      >
+                        <BookOpen className="h-4 w-4" />
+                        <span>Ler do Capítulo 1</span>
+                      </Link>
+                    )}
                   </div>
                 </div>
 
@@ -876,51 +1202,51 @@ export const AnimeDetail = () => {
                 <div className="mb-12">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
                     <div>
-                      <h3 className="text-xl font-light text-foreground flex items-center gap-2">
-                        <span>Capítulos do Mangá</span>
+                      <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
+                        <span>Capítulos Disponíveis</span>
                         {isLoadingChapters && <Loader2 className="h-4 w-4 animate-spin text-primary" />}
                       </h3>
-                      <p className="text-xs text-muted-foreground font-light">
+                      <p className="text-xs text-muted-foreground tabular-nums">
                         {onlineChapters.length > 0
-                          ? `${onlineChapters.length} capítulos oficiais disponíveis para leitura`
-                          : `${anime.manga?.chapters.length || 0} capítulos preparados para leitura imediata`}
+                          ? `${onlineChapters.length} capítulos oficiais carregados`
+                          : `${anime.manga?.chapters.length || 0} capítulos locais prontos para leitura`}
                       </p>
                     </div>
 
-                    {/* Language Filter */}
-                    <div className="flex items-center gap-1 bg-card border border-border p-1 rounded-full text-xs">
+                    {/* Language Segmented Filter */}
+                    <div className="flex items-center gap-1 bg-secondary/70 border border-border p-1 rounded-xl text-xs">
                       <button
                         type="button"
                         onClick={() => setMangaLangFilter("pt-br")}
-                        className={`px-3 py-1 rounded-full transition-colors ${
+                        className={`px-3 py-1.5 rounded-lg transition-colors cursor-pointer ${
                           mangaLangFilter === "pt-br"
-                            ? "bg-primary text-white font-medium"
+                            ? "bg-card text-foreground font-semibold shadow-sm"
                             : "text-muted-foreground hover:text-foreground"
                         }`}
                       >
-                        🇧🇷 Português (PT-BR)
+                        Português (PT-BR)
                       </button>
                       <button
                         type="button"
                         onClick={() => setMangaLangFilter("en")}
-                        className={`px-3 py-1 rounded-full transition-colors ${
+                        className={`px-3 py-1.5 rounded-lg transition-colors cursor-pointer ${
                           mangaLangFilter === "en"
-                            ? "bg-primary text-white font-medium"
+                            ? "bg-card text-foreground font-semibold shadow-sm"
                             : "text-muted-foreground hover:text-foreground"
                         }`}
                       >
-                        🇺🇸 Inglês (EN)
+                        English (EN)
                       </button>
                       <button
                         type="button"
                         onClick={() => setMangaLangFilter("all")}
-                        className={`px-3 py-1 rounded-full transition-colors ${
+                        className={`px-3 py-1.5 rounded-lg transition-colors cursor-pointer ${
                           mangaLangFilter === "all"
-                            ? "bg-primary text-white font-medium"
+                            ? "bg-card text-foreground font-semibold shadow-sm"
                             : "text-muted-foreground hover:text-foreground"
                         }`}
                       >
-                        🌐 Todos
+                        Todos
                       </button>
                     </div>
                   </div>
@@ -928,128 +1254,113 @@ export const AnimeDetail = () => {
                   {isLoadingChapters && onlineChapters.length === 0 ? (
                     <div className="p-12 text-center rounded-2xl border border-dashed border-border bg-card/50 flex flex-col items-center justify-center">
                       <Loader2 className="h-8 w-8 animate-spin text-primary mb-3" />
-                      <p className="text-sm font-light text-foreground">
-                        Sincronizando capítulos oficiais com servidores MangaDex...
+                      <p className="text-sm text-foreground">
+                        Sincronizando capítulos oficiais...
                       </p>
-                      <span className="text-xs text-muted-foreground mt-1">
-                        Carregando volumes, scans e páginas traduzidas
-                      </span>
                     </div>
                   ) : (
-                    <div className="space-y-3">
-                      {onlineChapters.length > 0
-                        ? onlineChapters.map((chapter) => (
-                            <div
-                              key={chapter.id}
-                              className="p-4 rounded-xl border border-border bg-card hover:bg-accent/40 transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-4 group"
-                            >
-                              <div className="flex items-center gap-4 min-w-0">
-                                <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary flex-shrink-0 font-mono font-medium text-sm">
-                                  #{chapter.number}
-                                </div>
+                    <div className="space-y-2.5">
+                      {(onlineChapters.length > 0
+                        ? onlineChapters.map((chapter) => ({
+                            id: chapter.id,
+                            number: chapter.number,
+                            numericNumber: chapter.numericNumber,
+                            title: chapter.title,
+                            subtitle: `${chapter.scanlationGroup}${
+                              chapter.pagesCount > 0 ? ` · ${chapter.pagesCount} págs` : ""
+                            } · ${chapter.publishAt}`,
+                            langTag: chapter.translatedLanguage.toUpperCase(),
+                            raw: chapter,
+                          }))
+                        : (anime.manga?.chapters || []).map((chapter) => ({
+                            id: chapter.id,
+                            number: chapter.number,
+                            numericNumber: chapter.number,
+                            title: chapter.title,
+                            subtitle: `${chapter.description} · ${chapter.pagesCount} págs`,
+                            langTag: "PT-BR",
+                            raw: chapter,
+                          }))
+                      ).map((item) => {
+                        const reverseBridge = resolveCanonBridge(
+                          anime,
+                          "manga",
+                          item.numericNumber
+                        );
+                        return (
+                          <div
+                            key={item.id}
+                            className="p-4 rounded-xl border border-border bg-card hover:bg-accent/40 transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-4 group"
+                          >
+                            <div className="flex items-center gap-4 min-w-0">
+                              <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary shrink-0 font-mono font-semibold text-sm tabular-nums">
+                                #{item.number}
+                              </div>
 
-                                <div className="min-w-0">
-                                  <div className="flex items-center gap-2 mb-0.5">
-                                    <h4 className="text-sm font-medium text-foreground group-hover:text-primary transition-colors truncate">
-                                      {chapter.title}
-                                    </h4>
-                                    <span className="text-[10px] uppercase tracking-wider px-1.5 py-0.2 rounded bg-primary/10 text-primary font-medium flex-shrink-0">
-                                      {chapter.translatedLanguage.toUpperCase()}
-                                    </span>
-                                  </div>
-                                  <p className="text-xs text-muted-foreground font-light line-clamp-1">
-                                    Scan / Grupo: <strong className="text-foreground">{chapter.scanlationGroup}</strong>
-                                  </p>
-                                  <span className="text-[10px] text-muted-foreground/80 mt-1 block">
-                                    {chapter.pagesCount > 0 ? `${chapter.pagesCount} páginas • ` : ""}
-                                    Lançamento: {chapter.publishAt}
+                              <div className="min-w-0">
+                                <div className="flex flex-wrap items-center gap-2 mb-0.5">
+                                  <h4 className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors truncate">
+                                    {item.title}
+                                  </h4>
+                                  <span className="text-[11px] text-muted-foreground tabular-nums">
+                                    · {item.langTag}
                                   </span>
                                 </div>
-                              </div>
-
-                              <div className="flex items-center gap-2 flex-shrink-0 self-end sm:self-center">
-                                <button
-                                  type="button"
-                                  disabled={Boolean(downloadingKey)}
-                                  onClick={() => handleDownloadMangaChapter(chapter)}
-                                  title={`Baixar Capítulo ${chapter.number} em PDF`}
-                                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full border border-border bg-background hover:bg-accent text-foreground text-xs font-medium transition-colors disabled:opacity-50 whitespace-nowrap shrink-0"
-                                >
-                                  {downloadingKey === `manga-${chapter.id}` ? (
-                                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                  ) : (
-                                    <Download className="h-3.5 w-3.5" />
-                                  )}
-                                  <span>Baixar</span>
-                                </button>
-                                <Link
-                                  to={`/animes/${anime.id}/manga/${chapter.id}`}
-                                  className="inline-flex items-center gap-1.5 px-5 py-2 rounded-full bg-secondary hover:bg-primary hover:text-white text-foreground text-xs font-medium transition-colors whitespace-nowrap shrink-0"
-                                >
-                                  <span>Ler Capítulo</span>
-                                  <ArrowRight className="h-3.5 w-3.5" />
-                                </Link>
+                                <p className="text-xs text-muted-foreground line-clamp-1">
+                                  {item.subtitle}
+                                </p>
                               </div>
                             </div>
-                          ))
-                        : (anime.manga?.chapters || []).map((chapter) => (
-                            <div
-                              key={chapter.id}
-                              className="p-4 rounded-xl border border-border bg-card hover:bg-accent/40 transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-4 group"
-                            >
-                              <div className="flex items-center gap-4 min-w-0">
-                                <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary flex-shrink-0 font-mono font-medium text-sm">
-                                  #{chapter.number}
-                                </div>
 
-                                <div className="min-w-0">
-                                  <div className="flex items-center gap-2 mb-0.5">
-                                    <h4 className="text-sm font-medium text-foreground group-hover:text-primary transition-colors truncate">
-                                      {chapter.title}
-                                    </h4>
-                                    <span className="text-[10px] uppercase tracking-wider px-1.5 py-0.2 rounded bg-green-500/10 text-green-600 font-medium flex-shrink-0">
-                                      HD Original
-                                    </span>
-                                  </div>
-                                  <p className="text-xs text-muted-foreground font-light line-clamp-1">
-                                    {chapter.description}
-                                  </p>
-                                  <span className="text-[10px] text-muted-foreground/80 mt-1 block">
-                                    {chapter.pagesCount} páginas • {chapter.releaseDate}
-                                  </span>
-                                </div>
-                              </div>
-
-                              <div className="flex items-center gap-2 flex-shrink-0 self-end sm:self-center">
+                            <div className="flex flex-wrap items-center gap-2 shrink-0 self-end sm:self-center">
+                              {reverseBridge.supported && (
                                 <button
                                   type="button"
-                                  disabled={Boolean(downloadingKey)}
-                                  onClick={() => handleDownloadMangaChapter(chapter)}
-                                  title={`Baixar Capítulo ${chapter.number} em PDF`}
-                                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full border border-border bg-background hover:bg-accent text-foreground text-xs font-medium transition-colors disabled:opacity-50 whitespace-nowrap shrink-0"
+                                  onClick={() =>
+                                    handleSelectEpisodeAndScroll(
+                                      reverseBridge.targetEpisode,
+                                      reverseBridge.targetSeason
+                                    )
+                                  }
+                                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-secondary hover:bg-accent border border-border text-xs font-medium text-foreground transition-colors whitespace-nowrap cursor-pointer tabular-nums"
+                                  title={`Assistir episódio correspondente (${reverseBridge.equivSpan})`}
                                 >
-                                  {downloadingKey === `manga-${chapter.id}` ? (
-                                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                  ) : (
-                                    <Download className="h-3.5 w-3.5" />
-                                  )}
-                                  <span>Baixar</span>
+                                  <ArrowLeftRight className="h-3 w-3 text-primary" />
+                                  <span>{reverseBridge.equivSpan}</span>
                                 </button>
-                                <Link
-                                  to={`/animes/${anime.id}/manga/${chapter.id}`}
-                                  className="inline-flex items-center gap-1.5 px-5 py-2 rounded-full bg-secondary hover:bg-primary hover:text-white text-foreground text-xs font-medium transition-colors whitespace-nowrap shrink-0"
-                                >
-                                  <span>Ler Capítulo</span>
-                                  <ArrowRight className="h-3.5 w-3.5" />
-                                </Link>
-                              </div>
+                              )}
+
+                              <button
+                                type="button"
+                                disabled={Boolean(downloadingKey)}
+                                onClick={() => handleDownloadMangaChapter(item.raw)}
+                                title={`Baixar Capítulo ${item.number} em PDF`}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border bg-background hover:bg-accent text-foreground text-xs font-medium transition-colors disabled:opacity-50 whitespace-nowrap cursor-pointer"
+                              >
+                                {downloadingKey === `manga-${item.id}` ? (
+                                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                ) : (
+                                  <Download className="h-3.5 w-3.5" />
+                                )}
+                                <span>PDF</span>
+                              </button>
+
+                              <Link
+                                to={`/animes/${anime.id}/manga/${encodeURIComponent(item.id)}`}
+                                className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-primary hover:bg-primary/90 text-white text-xs font-semibold transition-colors whitespace-nowrap"
+                              >
+                                <span>Ler</span>
+                                <ArrowRight className="h-3.5 w-3.5" />
+                              </Link>
                             </div>
-                          ))}
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
                 </div>
 
-                {/* Community Reviews & Ratings for Manga */}
+                {/* Community Reviews for Manga */}
                 <CommunityReviews
                   itemId={anime.id}
                   itemType="manga"
@@ -1062,20 +1373,20 @@ export const AnimeDetail = () => {
 
             {/* Related Animes */}
             {relatedAnimes.length > 0 && (
-              <div className="pt-8 border-t border-border">
+              <div className="pt-10 border-t border-border">
                 <div className="flex items-center justify-between mb-6">
-                  <h3 className="text-xl font-light text-foreground">
-                    Animes & Mangás Relacionados
+                  <h3 className="text-xl font-semibold text-foreground">
+                    Obras Relacionadas
                   </h3>
                   <Link
                     to="/animes"
-                    className="text-xs text-primary font-medium hover:underline"
+                    className="text-xs text-primary font-semibold hover:underline"
                   >
                     Ver catálogo completo →
                   </Link>
                 </div>
 
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-5">
                   {relatedAnimes.map((item) => (
                     <AnimeCard
                       key={item.id}

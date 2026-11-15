@@ -1,131 +1,249 @@
-import { useState } from "react";
-import { motion } from "framer-motion";
-import { Play, Star, Plus, Check, Info, BookOpen } from "lucide-react";
+import { useState, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+  Play,
+  Star,
+  Bookmark,
+  BookmarkCheck,
+  BookOpen,
+  ArrowLeftRight,
+  ChevronLeft,
+  ChevronRight,
+  Film,
+  Sparkles,
+} from "lucide-react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import ProtectedImage from "./ProtectedImage";
 import { Anime, isAnimeInWatchlist, toggleAnimeWatchlist } from "@/lib/animes";
+import { getAnimeAmbientTheme, isOriginalAnimationWork } from "@/lib/canonBridge";
 
 interface AnimeHeroProps {
   item: Anime;
+  items?: Anime[];
   onPlayTrailer: (item: Anime) => void;
 }
 
-export const AnimeHero = ({ item, onPlayTrailer }: AnimeHeroProps) => {
-  const [inWatchlist, setInWatchlist] = useState(isAnimeInWatchlist(item.id));
+export const AnimeHero = ({ item, items, onPlayTrailer }: AnimeHeroProps) => {
+  const featuredSlides = items && items.length > 0 ? items : [item];
+  const [activeIndex, setActiveIndex] = useState(0);
+  const current = featuredSlides[activeIndex] || item;
+
+  const [inWatchlist, setInWatchlist] = useState(() => isAnimeInWatchlist(current.id));
+
+  useEffect(() => {
+    setInWatchlist(isAnimeInWatchlist(current.id));
+    const handleUpdate = () => setInWatchlist(isAnimeInWatchlist(current.id));
+    window.addEventListener("worscoi_watchlist_updated", handleUpdate);
+    return () => window.removeEventListener("worscoi_watchlist_updated", handleUpdate);
+  }, [current.id]);
+
+  // Subtle auto-rotation every 10s when multiple featured works exist
+  useEffect(() => {
+    if (featuredSlides.length <= 1) return;
+    const timer = window.setInterval(() => {
+      setActiveIndex((prev) => (prev + 1) % featuredSlides.length);
+    }, 10000);
+    return () => window.clearInterval(timer);
+  }, [featuredSlides.length]);
+
+  const ambient = getAnimeAmbientTheme(current);
+  const isOriginal = isOriginalAnimationWork(current);
+  const hasManga = !isOriginal && Boolean(current.manga?.chapters?.length);
 
   const handleWatchlist = () => {
-    const next = toggleAnimeWatchlist(item.id);
+    const next = toggleAnimeWatchlist(current.id);
     setInWatchlist(next);
     if (next) {
       toast.success("Adicionado à sua lista!", {
-        description: `"${item.title}" foi salvo na sua lista de animes.`,
+        description: `"${current.title}" foi salvo na sua lista de animes.`,
       });
     } else {
       toast.info("Removido da sua lista", {
-        description: `"${item.title}" foi removido da sua lista.`,
+        description: `"${current.title}" foi removido da sua lista.`,
       });
     }
   };
 
   return (
-    <div className="relative w-full h-[75vh] min-h-[480px] max-h-[750px] overflow-hidden" data-protected-media>
-      {/* Background Banner with smooth overlay */}
-      <ProtectedImage
-        src={item.banner}
-        alt={item.title}
-        priority
-        className="absolute inset-0 w-full h-full object-cover object-top filter brightness-75 scale-105"
-      />
-      <div className="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-transparent" />
-      <div className="absolute inset-0 bg-gradient-to-r from-background via-background/40 to-transparent" />
+    <section
+      className="relative w-full min-h-[540px] lg:min-h-[600px] overflow-hidden border-b border-border/60 bg-background"
+      data-protected-media
+    >
+      {/* Background Cinematic Banner + Ambient Tinted Wash */}
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={current.id}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.45 }}
+          className="absolute inset-0"
+        >
+          <ProtectedImage
+            src={current.banner || current.cover}
+            alt={current.title}
+            priority
+            className="absolute inset-0 w-full h-full object-cover object-top brightness-[0.45] scale-[1.03]"
+          />
+          <div
+            className="absolute inset-0 opacity-60 transition-colors duration-700"
+            style={{
+              background: `radial-gradient(ellipse 75% 65% at 75% 25%, rgba(${ambient.ambientRgb}, 0.28), transparent 70%)`,
+            }}
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-background via-background/75 to-background/20" />
+          <div className="absolute inset-0 bg-gradient-to-r from-background via-background/75 to-transparent" />
+        </motion.div>
+      </AnimatePresence>
 
-      {/* Hero Content */}
-      <div className="relative h-full flex items-end pb-16">
-        <div className="container mx-auto px-6 lg:px-12">
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8 }}
-            className="max-w-2xl"
-          >
-            {/* Badges */}
-            <div className="flex flex-wrap items-center gap-2 mb-3">
-              <span className="text-[11px] uppercase tracking-wider px-2.5 py-1 rounded bg-primary text-white font-medium">
-                Destaque da Temporada
+      {/* Atmospheric Stage Content */}
+      <div className="relative z-10 container mx-auto px-6 lg:px-12 pt-28 pb-12 lg:pt-32 lg:pb-16 flex flex-col md:flex-row items-end md:items-center justify-between gap-10">
+        <div className="max-w-2xl flex-1">
+          {/* Editorial Eyebrow (Zero-Pill Clean Typography) */}
+          <div className="flex flex-wrap items-center gap-2.5 text-xs text-muted-foreground mb-3 tabular-nums">
+            <span className="font-semibold text-primary">Curadoria em Destaque</span>
+            <span aria-hidden="true">·</span>
+            <span className="text-foreground/90 font-medium">{current.studio}</span>
+            <span aria-hidden="true">·</span>
+            <span className="inline-flex items-center gap-1 text-amber-500 font-semibold">
+              <Star className="h-3.5 w-3.5 fill-current" />
+              {current.rating.toFixed(1)}
+            </span>
+            <span aria-hidden="true">·</span>
+            <span>{current.episodesCount} episódios</span>
+          </div>
+
+          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-semibold text-foreground tracking-tight text-balance leading-[1.12]">
+            {current.title}
+          </h1>
+          <p className="text-xs sm:text-sm text-muted-foreground mt-1.5 mb-4">
+            {current.japaneseTitle} · {current.year}
+          </p>
+
+          <p className="text-sm sm:text-base text-foreground/85 font-normal leading-relaxed line-clamp-3 max-w-xl mb-7">
+            {ambient.logline} {current.synopsis}
+          </p>
+
+          {/* Focused Action Cluster */}
+          <div className="flex flex-wrap items-center gap-3">
+            <Link
+              to={`/animes/${current.id}?tab=episodes`}
+              className="inline-flex items-center gap-2 bg-foreground text-background hover:bg-foreground/90 px-6 py-3 rounded-xl text-xs sm:text-sm font-semibold transition-transform active:scale-[0.98] shadow-lg whitespace-nowrap shrink-0"
+            >
+              <Play className="w-4 h-4 fill-current" />
+              <span>Assistir Agora</span>
+            </Link>
+
+            {hasManga ? (
+              <Link
+                to={`/animes/${current.id}?tab=manga`}
+                className="inline-flex items-center gap-2 bg-card/85 hover:bg-card text-foreground backdrop-blur-md border border-border px-5 py-3 rounded-xl text-xs sm:text-sm font-medium transition-colors whitespace-nowrap shrink-0"
+              >
+                <ArrowLeftRight className="w-4 h-4 text-primary" />
+                <span>CanonBridge: Mangá ({current.manga.chaptersCount} caps)</span>
+              </Link>
+            ) : (
+              <span className="inline-flex items-center gap-1.5 px-4 py-3 rounded-xl bg-card/60 backdrop-blur-md border border-border/70 text-xs font-medium text-muted-foreground whitespace-nowrap shrink-0">
+                <Sparkles className="w-3.5 h-3.5 text-primary" />
+                <span>Obra Original para Animação</span>
               </span>
-              <span className="text-[11px] uppercase tracking-wider px-2.5 py-1 rounded bg-black/60 backdrop-blur-md text-white font-light">
-                {item.studio}
-              </span>
-              <div className="flex items-center gap-1 text-[11px] font-medium text-amber-400 bg-black/60 backdrop-blur-md px-2 py-1 rounded">
-                <Star className="h-3 w-3 fill-amber-400" />
-                <span>{item.rating.toFixed(1)}</span>
+            )}
+
+            <button
+              type="button"
+              onClick={() => onPlayTrailer(current)}
+              className="inline-flex items-center gap-1.5 px-4 py-3 rounded-xl bg-card/70 hover:bg-card text-foreground backdrop-blur-md border border-border/80 text-xs font-medium transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+              title="Ver trailer oficial"
+            >
+              <Film className="w-4 h-4 text-muted-foreground" />
+              <span>Trailer</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={handleWatchlist}
+              className={`h-11 w-11 rounded-xl border backdrop-blur-md flex items-center justify-center transition-colors shrink-0 cursor-pointer ${
+                inWatchlist
+                  ? "bg-primary/15 border-primary text-primary"
+                  : "bg-card/70 hover:bg-card border-border/80 text-foreground"
+              }`}
+              title={inWatchlist ? "Salvo na sua lista" : "Salvar na minha lista"}
+              aria-label={inWatchlist ? "Remover da lista" : "Salvar na lista"}
+            >
+              {inWatchlist ? (
+                <BookmarkCheck className="w-4 h-4 fill-current" />
+              ) : (
+                <Bookmark className="w-4 h-4" />
+              )}
+            </button>
+          </div>
+
+          {/* Carousel Controls when multiple featured works */}
+          {featuredSlides.length > 1 && (
+            <div className="flex items-center gap-3 mt-8">
+              <div className="flex items-center gap-1.5">
+                {featuredSlides.map((slide, idx) => (
+                  <button
+                    key={slide.id}
+                    type="button"
+                    onClick={() => setActiveIndex(idx)}
+                    aria-label={`Destaque: ${slide.title}`}
+                    className={`h-1.5 rounded-full transition-all cursor-pointer ${
+                      idx === activeIndex
+                        ? "w-7 bg-primary"
+                        : "w-2 bg-foreground/25 hover:bg-foreground/45"
+                    }`}
+                  />
+                ))}
+              </div>
+              <div className="flex items-center gap-1 ml-2">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setActiveIndex(
+                      (prev) => (prev - 1 + featuredSlides.length) % featuredSlides.length
+                    )
+                  }
+                  className="h-7 w-7 rounded-lg bg-card/70 border border-border/70 flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                  aria-label="Destaque anterior"
+                >
+                  <ChevronLeft className="h-3.5 w-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveIndex((prev) => (prev + 1) % featuredSlides.length)}
+                  className="h-7 w-7 rounded-lg bg-card/70 border border-border/70 flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                  aria-label="Próximo destaque"
+                >
+                  <ChevronRight className="h-3.5 w-3.5" />
+                </button>
               </div>
             </div>
-
-            <h1 className="text-3xl md:text-5xl lg:text-6xl font-light text-foreground tracking-tight">
-              {item.title}
-            </h1>
-            <p className="text-xs md:text-sm text-muted-foreground italic mt-1 mb-3">
-              {item.japaneseTitle} • {item.season}
-            </p>
-
-            <p className="text-xs md:text-sm text-foreground/80 font-light line-clamp-3 leading-relaxed mb-6">
-              {item.synopsis}
-            </p>
-
-            {/* Action Buttons */}
-            <div className="flex flex-wrap items-center gap-3">
-              <button
-                type="button"
-                onClick={() => onPlayTrailer(item)}
-                className="inline-flex items-center gap-2 bg-foreground text-background hover:bg-foreground/90 px-6 py-3 rounded-full text-xs md:text-sm tracking-wider uppercase font-medium transition-transform active:scale-95 shadow-lg"
-              >
-                <Play className="w-4 h-4 fill-current" />
-                Assistir Trailer
-              </button>
-
-              {item.manga?.chapters[0] && (
-                <Link
-                  to={`/animes/${item.id}/manga/${item.manga.chapters[0].id}`}
-                  className="inline-flex items-center gap-2 bg-primary hover:bg-primary/90 text-white px-5 py-3 rounded-full text-xs md:text-sm tracking-wider uppercase font-medium transition-transform active:scale-95 shadow-lg"
-                >
-                  <BookOpen className="w-4 h-4" />
-                  Ler Mangá
-                </Link>
-              )}
-
-              <Link
-                to={`/animes/${item.id}`}
-                className="inline-flex items-center gap-2 bg-card/80 hover:bg-card text-foreground backdrop-blur-md border border-border px-5 py-3 rounded-full text-xs md:text-sm tracking-wider uppercase font-light transition-colors"
-              >
-                <Info className="w-4 h-4" />
-                Episódios ({item.episodesCount})
-              </Link>
-
-              <button
-                type="button"
-                onClick={handleWatchlist}
-                className="inline-flex items-center gap-1.5 bg-card/40 hover:bg-card/70 text-foreground backdrop-blur-md border border-border/80 px-4 py-3 rounded-full text-xs tracking-wider uppercase font-light transition-colors"
-                title={inWatchlist ? "Remover da lista" : "Salvar na lista"}
-              >
-                {inWatchlist ? (
-                  <>
-                    <Check className="w-4 h-4 text-primary" />
-                    <span>Salvo</span>
-                  </>
-                ) : (
-                  <>
-                    <Plus className="w-4 h-4" />
-                    <span>Minha Lista</span>
-                  </>
-                )}
-              </button>
-            </div>
-          </motion.div>
+          )}
         </div>
+
+        {/* Crisp 2:3 Poster Showcase (Desktop) */}
+        <Link
+          to={`/animes/${current.id}`}
+          className="hidden md:block w-52 lg:w-60 shrink-0 group relative"
+        >
+          <div className="aspect-[2/3] rounded-2xl overflow-hidden shadow-2xl border border-white/15 bg-card transition-transform duration-300 group-hover:scale-[1.02]">
+            <ProtectedImage
+              src={current.cover}
+              alt={current.title}
+              className="w-full h-full object-cover"
+            />
+          </div>
+          {hasManga && (
+            <div className="mt-2.5 flex items-center justify-center gap-1.5 text-[11px] text-muted-foreground">
+              <BookOpen className="h-3 w-3 text-primary" />
+              <span>{current.manga.title} · {current.manga.chaptersCount} caps</span>
+            </div>
+          )}
+        </Link>
       </div>
-    </div>
+    </section>
   );
 };
 
