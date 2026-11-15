@@ -1179,24 +1179,51 @@ export const GeoLanguageProvider: React.FC<{ children: React.ReactNode }> = ({ c
     await detectIpGeolocation(true);
   }, [detectIpGeolocation, syncLanguageSideEffects]);
 
+  const hasTranslatedDomRef = React.useRef(false);
+
   // Automatic Whole-DOM Real-Time Adaptation Engine for the User's Active Language ('en' or 'pt')
   useEffect(() => {
     if (typeof document === "undefined") return;
 
     const activeLang = geo.language;
+
+    // Fast path: when language is default Portuguese ('pt') and DOM was never mutated into 'en',
+    // skip full-DOM TreeWalker and MutationObserver completely (0% background CPU overhead).
+    if (activeLang === "pt") {
+      if (hasTranslatedDomRef.current) {
+        hasTranslatedDomRef.current = false;
+        const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+        let n = walker.nextNode() as TranslatableTextNode | null;
+        while (n) {
+          if (n.__wothoOrigText !== undefined && n.nodeValue !== n.__wothoOrigText) {
+            n.nodeValue = n.__wothoOrigText;
+          }
+          n = walker.nextNode() as TranslatableTextNode | null;
+        }
+        const attrEls = document.body.querySelectorAll<TranslatableElement>("[placeholder], [title], [aria-label]");
+        attrEls.forEach((el) => {
+          if (el.__wothoOrigPlaceholder) el.setAttribute("placeholder", el.__wothoOrigPlaceholder);
+          if (el.__wothoOrigTitle) el.setAttribute("title", el.__wothoOrigTitle);
+          if (el.__wothoOrigAriaLabel) el.setAttribute("aria-label", el.__wothoOrigAriaLabel);
+        });
+      }
+      return;
+    }
+
+    hasTranslatedDomRef.current = true;
     let isCancelled = false;
     const pendingNodes = new Map<TranslatableTextNode, string>();
     let batchTimer: ReturnType<typeof setTimeout> | null = null;
+    let mutationTimer: ReturnType<typeof setTimeout> | null = null;
+    const queuedRoots = new Set<Node>();
 
     const flushPendingTranslations = async () => {
       if (isCancelled || pendingNodes.size === 0) return;
       const entries = Array.from(pendingNodes.entries());
       pendingNodes.clear();
 
-      setIsTranslating(true);
       try {
-        // Process in progressive micro-batches of 16 nodes so visible text updates immediately
-        const MICRO_BATCH = 16;
+        const MICRO_BATCH = 24;
         for (let b = 0; b < entries.length; b += MICRO_BATCH) {
           if (isCancelled) break;
           const slice = entries.slice(b, b + MICRO_BATCH);
@@ -1208,19 +1235,13 @@ export const GeoLanguageProvider: React.FC<{ children: React.ReactNode }> = ({ c
             const [textNode, origStr] = slice[i];
             const transStr = translatedStrings[i];
             if (transStr && transStr !== origStr && textNode.isConnected) {
-              if (activeLang === "en") {
-                textNode.__wothoTranslatedEn = transStr;
-              } else {
-                textNode.__wothoTranslatedPt = transStr;
-              }
+              textNode.__wothoTranslatedEn = transStr;
               textNode.nodeValue = transStr;
             }
           }
         }
       } catch {
         // ignore
-      } finally {
-        if (!isCancelled) setIsTranslating(false);
       }
     };
 
@@ -1228,21 +1249,24 @@ export const GeoLanguageProvider: React.FC<{ children: React.ReactNode }> = ({ c
       if (batchTimer) clearTimeout(batchTimer);
       batchTimer = setTimeout(() => {
         void flushPendingTranslations();
-      }, 30);
+      }, 60);
     };
 
     const processTextNode = (textNode: TranslatableTextNode) => {
+      const currentVal = textNode.nodeValue || "";
+      if (textNode.__wothoTranslatedEn && currentVal === textNode.__wothoTranslatedEn) {
+        return;
+      }
+
       const parent = textNode.parentElement;
       if (!parent) return;
       if (SKIP_TAGS.has(parent.tagName)) return;
       if (parent.closest("[data-no-translate='true']")) return;
 
-      const currentVal = textNode.nodeValue || "";
       const trimmed = currentVal.trim();
       if (!trimmed || trimmed.length <= 1) return;
       if (/^[\d\s.,:/\-+%$€£@#&*()[\]{}|\\<>!?~`"'+=•✦]+$/.test(trimmed)) return;
 
-      // Record original text if not yet recorded, or if React updated the node with fresh content
       if (
         textNode.__wothoOrigText === undefined ||
         (currentVal !== textNode.__wothoOrigText &&
@@ -1258,33 +1282,6 @@ export const GeoLanguageProvider: React.FC<{ children: React.ReactNode }> = ({ c
       const sourceTrimmed = sourceText.trim();
       if (!sourceTrimmed) return;
 
-      if (activeLang === "pt") {
-        // If this node already has a cached Portuguese version or its original text is Portuguese, apply immediately
-        if (textNode.__wothoTranslatedPt) {
-          if (textNode.nodeValue !== textNode.__wothoTranslatedPt) {
-            textNode.nodeValue = textNode.__wothoTranslatedPt;
-          }
-          return;
-        }
-        const syncPt = translateTextSync(sourceText, "pt");
-        if (syncPt !== sourceText) {
-          textNode.__wothoTranslatedPt = syncPt;
-          if (textNode.nodeValue !== syncPt) textNode.nodeValue = syncPt;
-          return;
-        }
-        // Restore original Portuguese if it was previously translated to English
-        if (textNode.nodeValue !== sourceText) {
-          textNode.nodeValue = sourceText;
-        }
-        // If the original text is actually in English (e.g. NYT, BBC, The Guardian, ANN headline/article), translate it to Portuguese!
-        if (looksLikeEnglish(sourceTrimmed) && !looksLikePortuguese(sourceTrimmed)) {
-          pendingNodes.set(textNode, sourceText);
-          scheduleFlush();
-        }
-        return;
-      }
-
-      // Active language is 'en':
       if (textNode.__wothoTranslatedEn) {
         if (textNode.nodeValue !== textNode.__wothoTranslatedEn) {
           textNode.nodeValue = textNode.__wothoTranslatedEn;
@@ -1322,18 +1319,9 @@ export const GeoLanguageProvider: React.FC<{ children: React.ReactNode }> = ({ c
       const placeholder = el.getAttribute("placeholder");
       if (placeholder && placeholder.trim()) {
         if (!el.__wothoOrigPlaceholder) el.__wothoOrigPlaceholder = placeholder;
-        if (activeLang === "pt") {
-          const syncPt = translateTextSync(el.__wothoOrigPlaceholder, "pt");
-          el.setAttribute("placeholder", syncPt);
-        } else {
-          const syncEn = translateTextSync(el.__wothoOrigPlaceholder, "en");
-          if (syncEn !== el.__wothoOrigPlaceholder) {
-            el.setAttribute("placeholder", syncEn);
-          } else {
-            void translateBatchToLanguage([el.__wothoOrigPlaceholder], "en").then(([t]) => {
-              if (!isCancelled && t && el.isConnected) el.setAttribute("placeholder", t);
-            });
-          }
+        const syncEn = translateTextSync(el.__wothoOrigPlaceholder, "en");
+        if (syncEn !== el.__wothoOrigPlaceholder) {
+          el.setAttribute("placeholder", syncEn);
         }
       }
 
@@ -1353,6 +1341,7 @@ export const GeoLanguageProvider: React.FC<{ children: React.ReactNode }> = ({ c
     };
 
     const scanSubtree = (root: Node) => {
+      if (!root || !root.isConnected) return;
       if (root.nodeType === Node.TEXT_NODE) {
         processTextNode(root as TranslatableTextNode);
         return;
@@ -1372,49 +1361,41 @@ export const GeoLanguageProvider: React.FC<{ children: React.ReactNode }> = ({ c
       }
     };
 
-    // Initial full-page scan
+    // Initial full-page scan when in English mode
     scanSubtree(document.body);
 
-    // Periodic reconciliation scan (every 800ms) to catch Framer Motion / lazy-loaded / portal elements
-    const intervalId = setInterval(() => {
-      if (!isCancelled) {
-        scanSubtree(document.body);
-      }
-    }, 800);
-
-    // Observe all dynamic route transitions, infinite scroll news cards, modals, and state updates
+    // Debounced MutationObserver for new route/component mounts in English mode
     const observer = new MutationObserver((mutations) => {
       if (isCancelled) return;
       for (const mutation of mutations) {
-        if (mutation.type === "characterData") {
-          const target = mutation.target as TranslatableTextNode;
-          const expected =
-            activeLang === "en" ? target.__wothoTranslatedEn : target.__wothoTranslatedPt || target.__wothoOrigText;
-          if (target.nodeValue !== expected) {
-            processTextNode(target);
-          }
-        } else if (mutation.type === "childList") {
+        if (mutation.type === "childList") {
           mutation.addedNodes.forEach((added) => {
-            scanSubtree(added);
+            queuedRoots.add(added);
           });
-        } else if (mutation.type === "attributes" && mutation.target instanceof HTMLElement) {
-          processElementAttributes(mutation.target as TranslatableElement);
         }
+      }
+      if (queuedRoots.size > 0 && !mutationTimer) {
+        mutationTimer = setTimeout(() => {
+          mutationTimer = null;
+          if (isCancelled) return;
+          const roots = Array.from(queuedRoots);
+          queuedRoots.clear();
+          for (const r of roots) {
+            scanSubtree(r);
+          }
+        }, 120);
       }
     });
 
     observer.observe(document.body, {
       childList: true,
       subtree: true,
-      characterData: true,
-      attributes: true,
-      attributeFilter: ["placeholder", "title", "aria-label"],
     });
 
     return () => {
       isCancelled = true;
-      clearInterval(intervalId);
       if (batchTimer) clearTimeout(batchTimer);
+      if (mutationTimer) clearTimeout(mutationTimer);
       observer.disconnect();
     };
   }, [geo.language]);

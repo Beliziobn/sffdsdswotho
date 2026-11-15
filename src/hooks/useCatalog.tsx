@@ -68,210 +68,218 @@ export type Purchase = {
 export const useBooks = (search = "") =>
   useQuery({
     queryKey: ["books", search],
+    staleTime: 1000 * 60 * 10,
+    refetchOnWindowFocus: false,
     queryFn: async () => {
-      let dbBooks: Book[] = [];
-      try {
-        let q = supabase.from("books").select("*").order("created_at", { ascending: false });
-        if (search) {
-          q = q.or(`title.ilike.%${search}%,author.ilike.%${search}%`);
-        }
-        const { data, error } = await q;
-        if (!error && data) dbBooks = filterExcludedItems(data as Book[]);
-      } catch {
-        // Fallback gracefully
-      }
+      const lowerSearch = search.toLowerCase();
 
-      // Fetch Scientific Articles
-      let sciBooks: Book[] = [];
-      try {
-        const { SCIENTIFIC_ARTICLES } = await import("@/data/scientificArticles");
-        sciBooks = SCIENTIFIC_ARTICLES.filter((s) =>
-          search
-            ? s.title.toLowerCase().includes(search.toLowerCase()) ||
-              s.author.toLowerCase().includes(search.toLowerCase()) ||
-              s.field.toLowerCase().includes(search.toLowerCase()) ||
-              s.description.toLowerCase().includes(search.toLowerCase())
-            : true
-        ).map((s) => ({
-          id: s.id,
-          title: s.title,
-          author: s.author,
-          description: s.description,
-          cover_url: s.cover_url,
-          price_cents: 0,
-          currency: "BRL",
-          category: `Artigo Científico (${s.field})`,
-          published: true,
-          featured: true,
-          created_at: s.published_at,
-        }));
-      } catch {}
+      const [
+        dbBooks,
+        sciBooks,
+        currBooks,
+        modernBooks,
+        gutenBooks,
+        autoBooks,
+        pdfBooks,
+        cloudBooks,
+      ] = await Promise.all([
+        // 1. Supabase books
+        (async (): Promise<Book[]> => {
+          try {
+            let q = supabase.from("books").select("*").order("created_at", { ascending: false });
+            if (search) {
+              q = q.or(`title.ilike.%${search}%,author.ilike.%${search}%`);
+            }
+            const { data, error } = await q;
+            if (!error && data) return filterExcludedItems(data as Book[]);
+          } catch {}
+          return [];
+        })(),
 
-      // Fetch Curricular Textbooks
-      let currBooks: Book[] = [];
-      try {
-        const { CURRICULAR_BOOKS } = await import("@/data/curricularBooks");
-        currBooks = CURRICULAR_BOOKS.filter((c) =>
-          search
-            ? c.title.toLowerCase().includes(search.toLowerCase()) ||
-              c.author.toLowerCase().includes(search.toLowerCase()) ||
-              c.discipline.toLowerCase().includes(search.toLowerCase()) ||
-              c.grade_level.toLowerCase().includes(search.toLowerCase()) ||
-              c.description.toLowerCase().includes(search.toLowerCase())
-            : true
-        ).map((c) => ({
-          id: c.id,
-          title: c.title,
-          author: c.author,
-          description: c.description,
-          cover_url: c.cover_url,
-          price_cents: 0,
-          currency: "BRL",
-          category: `Disciplina (${c.discipline})`,
-          published: true,
-          featured: true,
-          created_at: new Date(c.year, 0, 1).toISOString(),
-        }));
-      } catch {}
+        // 2. Scientific Articles
+        (async (): Promise<Book[]> => {
+          try {
+            const { SCIENTIFIC_ARTICLES } = await import("@/data/scientificArticles");
+            return SCIENTIFIC_ARTICLES.filter((s) =>
+              search
+                ? s.title.toLowerCase().includes(lowerSearch) ||
+                  s.author.toLowerCase().includes(lowerSearch) ||
+                  s.field.toLowerCase().includes(lowerSearch) ||
+                  s.description.toLowerCase().includes(lowerSearch)
+                : true
+            ).map((s) => ({
+              id: s.id,
+              title: s.title,
+              author: s.author,
+              description: s.description,
+              cover_url: s.cover_url,
+              price_cents: 0,
+              currency: "BRL",
+              category: `Artigo Científico (${s.field})`,
+              published: true,
+              featured: true,
+              created_at: s.published_at,
+            }));
+          } catch {}
+          return [];
+        })(),
 
-      // Fetch modern bestsellers
-      let modernBooks: Book[] = [];
-      try {
-        const { MODERN_BOOKS } = await import("@/lib/modernBooks");
-        modernBooks = MODERN_BOOKS.filter((b) =>
-          search
-            ? b.title.toLowerCase().includes(search.toLowerCase()) ||
-              b.author.toLowerCase().includes(search.toLowerCase()) ||
-              b.description.toLowerCase().includes(search.toLowerCase())
-            : true
-        ).map((b) => ({
-          id: b.id,
-          title: b.title,
-          author: b.author,
-          description: b.description,
-          cover_url: b.cover_url,
-          price_cents: b.price_cents,
-          currency: b.currency,
-          category: b.category,
-          published: b.published,
-          featured: b.featured,
-          created_at: b.created_at,
-        }));
-      } catch {
-        // Fallback gracefully
-      }
+        // 3. Curricular Textbooks
+        (async (): Promise<Book[]> => {
+          try {
+            const { CURRICULAR_BOOKS } = await import("@/data/curricularBooks");
+            return CURRICULAR_BOOKS.filter((c) =>
+              search
+                ? c.title.toLowerCase().includes(lowerSearch) ||
+                  c.author.toLowerCase().includes(lowerSearch) ||
+                  c.discipline.toLowerCase().includes(lowerSearch) ||
+                  c.grade_level.toLowerCase().includes(lowerSearch) ||
+                  c.description.toLowerCase().includes(lowerSearch)
+                : true
+            ).map((c) => ({
+              id: c.id,
+              title: c.title,
+              author: c.author,
+              description: c.description,
+              cover_url: c.cover_url,
+              price_cents: 0,
+              currency: "BRL",
+              category: `Disciplina (${c.discipline})`,
+              published: true,
+              featured: true,
+              created_at: new Date(c.year, 0, 1).toISOString(),
+            }));
+          } catch {}
+          return [];
+        })(),
 
-      // Fetch Gutenberg catalog
-      let gutenBooks: Book[] = [];
-      try {
-        const { fetchGutenbergCatalog } = await import("@/lib/gutenbergBooks");
-        const list = await fetchGutenbergCatalog(search);
-        gutenBooks = list.map((b) => ({
-          id: b.id,
-          title: b.title,
-          author: b.author,
-          description: b.description,
-          cover_url: b.cover_url,
-          price_cents: 0,
-          currency: b.currency,
-          category: b.category,
-          published: true,
-          featured: b.featured,
-          created_at: b.created_at,
-        }));
-      } catch {
-        // Fallback gracefully
-      }
+        // 4. Modern Bestsellers
+        (async (): Promise<Book[]> => {
+          try {
+            const { MODERN_BOOKS } = await import("@/lib/modernBooks");
+            return MODERN_BOOKS.filter((b) =>
+              search
+                ? b.title.toLowerCase().includes(lowerSearch) ||
+                  b.author.toLowerCase().includes(lowerSearch) ||
+                  b.description.toLowerCase().includes(lowerSearch)
+                : true
+            ).map((b) => ({
+              id: b.id,
+              title: b.title,
+              author: b.author,
+              description: b.description,
+              cover_url: b.cover_url,
+              price_cents: b.price_cents,
+              currency: b.currency,
+              category: b.category,
+              published: b.published,
+              featured: b.featured,
+              created_at: b.created_at,
+            }));
+          } catch {}
+          return [];
+        })(),
 
-      // Fetch auto-imported books from automation pipeline
-      let autoBooks: Book[] = [];
-      try {
-        const { getAutoImportedBooks } = await import("@/lib/bookAutomation");
-        const list = await getAutoImportedBooks();
-        autoBooks = list
-          .filter((b) =>
-            search
-              ? b.title.toLowerCase().includes(search.toLowerCase()) ||
-                b.author.toLowerCase().includes(search.toLowerCase()) ||
-                b.description.toLowerCase().includes(search.toLowerCase())
-              : true
-          )
-          .map((b) => ({
-            id: b.id,
-            title: b.title,
-            author: b.author,
-            description: b.description,
-            cover_url: b.cover_url,
-            price_cents: b.price_cents,
-            currency: b.currency,
-            category: b.category,
-            published: b.published,
-            featured: b.featured,
-            created_at: b.created_at,
-          }));
-      } catch {
-        // Fallback gracefully
-      }
+        // 5. Gutenberg Catalog
+        (async (): Promise<Book[]> => {
+          try {
+            const { fetchGutenbergCatalog } = await import("@/lib/gutenbergBooks");
+            const list = await fetchGutenbergCatalog(search);
+            return list.map((b) => ({
+              id: b.id,
+              title: b.title,
+              author: b.author,
+              description: b.description,
+              cover_url: b.cover_url,
+              price_cents: 0,
+              currency: b.currency,
+              category: b.category,
+              published: true,
+              featured: b.featured,
+              created_at: b.created_at,
+            }));
+          } catch {}
+          return [];
+        })(),
 
-      // Fetch Original PDF Registry books across diverse styles
-      let pdfBooks: Book[] = [];
-      try {
-        const list = getAllOriginalPdfBooks();
-        pdfBooks = list
-          .filter((p) =>
-            search
-              ? p.title.toLowerCase().includes(search.toLowerCase()) ||
-                p.author.toLowerCase().includes(search.toLowerCase()) ||
-                p.category.toLowerCase().includes(search.toLowerCase()) ||
-                (p.description && p.description.toLowerCase().includes(search.toLowerCase()))
-              : true
-          )
-          .map((p) => ({
-            id: p.id,
-            title: p.title,
-            author: p.author,
-            description: p.description || p.editionNotes,
-            cover_url: p.coverUrl,
-            price_cents: 0,
-            currency: "BRL",
-            category: p.category,
-            published: true,
-            featured: true,
-            created_at: new Date(p.year > 0 ? p.year : 2024, 0, 1).toISOString(),
-          }));
-      } catch {}
+        // 6. Auto-Imported Books
+        (async (): Promise<Book[]> => {
+          try {
+            const { getAutoImportedBooks } = await import("@/lib/bookAutomation");
+            const list = await getAutoImportedBooks();
+            return list
+              .filter((b) =>
+                search
+                  ? b.title.toLowerCase().includes(lowerSearch) ||
+                    b.author.toLowerCase().includes(lowerSearch) ||
+                    b.description.toLowerCase().includes(lowerSearch)
+                  : true
+              )
+              .map((b) => ({
+                id: b.id,
+                title: b.title,
+                author: b.author,
+                description: b.description,
+                cover_url: b.cover_url,
+                price_cents: b.price_cents,
+                currency: b.currency,
+                category: b.category,
+                published: b.published,
+                featured: b.featured,
+                created_at: b.created_at,
+              }));
+          } catch {}
+          return [];
+        })(),
 
-      // Fetch Cloud Books from Firestore
-      let cloudBooks: Book[] = [];
-      try {
-        cloudBooks = await fetchCloudBooks();
-      } catch {}
+        // 7. Original PDF Registry
+        (async (): Promise<Book[]> => {
+          try {
+            const list = getAllOriginalPdfBooks();
+            return list
+              .filter((p) =>
+                search
+                  ? p.title.toLowerCase().includes(lowerSearch) ||
+                    p.author.toLowerCase().includes(lowerSearch) ||
+                    p.category.toLowerCase().includes(lowerSearch) ||
+                    (p.description && p.description.toLowerCase().includes(lowerSearch))
+                  : true
+              )
+              .map((p) => ({
+                id: p.id,
+                title: p.title,
+                author: p.author,
+                description: p.description || p.editionNotes,
+                cover_url: p.coverUrl,
+                price_cents: 0,
+                currency: "BRL",
+                category: p.category,
+                published: true,
+                featured: true,
+                created_at: new Date(p.year > 0 ? p.year : 2024, 0, 1).toISOString(),
+              }));
+          } catch {}
+          return [];
+        })(),
+
+        // 8. Cloud Books from Firestore
+        (async (): Promise<Book[]> => {
+          try {
+            return await fetchCloudBooks();
+          } catch {}
+          return [];
+        })(),
+      ]);
 
       const map = new Map<string, Book>();
-      // Custom Cloud Books from Admin first so they take top priority
       for (const b of cloudBooks) map.set(b.id, b);
-      // Scientific Articles & Curricular Textbooks, Auto, Modern, Gutenberg, Original PDFs, DB
-      for (const b of sciBooks) {
-        if (!map.has(b.id)) map.set(b.id, b);
-      }
-      for (const b of currBooks) {
-        if (!map.has(b.id)) map.set(b.id, b);
-      }
-      for (const b of autoBooks) {
-        if (!map.has(b.id)) map.set(b.id, b);
-      }
-      for (const b of modernBooks) {
-        if (!map.has(b.id)) map.set(b.id, b);
-      }
-      for (const b of gutenBooks) {
-        if (!map.has(b.id)) map.set(b.id, b);
-      }
-      for (const b of pdfBooks) {
-        if (!map.has(b.id)) map.set(b.id, b);
-      }
-      for (const b of dbBooks) {
-        if (!map.has(b.id)) map.set(b.id, b);
-      }
+      for (const b of sciBooks) if (!map.has(b.id)) map.set(b.id, b);
+      for (const b of currBooks) if (!map.has(b.id)) map.set(b.id, b);
+      for (const b of autoBooks) if (!map.has(b.id)) map.set(b.id, b);
+      for (const b of modernBooks) if (!map.has(b.id)) map.set(b.id, b);
+      for (const b of gutenBooks) if (!map.has(b.id)) map.set(b.id, b);
+      for (const b of pdfBooks) if (!map.has(b.id)) map.set(b.id, b);
+      for (const b of dbBooks) if (!map.has(b.id)) map.set(b.id, b);
 
       return filterExcludedItems(applyBookEditorialOverrides(Array.from(map.values()), search));
     },
@@ -281,33 +289,23 @@ export const useBook = (id?: string) =>
   useQuery({
     queryKey: ["book", id],
     enabled: !!id && !isExcludedItem({ id }),
+    staleTime: 1000 * 60 * 10,
     queryFn: async () => {
       if (!id || isExcludedItem({ id })) return null;
 
-      // Check custom/overridden editorial book first
+      // 1. Check custom/overridden editorial book first (synchronous)
       const directCustom = getSingleBookWithOverrides(id, null);
       if (id.startsWith("book-editorial-") && directCustom) {
         return directCustom;
       }
 
-      // Check Cloud Books in Firestore if not cached locally
-      if (id.startsWith("book-editorial-") || !directCustom) {
-        try {
-          const cloudList = await fetchCloudBooks();
-          const match = cloudList.find((b) => b.id === id);
-          if (match) {
-            return getSingleBookWithOverrides(id, match);
-          }
-        } catch {}
-      }
-
-      // Check if it is a Scientific Article
+      // 2. Check fast local registries by prefix before hitting network
       if (id.startsWith("sci-")) {
         try {
           const { SCIENTIFIC_ARTICLES } = await import("@/data/scientificArticles");
           const found = SCIENTIFIC_ARTICLES.find((s) => s.id === id);
           if (found) {
-            return {
+            return getSingleBookWithOverrides(id, {
               id: found.id,
               title: found.title,
               author: found.author,
@@ -319,18 +317,17 @@ export const useBook = (id?: string) =>
               published: true,
               featured: true,
               created_at: found.published_at,
-            } as Book;
+            } as Book);
           }
         } catch {}
       }
 
-      // Check if it is a Curricular Textbook
       if (id.startsWith("curr-")) {
         try {
           const { CURRICULAR_BOOKS } = await import("@/data/curricularBooks");
           const found = CURRICULAR_BOOKS.find((c) => c.id === id);
           if (found) {
-            return {
+            return getSingleBookWithOverrides(id, {
               id: found.id,
               title: found.title,
               author: found.author,
@@ -342,41 +339,16 @@ export const useBook = (id?: string) =>
               published: true,
               featured: true,
               created_at: new Date(found.year, 0, 1).toISOString(),
-            } as Book;
+            } as Book);
           }
         } catch {}
       }
 
-      // Check if it is an Auto-Imported book
-      if (id.startsWith("auto-")) {
-        try {
-          const { getAutoImportedBooks } = await import("@/lib/bookAutomation");
-          const list = await getAutoImportedBooks();
-          const found = list.find((b) => b.id === id);
-          if (found) {
-            return {
-              id: found.id,
-              title: found.title,
-              author: found.author,
-              description: found.description,
-              cover_url: found.cover_url,
-              price_cents: found.price_cents,
-              currency: found.currency,
-              category: found.category,
-              published: found.published,
-              featured: found.featured,
-              created_at: found.created_at,
-            } as Book;
-          }
-        } catch {}
-      }
-
-      // Check if it is a Modern Bestseller book
       if (id.startsWith("mod-")) {
         const { MODERN_BOOKS } = await import("@/lib/modernBooks");
         const found = MODERN_BOOKS.find((b) => b.id === id);
         if (found) {
-          return {
+          return getSingleBookWithOverrides(id, {
             id: found.id,
             title: found.title,
             author: found.author,
@@ -388,78 +360,34 @@ export const useBook = (id?: string) =>
             published: found.published,
             featured: found.featured,
             created_at: found.created_at,
-          } as Book;
+          } as Book);
         }
       }
 
-      // Check if it is a Gutenberg book
-      if (id.startsWith("guten-") || /^\d+$/.test(id)) {
-        const { CURATED_GUTENBERG_BOOKS, fetchGutenbergCatalog } = await import("@/lib/gutenbergBooks");
-        const cleanId = id.startsWith("guten-") ? id : `guten-${id}`;
-        const found = CURATED_GUTENBERG_BOOKS.find((b) => b.id === cleanId);
-        if (found) {
-          return {
-            id: found.id,
-            title: found.title,
-            author: found.author,
-            description: found.description,
-            cover_url: found.cover_url,
-            price_cents: 0,
-            currency: found.currency,
-            category: found.category,
-            published: true,
-            featured: found.featured,
-            created_at: found.created_at,
-          } as Book;
-        }
-
-        const remote = await fetchGutenbergCatalog();
-        const foundRemote = remote.find((b) => b.id === cleanId);
-        if (foundRemote) {
-          return {
-            id: foundRemote.id,
-            title: foundRemote.title,
-            author: foundRemote.author,
-            description: foundRemote.description,
-            cover_url: foundRemote.cover_url,
-            price_cents: 0,
-            currency: foundRemote.currency,
-            category: foundRemote.category,
-            published: true,
-            featured: foundRemote.featured,
-            created_at: foundRemote.created_at,
-          } as Book;
-        }
+      if (id.startsWith("auto-")) {
+        try {
+          const { getAutoImportedBooks } = await import("@/lib/bookAutomation");
+          const list = await getAutoImportedBooks();
+          const found = list.find((b) => b.id === id);
+          if (found) {
+            return getSingleBookWithOverrides(id, {
+              id: found.id,
+              title: found.title,
+              author: found.author,
+              description: found.description,
+              cover_url: found.cover_url,
+              price_cents: found.price_cents,
+              currency: found.currency,
+              category: found.category,
+              published: found.published,
+              featured: found.featured,
+              created_at: found.created_at,
+            } as Book);
+          }
+        } catch {}
       }
 
-      // Supabase lookup
-      try {
-        const { data, error } = await supabase.from("books").select("*").eq("id", id).maybeSingle();
-        if (!error && data) return data as Book;
-      } catch {}
-
-      // Fallback Gutenberg search
-      try {
-        const { CURATED_GUTENBERG_BOOKS } = await import("@/lib/gutenbergBooks");
-        const found = CURATED_GUTENBERG_BOOKS.find((b) => b.id === id);
-        if (found) {
-          return {
-            id: found.id,
-            title: found.title,
-            author: found.author,
-            description: found.description,
-            cover_url: found.cover_url,
-            price_cents: 0,
-            currency: found.currency,
-            category: found.category,
-            published: true,
-            featured: found.featured,
-            created_at: found.created_at,
-          } as Book;
-        }
-      } catch {}
-
-      // Original PDF Registry lookup
+      // Check Original PDF Registry synchronously
       try {
         const pdf = getOriginalPdfForBook(id);
         if (pdf) {
@@ -479,6 +407,67 @@ export const useBook = (id?: string) =>
         }
       } catch {}
 
+      if (id.startsWith("guten-") || /^\d+$/.test(id)) {
+        const { CURATED_GUTENBERG_BOOKS, fetchGutenbergCatalog } = await import("@/lib/gutenbergBooks");
+        const cleanId = id.startsWith("guten-") ? id : `guten-${id}`;
+        const found = CURATED_GUTENBERG_BOOKS.find((b) => b.id === cleanId);
+        if (found) {
+          return getSingleBookWithOverrides(id, {
+            id: found.id,
+            title: found.title,
+            author: found.author,
+            description: found.description,
+            cover_url: found.cover_url,
+            price_cents: 0,
+            currency: found.currency,
+            category: found.category,
+            published: true,
+            featured: found.featured,
+            created_at: found.created_at,
+          } as Book);
+        }
+
+        const remote = await fetchGutenbergCatalog();
+        const foundRemote = remote.find((b) => b.id === cleanId);
+        if (foundRemote) {
+          return getSingleBookWithOverrides(id, {
+            id: foundRemote.id,
+            title: foundRemote.title,
+            author: foundRemote.author,
+            description: foundRemote.description,
+            cover_url: foundRemote.cover_url,
+            price_cents: 0,
+            currency: foundRemote.currency,
+            category: foundRemote.category,
+            published: true,
+            featured: foundRemote.featured,
+            created_at: foundRemote.created_at,
+          } as Book);
+        }
+      }
+
+      // 3. Parallel Cloud + Supabase lookup for custom/DB books
+      const [cloudMatch, dbMatch] = await Promise.all([
+        (async (): Promise<Book | null> => {
+          try {
+            const cloudList = await fetchCloudBooks();
+            return cloudList.find((b) => b.id === id) || null;
+          } catch {
+            return null;
+          }
+        })(),
+        (async (): Promise<Book | null> => {
+          try {
+            const { data, error } = await supabase.from("books").select("*").eq("id", id).maybeSingle();
+            if (!error && data) return data as Book;
+          } catch {}
+          return null;
+        })(),
+      ]);
+
+      if (cloudMatch) return getSingleBookWithOverrides(id, cloudMatch);
+      if (dbMatch) return getSingleBookWithOverrides(id, dbMatch);
+
       return getSingleBookWithOverrides(id, null);
     },
   });
@@ -487,6 +476,7 @@ export const useChapters = (bookId?: string) =>
   useQuery({
     queryKey: ["chapters", bookId],
     enabled: !!bookId,
+    staleTime: 1000 * 60 * 10,
     queryFn: async () => {
       if (!bookId) return [];
 
@@ -552,15 +542,6 @@ export const useChapters = (bookId?: string) =>
         if (chaps && chaps.length > 0) return chaps as Chapter[];
       }
 
-      try {
-        const { data, error } = await supabase
-          .from("chapters")
-          .select("*")
-          .eq("book_id", bookId!)
-          .order("position", { ascending: true });
-        if (!error && data && data.length > 0) return data as Chapter[];
-      } catch {}
-
       // Check Original PDF Registry for default full digitized edition chapter
       try {
         const pdf = getOriginalPdfForBook(bookId);
@@ -578,11 +559,29 @@ export const useChapters = (bookId?: string) =>
         }
       } catch {}
 
-      // Check Cloud Chapters from Firestore
-      try {
-        const cloudChaps = await fetchCloudChapters(bookId);
-        if (cloudChaps && cloudChaps.length > 0) return cloudChaps;
-      } catch {}
+      const [dbChaps, cloudChaps] = await Promise.all([
+        (async (): Promise<Chapter[]> => {
+          try {
+            const { data, error } = await supabase
+              .from("chapters")
+              .select("*")
+              .eq("book_id", bookId)
+              .order("position", { ascending: true });
+            if (!error && data && data.length > 0) return data as Chapter[];
+          } catch {}
+          return [];
+        })(),
+        (async (): Promise<Chapter[]> => {
+          try {
+            const chaps = await fetchCloudChapters(bookId);
+            if (chaps && chaps.length > 0) return chaps;
+          } catch {}
+          return [];
+        })(),
+      ]);
+
+      if (dbChaps.length > 0) return dbChaps;
+      if (cloudChaps.length > 0) return cloudChaps;
 
       return [] as Chapter[];
     },
@@ -594,48 +593,57 @@ export const useNews = () =>
     staleTime: 1000 * 60 * 5,
     refetchOnWindowFocus: false,
     queryFn: async () => {
-      let dbNews: NewsItem[] = [];
-      try {
-        const { data, error } = await supabase
-          .from("news")
-          .select("*")
-          .order("published_at", { ascending: false });
-        if (!error && data) dbNews = filterExcludedItems(data as NewsItem[]);
-      } catch {
-        // Fallback if supabase connection is offline
+      const cachedSyndicated = getCachedNews() as unknown as NewsItem[];
+
+      // Trigger background sync non-blockingly if cache already has items
+      if (cachedSyndicated.length > 0) {
+        void syncDailyNews().catch(() => {});
       }
 
-      // Fetch Firestore Cloud news (manual admin publications)
-      let cloudNews: NewsItem[] = [];
-      try {
-        cloudNews = await fetchCloudNews();
-        if (cloudNews.length > 0) {
-          mergeCloudNewsIntoStore(cloudNews);
-        }
-      } catch {}
-
-      // Read cached news immediately and trigger background sync if empty
-      let syndicated: any[] = [];
-      let archivedItems: any[] = [];
-      try {
-        syndicated = getCachedNews();
-        if (!syndicated || syndicated.length === 0) {
-          syndicated = await syncDailyNews();
-        }
-      } catch {}
-
-      try {
-        const archiveResult = await queryNewsArchive({ pageSize: 700 });
-        archivedItems = archiveResult.items || [];
-      } catch {}
+      const [dbNews, cloudNews, archivedItems, freshSyndicated] = await Promise.all([
+        (async (): Promise<NewsItem[]> => {
+          try {
+            const { data, error } = await supabase
+              .from("news")
+              .select("*")
+              .order("published_at", { ascending: false });
+            if (!error && data) return filterExcludedItems(data as NewsItem[]);
+          } catch {}
+          return [];
+        })(),
+        (async (): Promise<NewsItem[]> => {
+          try {
+            const list = await fetchCloudNews();
+            if (list.length > 0) mergeCloudNewsIntoStore(list);
+            return list;
+          } catch {}
+          return [];
+        })(),
+        (async (): Promise<NewsItem[]> => {
+          try {
+            const archiveResult = await queryNewsArchive({ pageSize: 24 });
+            return (archiveResult.items || []) as unknown as NewsItem[];
+          } catch {}
+          return [];
+        })(),
+        (async (): Promise<NewsItem[]> => {
+          if (cachedSyndicated.length > 0) return cachedSyndicated;
+          try {
+            return (await Promise.race([
+              syncDailyNews(),
+              new Promise<never[]>((resolve) => setTimeout(() => resolve([]), 1200)),
+            ])) as unknown as NewsItem[];
+          } catch {
+            return [];
+          }
+        })(),
+      ]);
 
       const validDbNews = dbNews.filter(Boolean);
-
-      // Merge and deduplicate by slug or title: Firestore Cloud + Cloud DB + Syndicated + Permanent Archive
       const seen = new Set<string>();
       const combined: NewsItem[] = [];
 
-      for (const item of [...cloudNews, ...validDbNews, ...syndicated, ...archivedItems]) {
+      for (const item of [...cloudNews, ...validDbNews, ...freshSyndicated, ...archivedItems]) {
         const key = (item.slug || item.title || "").toLowerCase().trim();
         if (key && !seen.has(key) && (item.title || "").trim().length > 0) {
           seen.add(key);
@@ -657,59 +665,70 @@ export const useArticle = (slug?: string) =>
   useQuery({
     queryKey: ["news", slug],
     enabled: !!slug && !isExcludedItem({ slug, id: slug }),
-    staleTime: 1000 * 60 * 2,
+    staleTime: 1000 * 60 * 5,
     refetchOnWindowFocus: false,
     queryFn: async () => {
       if (!slug || isExcludedItem({ slug, id: slug })) return null;
-      let rawFound: NewsItem | null = null;
 
-      // 0. Check Firestore Cloud first so cross-user direct links & cover updates always reflect live state
-      try {
-        const cloudMatch = await fetchCloudNewsBySlug(slug);
-        if (cloudMatch) {
-          mergeCloudNewsIntoStore([cloudMatch]);
-          return expandNewsToDeepReport(cloudMatch) as unknown as NewsItem;
-        }
-      } catch {}
-
-      // 0b. Check if edited or created locally in Editorial Studio
+      // 0. Check local Editorial Studio override first (instant synchronous)
       const editorialDirect = getSingleNewsWithOverrides(slug, null);
       if (editorialDirect && slug.startsWith("editorial-")) {
         return expandNewsToDeepReport(editorialDirect) as unknown as NewsItem;
       }
 
-      // 1. Check permanent historical archive first (Guarantees zero 404 for historical links)
+      // 1. Check cached syndicated news synchronously for instant resolution
       try {
-        const permanentMatch = await fetchPermanentArticle(slug);
-        if (permanentMatch) {
-          return getSingleNewsWithOverrides(slug, permanentMatch as NewsItem);
+        const cached = getCachedNews();
+        const foundCached = cached.find((it) => it.slug === slug || it.id === slug);
+        if (foundCached) {
+          const merged = getSingleNewsWithOverrides(slug, foundCached as unknown as NewsItem);
+          if (merged) {
+            return getSingleNewsWithOverrides(
+              slug,
+              expandNewsToDeepReport(merged) as unknown as NewsItem
+            );
+          }
         }
       } catch {}
 
-      // 2. Check Supabase
-      try {
-        const { data, error } = await supabase.from("news").select("*").eq("slug", slug).maybeSingle();
-        if (!error && data) rawFound = data as NewsItem;
-      } catch {}
+      // 2. Run Cloud, Archive, and Supabase lookups in parallel
+      const [cloudMatch, permanentMatch, dbMatch] = await Promise.all([
+        (async (): Promise<NewsItem | null> => {
+          try {
+            const match = await fetchCloudNewsBySlug(slug);
+            if (match) mergeCloudNewsIntoStore([match]);
+            return match || null;
+          } catch {
+            return null;
+          }
+        })(),
+        (async (): Promise<NewsItem | null> => {
+          try {
+            const match = await fetchPermanentArticle(slug);
+            return (match as NewsItem) || null;
+          } catch {
+            return null;
+          }
+        })(),
+        (async (): Promise<NewsItem | null> => {
+          try {
+            const { data, error } = await supabase.from("news").select("*").eq("slug", slug).maybeSingle();
+            if (!error && data) return data as NewsItem;
+          } catch {}
+          return null;
+        })(),
+      ]);
 
-      // 3. Check syndicated cache or live feed
+      let rawFound: NewsItem | null = cloudMatch || permanentMatch || dbMatch;
+
+      // 3. Fallback to live feed if not found in local cache, archive, or cloud
       if (!rawFound) {
         try {
-          let cached = getCachedNews();
-          let found = cached.find((it) => it.slug === slug || it.id === slug);
-          if (!found) {
-            cached = await syncDailyNews();
-            found = cached.find((it) => it.slug === slug || it.id === slug);
-          }
-          if (found) rawFound = found;
-
-          if (!rawFound) {
-            const res = await fetch("/api/news/feed?topic=all&limit=150");
-            if (res.ok) {
-              const data = await res.json();
-              const match = (data.items || []).find((it: any) => it.slug === slug || it.id === slug);
-              if (match) rawFound = match as NewsItem;
-            }
+          const res = await fetch("/api/news/feed?topic=all&limit=150");
+          if (res.ok) {
+            const data = await res.json();
+            const match = (data.items || []).find((it: any) => it.slug === slug || it.id === slug);
+            if (match) rawFound = match as NewsItem;
           }
         } catch {}
       }

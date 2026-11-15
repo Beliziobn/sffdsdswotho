@@ -24,6 +24,7 @@ import { Button } from "@/components/ui/button";
 import { getPdfBytesFromIndexedDB } from "@/lib/pdfUploadService";
 import { executeTrackedDownload } from "@/lib/downloadsStore";
 import { toast } from "sonner";
+import { PdfPageSkeleton } from "@/components/skeletons/AppSkeletons";
 
 // Configure worker with local asset URL and fallback to CDN
 try {
@@ -653,27 +654,7 @@ export const OriginalPdfViewer: React.FC<OriginalPdfViewerProps> = ({
 
         {/* Canvas Display Viewport */}
         <div className="flex-1 overflow-auto flex items-start justify-center p-4 sm:p-8 scroll-smooth">
-          {isLoading && (
-            <div className="my-auto py-16 text-center space-y-4 max-w-sm px-4">
-              <div className="relative mx-auto w-12 h-12">
-                <RefreshCw className="w-12 h-12 text-emerald-500 animate-spin opacity-80" />
-              </div>
-              <div className="space-y-1">
-                <h3 className="text-sm font-medium text-white">Carregando livro físico original...</h3>
-                <p className="text-xs text-zinc-400">
-                  Descompactando páginas de alta resolução preservadas do acervo
-                </p>
-              </div>
-              {loadingProgress > 0 && (
-                <div className="w-full bg-zinc-800 rounded-full h-1.5 overflow-hidden">
-                  <div
-                    className="bg-emerald-500 h-full transition-all duration-300"
-                    style={{ width: `${loadingProgress}%` }}
-                  />
-                </div>
-              )}
-            </div>
-          )}
+          {isLoading && <PdfPageSkeleton progress={loadingProgress} />}
 
           {errorMessage && !isLoading && (
             <div className="my-auto py-12 px-6 max-w-md text-center bg-zinc-950/80 rounded-2xl border border-red-500/20 space-y-4">

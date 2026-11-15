@@ -41,68 +41,91 @@ export const useNewsFeed = (filters: NewsFilters) =>
     refetchOnWindowFocus: false,
     placeholderData: keepPreviousData,
     queryFn: async ({ pageParam = 0 }) => {
-      // 1. Read cached syndicated news immediately and fetch fresh if needed
-      let syndicated: NewsItem[] = [];
-      try {
-        syndicated = getCachedNews() as unknown as NewsItem[];
-        if (syndicated.length <= 20) {
-          syndicated = (await syncDailyNews()) as unknown as NewsItem[];
-        }
-      } catch {
-        syndicated = [];
+      const cachedSyndicated = (getCachedNews() as unknown as NewsItem[]) || [];
+
+      // Trigger background daily RSS refresh non-blockingly when we already have cached/fallback items
+      if (pageParam === 0) {
+        void syncDailyNews().catch(() => {});
       }
 
-      // 1b. If a specific category is selected, also fetch live RSS for that topic
-      let topicLive: NewsItem[] = [];
-      if (filters.category && filters.category !== "all" && pageParam === 0) {
-        try {
-          const normTopic = filters.category
-            .toLowerCase()
-            .normalize("NFD")
-            .replace(/[\u0300-\u036f]/g, "");
-          topicLive = (await fetchTopicRssNews(normTopic, 40)) as unknown as NewsItem[];
-        } catch {}
-      }
+      const [topicLive, archiveItems, dbNews, cloudNews, freshSyndicated] = await Promise.all([
+        // 1. Optional topic live RSS with a fast 1.2s race timeout so it never stalls initial render
+        (async (): Promise<NewsItem[]> => {
+          if (filters.category && filters.category !== "all" && pageParam === 0) {
+            try {
+              const normTopic = filters.category
+                .toLowerCase()
+                .normalize("NFD")
+                .replace(/[\u0300-\u036f]/g, "");
+              return (await Promise.race([
+                fetchTopicRssNews(normTopic, 40),
+                new Promise<never[]>((resolve) => setTimeout(() => resolve([]), 1200)),
+              ])) as unknown as NewsItem[];
+            } catch {}
+          }
+          return [];
+        })(),
 
-      // 2. Fetch from Permanent Archive Engine
-      let archiveItems: NewsItem[] = [];
-      try {
-        const res = await queryNewsArchive({
-          category: filters.category && filters.category !== "all" ? filters.category : undefined,
-          q: filters.q,
-          year: filters.year && filters.year !== "all" ? parseInt(filters.year) : undefined,
-          month: filters.month && filters.month !== "all" ? parseInt(filters.month) : undefined,
-          pageSize: 800,
-        });
-        archiveItems = res.items as unknown as NewsItem[];
-      } catch {
-        // Fallback gracefully
-      }
+        // 2. Permanent Historical Archive Engine
+        (async (): Promise<NewsItem[]> => {
+          try {
+            const res = await queryNewsArchive({
+              category: filters.category && filters.category !== "all" ? filters.category : undefined,
+              q: filters.q,
+              year: filters.year && filters.year !== "all" ? parseInt(filters.year) : undefined,
+              month: filters.month && filters.month !== "all" ? parseInt(filters.month) : undefined,
+              pageSize: 60,
+            });
+            return (res.items as unknown as NewsItem[]) || [];
+          } catch {
+            return [];
+          }
+        })(),
 
-      // 3. Fetch Supabase news
-      let dbNews: NewsItem[] = [];
-      try {
-        const { data, error } = await supabase
-          .from("news")
-          .select("id,title,slug,excerpt,content,cover_url,category,published,published_at,created_at")
-          .eq("published", true);
-        if (!error && data) {
-          dbNews = filterExcludedItems(data as NewsItem[]);
-        }
-      } catch {
-        // Fallback gracefully
-      }
+        // 3. Supabase news
+        (async (): Promise<NewsItem[]> => {
+          try {
+            const { data, error } = await supabase
+              .from("news")
+              .select("id,title,slug,excerpt,content,cover_url,category,published,published_at,created_at")
+              .eq("published", true);
+            if (!error && data) {
+              return filterExcludedItems(data as NewsItem[]);
+            }
+          } catch {}
+          return [];
+        })(),
 
-      // 3b. Fetch Firestore Cloud news (permanent database storage)
-      let cloudNews: NewsItem[] = [];
-      try {
-        cloudNews = await fetchCloudNews();
-        if (cloudNews.length > 0) {
-          mergeCloudNewsIntoStore(cloudNews);
-        }
-      } catch {}
+        // 4. Firestore Cloud news
+        (async (): Promise<NewsItem[]> => {
+          try {
+            const list = await fetchCloudNews();
+            if (list.length > 0) {
+              mergeCloudNewsIntoStore(list);
+            }
+            return list;
+          } catch {
+            return [];
+          }
+        })(),
 
-      // 4. Merge & Deduplicate (preserving the version with authentic cover & fullest original content)
+        // 5. Syndicated news (return cached immediately or fast race if empty)
+        (async (): Promise<NewsItem[]> => {
+          if (cachedSyndicated.length > 0) return cachedSyndicated;
+          try {
+            return (await Promise.race([
+              syncDailyNews(),
+              new Promise<never[]>((resolve) => setTimeout(() => resolve([]), 1200)),
+            ])) as unknown as NewsItem[];
+          } catch {
+            return [];
+          }
+        })(),
+      ]);
+
+      const syndicated = freshSyndicated.length > 0 ? freshSyndicated : cachedSyndicated;
+
+      // 6. Merge & Deduplicate (preserving the version with authentic cover & fullest original content)
       const byKey = new Map<string, NewsItem>();
 
       const combinedSourceList = [

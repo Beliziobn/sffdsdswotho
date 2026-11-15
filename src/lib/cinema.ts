@@ -5,8 +5,6 @@
  * episódios com minutagem real e servidores de streaming em alta definição.
  */
 
-import { EXPANDED_CINEMA_CATALOG } from "./cinemaExpandedCatalog";
-
 export interface CinemaEpisode {
   episodeNumber: number;
   title: string;
@@ -2880,9 +2878,34 @@ export const CINEMA_CATALOG: CinemaItem[] = [
         ]
       }
     ]
-  },
-  ...EXPANDED_CINEMA_CATALOG
+  }
 ];
+
+let expandedCinemaPromise: Promise<void> | null = null;
+let expandedCinemaLoaded = false;
+
+export function ensureExpandedCinemaLoaded(): Promise<void> {
+  if (expandedCinemaLoaded) return Promise.resolve();
+  if (!expandedCinemaPromise) {
+    expandedCinemaPromise = import("./cinemaExpandedCatalog")
+      .then((mod) => {
+        const list = mod.EXPANDED_CINEMA_CATALOG || [];
+        const existingIds = new Set(CINEMA_CATALOG.map((item) => item.id));
+        for (const item of list) {
+          if (!existingIds.has(item.id)) {
+            CINEMA_CATALOG.push(item);
+            existingIds.add(item.id);
+          }
+        }
+        expandedCinemaLoaded = true;
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new Event("worscoi_cinema_catalog_updated"));
+        }
+      })
+      .catch(() => {});
+  }
+  return expandedCinemaPromise;
+}
 
 export function getCinemaById(id: string): CinemaItem | undefined {
   return CINEMA_CATALOG.find((item) => item.id === id || item.imdbId === id);

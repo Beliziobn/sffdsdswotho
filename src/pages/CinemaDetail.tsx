@@ -23,6 +23,7 @@ import {
   getCinemaById,
   CINEMA_CATALOG,
   CinemaLanguage,
+  ensureExpandedCinemaLoaded,
   getCinemaLanguagePreference,
   setCinemaLanguagePreference,
   toggleCinemaWatchlist,
@@ -129,21 +130,32 @@ export default function CinemaDetail() {
 
   useEffect(() => {
     if (!id) return;
-    const found = getCinemaById(id);
-    if (found) {
-      setItem(found);
-      setInWatchlist(isCinemaInWatchlist(found.id));
-      if (found.seasons && found.seasons.length > 0) {
-        setSelectedSeasonNumber(found.seasons[0].seasonNumber);
-        if (found.seasons[0].episodes.length > 0) {
-          setSelectedEpisodeNumber(found.seasons[0].episodes[0].episodeNumber);
+    const applyFound = (found: CinemaItem | undefined) => {
+      if (found) {
+        setItem(found);
+        setInWatchlist(isCinemaInWatchlist(found.id));
+        if (found.seasons && found.seasons.length > 0) {
+          setSelectedSeasonNumber(found.seasons[0].seasonNumber);
+          if (found.seasons[0].episodes.length > 0) {
+            setSelectedEpisodeNumber(found.seasons[0].episodes[0].episodeNumber);
+          }
+        } else {
+          setSelectedEpisodeNumber(1);
         }
+        window.scrollTo(0, 0);
       } else {
-        setSelectedEpisodeNumber(1);
+        setItem(null);
       }
-      window.scrollTo(0, 0);
+    };
+
+    const immediate = getCinemaById(id);
+    if (immediate) {
+      applyFound(immediate);
+      void ensureExpandedCinemaLoaded();
     } else {
-      setItem(null);
+      void ensureExpandedCinemaLoaded().then(() => {
+        applyFound(getCinemaById(id));
+      });
     }
   }, [id]);
 

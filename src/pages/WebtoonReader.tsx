@@ -29,6 +29,8 @@ import { useContent, useEpisodes, useSaveProgress, useTrackInteraction } from "@
 import { useLibraryStore } from "@/store/useLibraryStore";
 import { fetchOfficialChapterPanels, getProxiedWebtoonImageUrl } from "@/lib/webtoonOfficialSync";
 import { downloadRealWebtoonEpisode } from "@/lib/mediaDownloaders";
+import { generateDynamicManhwaStoryPanels } from "@/lib/webtoonStoryGenerator";
+import { MangaReaderSkeleton } from "@/components/skeletons/AppSkeletons";
 
 export const WebtoonReader = () => {
   const { id, episodeId } = useParams<{ id: string; episodeId: string }>();
@@ -146,9 +148,19 @@ export const WebtoonReader = () => {
   const currentPanels = useMemo(() => {
     if (livePanels.length > 0) return livePanels;
     if (activeEpisode?.images && activeEpisode.images.length > 0) return activeEpisode.images;
+    if (webtoon && activeEpisode) {
+      return generateDynamicManhwaStoryPanels(
+        String(webtoon.id),
+        activeEpisode.number,
+        activeEpisode.title,
+        webtoon.cover || undefined,
+        webtoon.title,
+        webtoonLanguage
+      );
+    }
     if (webtoon?.cover) return [webtoon.cover];
     return [];
-  }, [livePanels, activeEpisode?.images, webtoon?.cover]);
+  }, [livePanels, activeEpisode, webtoon, webtoonLanguage]);
 
   // Community reactions
   const [reactions, setReactions] = useState<{ [key: string]: number }>({
@@ -297,9 +309,8 @@ export const WebtoonReader = () => {
 
   if (isWebtoonLoading || isEpisodesLoading) {
     return (
-      <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center gap-4">
-        <div className="w-10 h-10 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
-        <p className="text-sm font-light text-zinc-400">Carregando painéis do webtoon...</p>
+      <div className="min-h-screen bg-[#0d0e12] text-white pt-16">
+        <MangaReaderSkeleton pages={3} dark />
       </div>
     );
   }
@@ -573,23 +584,10 @@ export const WebtoonReader = () => {
           </p>
         </div>
 
-        {/* Live Panels Fetching Banner / Skeleton */}
-        {isFetchingPanels && (
-          <div className={`w-full ${widthClasses[containerWidth]} px-4 py-6 text-center space-y-4`}>
-            <div className="flex items-center justify-center gap-3 p-4 rounded-2xl bg-emerald-950/40 border border-emerald-800/40 text-emerald-300 text-xs">
-              <div className="w-4 h-4 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin shrink-0" />
-              <span>
-                {webtoonLanguage === "pt"
-                  ? "Sincronizando páginas oficiais em Português (PT-BR)..."
-                  : webtoonLanguage === "en"
-                  ? "Synchronizing official English (EN) high-resolution panels..."
-                  : "공식 한국어 (KO) 고해상도 웹툰 페이지를 불러오는 중..."}
-              </span>
-            </div>
-            <div className="space-y-2 animate-pulse opacity-40">
-              <div className="w-full h-80 bg-zinc-800 rounded-lg" />
-              <div className="w-full h-80 bg-zinc-800 rounded-lg" />
-            </div>
+        {/* Live Panels Skeleton */}
+        {isFetchingPanels && (!currentPanels || currentPanels.length === 0) && (
+          <div className={`w-full ${widthClasses[containerWidth]}`}>
+            <MangaReaderSkeleton pages={2} dark />
           </div>
         )}
 

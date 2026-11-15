@@ -185,7 +185,7 @@ const Books = () => {
           </div>
 
           {/* Catalog Grid */}
-          {feed.isLoading && isAllLoading ? (
+          {(feed.isLoading || isAllLoading) && combinedItems.length === 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {Array.from({ length: 6 }).map((_, i) => (
                 <BookGridCardSkeleton key={i} />
@@ -213,7 +213,10 @@ const Books = () => {
 
           <div ref={ref} className="h-12" />
           {feed.isFetchingNextPage && (
-            <p className="text-center text-sm text-muted-foreground font-light">Carregando mais obras…</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-2">
+              <BookGridCardSkeleton />
+              <BookGridCardSkeleton />
+            </div>
           )}
 
           {/* Recommended Carousel */}

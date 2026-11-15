@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 import { useBooks, usePurchases } from "@/hooks/useCatalog";
 import { formatPrice } from "@/lib/format";
+import { BookGridSkeleton } from "@/components/skeletons/AppSkeletons";
 
 const Library = () => {
   const { user, loading } = useAuth();
@@ -26,7 +27,9 @@ const Library = () => {
         <h1 className="mt-2 font-display text-3xl md:text-4xl">Minha biblioteca</h1>
 
         {isLoading ? (
-          <p className="mt-8 text-sm text-muted-foreground">Carregando…</p>
+          <div className="mt-8">
+            <BookGridSkeleton count={4} />
+          </div>
         ) : rows.length === 0 ? (
           <div className="mt-10 rounded-sm border border-border bg-card p-10 text-center">
             <BookOpen className="mx-auto h-6 w-6 text-muted-foreground" />

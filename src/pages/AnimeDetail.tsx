@@ -10,6 +10,7 @@ import ProtectedImage from "@/components/ProtectedImage";
 import {
   ANIMES_DATA,
   Anime,
+  ensureVerifiedAnimesLoaded,
   getMangaProgress,
   isAnimeInWatchlist,
   toggleAnimeWatchlist,
@@ -24,6 +25,7 @@ import {
   resolveCanonBridge,
 } from "@/lib/canonBridge";
 import { useContentProtection } from "@/hooks/useContentProtection";
+import { ChapterListSkeleton } from "@/components/skeletons/AppSkeletons";
 import {
   Play,
   Star,
@@ -58,10 +60,21 @@ export const AnimeDetail = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const playerSectionRef = useRef<HTMLDivElement>(null);
+  const [catalogVersion, setCatalogVersion] = useState(0);
+
+  useEffect(() => {
+    void ensureVerifiedAnimesLoaded().then(() => {
+      setCatalogVersion((v) => v + 1);
+    });
+    const handleVerifiedLoaded = () => setCatalogVersion((v) => v + 1);
+    window.addEventListener("worscoi_animes_verified_loaded", handleVerifiedLoaded);
+    return () => window.removeEventListener("worscoi_animes_verified_loaded", handleVerifiedLoaded);
+  }, []);
 
   const anime = useMemo(() => {
-    return ANIMES_DATA.find((a) => a.id === id || a.slug === id);
-  }, [id]);
+    const found = ANIMES_DATA.find((a) => a.id === id || a.slug === id);
+    return found ? { ...found } : undefined;
+  }, [id, catalogVersion]);
 
   const initialTab = searchParams.get("tab") === "manga" ? "manga" : "episodes";
   const initialSeason = Math.max(1, parseInt(searchParams.get("season") || "1", 10) || 1);
@@ -1204,7 +1217,6 @@ export const AnimeDetail = () => {
                     <div>
                       <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
                         <span>Capítulos Disponíveis</span>
-                        {isLoadingChapters && <Loader2 className="h-4 w-4 animate-spin text-primary" />}
                       </h3>
                       <p className="text-xs text-muted-foreground tabular-nums">
                         {onlineChapters.length > 0
@@ -1252,12 +1264,7 @@ export const AnimeDetail = () => {
                   </div>
 
                   {isLoadingChapters && onlineChapters.length === 0 ? (
-                    <div className="p-12 text-center rounded-2xl border border-dashed border-border bg-card/50 flex flex-col items-center justify-center">
-                      <Loader2 className="h-8 w-8 animate-spin text-primary mb-3" />
-                      <p className="text-sm text-foreground">
-                        Sincronizando capítulos oficiais...
-                      </p>
-                    </div>
+                    <ChapterListSkeleton count={9} />
                   ) : (
                     <div className="space-y-2.5">
                       {(onlineChapters.length > 0

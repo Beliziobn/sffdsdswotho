@@ -26,6 +26,7 @@ import {
   CINEMA_LANGUAGE_OPTIONS,
   CinemaItem,
   CinemaLanguage,
+  ensureExpandedCinemaLoaded,
   getCinemaWatchlist,
   getCinemaProgressMap,
   getCinemaLanguagePreference,
@@ -48,23 +49,30 @@ export const Cinema = () => {
   const [selectedLanguage, setSelectedLanguage] = useState<CinemaLanguage>(() =>
     getCinemaLanguagePreference()
   );
+  const [catalogVersion, setCatalogVersion] = useState(0);
 
   useEffect(() => {
+    void ensureExpandedCinemaLoaded().then(() => {
+      setCatalogVersion((v) => v + 1);
+    });
     setWatchlistIds(getCinemaWatchlist());
     setProgressMap(getCinemaProgressMap());
 
     const handleWatchlist = () => setWatchlistIds(getCinemaWatchlist());
     const handleProgress = () => setProgressMap(getCinemaProgressMap());
     const handleLang = () => setSelectedLanguage(getCinemaLanguagePreference());
+    const handleCatalogUpdated = () => setCatalogVersion((v) => v + 1);
 
     window.addEventListener("worscoi_cinema_watchlist_updated", handleWatchlist);
     window.addEventListener("worscoi_cinema_progress_updated", handleProgress);
     window.addEventListener("worscoi_cinema_language_updated", handleLang);
+    window.addEventListener("worscoi_cinema_catalog_updated", handleCatalogUpdated);
 
     return () => {
       window.removeEventListener("worscoi_cinema_watchlist_updated", handleWatchlist);
       window.removeEventListener("worscoi_cinema_progress_updated", handleProgress);
       window.removeEventListener("worscoi_cinema_language_updated", handleLang);
+      window.removeEventListener("worscoi_cinema_catalog_updated", handleCatalogUpdated);
     };
   }, []);
 
@@ -81,7 +89,7 @@ export const Cinema = () => {
   // Top hero item
   const heroItem = useMemo(() => {
     return CINEMA_CATALOG.find((c) => c.featured) || CINEMA_CATALOG[0];
-  }, []);
+  }, [catalogVersion]);
 
   // Filtered catalog
   const filteredCatalog = useMemo(() => {
@@ -123,27 +131,27 @@ export const Cinema = () => {
 
       return true;
     }).sort((a, b) => b.rating - a.rating);
-  }, [search, selectedType, selectedGenre, watchlistIds]);
+  }, [search, selectedType, selectedGenre, watchlistIds, catalogVersion]);
 
   // Continue Watching items
   const continueWatchingItems = useMemo(() => {
     return CINEMA_CATALOG.filter((item) => progressMap[item.id] && progressMap[item.id].progressPercent > 0);
-  }, [progressMap]);
+  }, [progressMap, catalogVersion]);
 
   // Movies list
   const moviesList = useMemo(() => {
     return CINEMA_CATALOG.filter((item) => item.type === "filme");
-  }, []);
+  }, [catalogVersion]);
 
   // Series list
   const seriesList = useMemo(() => {
     return CINEMA_CATALOG.filter((item) => item.type === "serie");
-  }, []);
+  }, [catalogVersion]);
 
   // Award winning list
   const awardList = useMemo(() => {
     return CINEMA_CATALOG.filter((item) => item.awardWinning);
-  }, []);
+  }, [catalogVersion]);
 
   return (
     <div className="min-h-screen bg-[#09090b] text-zinc-100 flex flex-col selection:bg-amber-400 selection:text-black">

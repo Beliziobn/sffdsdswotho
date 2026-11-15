@@ -353,36 +353,67 @@ export const CURATED_GUTENBERG_BOOKS: GutenbergBook[] = [
   },
 ];
 
-/** Fetch live Gutenberg catalog via backend proxy */
+let cachedGutenbergCatalog: GutenbergBook[] | null = null;
+let isFetchingGutenberg = false;
+
+/** Fetch live Gutenberg catalog via backend proxy with instant curated return */
 export async function fetchGutenbergCatalog(search = ""): Promise<GutenbergBook[]> {
+  const filterBySearch = (list: GutenbergBook[]) =>
+    search
+      ? list.filter(
+          (b) =>
+            b.title.toLowerCase().includes(search.toLowerCase()) ||
+            b.author.toLowerCase().includes(search.toLowerCase())
+        )
+      : list;
+
+  if (!search && cachedGutenbergCatalog) {
+    return cachedGutenbergCatalog;
+  }
+
+  // When no search query is active, return curated books immediately and warm cache in background
+  if (!search && !cachedGutenbergCatalog) {
+    cachedGutenbergCatalog = CURATED_GUTENBERG_BOOKS;
+    if (!isFetchingGutenberg && typeof window !== "undefined") {
+      isFetchingGutenberg = true;
+      void fetch("/api/books/catalog")
+        .then((r) => (r.ok ? r.json() : null))
+        .then((data) => {
+          if (data && Array.isArray(data.books) && data.books.length > 0) {
+            const map = new Map<string, GutenbergBook>();
+            for (const b of CURATED_GUTENBERG_BOOKS) map.set(b.id, b);
+            for (const b of data.books) {
+              if (!map.has(b.id)) map.set(b.id, b);
+            }
+            cachedGutenbergCatalog = Array.from(map.values());
+          }
+        })
+        .catch(() => {})
+        .finally(() => {
+          isFetchingGutenberg = false;
+        });
+    }
+    return CURATED_GUTENBERG_BOOKS;
+  }
+
   try {
     const url = `/api/books/catalog${search ? `?search=${encodeURIComponent(search)}` : ""}`;
     const res = await fetch(url);
     if (!res.ok) throw new Error("Falha ao buscar catálogo");
     const data = await res.json();
     if (Array.isArray(data.books) && data.books.length > 0) {
-      // Merge with curated list so curated entries always have their best metadata & authentic covers
       const map = new Map<string, GutenbergBook>();
       for (const b of CURATED_GUTENBERG_BOOKS) map.set(b.id, b);
       for (const b of data.books) {
         if (!map.has(b.id)) map.set(b.id, b);
       }
       const list = Array.from(map.values());
-      return search
-        ? list.filter((b) =>
-            b.title.toLowerCase().includes(search.toLowerCase()) ||
-            b.author.toLowerCase().includes(search.toLowerCase())
-          )
-        : list;
+      if (!search) cachedGutenbergCatalog = list;
+      return filterBySearch(list);
     }
-    return CURATED_GUTENBERG_BOOKS;
+    return filterBySearch(CURATED_GUTENBERG_BOOKS);
   } catch {
-    return CURATED_GUTENBERG_BOOKS.filter((b) =>
-      search
-        ? b.title.toLowerCase().includes(search.toLowerCase()) ||
-          b.author.toLowerCase().includes(search.toLowerCase())
-        : true
-    );
+    return filterBySearch(cachedGutenbergCatalog || CURATED_GUTENBERG_BOOKS);
   }
 }
 

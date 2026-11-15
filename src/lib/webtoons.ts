@@ -627,7 +627,7 @@ const normalizedBaseCurated: Webtoon[] = BASE_CURATED_WEBTOONS.map((w) => {
   };
 });
 
-// Map expanded items to Webtoon interface with authentic official covers
+// Map expanded items to Webtoon interface with authentic official covers (episodes generated lazily on detail/reader view)
 const mappedExpandedWebtoons: Webtoon[] = EXPANDED_WEBTOONS.map((e) => {
   const official = getOfficialCover(e.id, e.slug, e.cover);
   const resolvedCover = official.cover;
@@ -653,8 +653,8 @@ const mappedExpandedWebtoons: Webtoon[] = EXPANDED_WEBTOONS.map((e) => {
     trending: e.trending,
     weekly_rank: e.weekly_rank,
     collection: e.collection,
-    episodes_count: e.episodes_count || 60,
-    episodes: getFullWebtoonChapters(e.id),
+    episodes_count: e.episodes_count || 75,
+    episodes: [],
   };
 });
 
@@ -664,14 +664,7 @@ export const CURATED_WEBTOONS: Webtoon[] = [
 ];
 
 export function getCuratedWebtoons(): Webtoon[] {
-  return CURATED_WEBTOONS.map((w) => {
-    const fullEpisodes = w.episodes && w.episodes.length > 0 ? w.episodes : getFullWebtoonChapters(w.id);
-    return {
-      ...w,
-      episodes_count: fullEpisodes.length || w.episodes_count || 60,
-      episodes: fullEpisodes,
-    };
-  });
+  return CURATED_WEBTOONS;
 }
 
 export function getWebtoonById(id: string): Webtoon | undefined {

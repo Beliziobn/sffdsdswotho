@@ -36,6 +36,7 @@ import { toast } from "sonner";
 import { AnimatePresence } from "framer-motion";
 import { WorscoiIntroPlayer } from "@/components/WorscoiIntroPlayer";
 import { downloadRealMangaChapter } from "@/lib/mediaDownloaders";
+import { MangaReaderSkeleton } from "@/components/skeletons/AppSkeletons";
 
 interface UnifiedChapter {
   id: string;
@@ -603,19 +604,7 @@ export const AnimeMangaReader = () => {
         )}
 
         {isLoadingPages ? (
-          <div className="py-24 text-center flex flex-col items-center justify-center">
-            <Loader2 className="h-10 w-10 animate-spin text-primary mb-4" />
-            <h3 className="text-base font-light text-white mb-1">
-              {mangaLanguage === "pt"
-                ? "Carregando páginas em Português (PT-BR)..."
-                : mangaLanguage === "en"
-                ? "Loading official English (EN) pages..."
-                : "日本語 (JA) の公式ページを読み込み中..."}
-            </h3>
-            <p className="text-xs text-white/50 max-w-sm">
-              Conectando aos servidores MangaDex & Tomato para entregar a resolução máxima no idioma selecionado.
-            </p>
-          </div>
+          <MangaReaderSkeleton pages={3} dark />
         ) : pageError ? (
           <div className="py-20 text-center max-w-md mx-auto p-6 rounded-2xl border border-white/10 bg-white/5">
             <p className="text-sm text-red-400 mb-4">{pageError}</p>

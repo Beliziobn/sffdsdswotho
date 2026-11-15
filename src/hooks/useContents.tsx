@@ -102,29 +102,42 @@ const SELECT = CONTENT_SELECT;
 export const useContents = (options?: { type?: ContentType; category?: string; limit?: number }) =>
   useQuery({
     queryKey: ["contents", options?.type ?? "all", options?.category ?? "all", options?.limit ?? 0],
+    staleTime: 1000 * 60 * 10,
+    refetchOnWindowFocus: false,
     queryFn: async () => {
       let dbData: Content[] = [];
-      try {
-        let q = supabase.from("contents").select(SELECT).eq("published", true);
-        if (options?.type) q = q.eq("type", options.type);
-        if (options?.category && options.category !== "all") q = q.eq("category", options.category);
-        q = q.order("created_at", { ascending: false });
-        if (options?.limit) q = q.limit(options.limit);
-        const { data, error } = await q;
-        if (!error && data) dbData = filterExcludedItems(data as unknown as Content[]);
-      } catch {}
+      const dbPromise = (async (): Promise<Content[]> => {
+        try {
+          let q = supabase.from("contents").select(SELECT).eq("published", true);
+          if (options?.type) q = q.eq("type", options.type);
+          if (options?.category && options.category !== "all") q = q.eq("category", options.category);
+          q = q.order("created_at", { ascending: false });
+          if (options?.limit) q = q.limit(options.limit);
+          const { data, error } = await q;
+          if (!error && data) return filterExcludedItems(data as unknown as Content[]);
+        } catch {}
+        return [];
+      })();
 
-      // If requested type is "book", "academic" or all, merge Scientific, Curricular, Modern bestsellers and Gutenberg books
+      // If requested type is "book", "academic" or all, merge Scientific, Curricular, Modern bestsellers and Gutenberg books in parallel
       if (!options?.type || options.type === "book" || options.type === "academic") {
         try {
-          const { SCIENTIFIC_ARTICLES } = await import("@/data/scientificArticles");
-          const { CURRICULAR_BOOKS } = await import("@/data/curricularBooks");
-          const { MODERN_BOOKS } = await import("@/lib/modernBooks");
-          const { fetchGutenbergCatalog } = await import("@/lib/gutenbergBooks");
-          const { getAutoImportedBooks } = await import("@/lib/bookAutomation");
-
-          const gutenList = await fetchGutenbergCatalog();
-          const autoList = await getAutoImportedBooks();
+          const [
+            dbResolved,
+            { SCIENTIFIC_ARTICLES },
+            { CURRICULAR_BOOKS },
+            { MODERN_BOOKS },
+            gutenList,
+            autoList,
+          ] = await Promise.all([
+            dbPromise,
+            import("@/data/scientificArticles"),
+            import("@/data/curricularBooks"),
+            import("@/lib/modernBooks"),
+            import("@/lib/gutenbergBooks").then((m) => m.fetchGutenbergCatalog()),
+            import("@/lib/bookAutomation").then((m) => m.getAutoImportedBooks()),
+          ]);
+          dbData = dbResolved;
 
           const sciMapped: Content[] = SCIENTIFIC_ARTICLES
             .filter((s) => (options?.category && options.category !== "all" ? s.field === options.category || options.category === "Artigos Científicos" : true))
@@ -326,6 +339,12 @@ export const useContents = (options?: { type?: ContentType; category?: string; l
       // If requested type is "webtoon" or all, merge Curated Webtoons
       if (!options?.type || options.type === "webtoon") {
         try {
+          if (dbData.length === 0) {
+            dbData = await Promise.race([
+              dbPromise,
+              new Promise<Content[]>((resolve) => setTimeout(() => resolve([]), 800)),
+            ]);
+          }
           const webtoonMapped: Content[] = CURATED_WEBTOONS
             .filter((w) =>
               options?.category && options.category !== "all" && options.category !== "Todos"
@@ -370,6 +389,10 @@ export const useContents = (options?: { type?: ContentType; category?: string; l
           }
           dbData = combined;
         } catch {}
+      }
+
+      if (dbData.length === 0) {
+        dbData = await dbPromise;
       }
 
       return filterExcludedItems(dbData);
@@ -690,24 +713,22 @@ export const useEpisodes = (contentId?: string) =>
         const found = getWebtoonById(contentId);
         const baseEpisodes = found?.episodes || [];
         const fullBacklog = getFullWebtoonChapters(contentId);
-        const liveChapters = await syncOfficialWebtoonChapters(contentId);
+        const liveChapters = await Promise.race([
+          syncOfficialWebtoonChapters(contentId),
+          new Promise<never[]>((resolve) => setTimeout(() => resolve([]), 900)),
+        ]);
 
         const mergedMap = new Map<number, Episode>();
 
-        // 1. Populate comprehensive catalog backlog (ensures 50 to 500+ real chapters exist)
+        // 1. Populate comprehensive catalog backlog (ensures 50 to 500+ real chapters exist without generating SVG panels for every chapter upfront)
         for (const ep of fullBacklog) {
-          const panels =
-            ep.panels && ep.panels.length > 0
-              ? ep.panels
-              : generateDynamicManhwaStoryPanels(contentId, ep.number, ep.title, found?.cover || ep.cover, found?.title);
-
           mergedMap.set(ep.number, {
             id: ep.id,
             content_id: contentId,
             number: ep.number,
             title: ep.title,
             body: ep.synopsis,
-            images: panels,
+            images: ep.panels && ep.panels.length > 0 ? ep.panels : [],
             is_free: ep.is_free,
             published_at: ep.release_date,
             viewer_url: ep.viewer_url || buildOfficialViewerUrl(contentId, ep.number),
@@ -722,7 +743,7 @@ export const useEpisodes = (contentId?: string) =>
               ? ep.panels
               : existing?.images && existing.images.length > 0
               ? existing.images
-              : generateDynamicManhwaStoryPanels(contentId, ep.number, ep.title, found?.cover || ep.cover, found?.title);
+              : [];
 
           mergedMap.set(ep.number, {
             id: existing?.id || ep.id || `${contentId}-ep-${ep.number}`,
@@ -745,7 +766,7 @@ export const useEpisodes = (contentId?: string) =>
               ? ch.panels
               : existing?.images && existing.images.length > 0
               ? existing.images
-              : generateDynamicManhwaStoryPanels(contentId, ch.number, ch.title, found?.cover, found?.title);
+              : [];
 
           mergedMap.set(ch.number, {
             id: existing?.id || ch.id || `${contentId}-ep-${ch.number}`,

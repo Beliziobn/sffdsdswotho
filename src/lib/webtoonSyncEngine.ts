@@ -418,12 +418,6 @@ export function getFullWebtoonChapters(webtoonId: string): DetailedWebtoonChapte
       }
     }
 
-    // Ensure all chapters have reproducible manhwa panels
-    if (panels.length === 0) {
-      panels = generateDynamicManhwaStoryPanels(cleanId, num, title, baseCover, normId.replace(/-/g, " "));
-      chapterCover = panels[0] || baseCover;
-    }
-
     // Assign official Webtoons.com viewer link for live Akamai streaming
     const viewerUrl = buildOfficialViewerUrl(cleanId, num);
 
@@ -438,7 +432,7 @@ export function getFullWebtoonChapters(webtoonId: string): DetailedWebtoonChapte
       release_date: releaseDate,
       views,
       likes,
-      panels_count: panels.length,
+      panels_count: panels.length > 0 ? panels.length : 12,
       panels,
       viewer_url: viewerUrl,
       is_free: true,

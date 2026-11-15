@@ -197,9 +197,10 @@ if (typeof window !== "undefined") {
   if (isSpecialAdminLoggedIn()) {
     void refreshSpecialAdminSession();
   }
-  void initCloudEditorialSync();
-  onAuthStateChanged(auth, () => {
-    void initCloudEditorialSync();
+  onAuthStateChanged(auth, (user) => {
+    if (user) {
+      void initCloudEditorialSync();
+    }
   });
 }
 

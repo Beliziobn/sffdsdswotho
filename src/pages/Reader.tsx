@@ -31,6 +31,7 @@ import {
 import OriginalPdfViewer from "@/components/books/OriginalPdfViewer";
 import { downloadRealBook } from "@/lib/mediaDownloaders";
 import { isExcludedItem } from "@/lib/excludedItems";
+import { BookReaderSkeleton } from "@/components/skeletons/AppSkeletons";
 
 type ThemeMode = "light" | "sepia" | "dark" | "oled";
 type FontSizeMode = "sm" | "md" | "lg" | "xl";
@@ -675,13 +676,7 @@ const Reader = () => {
           )}
 
           {isChaptersLoading || isBookLoading ? (
-            <div className="py-24 text-center">
-              <BookOpen className="mx-auto h-8 w-8 animate-pulse text-emerald-500 mb-4" />
-              <h2 className="text-xl font-medium">Carregando obra completa...</h2>
-              <p className="mt-2 text-xs opacity-60">
-                Conectando aos arquivos de alta fidelidade do Projeto Gutenberg
-              </p>
-            </div>
+            <BookReaderSkeleton withHeader={false} />
           ) : chapters.length === 0 ? (
             <div className="py-16 text-center max-w-md mx-auto">
               <BookOpen className="mx-auto h-8 w-8 text-emerald-500 mb-4 animate-bounce" />

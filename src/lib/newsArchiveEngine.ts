@@ -113,14 +113,12 @@ export async function queryNewsArchive(options: ArchiveFilterOptions = {}): Prom
     if (res.ok && contentType.includes("application/json")) {
       const data = await res.json();
       if (Array.isArray(data.items) && data.items.length > 0) {
-        const enrichedItems = data.items.map((it: any) => expandNewsToDeepReport(it));
-        void saveArticlesToPermanentDb(enrichedItems, false);
         return {
-          items: enrichedItems,
-          total: data.total || enrichedItems.length,
+          items: data.items,
+          total: data.total || data.items.length,
           page: data.page || page,
           pageSize: data.pageSize || pageSize,
-          totalPages: data.totalPages || Math.ceil((data.total || enrichedItems.length) / pageSize),
+          totalPages: data.totalPages || Math.ceil((data.total || data.items.length) / pageSize),
         };
       }
     }
@@ -173,10 +171,9 @@ export async function queryNewsArchive(options: ArchiveFilterOptions = {}): Prom
     const totalPages = Math.ceil(total / pageSize) || 1;
     const startIndex = (page - 1) * pageSize;
     const paginatedItems = filtered.slice(startIndex, startIndex + pageSize);
-    const enrichedItems = paginatedItems.map((it: any) => expandNewsToDeepReport(it));
 
     return {
-      items: enrichedItems,
+      items: paginatedItems,
       total,
       page,
       pageSize,

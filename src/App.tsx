@@ -4,8 +4,6 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import Index from "./pages/Index";
-import NotFound from "./pages/NotFound";
 import ScrollToTop from "./components/ScrollToTop";
 import CookieConsent from "./components/consent/CookieConsent";
 import TermsGate from "./components/consent/TermsGate";
@@ -14,6 +12,7 @@ import AppErrorBoundary from "./components/AppErrorBoundary";
 import OfflineBanner from "./components/OfflineBanner";
 import { initCloudEditorialSync } from "./lib/editorialStore";
 import { GeoLanguageProvider } from "./lib/geoLanguage";
+import { PageShellSkeleton } from "./components/skeletons/AppSkeletons";
 
 function lazyWithRetry<T extends ComponentType<any>>(
   factory: () => Promise<{ default: T }>
@@ -31,6 +30,8 @@ function lazyWithRetry<T extends ComponentType<any>>(
   });
 }
 
+const Index = lazyWithRetry(() => import("./pages/Index"));
+const NotFound = lazyWithRetry(() => import("./pages/NotFound"));
 const Books = lazyWithRetry(() => import("./pages/Books"));
 const BookDetail = lazyWithRetry(() => import("./pages/BookDetail"));
 const Reader = lazyWithRetry(() => import("./pages/Reader"));
@@ -64,21 +65,12 @@ const Profile = lazyWithRetry(() => import("./pages/Profile"));
 
 const SpeedInsights = () => null;
 
-const RouteLoadingFallback = () => (
-  <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-3">
-    <div className="w-24 h-0.5 bg-border overflow-hidden rounded-full">
-      <div className="h-full w-1/2 bg-primary animate-pulse rounded-full" />
-    </div>
-    <span className="text-[11px] uppercase tracking-widest text-muted-foreground font-light">
-      Carregando…
-    </span>
-  </div>
-);
+const RouteLoadingFallback = () => <PageShellSkeleton />;
 
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 1000 * 60 * 5,
+      staleTime: 1000 * 60 * 10,
       gcTime: 1000 * 60 * 30,
       refetchOnWindowFocus: false,
       refetchOnReconnect: false,
@@ -91,7 +83,9 @@ const CloudEditorialQuerySync = () => {
   const qc = useQueryClient();
 
   useEffect(() => {
-    void initCloudEditorialSync();
+    const syncTimer = window.setTimeout(() => {
+      void initCloudEditorialSync();
+    }, 1500);
 
     const handleEditorialUpdated = () => {
       void qc.invalidateQueries({ queryKey: ["news"] });
@@ -110,6 +104,7 @@ const CloudEditorialQuerySync = () => {
     document.addEventListener("visibilitychange", handleVisibility);
 
     return () => {
+      window.clearTimeout(syncTimer);
       window.removeEventListener("worscoi_editorial_updated", handleEditorialUpdated);
       document.removeEventListener("visibilitychange", handleVisibility);
     };

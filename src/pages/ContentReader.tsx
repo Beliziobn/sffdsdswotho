@@ -8,6 +8,7 @@ import { useContent, useEpisodes, useSaveProgress, useTrackInteraction } from "@
 import { useChapters } from "@/hooks/useCatalog";
 import { prefetchAdjacentChapters } from "@/lib/webtoonSyncEngine";
 import { generateDynamicManhwaStoryPanels } from "@/lib/webtoonStoryGenerator";
+import { BookReaderSkeleton } from "@/components/skeletons/AppSkeletons";
 
 const ContentReader = () => {
   const { id, episodeId } = useParams();
@@ -84,7 +85,9 @@ const ContentReader = () => {
     return (
       <div className="min-h-screen bg-background">
         <Navigation variant="dark" />
-        <p className="pt-40 text-center text-sm text-muted-foreground font-light">Carregando leitura…</p>
+        <div className="pt-16">
+          <BookReaderSkeleton withHeader={false} />
+        </div>
       </div>
     );
   }

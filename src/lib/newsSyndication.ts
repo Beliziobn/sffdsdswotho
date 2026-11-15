@@ -17,7 +17,13 @@ const STORAGE_KEY = "worscoi_syndicated_news_v17";
 const PERMANENT_VAULT_KEY = "worscoi_permanent_news_vault_v2";
 const LAST_SYNC_KEY = "worscoi_news_last_sync_v17";
 
+let legacyCacheCleared = false;
+let memoryCachedNews: SyndicatedNewsItem[] | null = null;
+let memoryVaultCache: SyndicatedNewsItem[] | null = null;
+
 function clearLegacyCache() {
+  if (legacyCacheCleared) return;
+  legacyCacheCleared = true;
   try {
     for (let i = 1; i <= 16; i++) {
       localStorage.removeItem(`worscoi_syndicated_news_v${i}`);
@@ -28,11 +34,16 @@ function clearLegacyCache() {
 }
 
 function readPermanentClientVault(): SyndicatedNewsItem[] {
+  if (memoryVaultCache) return memoryVaultCache;
   try {
     const raw = localStorage.getItem(PERMANENT_VAULT_KEY);
     if (!raw) return [];
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
+    if (Array.isArray(parsed)) {
+      memoryVaultCache = parsed;
+      return parsed;
+    }
+    return [];
   } catch {
     return [];
   }
@@ -76,23 +87,22 @@ export function upsertPermanentClientVault(items: SyndicatedNewsItem[]): Syndica
       (a, b) => new Date(b.published_at).getTime() - new Date(a.published_at).getTime()
     );
 
-    localStorage.setItem(PERMANENT_VAULT_KEY, JSON.stringify(merged.slice(0, 600)));
-    return merged;
+    const capped = merged.slice(0, 150);
+    memoryVaultCache = capped;
+    memoryCachedNews = capped;
+    localStorage.setItem(PERMANENT_VAULT_KEY, JSON.stringify(capped));
+    return capped;
   } catch {
     return items;
   }
 }
 
 export function getCachedNews(): SyndicatedNewsItem[] {
-  clearLegacyCache();
+  if (memoryCachedNews && memoryCachedNews.length > 0) {
+    return memoryCachedNews;
+  }
 
-  const baselineFallbacks: SyndicatedNewsItem[] = FALLBACK_NEWS.map((item) => ({
-    ...expandNewsToDeepReport(item as any),
-    created_at: item.published_at,
-    author: item.source_name || item.author || "Redação Worscoi",
-    source_url: item.source_url,
-    is_syndicated: true,
-  }));
+  clearLegacyCache();
 
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
@@ -100,19 +110,29 @@ export function getCachedNews(): SyndicatedNewsItem[] {
     if (stored) {
       const parsed = JSON.parse(stored);
       if (Array.isArray(parsed) && parsed.length >= 10) {
-        if (vault.length > parsed.length) {
-          return vault;
-        }
-        return parsed;
+        const best = vault.length > parsed.length ? vault : parsed;
+        memoryCachedNews = best;
+        return best;
       }
     }
     if (vault.length >= 10) {
+      memoryCachedNews = vault;
       return vault;
     }
   } catch (err) {
     console.warn("Erro ao carregar cache de notícias:", err);
   }
 
+  const baselineFallbacks: SyndicatedNewsItem[] = FALLBACK_NEWS.map((item) => ({
+    ...(item as any),
+    created_at: item.published_at,
+    author: item.source_name || item.author || "Redação Worscoi",
+    source_name: item.source_name || item.author || "Redação Worscoi",
+    source_url: item.source_url,
+    read_time: item.read_time || 5,
+    is_syndicated: true,
+  }));
+  memoryCachedNews = baselineFallbacks;
   return baselineFallbacks;
 }
 

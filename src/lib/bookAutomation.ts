@@ -68,20 +68,27 @@ export interface AutomationState {
 
 const STORAGE_KEY = "worscoi_book_automation_v1";
 
+let memoryAutomationState: AutomationState | null = null;
+let hasFetchedRemoteAutoCatalog = false;
+
 export function getLocalAutomationState(): AutomationState {
+  if (memoryAutomationState) return memoryAutomationState;
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
       if (parsed && Array.isArray(parsed.books) && parsed.books.length > 0) {
-        return parsed as AutomationState;
+        memoryAutomationState = parsed as AutomationState;
+        return memoryAutomationState;
       }
     }
   } catch {}
-  return initialAutoData as unknown as AutomationState;
+  memoryAutomationState = initialAutoData as unknown as AutomationState;
+  return memoryAutomationState;
 }
 
 export function saveLocalAutomationState(state: AutomationState) {
+  memoryAutomationState = state;
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   } catch {}
@@ -229,16 +236,21 @@ export async function toggleAutomation(active: boolean): Promise<AutomationState
   return updatedState;
 }
 
-/** Returns all books produced by the automated engine */
+/** Returns all books produced by the automated engine immediately from memory/local state */
 export async function getAutoImportedBooks(): Promise<AutomatedBook[]> {
-  try {
-    const res = await fetch("/api/books/automation/catalog");
-    if (res.ok) {
-      const data = await res.json();
-      if (Array.isArray(data.books)) return data.books;
-    }
-  } catch {}
-  return getLocalAutomationState().books;
+  const localBooks = getLocalAutomationState().books;
+  if (!hasFetchedRemoteAutoCatalog && typeof window !== "undefined") {
+    hasFetchedRemoteAutoCatalog = true;
+    void fetch("/api/books/automation/catalog")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data && Array.isArray(data.books) && data.books.length > 0 && memoryAutomationState) {
+          memoryAutomationState = { ...memoryAutomationState, books: data.books };
+        }
+      })
+      .catch(() => {});
+  }
+  return localBooks;
 }
 
 /** Generates rich, complete educational chapters for a queued book */
