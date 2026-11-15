@@ -263,21 +263,23 @@ async function fetchChannelViaRss2Json(channel: RssFeedChannel): Promise<Syndica
 
 export async function fetchLiveNewsFromAllChannels(): Promise<SyndicatedNewsItem[]> {
   try {
-    const res = await fetch("/api/news/feed?topic=all&limit=100", {
-      signal: AbortSignal.timeout(12000),
+    const res = await fetch("/api/news/feed?topic=all&limit=48", {
+      signal: AbortSignal.timeout(8000),
     });
     const contentType = res.headers.get("content-type") || "";
     if (res.ok && contentType.includes("application/json")) {
       const data = await res.json();
       if (Array.isArray(data.items) && data.items.length > 0) {
-        const mapped = data.items.map((it: any) => ({
-          ...expandNewsToDeepReport(it),
+        const mapped: SyndicatedNewsItem[] = data.items.map((it: any) => ({
+          ...it,
+          published: true,
           created_at: it.published_at || new Date().toISOString(),
           author: it.source_name || it.author || "Redação Worscoi",
+          source_name: it.source_name || it.author || "Redação Worscoi",
           source_url: it.source_url,
+          read_time: it.read_time || 4,
           is_syndicated: true,
         }));
-        void persistSyndicatedNewsBatchToCloud(mapped as any);
         return mapped;
       }
     }

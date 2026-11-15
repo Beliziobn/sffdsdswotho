@@ -13,9 +13,9 @@ export interface SyndicatedNewsItem extends NewsItem {
   word_count?: number;
 }
 
-const STORAGE_KEY = "worscoi_syndicated_news_v17";
-const PERMANENT_VAULT_KEY = "worscoi_permanent_news_vault_v2";
-const LAST_SYNC_KEY = "worscoi_news_last_sync_v17";
+const STORAGE_KEY = "worscoi_syndicated_news_v18";
+const PERMANENT_VAULT_KEY = "worscoi_permanent_news_vault_v3";
+const LAST_SYNC_KEY = "worscoi_news_last_sync_v18";
 
 let legacyCacheCleared = false;
 let memoryCachedNews: SyndicatedNewsItem[] | null = null;
@@ -25,16 +25,27 @@ function clearLegacyCache() {
   if (legacyCacheCleared) return;
   legacyCacheCleared = true;
   try {
-    for (let i = 1; i <= 16; i++) {
+    for (let i = 1; i <= 17; i++) {
       localStorage.removeItem(`worscoi_syndicated_news_v${i}`);
       localStorage.removeItem(`worscoi_news_last_sync_v${i}`);
     }
     localStorage.removeItem("worscoi_permanent_news_vault_v1");
+    localStorage.removeItem("worscoi_permanent_news_vault_v2");
   } catch {}
+}
+
+function toCompactStorageItem(item: SyndicatedNewsItem): SyndicatedNewsItem {
+  const rawContent = item.content || "";
+  return {
+    ...item,
+    content: rawContent.length > 900 ? rawContent.slice(0, 900) + "..." : rawContent,
+    excerpt: (item.excerpt || rawContent.slice(0, 200)).slice(0, 260),
+  };
 }
 
 function readPermanentClientVault(): SyndicatedNewsItem[] {
   if (memoryVaultCache) return memoryVaultCache;
+  clearLegacyCache();
   try {
     const raw = localStorage.getItem(PERMANENT_VAULT_KEY);
     if (!raw) return [];
@@ -51,7 +62,7 @@ function readPermanentClientVault(): SyndicatedNewsItem[] {
 
 export function upsertPermanentClientVault(items: SyndicatedNewsItem[]): SyndicatedNewsItem[] {
   try {
-    void saveArticlesToPermanentDb(items, true);
+    void saveArticlesToPermanentDb(items, false);
     const existing = readPermanentClientVault();
     const map = new Map<string, SyndicatedNewsItem>();
 
@@ -64,7 +75,7 @@ export function upsertPermanentClientVault(items: SyndicatedNewsItem[]): Syndica
       const key = (item.slug || item.id || "").toLowerCase().trim();
       if (!key) continue;
       if (!map.has(key)) {
-        map.set(key, item);
+        map.set(key, toCompactStorageItem(item));
       } else {
         const prev = map.get(key)!;
         const hasBetterContent = (item.content || "").length > (prev.content || "").length;
@@ -73,12 +84,15 @@ export function upsertPermanentClientVault(items: SyndicatedNewsItem[]): Syndica
           !item.cover_url.includes("images.unsplash.com") &&
           (!prev.cover_url || prev.cover_url.includes("images.unsplash.com"));
         if (hasBetterContent || hasBetterCover) {
-          map.set(key, {
-            ...prev,
-            ...item,
-            content: hasBetterContent ? item.content : prev.content,
-            cover_url: hasBetterCover ? item.cover_url : prev.cover_url || item.cover_url,
-          });
+          map.set(
+            key,
+            toCompactStorageItem({
+              ...prev,
+              ...item,
+              content: hasBetterContent ? item.content : prev.content,
+              cover_url: hasBetterCover ? item.cover_url : prev.cover_url || item.cover_url,
+            })
+          );
         }
       }
     }
@@ -87,7 +101,7 @@ export function upsertPermanentClientVault(items: SyndicatedNewsItem[]): Syndica
       (a, b) => new Date(b.published_at).getTime() - new Date(a.published_at).getTime()
     );
 
-    const capped = merged.slice(0, 150);
+    const capped = merged.slice(0, 48);
     memoryVaultCache = capped;
     memoryCachedNews = capped;
     localStorage.setItem(PERMANENT_VAULT_KEY, JSON.stringify(capped));
@@ -109,13 +123,13 @@ export function getCachedNews(): SyndicatedNewsItem[] {
     const vault = readPermanentClientVault();
     if (stored) {
       const parsed = JSON.parse(stored);
-      if (Array.isArray(parsed) && parsed.length >= 10) {
+      if (Array.isArray(parsed) && parsed.length >= 8) {
         const best = vault.length > parsed.length ? vault : parsed;
         memoryCachedNews = best;
         return best;
       }
     }
-    if (vault.length >= 10) {
+    if (vault.length >= 8) {
       memoryCachedNews = vault;
       return vault;
     }
@@ -145,7 +159,7 @@ export async function syncAutomatedNews(force = false): Promise<SyndicatedNewsIt
   const lastSync = Number(localStorage.getItem(LAST_SYNC_KEY) || "0");
   const currentNews = getCachedNews();
 
-  if (!force && now - lastSync < 10 * 60 * 1000 && currentNews.length > 20) {
+  if (!force && now - lastSync < 10 * 60 * 1000 && currentNews.length >= 12) {
     return currentNews;
   }
 
@@ -161,7 +175,6 @@ export async function syncAutomatedNews(force = false): Promise<SyndicatedNewsIt
         }
       }
 
-      // Preserve all previously stored articles in the permanent vault so nothing ever disappears
       for (const oldItem of readPermanentClientVault()) {
         const key = (oldItem.slug || oldItem.id).toLowerCase();
         if (!combinedMap.has(key)) {
@@ -170,29 +183,30 @@ export async function syncAutomatedNews(force = false): Promise<SyndicatedNewsIt
       }
 
       for (const item of FALLBACK_NEWS) {
-        const enriched: SyndicatedNewsItem = {
-          ...expandNewsToDeepReport(item as any),
+        const fallbackItem: SyndicatedNewsItem = {
+          ...(item as any),
           created_at: item.published_at,
           author: item.source_name || item.author || "Redação Worscoi",
+          source_name: item.source_name || item.author || "Redação Worscoi",
           source_url: item.source_url,
+          read_time: item.read_time || 5,
           is_syndicated: true,
         };
-        const key = (enriched.slug || enriched.id).toLowerCase();
+        const key = (fallbackItem.slug || fallbackItem.id).toLowerCase();
         if (!combinedMap.has(key)) {
-          combinedMap.set(key, enriched);
+          combinedMap.set(key, fallbackItem);
         }
       }
 
       const merged = upsertPermanentClientVault(Array.from(combinedMap.values()));
 
       try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(merged.slice(0, 350)));
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(merged.slice(0, 48)));
         localStorage.setItem(LAST_SYNC_KEY, String(now));
       } catch {
         // Ignore quota exceeded
       }
 
-      void persistSyndicatedNewsBatchToCloud(liveArticles as any);
       return merged;
     }
   } catch (err) {
@@ -206,7 +220,7 @@ export async function syncDailyNews(force = false): Promise<SyndicatedNewsItem[]
   return syncAutomatedNews(force);
 }
 
-export async function fetchTopicRssNews(topic: string, limit = 50): Promise<SyndicatedNewsItem[]> {
+export async function fetchTopicRssNews(topic: string, limit = 40): Promise<SyndicatedNewsItem[]> {
   try {
     const res = await fetch(`/api/news/feed?topic=${encodeURIComponent(topic)}&limit=${limit}`);
     const contentType = res.headers.get("content-type") || "";
@@ -214,14 +228,15 @@ export async function fetchTopicRssNews(topic: string, limit = 50): Promise<Synd
     const data = await res.json();
     if (Array.isArray(data.items) && data.items.length > 0) {
       const items: SyndicatedNewsItem[] = data.items.map((it: any) => ({
-        ...expandNewsToDeepReport(it),
+        ...it,
         created_at: it.published_at,
         author: it.source_name || it.author || "Redação Worscoi",
+        source_name: it.source_name || it.author || "Redação Worscoi",
         source_url: it.source_url,
+        read_time: it.read_time || 4,
         is_syndicated: true,
       }));
       upsertPermanentClientVault(items);
-      void persistSyndicatedNewsBatchToCloud(items as any);
       return items;
     }
   } catch (err) {

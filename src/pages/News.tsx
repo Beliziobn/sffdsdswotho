@@ -102,7 +102,8 @@ const News = () => {
 
   /** Curation: Top Story flag → engajamento do dia → mais recente. */
   const rawFeatured = useMemo(() => pickFeatured(published), [published]);
-  const translatedFeaturedArr = useTranslatedNewsItems(rawFeatured ? [rawFeatured] : []);
+  const rawFeaturedArr = useMemo(() => (rawFeatured ? [rawFeatured] : []), [rawFeatured]);
+  const translatedFeaturedArr = useTranslatedNewsItems(rawFeaturedArr);
   const featured = translatedFeaturedArr[0] || rawFeatured;
 
   const isFilteringHistory = year !== "all" || month !== "all";

@@ -9,23 +9,29 @@ interface Props {
 interface State {
   hasError: boolean;
   isOfflineError: boolean;
+  autoRetryCount: number;
 }
 
 function isNetworkOrChunkError(error: unknown): boolean {
   const msg = error instanceof Error ? `${error.name} ${error.message}` : String(error ?? "");
   return (
     (typeof navigator !== "undefined" && navigator.onLine === false) ||
-    /ChunkLoadError|Loading chunk|Failed to fetch|dynamically imported module|NetworkError|Load failed/i.test(msg)
+    /ChunkLoadError|Loading chunk|Failed to fetch|dynamically imported module|NetworkError|Load failed|Importing a module script failed/i.test(
+      msg
+    )
   );
 }
 
 export class AppErrorBoundary extends Component<Props, State> {
+  private retryTimer: number | null = null;
+
   state: State = {
     hasError: false,
     isOfflineError: false,
+    autoRetryCount: 0,
   };
 
-  static getDerivedStateFromError(error: Error): State {
+  static getDerivedStateFromError(error: Error): Partial<State> {
     return {
       hasError: true,
       isOfflineError: isNetworkOrChunkError(error),
@@ -33,16 +39,29 @@ export class AppErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, info: ErrorInfo) {
-    console.error("[Wotho] Route or render error:", error, info.componentStack);
+    console.warn("[Wotho] Recoverable route/render error:", error, info.componentStack);
+    if (this.state.autoRetryCount < 2) {
+      if (this.retryTimer) window.clearTimeout(this.retryTimer);
+      this.retryTimer = window.setTimeout(() => {
+        this.setState((prev) => ({
+          hasError: false,
+          isOfflineError: false,
+          autoRetryCount: prev.autoRetryCount + 1,
+        }));
+      }, 250);
+    }
+  }
+
+  componentWillUnmount() {
+    if (this.retryTimer) window.clearTimeout(this.retryTimer);
   }
 
   handleRetry = () => {
-    this.setState({ hasError: false, isOfflineError: false });
-    window.location.reload();
+    this.setState({ hasError: false, isOfflineError: false, autoRetryCount: 0 });
   };
 
   handleGoHome = () => {
-    this.setState({ hasError: false, isOfflineError: false });
+    this.setState({ hasError: false, isOfflineError: false, autoRetryCount: 0 });
     window.location.assign("/");
   };
 

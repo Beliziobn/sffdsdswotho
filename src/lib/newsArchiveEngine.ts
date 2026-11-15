@@ -5,7 +5,7 @@
  * and persists every discovered article into the permanent multi-year database (IndexedDB + Server Archive).
  */
 
-import { SyndicatedNewsItem } from "./newsSyndication";
+import { SyndicatedNewsItem, getCachedNews } from "./newsSyndication";
 import { expandNewsToDeepReport } from "./newsExpander";
 import {
   saveArticlesToPermanentDb,
@@ -37,38 +37,17 @@ export interface ArchiveTimelineEntry {
   count: number;
 }
 
-let cachedLocalArticles: any[] | null = null;
-let seededIndexedDb = false;
-
 /**
- * Loads the bundled archive articles directly in the client and merges with the permanent IndexedDB vault.
+ * Loads local fallback articles from the permanent IndexedDB vault and lightweight client cache
+ * without bundling the 5.4 MB server archive into the browser's JS heap.
  */
 export async function getLocalArchiveArticles(): Promise<any[]> {
-  let bundledList: any[] = cachedLocalArticles || [];
-  if (!cachedLocalArticles || cachedLocalArticles.length === 0) {
-    try {
-      const raw = await import("@/data/newsArchive.json");
-      const list = Array.isArray(raw.articles)
-        ? raw.articles
-        : Array.isArray((raw as any).default?.articles)
-        ? (raw as any).default.articles
-        : [];
-      cachedLocalArticles = list;
-      bundledList = list;
-      if (!seededIndexedDb && list.length > 0) {
-        seededIndexedDb = true;
-        void saveArticlesToPermanentDb(list, false);
-      }
-    } catch (err) {
-      console.warn("[NewsArchiveEngine] Falha ao importar acervo local:", err);
-    }
-  }
-
+  const cachedList = getCachedNews() || [];
   try {
     const idbArticles = await getAllPermanentDbArticles();
     if (idbArticles.length > 0) {
       const map = new Map<string, any>();
-      for (const item of [...idbArticles, ...bundledList]) {
+      for (const item of [...idbArticles, ...cachedList]) {
         if (!item || !item.title) continue;
         const key = String(item.slug || item.id || "")
           .toLowerCase()
@@ -87,7 +66,7 @@ export async function getLocalArchiveArticles(): Promise<any[]> {
     }
   } catch {}
 
-  return bundledList;
+  return cachedList;
 }
 
 /**

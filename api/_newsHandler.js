@@ -822,9 +822,15 @@ export function readNewsArchive() {
   return [];
 }
 
+let pendingArchiveWriteTimer = null;
+
 export function writeNewsArchive(articles) {
   memoryArchiveCache = articles;
-  try {
+  if (pendingArchiveWriteTimer) {
+    clearTimeout(pendingArchiveWriteTimer);
+  }
+  pendingArchiveWriteTimer = setTimeout(() => {
+    pendingArchiveWriteTimer = null;
     const payload = {
       version: 3,
       description:
@@ -833,8 +839,10 @@ export function writeNewsArchive(articles) {
       total_stored: articles.length,
       articles,
     };
-    fs.writeFileSync(newsArchiveFilePath, JSON.stringify(payload, null, 2), 'utf-8');
-  } catch {}
+    fs.promises
+      .writeFile(newsArchiveFilePath, JSON.stringify(payload, null, 2), 'utf-8')
+      .catch(() => {});
+  }, 2000);
 }
 
 function sanitizeFirestoreDocId(rawId) {
@@ -985,10 +993,8 @@ export function upsertNewsToPermanentArchive(newItems) {
 
     if (changed) {
       writeNewsArchive(updated);
+      void persistArticlesToFirestoreRest(newItems);
     }
-
-    // Also persist in background to Cloud Firestore database
-    void persistArticlesToFirestoreRest(newItems);
 
     return updated;
   } catch {
@@ -1026,29 +1032,57 @@ function inferCleanSourceName(rawSource, titleSuffix, link) {
 
 const newsCache = new Map();
 const CACHE_TTL_MS = 10 * 60 * 1000;
+const activeBackgroundRefreshes = new Set();
 
-export async function handleNewsFeedRequest(req, res) {
+function toLightweightFeedItem(item) {
+  const fullContent = String(item.content || '');
+  const shortContent = fullContent.length > 900 ? fullContent.slice(0, 900) + '...' : fullContent;
+  return {
+    id: item.id,
+    title: item.title,
+    slug: item.slug,
+    excerpt: item.excerpt || shortContent.slice(0, 220),
+    content: shortContent,
+    cover_url: item.cover_url,
+    category: item.category,
+    published: item.published ?? true,
+    published_at: item.published_at || item.created_at,
+    created_at: item.created_at || item.published_at,
+    author: item.author || item.source_name || 'Redação Oficial',
+    source_name: item.source_name || item.author || 'Redação Oficial',
+    source_url: item.source_url,
+    read_time: item.read_time || 4,
+    is_syndicated: true,
+  };
+}
+
+function getInstantArchiveFeedItems(topic, maxLimit) {
+  const archive = readNewsArchive().filter(
+    (a) => !a.deleted_at && a.cover_url && !a.cover_url.includes('images.unsplash.com')
+  );
+  if (archive.length === 0) return [];
+  let filtered = archive;
+  if (topic && topic !== 'all') {
+    filtered = archive.filter((a) => {
+      const c = (a.category || '')
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '');
+      if (topic === 'geopolitica' || topic === 'politica') {
+        return c === 'geopolitica' || c === 'politica';
+      }
+      return c === topic;
+    });
+  }
+  return filtered.slice(0, maxLimit).map(toLightweightFeedItem);
+}
+
+async function refreshTopicFeedInBackground(topic, maxLimit, cacheKey) {
+  if (activeBackgroundRefreshes.has(topic)) return;
+  activeBackgroundRefreshes.add(topic);
+
   try {
-    const urlObj = new URL(req.url || '', `http://${req.headers.host || 'localhost'}`);
-    const rawTopic = (urlObj.searchParams.get('topic') || 'all')
-      .toLowerCase()
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '');
-    const topic = rawTopic === 'esportes' ? 'desportos' : rawTopic;
-    const maxLimit = Math.min(parseInt(urlObj.searchParams.get('limit') || '50', 10), 120);
-
-    const cacheKey = `v3_${topic}_${maxLimit}`;
-    const cached = newsCache.get(cacheKey);
-    if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
-      res.statusCode = 200;
-      res.setHeader('Content-Type', 'application/json');
-      res.setHeader('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=600');
-      res.end(JSON.stringify(cached.data));
-      return;
-    }
-
     const feedsToFetch = PRIMARY_FEEDS[topic] || PRIMARY_FEEDS.all;
-
     const feedPromises = feedsToFetch.map(async (feedInfo) => {
       try {
         const parsed = await parser.parseURL(feedInfo.url);
@@ -1066,7 +1100,7 @@ export async function handleNewsFeedRequest(req, res) {
             }
             return true;
           })
-          .slice(0, 12);
+          .slice(0, 8);
       } catch {
         return [];
       }
@@ -1096,7 +1130,7 @@ export async function handleNewsFeedRequest(req, res) {
       }
     }
 
-    const limitedItems = deduped.slice(0, maxLimit);
+    const limitedItems = deduped.slice(0, Math.min(maxLimit, 40));
     const existingArchive = readNewsArchive();
     const archiveByUrl = new Map();
     const archiveBySlug = new Map();
@@ -1104,6 +1138,8 @@ export async function handleNewsFeedRequest(req, res) {
       if (archItem.source_url) archiveByUrl.set(archItem.source_url, archItem);
       if (archItem.slug) archiveBySlug.set(archItem.slug, archItem);
     }
+
+    let scrapeBudget = 3; // Max 3 web scrapes per background cycle so Node event loop stays 100% responsive
 
     const items = await Promise.all(
       limitedItems.map(async (item, index) => {
@@ -1166,11 +1202,10 @@ export async function handleNewsFeedRequest(req, res) {
           '-' +
           Math.abs(realLink.split('').reduce((a, b) => (a << 5) - a + b.charCodeAt(0), 0) || index);
 
-        // 1. Check if we already have this exact article enriched in the permanent archive
         const matchedArchive = (realLink && archiveByUrl.get(realLink)) || archiveBySlug.get(slug);
         if (
           matchedArchive &&
-          (matchedArchive.content || '').length >= 450 &&
+          (matchedArchive.content || '').length >= 300 &&
           matchedArchive.cover_url &&
           !matchedArchive.cover_url.includes('unsplash.com')
         ) {
@@ -1183,12 +1218,11 @@ export async function handleNewsFeedRequest(req, res) {
           };
         }
 
-        // 2. Extract cover and content from RSS item first
         let coverUrl = extractRealImageFromRssItem(item);
         let { content, excerpt, readTime, paragraphCount } = cleanRssBodyText(item);
 
-        // 3. Scrape the original publisher webpage whenever the RSS feed only provided a summary (< 4 paragraphs or < 500 chars) or lacked the original cover image
-        if (realLink && (paragraphCount < 3 || content.length < 500 || !coverUrl)) {
+        if (realLink && scrapeBudget > 0 && (paragraphCount < 3 || content.length < 400 || !coverUrl)) {
+          scrapeBudget--;
           const scraped = await extractFullArticleFromWeb(realLink);
           if (scraped?.content && scraped.content.length > content.length) {
             content = scraped.content;
@@ -1223,23 +1257,68 @@ export async function handleNewsFeedRequest(req, res) {
       })
     );
 
-    // Only include articles that have genuine content and an authentic cover image from the source
     const validItems = items.filter(
-      (it) => (it.content || '').length >= 200 && it.cover_url && !it.cover_url.includes('images.unsplash.com')
+      (it) => (it.content || '').length >= 160 && it.cover_url && !it.cover_url.includes('images.unsplash.com')
     );
 
-    // Persist newly discovered & enriched articles into the permanent archive and Cloud Firestore
     if (validItems.length > 0) {
       upsertNewsToPermanentArchive(validItems);
+      const lightItems = validItems.map(toLightweightFeedItem);
+      newsCache.set(cacheKey, {
+        timestamp: Date.now(),
+        data: { items: lightItems, total: lightItems.length, topic },
+      });
+    }
+  } catch {
+    // Ignore background refresh error
+  } finally {
+    activeBackgroundRefreshes.delete(topic);
+  }
+}
+
+export async function handleNewsFeedRequest(req, res) {
+  try {
+    const urlObj = new URL(req.url || '', `http://${req.headers.host || 'localhost'}`);
+    const rawTopic = (urlObj.searchParams.get('topic') || 'all')
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '');
+    const topic = rawTopic === 'esportes' ? 'desportos' : rawTopic;
+    const maxLimit = Math.min(parseInt(urlObj.searchParams.get('limit') || '50', 10), 100);
+
+    const cacheKey = `v3_${topic}_${maxLimit}`;
+    const cached = newsCache.get(cacheKey);
+    if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
+      res.statusCode = 200;
+      res.setHeader('Content-Type', 'application/json');
+      res.setHeader('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=600');
+      res.end(JSON.stringify(cached.data));
+      return;
     }
 
-    const responseData = { items: validItems, total: validItems.length, topic };
-    newsCache.set(cacheKey, { timestamp: Date.now(), data: responseData });
+    // Fast path: Serve immediately from the permanent archive in <5ms so the client never waits,
+    // and kick off the live RSS refresh asynchronously in the background!
+    const instantItems = getInstantArchiveFeedItems(topic, maxLimit);
+    if (instantItems.length >= 10) {
+      const responseData = { items: instantItems, total: instantItems.length, topic };
+      newsCache.set(cacheKey, { timestamp: Date.now(), data: responseData });
+      void refreshTopicFeedInBackground(topic, maxLimit, cacheKey);
+
+      res.statusCode = 200;
+      res.setHeader('Content-Type', 'application/json');
+      res.setHeader('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=600');
+      res.end(JSON.stringify(responseData));
+      return;
+    }
+
+    await refreshTopicFeedInBackground(topic, maxLimit, cacheKey);
+    const updatedCache = newsCache.get(cacheKey);
+    const finalData = updatedCache?.data || { items: instantItems, total: instantItems.length, topic };
 
     res.statusCode = 200;
     res.setHeader('Content-Type', 'application/json');
     res.setHeader('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=600');
-    res.end(JSON.stringify(responseData));
+    res.end(JSON.stringify(finalData));
   } catch (err) {
     res.statusCode = 500;
     res.setHeader('Content-Type', 'application/json');
@@ -1371,7 +1450,6 @@ export async function handleNewsArchiveRequest(req, res) {
         : [];
       if (incoming.length > 0) {
         const updated = upsertNewsToPermanentArchive(incoming);
-        void persistArticlesToFirestoreRest(incoming);
         res.statusCode = 200;
         res.setHeader('Content-Type', 'application/json');
         res.end(JSON.stringify({ ok: true, total: updated.length }));
@@ -1385,7 +1463,7 @@ export async function handleNewsArchiveRequest(req, res) {
 
     const urlObj = new URL(req.url || '', `http://${req.headers.host || 'localhost'}`);
     const page = Math.max(1, parseInt(urlObj.searchParams.get('page') || '1', 10));
-    const pageSize = Math.min(1000, Math.max(1, parseInt(urlObj.searchParams.get('pageSize') || '20', 10)));
+    const pageSize = Math.min(100, Math.max(1, parseInt(urlObj.searchParams.get('pageSize') || '20', 10)));
     const q = (urlObj.searchParams.get('q') || '').toLowerCase().trim();
     const category = (urlObj.searchParams.get('category') || 'all').toLowerCase();
     const year = urlObj.searchParams.get('year') ? parseInt(urlObj.searchParams.get('year'), 10) : null;
@@ -1435,7 +1513,7 @@ export async function handleNewsArchiveRequest(req, res) {
     const total = archive.length;
     const totalPages = Math.ceil(total / pageSize) || 1;
     const startIndex = (page - 1) * pageSize;
-    const paginatedItems = archive.slice(startIndex, startIndex + pageSize);
+    const paginatedItems = archive.slice(startIndex, startIndex + pageSize).map(toLightweightFeedItem);
 
     res.statusCode = 200;
     res.setHeader('Content-Type', 'application/json');

@@ -894,26 +894,62 @@ function getInitialGeoState(): GeoInfo {
     // ignore
   }
 
-  // 3. Check cached automatic geolocation from current session
+  // 3. Synchronous Timezone & Browser Locale Heuristic
   try {
+    const navLang = (navigator.language || "").toLowerCase();
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || "";
+    const tzCountry = TIMEZONE_TO_COUNTRY[tz];
+
+    // Explicit Norwegian timezone or locale -> English
+    if (tz === "Europe/Oslo" || navLang.startsWith("nb") || navLang.startsWith("nn") || navLang.endsWith("-no")) {
+      return {
+        countryCode: "NO",
+        countryName: "Norway",
+        isLusophone: false,
+        language: "en",
+        detectionSource: `timezone_or_locale (${tz || navLang})`,
+        isManualOverride: false,
+      };
+    }
+
+    // If browser locale is Portuguese or timezone is a Lusophone country -> Portuguese (0 translation overhead)
+    if (navLang.startsWith("pt") || (tzCountry && isLusophoneCountry(tzCountry))) {
+      const code =
+        tzCountry && isLusophoneCountry(tzCountry)
+          ? tzCountry
+          : navLang.includes("pt-pt")
+          ? "PT"
+          : navLang.includes("pt-ao")
+          ? "AO"
+          : navLang.includes("pt-mz")
+          ? "MZ"
+          : "BR";
+      return {
+        countryCode: code,
+        countryName: COUNTRY_DISPLAY_NAMES[code]?.en || code,
+        isLusophone: true,
+        language: "pt",
+        detectionSource: "lusophone_locale_or_tz",
+        isManualOverride: false,
+      };
+    }
+
+    // Check cached automatic geolocation from current session only for non-Lusophone locales
     const rawCached = sessionStorage.getItem(STORAGE_GEO_CACHE_KEY);
     if (rawCached) {
       const parsed = JSON.parse(rawCached);
-      if (parsed && parsed.countryCode && (parsed.language === "en" || parsed.language === "pt")) {
+      if (
+        parsed &&
+        parsed.countryCode &&
+        parsed.detectionSource !== "geojs_ip" &&
+        (parsed.language === "en" || parsed.language === "pt")
+      ) {
         return {
           ...parsed,
           isManualOverride: false,
         };
       }
     }
-  } catch {
-    // ignore
-  }
-
-  // 4. Synchronous Timezone & Browser Locale Heuristic
-  try {
-    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || "";
-    const tzCountry = TIMEZONE_TO_COUNTRY[tz];
 
     if (tzCountry) {
       const lusophone = isLusophoneCountry(tzCountry);
@@ -943,39 +979,16 @@ function getInitialGeoState(): GeoInfo {
         isManualOverride: false,
       };
     }
-
-    const navLang = (navigator.language || "").toLowerCase();
-    if (navLang.startsWith("pt")) {
-      const code = navLang.includes("pt-pt") ? "PT" : navLang.includes("pt-ao") ? "AO" : "BR";
-      return {
-        countryCode: code,
-        countryName: COUNTRY_DISPLAY_NAMES[code]?.en || code,
-        isLusophone: true,
-        language: "pt",
-        detectionSource: "navigator_locale",
-        isManualOverride: false,
-      };
-    }
-    if (navLang.startsWith("nb") || navLang.startsWith("nn") || navLang.endsWith("-no")) {
-      return {
-        countryCode: "NO",
-        countryName: "Norway",
-        isLusophone: false,
-        language: "en",
-        detectionSource: "navigator_locale",
-        isManualOverride: false,
-      };
-    }
   } catch {
     // ignore
   }
 
   return {
-    countryCode: "US",
-    countryName: "International",
-    isLusophone: false,
-    language: "en",
-    detectionSource: "default_international",
+    countryCode: "BR",
+    countryName: "Brasil",
+    isLusophone: true,
+    language: "pt",
+    detectionSource: "default_lusophone",
     isManualOverride: false,
   };
 }
@@ -1030,7 +1043,7 @@ const SKIP_TAGS = new Set([
 export const GeoLanguageProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [geo, setGeo] = useState<GeoInfo>(() => getInitialGeoState());
   const [isDetecting, setIsDetecting] = useState<boolean>(false);
-  const [isTranslating, setIsTranslating] = useState<boolean>(false);
+  const [isTranslating] = useState<boolean>(false);
 
   const syncLanguageSideEffects = useCallback((lang: AppLanguage) => {
     if (typeof document !== "undefined") {
@@ -1056,6 +1069,21 @@ export const GeoLanguageProvider: React.FC<{ children: React.ReactNode }> = ({ c
         } catch {}
       }
 
+      // Fast path for Lusophone users: if browser language is Portuguese or timezone is Lusophone,
+      // do not let proxy/server IP lookups override their native Portuguese experience.
+      try {
+        const navLang = (navigator.language || "").toLowerCase();
+        const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || "";
+        const tzCountry = TIMEZONE_TO_COUNTRY[tz];
+        if (
+          (navLang.startsWith("pt") || (tzCountry && isLusophoneCountry(tzCountry))) &&
+          tz !== "Europe/Oslo" &&
+          !navLang.endsWith("-no")
+        ) {
+          return;
+        }
+      } catch {}
+
       setIsDetecting(true);
       try {
         const resp = await fetch("/api/geo", {
@@ -1073,6 +1101,7 @@ export const GeoLanguageProvider: React.FC<{ children: React.ReactNode }> = ({ c
             typeof data.countryCode === "string" &&
             data.countryCode.length === 2 &&
             data.detectionSource !== "default_international" &&
+            data.detectionSource !== "default_lusophone" &&
             data.detectionSource !== "accept_language"
           ) {
             detectedCode = data.countryCode.toUpperCase();
@@ -1085,6 +1114,7 @@ export const GeoLanguageProvider: React.FC<{ children: React.ReactNode }> = ({ c
           try {
             const clientGeoResp = await fetch("https://get.geojs.io/v1/ip/geo.json", {
               headers: { Accept: "application/json" },
+              signal: AbortSignal.timeout(2200),
             });
             if (clientGeoResp.ok) {
               const clientGeo = await clientGeoResp.json();
@@ -1135,7 +1165,7 @@ export const GeoLanguageProvider: React.FC<{ children: React.ReactNode }> = ({ c
   useEffect(() => {
     syncLanguageSideEffects(geo.language);
     void detectIpGeolocation(false);
-  }, [detectIpGeolocation, geo.language, syncLanguageSideEffects]);
+  }, [detectIpGeolocation, syncLanguageSideEffects]);
 
   const setLanguageManual = useCallback(
     (lang: AppLanguage, simulatedCountry?: string) => {
@@ -1455,19 +1485,23 @@ export function useTranslatedNewsItems<
 >(items: T[]): T[] {
   const { language, translateBatchAsync, t } = useGeoLanguage();
   const [translatedMap, setTranslatedMap] = useState<Record<string, { title: string; excerpt: string }>>({});
+  const requestedKeysRef = React.useRef<Set<string>>(new Set());
 
   useEffect(() => {
-    if (!items || items.length === 0) return;
+    if (language === "pt" || !items || items.length === 0) return;
 
     let cancelled = false;
     const toTranslate: { key: string; title: string; excerpt: string }[] = [];
 
     for (const item of items) {
-      const key = `${language}:${item.id || item.slug || item.title || ""}`;
-      if (!key || translatedMap[key]) continue;
+      const itemId = item.id || item.slug || item.title || "";
+      if (!itemId) continue;
+      const key = `${language}:${itemId}`;
+      if (requestedKeysRef.current.has(key)) continue;
       const rawTitle = (item.title || "").trim();
       const rawExcerpt = (item.excerpt || "").trim();
       if (!rawTitle) continue;
+      requestedKeysRef.current.add(key);
       toTranslate.push({ key, title: rawTitle, excerpt: rawExcerpt });
     }
 
@@ -1492,15 +1526,19 @@ export function useTranslatedNewsItems<
         }
         setTranslatedMap((prev) => ({ ...prev, ...updates }));
       })
-      .catch(() => {});
+      .catch(() => {
+        for (const entry of toTranslate) {
+          requestedKeysRef.current.delete(entry.key);
+        }
+      });
 
     return () => {
       cancelled = true;
     };
-  }, [items, language, translateBatchAsync, translatedMap]);
+  }, [items, language, translateBatchAsync]);
 
   return useMemo(() => {
-    if (!items || items.length === 0) return items;
+    if (!items || items.length === 0 || language === "pt") return items;
     return items.map((item) => {
       const key = `${language}:${item.id || item.slug || item.title || ""}`;
       const trans = translatedMap[key];

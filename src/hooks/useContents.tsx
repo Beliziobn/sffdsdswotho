@@ -4,7 +4,7 @@ import { useAuth } from "./useAuth";
 import { Book } from "./useCatalog";
 import { isExcludedItem, filterExcludedItems } from "@/lib/excludedItems";
 import { getAllOriginalPdfBooks } from "@/lib/originalPdfRegistry";
-import { CURATED_WEBTOONS, getWebtoonById } from "@/lib/webtoons";
+import { CURATED_WEBTOONS, getWebtoonById, ensureExpandedWebtoonsLoaded } from "@/lib/webtoons";
 import { getFullWebtoonChapters } from "@/lib/webtoonSyncEngine";
 import { syncOfficialWebtoonChapters, buildOfficialViewerUrl } from "@/lib/webtoonOfficialSync";
 import { generateDynamicManhwaStoryPanels } from "@/lib/webtoonStoryGenerator";
@@ -339,6 +339,11 @@ export const useContents = (options?: { type?: ContentType; category?: string; l
       // If requested type is "webtoon" or all, merge Curated Webtoons
       if (!options?.type || options.type === "webtoon") {
         try {
+          if (options?.type === "webtoon") {
+            await ensureExpandedWebtoonsLoaded();
+          } else {
+            void ensureExpandedWebtoonsLoaded();
+          }
           if (dbData.length === 0) {
             dbData = await Promise.race([
               dbPromise,
@@ -615,6 +620,7 @@ export const useContent = (id?: string) =>
 
       // Check Curated Webtoons
       try {
+        await ensureExpandedWebtoonsLoaded();
         const found = getWebtoonById(id);
         if (found) {
           return {
@@ -710,6 +716,7 @@ export const useEpisodes = (contentId?: string) =>
 
       // Check Curated Webtoon episodes, full backlog engine & live WEBTOON official synchronization
       try {
+        await ensureExpandedWebtoonsLoaded();
         const found = getWebtoonById(contentId);
         const baseEpisodes = found?.episodes || [];
         const fullBacklog = getFullWebtoonChapters(contentId);

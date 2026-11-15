@@ -131,47 +131,48 @@ export async function handleGeoLocateRequest(req, res) {
 
     if (!countryCode) {
       const clientIp = extractClientIp(req);
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 2400);
+      if (clientIp) {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 2000);
 
-      try {
-        const geoUrl = clientIp
-          ? `https://get.geojs.io/v1/ip/geo/${encodeURIComponent(clientIp)}.json`
-          : 'https://get.geojs.io/v1/ip/geo.json';
-        const resp = await fetch(geoUrl, {
-          signal: controller.signal,
-          headers: { Accept: 'application/json', 'User-Agent': 'WothoGeoEngine/2.0' },
-        });
-        if (resp.ok) {
-          const data = await resp.json();
-          if (data && typeof data.country_code === 'string' && data.country_code.length === 2) {
-            countryCode = data.country_code.toUpperCase();
-            countryName = data.country || '';
-            detectionSource = 'geojs_ip';
+        try {
+          const geoUrl = `https://get.geojs.io/v1/ip/geo/${encodeURIComponent(clientIp)}.json`;
+          const resp = await fetch(geoUrl, {
+            signal: controller.signal,
+            headers: { Accept: 'application/json', 'User-Agent': 'WothoGeoEngine/2.0' },
+          });
+          if (resp.ok) {
+            const data = await resp.json();
+            if (data && typeof data.country_code === 'string' && data.country_code.length === 2) {
+              countryCode = data.country_code.toUpperCase();
+              countryName = data.country || '';
+              detectionSource = 'geojs_ip';
+            }
           }
+        } catch {
+          // Fallback handled below via accept-language + client timezone
+        } finally {
+          clearTimeout(timeout);
         }
-      } catch {
-        // Fallback handled on client via Timezone + navigator.language
-      } finally {
-        clearTimeout(timeout);
       }
     }
 
     if (!countryCode) {
       const acceptLang = getHeader(req, 'accept-language');
       if (acceptLang) {
-        const primary = acceptLang.split(',')[0].trim().toLowerCase();
-        if (primary.startsWith('pt-br')) countryCode = 'BR';
-        else if (primary.startsWith('pt-pt')) countryCode = 'PT';
+        const lower = acceptLang.toLowerCase();
+        const primary = lower.split(',')[0].trim();
+        if (primary.startsWith('pt-br') || lower.includes('pt-br')) countryCode = 'BR';
+        else if (primary.startsWith('pt-pt') || lower.includes('pt-pt')) countryCode = 'PT';
         else if (primary.startsWith('pt-ao')) countryCode = 'AO';
         else if (primary.startsWith('pt-mz')) countryCode = 'MZ';
-        else if (primary.startsWith('pt')) countryCode = 'PT';
+        else if (primary.startsWith('pt') || lower.includes('pt')) countryCode = 'BR';
         else if (primary.startsWith('nb') || primary.startsWith('nn') || primary.endsWith('-no')) countryCode = 'NO';
         else countryCode = 'US';
         detectionSource = 'accept_language';
       } else {
-        countryCode = 'US';
-        detectionSource = 'default_international';
+        countryCode = 'BR';
+        detectionSource = 'default_lusophone';
       }
     }
 

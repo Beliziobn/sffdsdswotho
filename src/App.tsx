@@ -10,27 +10,30 @@ import TermsGate from "./components/consent/TermsGate";
 import CanonicalManager from "./components/CanonicalManager";
 import AppErrorBoundary from "./components/AppErrorBoundary";
 import OfflineBanner from "./components/OfflineBanner";
-import { initCloudEditorialSync } from "./lib/editorialStore";
 import { GeoLanguageProvider } from "./lib/geoLanguage";
 import { PageShellSkeleton } from "./components/skeletons/AppSkeletons";
+import Index from "./pages/Index";
 
 function lazyWithRetry<T extends ComponentType<any>>(
   factory: () => Promise<{ default: T }>
 ) {
   return lazy(async () => {
-    try {
-      return await factory();
-    } catch (firstError) {
-      if (typeof navigator !== "undefined" && navigator.onLine !== false) {
-        await new Promise((r) => setTimeout(r, 400));
+    const delays = [350, 900, 1800];
+    let lastError: unknown;
+    for (let attempt = 0; attempt <= delays.length; attempt++) {
+      try {
         return await factory();
+      } catch (err) {
+        lastError = err;
+        if (attempt < delays.length) {
+          await new Promise((r) => setTimeout(r, delays[attempt]));
+        }
       }
-      throw firstError;
     }
+    throw lastError;
   });
 }
 
-const Index = lazyWithRetry(() => import("./pages/Index"));
 const NotFound = lazyWithRetry(() => import("./pages/NotFound"));
 const Books = lazyWithRetry(() => import("./pages/Books"));
 const BookDetail = lazyWithRetry(() => import("./pages/BookDetail"));
@@ -79,13 +82,19 @@ const queryClient = new QueryClient({
   },
 });
 
+const runLazyCloudEditorialSync = () => {
+  void import("./lib/editorialStore")
+    .then((m) => m.initCloudEditorialSync())
+    .catch(() => {});
+};
+
 const CloudEditorialQuerySync = () => {
   const qc = useQueryClient();
 
   useEffect(() => {
     const syncTimer = window.setTimeout(() => {
-      void initCloudEditorialSync();
-    }, 1500);
+      runLazyCloudEditorialSync();
+    }, 3500);
 
     const handleEditorialUpdated = () => {
       void qc.invalidateQueries({ queryKey: ["news"] });
@@ -96,7 +105,7 @@ const CloudEditorialQuerySync = () => {
 
     const handleVisibility = () => {
       if (document.visibilityState === "visible") {
-        void initCloudEditorialSync();
+        runLazyCloudEditorialSync();
       }
     };
 

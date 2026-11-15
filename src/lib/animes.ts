@@ -1,4 +1,4 @@
-import { ANIME_MANGA_CONFIGS } from "./mangadex";
+let mangaConfigsCache: Record<string, any> = {};
 
 export interface AnimeSource {
   id: string;
@@ -141,9 +141,13 @@ let verifiedLoadPromise: Promise<void> | null = null;
 export function ensureVerifiedAnimesLoaded(): Promise<void> {
   if (Object.keys(verifiedCatalog).length > 0) return Promise.resolve();
   if (!verifiedLoadPromise) {
-    verifiedLoadPromise = import("@/data/verifiedAnimesCatalog.json")
-      .then((mod) => {
+    verifiedLoadPromise = Promise.all([
+      import("@/data/verifiedAnimesCatalog.json"),
+      import("./mangadex").catch(() => ({ ANIME_MANGA_CONFIGS: {} })),
+    ])
+      .then(([mod, mangaMod]) => {
         verifiedCatalog = ((mod as any).default || mod) as typeof verifiedCatalog;
+        mangaConfigsCache = (mangaMod as any).ANIME_MANGA_CONFIGS || {};
         for (const anime of ANIMES_DATA) {
           const entry = verifiedCatalog[anime.id];
           if (entry) {
@@ -156,6 +160,24 @@ export function ensureVerifiedAnimesLoaded(): Promise<void> {
             if (entry.trailerYoutubeId) {
               anime.trailerYoutubeId = entry.trailerYoutubeId;
             }
+          }
+          const cfg = mangaConfigsCache[anime.id];
+          if (cfg && anime.manga) {
+            anime.manga = {
+              title: cfg.canonicalTitle,
+              chaptersCount: cfg.totalChaptersEstimate,
+              author: cfg.author,
+              artist: cfg.artist,
+              cover: cfg.officialCover,
+              status: cfg.status === "Completo" ? "Completo" : "Em publicação",
+              mangadexId: cfg.mangadexId,
+              serialization: cfg.serialization,
+              publisher: cfg.publisher,
+              chapters: (cfg.initialChapters || []).map((ch: any) => ({
+                ...ch,
+                pages: ch.pages || [],
+              })),
+            };
           }
         }
         if (typeof window !== "undefined") {
@@ -224,7 +246,7 @@ function buildMangaInfo(
     publisher: string;
   }
 ): MangaInfo {
-  const cfg = ANIME_MANGA_CONFIGS[animeId];
+  const cfg = mangaConfigsCache[animeId];
   if (cfg) {
     return {
       title: cfg.canonicalTitle,
@@ -236,7 +258,7 @@ function buildMangaInfo(
       mangadexId: cfg.mangadexId,
       serialization: cfg.serialization,
       publisher: cfg.publisher,
-      chapters: cfg.initialChapters.map((ch) => ({
+      chapters: cfg.initialChapters.map((ch: any) => ({
         ...ch,
         pages: ch.pages || [],
       })),

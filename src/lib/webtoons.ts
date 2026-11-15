@@ -612,7 +612,6 @@ export const BASE_CURATED_WEBTOONS: Webtoon[] = [
   },
 ];
 
-import { EXPANDED_WEBTOONS } from "@/data/expandedWebtoons";
 import { getFullWebtoonChapters } from "./webtoonSyncEngine";
 import { getOfficialCover } from "./webtoonCovers";
 
@@ -627,41 +626,57 @@ const normalizedBaseCurated: Webtoon[] = BASE_CURATED_WEBTOONS.map((w) => {
   };
 });
 
-// Map expanded items to Webtoon interface with authentic official covers (episodes generated lazily on detail/reader view)
-const mappedExpandedWebtoons: Webtoon[] = EXPANDED_WEBTOONS.map((e) => {
-  const official = getOfficialCover(e.id, e.slug, e.cover);
-  const resolvedCover = official.cover;
-  const resolvedBanner = official.banner;
-  const resolvedKorean = official.korean_title || e.korean_title;
-  return {
-    id: e.id,
-    title: e.title,
-    korean_title: resolvedKorean,
-    slug: e.slug,
-    author: e.author,
-    artist: e.artist,
-    description: e.description,
-    cover: resolvedCover,
-    banner: resolvedBanner,
-    rating: e.rating,
-    rating_count: e.rating_count,
-    views: e.views,
-    genres: e.genres,
-    status: e.status,
-    release_day: e.release_day,
-    featured: e.featured,
-    trending: e.trending,
-    weekly_rank: e.weekly_rank,
-    collection: e.collection,
-    episodes_count: e.episodes_count || 75,
-    episodes: [],
-  };
-});
+export const CURATED_WEBTOONS: Webtoon[] = [...normalizedBaseCurated];
 
-export const CURATED_WEBTOONS: Webtoon[] = [
-  ...normalizedBaseCurated,
-  ...mappedExpandedWebtoons,
-];
+let expandedWebtoonsLoaded = false;
+let expandedWebtoonsPromise: Promise<Webtoon[]> | null = null;
+
+export function ensureExpandedWebtoonsLoaded(): Promise<Webtoon[]> {
+  if (expandedWebtoonsLoaded) return Promise.resolve(CURATED_WEBTOONS);
+  if (!expandedWebtoonsPromise) {
+    expandedWebtoonsPromise = import("@/data/expandedWebtoons")
+      .then((mod) => {
+        if (!expandedWebtoonsLoaded && Array.isArray(mod.EXPANDED_WEBTOONS)) {
+          expandedWebtoonsLoaded = true;
+          const existingIds = new Set(CURATED_WEBTOONS.map((w) => w.id));
+          for (const e of mod.EXPANDED_WEBTOONS) {
+            if (existingIds.has(e.id)) continue;
+            existingIds.add(e.id);
+            const official = getOfficialCover(e.id, e.slug, e.cover);
+            CURATED_WEBTOONS.push({
+              id: e.id,
+              title: e.title,
+              korean_title: official.korean_title || e.korean_title,
+              slug: e.slug,
+              author: e.author,
+              artist: e.artist,
+              description: e.description,
+              cover: official.cover,
+              banner: official.banner,
+              rating: e.rating,
+              rating_count: e.rating_count,
+              views: e.views,
+              genres: e.genres,
+              status: e.status,
+              release_day: e.release_day,
+              featured: e.featured,
+              trending: e.trending,
+              weekly_rank: e.weekly_rank,
+              collection: e.collection,
+              episodes_count: e.episodes_count || 75,
+              episodes: [],
+            });
+          }
+          if (typeof window !== "undefined") {
+            window.dispatchEvent(new Event("worscoi_webtoons_expanded_loaded"));
+          }
+        }
+        return CURATED_WEBTOONS;
+      })
+      .catch(() => CURATED_WEBTOONS);
+  }
+  return expandedWebtoonsPromise;
+}
 
 export function getCuratedWebtoons(): Webtoon[] {
   return CURATED_WEBTOONS;
