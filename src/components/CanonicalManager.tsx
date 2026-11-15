@@ -186,6 +186,23 @@ export const CanonicalManager = () => {
   useEffect(() => {
     if (typeof window === "undefined") return;
 
+    // Guarantee Google AdSense script and account meta tag are present in <head> on every route
+    upsertMetaTag(
+      'meta[name="google-adsense-account"]',
+      "name",
+      "google-adsense-account",
+      "ca-pub-8089523516720577"
+    );
+    const adsenseSrc =
+      "https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8089523516720577";
+    if (!document.head.querySelector(`script[src*="ca-pub-8089523516720577"]`)) {
+      const adScript = document.createElement("script");
+      adScript.async = true;
+      adScript.src = adsenseSrc;
+      adScript.crossOrigin = "anonymous";
+      document.head.prepend(adScript);
+    }
+
     const normalizedPath = normalizeCanonicalPath(location.pathname);
     const isKnownRoute =
       KNOWN_EXACT_ROUTES.has(normalizedPath) ||

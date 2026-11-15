@@ -984,6 +984,12 @@ export function injectSeoIntoHtml(html, rawPathname, options = {}) {
     out = out.replace('</head>', `    ${jsonLdScripts}\n  </head>`);
   }
 
+  // 6b. Guarantee Google AdSense script is present in <head> on every prerendered page
+  if (!out.includes('ca-pub-8089523516720577')) {
+    const adsenseSnippet = `<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8089523516720577"\n     crossorigin="anonymous"></script>\n    <meta name="google-adsense-account" content="ca-pub-8089523516720577" />`;
+    out = out.replace('<head>', `<head>\n    ${adsenseSnippet}`);
+  }
+
   // 7. For search engine bots & social link previewers, replace the loading spinner with rich semantic HTML5
   if (isBot) {
     const botBody = renderSemanticBotShell(seo, origin);
@@ -1014,6 +1020,9 @@ function findIndexHtmlTemplate() {
   return `<!doctype html>
 <html lang="pt-BR">
 <head>
+  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8089523516720577"
+     crossorigin="anonymous"></script>
+  <meta name="google-adsense-account" content="ca-pub-8089523516720577" />
   <meta charset="UTF-8" />
   <title>Wotho</title>
   <meta name="description" content="Wotho" />
