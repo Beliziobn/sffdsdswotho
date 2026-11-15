@@ -1,11 +1,17 @@
 /**
  * News Archive & Permanent Immutability Engine
  * Manages queries, historical pagination, timeline indexing, and canonical slug resolution.
- * Guarantees zero 404 for historical articles across all environments (preview, production, and external devices).
+ * Guarantees zero 404 for historical articles across all environments (preview, production, and external devices)
+ * and persists every discovered article into the permanent multi-year database (IndexedDB + Server Archive).
  */
 
 import { SyndicatedNewsItem } from "./newsSyndication";
 import { expandNewsToDeepReport } from "./newsExpander";
+import {
+  saveArticlesToPermanentDb,
+  getAllPermanentDbArticles,
+  getPermanentDbArticleBySlug,
+} from "./newsDatabase";
 
 export interface ArchiveFilterOptions {
   page?: number;
@@ -32,34 +38,61 @@ export interface ArchiveTimelineEntry {
 }
 
 let cachedLocalArticles: any[] | null = null;
+let seededIndexedDb = false;
 
 /**
- * Loads the bundled archive articles directly in the client.
- * Guarantees that external users on the live site see all 800+ news articles
- * even without the Vite development server running.
+ * Loads the bundled archive articles directly in the client and merges with the permanent IndexedDB vault.
  */
 export async function getLocalArchiveArticles(): Promise<any[]> {
-  if (cachedLocalArticles && cachedLocalArticles.length > 0) {
-    return cachedLocalArticles;
+  let bundledList: any[] = cachedLocalArticles || [];
+  if (!cachedLocalArticles || cachedLocalArticles.length === 0) {
+    try {
+      const raw = await import("@/data/newsArchive.json");
+      const list = Array.isArray(raw.articles)
+        ? raw.articles
+        : Array.isArray((raw as any).default?.articles)
+        ? (raw as any).default.articles
+        : [];
+      cachedLocalArticles = list;
+      bundledList = list;
+      if (!seededIndexedDb && list.length > 0) {
+        seededIndexedDb = true;
+        void saveArticlesToPermanentDb(list, false);
+      }
+    } catch (err) {
+      console.warn("[NewsArchiveEngine] Falha ao importar acervo local:", err);
+    }
   }
+
   try {
-    const raw = await import("@/data/newsArchive.json");
-    const list = Array.isArray(raw.articles)
-      ? raw.articles
-      : Array.isArray((raw as any).default?.articles)
-      ? (raw as any).default.articles
-      : [];
-    cachedLocalArticles = list;
-    return list;
-  } catch (err) {
-    console.warn("[NewsArchiveEngine] Falha ao importar acervo local:", err);
-    return [];
-  }
+    const idbArticles = await getAllPermanentDbArticles();
+    if (idbArticles.length > 0) {
+      const map = new Map<string, any>();
+      for (const item of [...idbArticles, ...bundledList]) {
+        if (!item || !item.title) continue;
+        const key = String(item.slug || item.id || "")
+          .toLowerCase()
+          .trim();
+        if (!key) continue;
+        if (!map.has(key)) {
+          map.set(key, item);
+        } else {
+          const prev = map.get(key)!;
+          if ((item.content || "").length > (prev.content || "").length) {
+            map.set(key, { ...prev, ...item });
+          }
+        }
+      }
+      return Array.from(map.values());
+    }
+  } catch {}
+
+  return bundledList;
 }
 
 /**
  * Queries the permanent historical news archive with server-side pagination & filters.
- * Seamlessly falls back to client-side in-memory search if API endpoint is unreachable.
+ * Seamlessly merges server archive with client-side IndexedDB + bundled archive.
  */
 export async function queryNewsArchive(options: ArchiveFilterOptions = {}): Promise<ArchiveQueryResult> {
   const page = Math.max(1, options.page || 1);
@@ -73,7 +106,7 @@ export async function queryNewsArchive(options: ArchiveFilterOptions = {}): Prom
   if (options.category && options.category !== "all") params.set("category", options.category);
   if (options.q) params.set("q", options.q);
 
-  // 1. Try server endpoint first (active in dev / preview)
+  // 1. Try server endpoint first
   try {
     const res = await fetch(`/api/news/archive?${params.toString()}`);
     const contentType = res.headers.get("content-type") || "";
@@ -81,6 +114,7 @@ export async function queryNewsArchive(options: ArchiveFilterOptions = {}): Prom
       const data = await res.json();
       if (Array.isArray(data.items) && data.items.length > 0) {
         const enrichedItems = data.items.map((it: any) => expandNewsToDeepReport(it));
+        void saveArticlesToPermanentDb(enrichedItems, false);
         return {
           items: enrichedItems,
           total: data.total || enrichedItems.length,
@@ -91,10 +125,10 @@ export async function queryNewsArchive(options: ArchiveFilterOptions = {}): Prom
       }
     }
   } catch {
-    // API endpoint offline or not running in static build; fall through to local archive
+    // Fall through to local + IndexedDB archive
   }
 
-  // 2. Universal Client-side in-memory fallback (active for external users / production site)
+  // 2. Universal Client-side + IndexedDB permanent database fallback
   try {
     const all = await getLocalArchiveArticles();
     let filtered = all.filter((a: any) => !a.deleted_at);
@@ -120,15 +154,15 @@ export async function queryNewsArchive(options: ArchiveFilterOptions = {}): Prom
 
     if (options.q && options.q.trim()) {
       const term = options.q.toLowerCase().trim();
-      filtered = filtered.filter((a: any) =>
-        (a.title || "").toLowerCase().includes(term) ||
-        (a.excerpt || "").toLowerCase().includes(term) ||
-        (a.content || "").toLowerCase().includes(term) ||
-        (a.author || "").toLowerCase().includes(term)
+      filtered = filtered.filter(
+        (a: any) =>
+          (a.title || "").toLowerCase().includes(term) ||
+          (a.excerpt || "").toLowerCase().includes(term) ||
+          (a.content || "").toLowerCase().includes(term) ||
+          (a.author || "").toLowerCase().includes(term)
       );
     }
 
-    // Sort chronologically (most recent first)
     filtered.sort(
       (a: any, b: any) =>
         new Date(b.published_at || b.created_at).getTime() -
@@ -163,26 +197,36 @@ export async function queryNewsArchive(options: ArchiveFilterOptions = {}): Prom
 
 /**
  * Resolves a permanent canonical news article by slug or ID.
- * Queries the historical archive endpoint first, then falls back to local archive,
- * guaranteeing that even years later, the link works everywhere!
+ * Queries the historical archive endpoint, permanent IndexedDB database, and bundled archive,
+ * guaranteeing that even years later, every article link resolves with full content and original cover.
  */
 export async function fetchPermanentArticle(slugOrId: string): Promise<SyndicatedNewsItem | null> {
   if (!slugOrId) return null;
   const target = decodeURIComponent(slugOrId).toLowerCase().trim();
 
-  // 1. Try server endpoint
+  // 1. Try server endpoint (which also auto-enriches brief articles from source_url)
   try {
     const res = await fetch(`/api/news/article?slug=${encodeURIComponent(slugOrId)}`);
     const contentType = res.headers.get("content-type") || "";
     if (res.ok && contentType.includes("application/json")) {
       const data = await res.json();
       if (data.article) {
-        return expandNewsToDeepReport(data.article);
+        const enriched = expandNewsToDeepReport(data.article);
+        void saveArticlesToPermanentDb([enriched], false);
+        return enriched;
       }
     }
   } catch {}
 
-  // 2. Direct client-side archive search
+  // 2. Check permanent IndexedDB database
+  try {
+    const idbMatch = await getPermanentDbArticleBySlug(target);
+    if (idbMatch) {
+      return expandNewsToDeepReport(idbMatch);
+    }
+  } catch {}
+
+  // 3. Direct client-side archive search
   try {
     const all = await getLocalArchiveArticles();
     const match = all.find(
@@ -220,7 +264,7 @@ export async function fetchArchiveTimeline(): Promise<{ timeline: ArchiveTimelin
     }
   } catch {}
 
-  // 2. Direct client-side timeline computation
+  // 2. Direct client-side + IndexedDB timeline computation
   try {
     const all = await getLocalArchiveArticles();
     const active = all.filter((a: any) => !a.deleted_at);

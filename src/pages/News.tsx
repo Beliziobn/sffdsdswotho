@@ -21,6 +21,7 @@ import { useContentProtection } from "@/hooks/useContentProtection";
 import { NEWS_CATEGORIES, pickFeatured, type CuratedNews } from "@/lib/news";
 import { syncDailyNews } from "@/lib/newsSyndication";
 import { fetchArchiveTimeline, type ArchiveTimelineEntry } from "@/lib/newsArchiveEngine";
+import { useTranslatedNewsItems } from "@/lib/geoLanguage";
 
 const MONTH_NAMES: Record<string, string> = {
   "01": "Janeiro",
@@ -100,22 +101,27 @@ const News = () => {
   }, [timeline, published]);
 
   /** Curation: Top Story flag → engajamento do dia → mais recente. */
-  const featured = useMemo(() => pickFeatured(published), [published]);
+  const rawFeatured = useMemo(() => pickFeatured(published), [published]);
+  const translatedFeaturedArr = useTranslatedNewsItems(rawFeatured ? [rawFeatured] : []);
+  const featured = translatedFeaturedArr[0] || rawFeatured;
+
   const isFilteringHistory = year !== "all" || month !== "all";
-  const gridItems = useMemo(
-    () => items.filter((i) => (!featured || i.id !== featured.id || category !== "all" || q) || isFilteringHistory),
-    [items, featured, category, q, isFilteringHistory],
+  const rawGridItems = useMemo(
+    () => items.filter((i) => (!rawFeatured || i.id !== rawFeatured.id || category !== "all" || q) || isFilteringHistory),
+    [items, rawFeatured, category, q, isFilteringHistory],
   );
+  const gridItems = useTranslatedNewsItems(rawGridItems);
 
   const categories = useMemo(() => {
     const fromData = published.map((n) => n.category).filter(Boolean);
     return Array.from(new Set([...NEWS_CATEGORIES, ...fromData]));
   }, [published]);
 
-  const missed = useMemo(
-    () => published.filter((n) => !featured || n.id !== featured.id).slice(0, 10),
-    [published, featured],
+  const rawMissed = useMemo(
+    () => published.filter((n) => !rawFeatured || n.id !== rawFeatured.id).slice(0, 10),
+    [published, rawFeatured],
   );
+  const missed = useTranslatedNewsItems(rawMissed);
 
   const { ref, inView } = useInView({ rootMargin: "600px 0px" });
   const { hasNextPage, isFetchingNextPage, fetchNextPage } = feed;
@@ -159,16 +165,7 @@ const News = () => {
       <main className="py-24 lg:py-32 px-6 lg:px-12">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-8">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-accent text-[11px] font-medium text-foreground mb-3">
-              <span className="relative flex h-2 w-2">
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
-              </span>
-              <span>Feeds Diários Automáticos • Imprensa Oficial</span>
-            </div>
             <h1 className="text-2xl md:text-3xl font-light tracking-tight text-foreground mb-3">Portal de Notícias Wotho</h1>
-            <p className="text-sm text-muted-foreground font-light max-w-xl mx-auto">
-              Cobertura contínua e aprofundada: futebol, mercado, tendências virais, listas, política, geografia, ciência, literatura e entretenimento global
-            </p>
           </div>
 
           {featured && !q && category === "all" && <NewsHero item={featured} />}

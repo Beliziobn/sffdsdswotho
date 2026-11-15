@@ -44,6 +44,7 @@ interface ResolvedStream {
   quality: string;
   url: string;
   proxyUrl: string;
+  requiresProxy?: boolean;
 }
 
 interface AvailableDubOption {
@@ -156,6 +157,7 @@ export const WorscoCinemaPlayer: React.FC<WorscoCinemaPlayerProps> = ({
   const [availableDubs, setAvailableDubs] = useState<AvailableDubOption[]>(DEFAULT_LANGUAGE_PRESETS);
   const [hasPtDub, setHasPtDub] = useState<boolean>(true);
   const [hasPtSub, setHasPtSub] = useState<boolean>(true);
+  const [ptbrEmbedUrls, setPtbrEmbedUrls] = useState<string[]>([]);
   const [candidateIdx, setCandidateIdx] = useState<number>(0);
   const [useProxyForMp4, setUseProxyForMp4] = useState<boolean>(false);
   const [ptCues, setPtCues] = useState<SubtitleCue[]>([]);
@@ -250,12 +252,12 @@ export const WorscoCinemaPlayer: React.FC<WorscoCinemaPlayerProps> = ({
         const resolvedStreams: ResolvedStream[] = Array.isArray(data?.streams)
           ? data.streams
           : [];
+        const resolvedEmbeds: string[] = Array.isArray(data?.ptbrEmbedUrls)
+          ? data.ptbrEmbedUrls
+          : [];
+        setPtbrEmbedUrls(resolvedEmbeds);
 
         if (resolvedStreams.length === 0) {
-          if (internalPipelineStage === "orion") {
-            setInternalPipelineStage("atlas");
-            return;
-          }
           setInternalPipelineStage("embed");
           setIsResolving(false);
           return;
@@ -294,10 +296,6 @@ export const WorscoCinemaPlayer: React.FC<WorscoCinemaPlayerProps> = ({
         setIsResolving(false);
       } catch {
         if (cancelled) return;
-        if (internalPipelineStage === "orion") {
-          setInternalPipelineStage("atlas");
-          return;
-        }
         setInternalPipelineStage("embed");
         setIsResolving(false);
       }
@@ -407,7 +405,7 @@ export const WorscoCinemaPlayer: React.FC<WorscoCinemaPlayerProps> = ({
     };
 
     const advanceToNextCandidate = () => {
-      if (currentStream.type === "mp4" && !useProxyForMp4) {
+      if (currentStream.type === "mp4" && !currentStream.requiresProxy && !useProxyForMp4) {
         setUseProxyForMp4(true);
         return;
       }
@@ -421,8 +419,6 @@ export const WorscoCinemaPlayer: React.FC<WorscoCinemaPlayerProps> = ({
       }
       if (nextIdx < orderedCandidates.length) {
         setCandidateIdx(nextIdx);
-      } else if (internalPipelineStage === "orion") {
-        setInternalPipelineStage("atlas");
       } else {
         setInternalPipelineStage("embed");
       }
@@ -453,7 +449,8 @@ export const WorscoCinemaPlayer: React.FC<WorscoCinemaPlayerProps> = ({
         ? currentStream.proxyUrl
         : `${currentStream.proxyUrl}&${selfHealParams.toString()}`;
 
-      const mp4Source = useProxyForMp4 ? enrichedProxyUrl : currentStream.url;
+      const mp4Source =
+        currentStream.requiresProxy || useProxyForMp4 ? enrichedProxyUrl : currentStream.url;
       video.src = mp4Source;
       video.load();
 
@@ -676,7 +673,7 @@ export const WorscoCinemaPlayer: React.FC<WorscoCinemaPlayerProps> = ({
     DEFAULT_LANGUAGE_PRESETS[0];
 
   const [activeDubCode, activeDubType] = selectedDubId.split(":");
-  const embedPlayerUrl = getCinemaStreamUrl(item, {
+  const defaultEmbedUrl = getCinemaStreamUrl(item, {
     server: "vidstuck",
     seasonNumber,
     episodeNumber,
@@ -685,6 +682,8 @@ export const WorscoCinemaPlayer: React.FC<WorscoCinemaPlayerProps> = ({
     dubCode: activeDubCode,
     dubType: activeDubType,
   });
+  const embedPlayerUrl =
+    audioMode === "dublado" && ptbrEmbedUrls.length > 0 ? ptbrEmbedUrls[0] : defaultEmbedUrl;
 
   // Quick preset buttons shown directly in the bar
   const quickDubPresets = useMemo(() => {
@@ -886,7 +885,9 @@ export const WorscoCinemaPlayer: React.FC<WorscoCinemaPlayerProps> = ({
             >
               <span className="px-3 py-1 rounded-full bg-black/80 border border-white/15 text-[11px] font-medium text-zinc-200 backdrop-blur-md flex items-center gap-1.5 shadow-md">
                 <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                {activeDubObj.flag} {activeDubObj.label}
+                {currentStream && audioMode === "dublado" && currentStream.audioMode !== "dublado"
+                  ? `🌐 ${currentStream.label || "Áudio Original + Legenda PT-BR"}`
+                  : `${activeDubObj.flag} ${activeDubObj.label}`}
                 {currentStream?.quality ? ` · ${currentStream.quality}` : ""}
                 {item.type === "serie"
                   ? ` · T${seasonNumber}:E${episodeNumber}${episodeTitle ? ` (${episodeTitle})` : ""}`

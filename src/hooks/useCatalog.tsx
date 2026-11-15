@@ -36,10 +36,14 @@ export type NewsItem = {
   slug: string;
   excerpt: string;
   content: string;
-  cover_url: string | null;
+  cover_url?: string | null;
   category: string;
   published: boolean;
   published_at: string;
+  author?: string;
+  source_name?: string;
+  source_url?: string;
+  read_time?: number;
 };
 
 export type Chapter = {

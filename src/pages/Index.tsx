@@ -17,6 +17,7 @@ import { ANIMES_DATA } from "@/lib/animes";
 import AnimeCard from "@/components/AnimeCard";
 import { CINEMA_CATALOG } from "@/lib/cinema";
 import CinemaCard from "@/components/cinema/CinemaCard";
+import { useTranslatedNewsItems } from "@/lib/geoLanguage";
 
 const FALLBACK_NEWS: NewsItem[] = [
   {
@@ -63,7 +64,8 @@ const FALLBACK_NEWS: NewsItem[] = [
 const Index = () => {
   const { data: news = [], isLoading: newsLoading } = useNews();
   const publishedNews = useMemo(() => news.filter((n) => n.published).slice(0, 3), [news]);
-  const latest = publishedNews.length > 0 ? publishedNews : FALLBACK_NEWS;
+  const rawLatest = publishedNews.length > 0 ? publishedNews : FALLBACK_NEWS;
+  const latest = useTranslatedNewsItems(rawLatest);
   const { user } = useAuth();
 
   const [period, setPeriod] = useState<"today" | "week" | "month">("week");

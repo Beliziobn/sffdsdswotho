@@ -1,231 +1,304 @@
-import type { NewsItem } from "@/hooks/useCatalog";
-import { getSmartNewsCover } from "./newsImageResolver";
+import { SyndicatedNewsItem } from "./newsSyndication";
 import { expandNewsToDeepReport } from "./newsExpander";
-import { slugifyEditorial } from "./editorialStore";
+import { getSmartNewsCover, isValidCoverUrl } from "./newsImageResolver";
+import { persistSyndicatedNewsBatchToCloud } from "./cloudEditorialService";
 
-export interface FeedSource {
+interface RssFeedChannel {
   url: string;
   category: string;
-  source: string;
+  sourceName: string;
 }
 
-export const RSS_FEED_CHANNELS: Record<string, FeedSource[]> = {
-  futebol: [
-    { url: "https://ge.globo.com/rss/ge/futebol/futebol-internacional/liga-dos-campeoes/", category: "Futebol", source: "UEFA Champions League" },
-    { url: "https://ge.globo.com/rss/ge/futebol/futebol-internacional/futebol-espanhol/", category: "Futebol", source: "La Liga" },
-    { url: "https://ge.globo.com/rss/ge/futebol/futebol-internacional/futebol-ingles/", category: "Futebol", source: "Premier League" },
-  ],
-  basquete: [
-    { url: "https://ge.globo.com/rss/ge/basquete/nba/", category: "Basquete", source: "NBA Brasil" },
-  ],
-  mercado: [
-    { url: "https://g1.globo.com/rss/g1/economia/", category: "Mercado", source: "G1 Economia" },
-  ],
-  politica: [
-    { url: "https://g1.globo.com/rss/g1/politica/", category: "Política", source: "G1 Política" },
-  ],
-  ciencia: [
-    { url: "https://g1.globo.com/rss/g1/ciencia-e-saude/", category: "Ciência", source: "G1 Ciência" },
-  ],
-  geografia: [
-    { url: "https://g1.globo.com/rss/g1/natureza/", category: "Geografia", source: "G1 Natureza" },
-  ],
-  animes: [
-    { url: "https://www.jbox.com.br/feed/", category: "Animes", source: "JBox" },
-    { url: "https://www.otakupt.com/feed/", category: "Animes", source: "OtakuPT" },
-    { url: "https://anmtv.com.br/feed/", category: "Animes", source: "AnMTV" },
-  ],
-  mangas: [
-    { url: "https://animeunited.com.br/feed/", category: "Mangás", source: "Anime United" },
-    { url: "https://www.otakupt.com/feed/", category: "Mangás", source: "OtakuPT" },
-  ],
-  games: [
-    { url: "https://criticalhits.com.br/feed/", category: "Games", source: "Critical Hits" },
-    { url: "https://www.adrenaline.com.br/rss/", category: "Games", source: "Adrenaline" },
-  ],
-  tecnologias: [
-    { url: "https://tecnoblog.net/feed/", category: "Tecnologias", source: "Tecnoblog" },
-    { url: "https://rss.tecmundo.com.br/feed", category: "Tecnologias", source: "TecMundo" },
-  ],
-  cultura: [
-    { url: "https://legiaodosherois.com.br/feed", category: "Cultura", source: "Legião dos Heróis" },
-    { url: "https://g1.globo.com/rss/g1/pop-arte/", category: "Cultura", source: "G1 Pop & Arte" },
-  ],
-  livros: [
-    { url: "https://www.publishnews.com.br/rss/", category: "Livros", source: "PublishNews" },
-  ],
-};
+const RSS_FEED_CHANNELS: RssFeedChannel[] = [
+  // Futebol, Basquete e Outros Desportos: BeSoccer, 365Scores, TNT Sports
+  {
+    url: "https://www.bing.com/news/search?q=futebol+champions+league+besoccer&setlang=pt-BR&cc=BR&format=rss",
+    category: "Futebol",
+    sourceName: "BeSoccer",
+  },
+  {
+    url: "https://www.bing.com/news/search?q=futebol+brasileirao+champions&setlang=pt-BR&cc=BR&format=rss",
+    category: "Futebol",
+    sourceName: "365Scores",
+  },
+  {
+    url: "https://www.bing.com/news/search?q=futebol+europeu+champions+league&setlang=pt-BR&cc=BR&format=rss",
+    category: "Futebol",
+    sourceName: "TNT Sports",
+  },
+  {
+    url: "https://www.bing.com/news/search?q=basquete+NBA+playoffs&setlang=pt-BR&cc=BR&format=rss",
+    category: "Basquete",
+    sourceName: "TNT Sports",
+  },
+  {
+    url: "https://www.bing.com/news/search?q=NBA+Lakers+Celtics+basquete&setlang=pt-BR&cc=BR&format=rss",
+    category: "Basquete",
+    sourceName: "365Scores",
+  },
+  {
+    url: "https://www.bing.com/news/search?q=Formula+1+GP&setlang=pt-BR&cc=BR&format=rss",
+    category: "Desportos",
+    sourceName: "TNT Sports",
+  },
+  {
+    url: "https://www.bing.com/news/search?q=Tenis+ATP+WTA&setlang=pt-BR&cc=BR&format=rss",
+    category: "Desportos",
+    sourceName: "365Scores",
+  },
+  // Geopolítica: The New York Times, Euronews, Band
+  {
+    url: "https://rss.nytimes.com/services/xml/rss/nyt/World.xml",
+    category: "Geopolítica",
+    sourceName: "The New York Times",
+  },
+  {
+    url: "https://pt.euronews.com/rss",
+    category: "Geopolítica",
+    sourceName: "Euronews",
+  },
+  {
+    url: "https://www.bing.com/news/search?q=Band+internacional&setlang=pt-BR&cc=BR&format=rss",
+    category: "Geopolítica",
+    sourceName: "Band",
+  },
+  // Anime e Mangá: Crunchyroll Notícias, Anime News Network
+  {
+    url: "https://cr-news-api-service.prd.crunchyrollsvc.com/v1/pt-BR/rss",
+    category: "Animes",
+    sourceName: "Crunchyroll Notícias",
+  },
+  {
+    url: "https://www.bing.com/news/search?q=Manga+lancamento+anime&setlang=pt-BR&cc=BR&format=rss",
+    category: "Mangás",
+    sourceName: "Anime News Network",
+  },
+  // Tecnologia: TecMundo, Canaltech
+  {
+    url: "https://rss.tecmundo.com.br/feed",
+    category: "Tecnologias",
+    sourceName: "TecMundo",
+  },
+  {
+    url: "https://canaltech.com.br/rss/",
+    category: "Tecnologias",
+    sourceName: "Canaltech",
+  },
+  // Moda: Vogue, ELLE Brasil, Nike, Adidas
+  {
+    url: "https://vogue.globo.com/rss/vogue/",
+    category: "Moda",
+    sourceName: "Vogue",
+  },
+  {
+    url: "https://www.bing.com/news/search?q=site:elle.com.br&setlang=pt-BR&cc=BR&format=rss",
+    category: "Moda",
+    sourceName: "ELLE Brasil",
+  },
+  {
+    url: "https://www.bing.com/news/search?q=nike+lancamento+tenis+moda&setlang=pt-BR&cc=BR&format=rss",
+    category: "Moda",
+    sourceName: "Nike News",
+  },
+  {
+    url: "https://www.bing.com/news/search?q=adidas+originals+lancamento+moda&setlang=pt-BR&cc=BR&format=rss",
+    category: "Moda",
+    sourceName: "Adidas News",
+  },
+  // Jogos: MMORPGBR + Eurogamer, GameVicio, IGN Brasil
+  {
+    url: "https://www.bing.com/news/search?q=MMORPG+jogos&setlang=pt-BR&cc=BR&format=rss",
+    category: "Games",
+    sourceName: "MMORPGBR",
+  },
+  {
+    url: "https://www.eurogamer.pt/feed",
+    category: "Games",
+    sourceName: "Eurogamer",
+  },
+  {
+    url: "https://www.gamevicio.com/feed/",
+    category: "Games",
+    sourceName: "GameVicio",
+  },
+  {
+    url: "https://www.bing.com/news/search?q=site:br.ign.com&setlang=pt-BR&cc=BR&format=rss",
+    category: "Games",
+    sourceName: "IGN Brasil",
+  },
+  // Cultura: BBC Culture, The Guardian Culture
+  {
+    url: "https://feeds.bbci.co.uk/news/entertainment_and_arts/rss.xml",
+    category: "Cultura",
+    sourceName: "BBC Culture",
+  },
+  {
+    url: "https://www.theguardian.com/uk/culture/rss",
+    category: "Cultura",
+    sourceName: "The Guardian Culture",
+  },
+  // Webtoons: webtoon.com
+  {
+    url: "https://www.bing.com/news/search?q=webtoon+manhwa+solo+leveling&setlang=pt-BR&cc=BR&format=rss",
+    category: "Webtoons",
+    sourceName: "WEBTOON",
+  },
+];
 
-function extractImageFromXmlItem(itemEl: Element, title: string, category: string): string {
-  // 1. Enclosure
-  const enclosure = itemEl.querySelector("enclosure");
-  if (enclosure) {
-    const url = enclosure.getAttribute("url");
-    const type = enclosure.getAttribute("type") || "";
-    if (url && (type.includes("image") || /\.(jpg|jpeg|png|webp|avif)/i.test(url))) {
-      return url;
+function unwrapPublisherUrl(rawUrl: string): string {
+  if (!rawUrl) return "";
+  try {
+    const parsed = new URL(rawUrl);
+    if (parsed.hostname.includes("bing.com") && parsed.searchParams.get("url")) {
+      return parsed.searchParams.get("url")!;
     }
-  }
-
-  // 2. Media content or thumbnail
-  const mediaElements = Array.from(itemEl.getElementsByTagNameNS("*", "content")).concat(
-    Array.from(itemEl.getElementsByTagNameNS("*", "thumbnail"))
-  );
-  for (const m of mediaElements) {
-    const u = m.getAttribute("url");
-    if (u && !/(1x1|spacer|tracking|pixel|feedburner|\.gif)/i.test(u)) {
-      return u;
-    }
-  }
-
-  // 3. Img in description or content:encoded
-  const desc = itemEl.querySelector("description")?.textContent || "";
-  const encoded = itemEl.getElementsByTagNameNS("*", "encoded")[0]?.textContent || "";
-  const combinedHtml = `${desc} ${encoded}`;
-  const imgMatch = combinedHtml.match(/<img[^>]+(?:src|data-src)=["'](https?:\/\/[^"'\s>]+)["']/i);
-  if (imgMatch && imgMatch[1] && !/(1x1|spacer|pixel|emoji|\.gif)/i.test(imgMatch[1])) {
-    return imgMatch[1].replace(/&amp;/g, "&");
-  }
-
-  // 4. Contextual smart cover generator
-  return getSmartNewsCover(title, category);
+  } catch {}
+  return rawUrl;
 }
 
-function cleanHtmlText(raw: string): string {
-  if (!raw) return "";
-  return raw
-    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "")
-    .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, "")
+function extractCoverFromHtml(html: string): string | null {
+  if (!html) return null;
+  const imgMatch = html.match(/<img[^>]+src=["']([^"']+)["']/i);
+  if (imgMatch && imgMatch[1]) {
+    const candidate = imgMatch[1].replace(/&amp;/g, "&").trim();
+    if (isValidCoverUrl(candidate)) return candidate;
+  }
+  return null;
+}
+
+function stripHtmlAndPreserveParagraphs(rawHtml: string): string {
+  if (!rawHtml) return "";
+  return rawHtml
+    .replace(/<script[\s\S]*?<\/script>/gi, "")
+    .replace(/<style[\s\S]*?<\/style>/gi, "")
+    .replace(/<figure[\s\S]*?<\/figure>/gi, "\n\n")
+    .replace(/<\/(p|div|h1|h2|h3|h4|blockquote|li|article|section)>/gi, "\n\n")
+    .replace(/<br\s*\/?>/gi, "\n\n")
     .replace(/<[^>]+>/g, " ")
     .replace(/&nbsp;/g, " ")
     .replace(/&amp;/g, "&")
     .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/\s+/g, " ")
+    .replace(/&#8217;/g, "’")
+    .replace(/&#8216;/g, "‘")
+    .replace(/&#8220;/g, "“")
+    .replace(/&#8221;/g, "”")
+    .replace(/&#8211;/g, "–")
+    .replace(/&#8212;/g, "—")
+    .replace(/\n\s*\n+/g, "\n\n")
     .trim();
 }
 
-/**
- * Fetch raw RSS text via resilient CORS proxies
- */
-async function fetchRssFeedXml(feedUrl: string): Promise<string | null> {
-  const proxies = [
-    `https://api.allorigins.win/raw?url=${encodeURIComponent(feedUrl)}`,
-    `https://corsproxy.io/?url=${encodeURIComponent(feedUrl)}`,
-    `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(feedUrl)}`,
-  ];
-
-  for (const proxyUrl of proxies) {
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 6000);
-      const res = await fetch(proxyUrl, { signal: controller.signal });
-      clearTimeout(timeoutId);
-
-      if (res.ok) {
-        const text = await res.text();
-        if (text && (text.includes("<rss") || text.includes("<feed") || text.includes("<channel"))) {
-          return text;
-        }
-      }
-    } catch {
-      // Try next proxy
-    }
+function makeSlug(title: string, link: string): string {
+  const base = title
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "")
+    .slice(0, 75);
+  let hash = 0;
+  for (let i = 0; i < link.length; i++) {
+    hash = (hash << 5) - hash + link.charCodeAt(i);
+    hash |= 0;
   }
-
-  return null;
+  return `${base}-${Math.abs(hash)}`;
 }
 
-/**
- * Client-side direct RSS parser: runs directly in the browser on Vercel or any static deployment.
- */
-export async function fetchLiveNewsDirectFromRss(channelsLimit = 12): Promise<NewsItem[]> {
-  if (typeof window === "undefined") return [];
+async function fetchChannelViaRss2Json(channel: RssFeedChannel): Promise<SyndicatedNewsItem[]> {
+  try {
+    const apiUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(channel.url)}`;
+    const res = await fetch(apiUrl, { signal: AbortSignal.timeout(6500) });
+    if (!res.ok) return [];
+    const data = await res.json();
+    if (data.status !== "ok" || !Array.isArray(data.items)) return [];
 
-  const topics = Object.keys(RSS_FEED_CHANNELS);
-  const selectedFeeds: FeedSource[] = [];
+    return data.items
+      .filter((item: any) => {
+        const link = unwrapPublisherUrl(item.link || "");
+        return !link.includes("/jogo/") && !link.includes("/achados/") && !link.includes("/tempo-real/");
+      })
+      .map((item: any) => {
+        const rawTitle = (item.title || "").trim();
+        const lastDash = rawTitle.lastIndexOf(" - ");
+        const title = lastDash > 25 ? rawTitle.substring(0, lastDash).trim() : rawTitle;
+        const link = unwrapPublisherUrl(item.link || "");
+        const slug = makeSlug(title, link);
+        const rawBody = stripHtmlAndPreserveParagraphs(item.content || item.description || "");
+        const extractedImg =
+          (isValidCoverUrl(item.enclosure?.link) ? item.enclosure.link : null) ||
+          (isValidCoverUrl(item.thumbnail) ? item.thumbnail : null) ||
+          extractCoverFromHtml(item.content || item.description || "");
 
-  for (const t of topics) {
-    const list = RSS_FEED_CHANNELS[t] || [];
-    if (list.length > 0) {
-      selectedFeeds.push(list[0]);
-      if (list.length > 1 && selectedFeeds.length < channelsLimit) {
-        selectedFeeds.push(list[1]);
-      }
-    }
-  }
+        const coverUrl = getSmartNewsCover(title, channel.category, extractedImg);
+        const pubDate = item.pubDate
+          ? new Date(item.pubDate.replace(" ", "T") + "Z").toISOString()
+          : new Date().toISOString();
 
-  const parser = new window.DOMParser();
-  const allParsedItems: NewsItem[] = [];
-
-  const promises = selectedFeeds.slice(0, channelsLimit).map(async (feed) => {
-    try {
-      const xmlText = await fetchRssFeedXml(feed.url);
-      if (!xmlText) return [];
-
-      const doc = parser.parseFromString(xmlText, "text/xml");
-      const items = Array.from(doc.querySelectorAll("item, entry"));
-      const feedItems: NewsItem[] = [];
-
-      for (const itemEl of items.slice(0, 8)) {
-        const title = (
-          itemEl.querySelector("title")?.textContent || ""
-        ).trim();
-        if (!title || title.length < 5) continue;
-
-        const link =
-          itemEl.querySelector("link")?.textContent ||
-          itemEl.querySelector("link")?.getAttribute("href") ||
-          "";
-
-        const pubDateRaw =
-          itemEl.querySelector("pubDate")?.textContent ||
-          itemEl.querySelector("published")?.textContent ||
-          itemEl.querySelector("updated")?.textContent ||
-          new Date().toISOString();
-
-        const descRaw =
-          itemEl.querySelector("description")?.textContent || "";
-        const encodedRaw =
-          itemEl.getElementsByTagNameNS("*", "encoded")[0]?.textContent || "";
-
-        const cleanDesc = cleanHtmlText(descRaw);
-        const cleanContent = cleanHtmlText(encodedRaw || descRaw);
-
-        const slug = slugifyEditorial(title) || `news-${Date.now()}`;
-        const cover_url = extractImageFromXmlItem(itemEl, title, feed.category);
-
-        const parsedItem: NewsItem = {
-          id: `live-${slug}-${Math.abs(title.length * 31)}`,
+        const enriched = expandNewsToDeepReport({
+          id: `live-${slug}`,
           title,
           slug,
-          excerpt: cleanDesc.slice(0, 240) + "...",
-          content: cleanContent || cleanDesc || title,
-          cover_url,
-          category: feed.category,
-          published: true,
-          published_at: new Date(pubDateRaw).toISOString(),
-          author: `${feed.source} (Correspondente Worscoi)`,
-          source_name: feed.source,
+          content: rawBody,
+          excerpt: rawBody.split("\n\n")[0]?.slice(0, 210) || title,
+          category: channel.category,
+          cover_url: coverUrl,
+          published_at: isNaN(new Date(pubDate).getTime()) ? new Date().toISOString() : pubDate,
+          source_name: channel.sourceName,
+          author: channel.sourceName,
+          is_syndicated: true,
+        });
+
+        return {
+          ...enriched,
+          created_at: enriched.published_at,
+          author: channel.sourceName,
           source_url: link,
-        } as any;
+          is_syndicated: true,
+        };
+      });
+  } catch {
+    return [];
+  }
+}
 
-        // Enhance with deep journalistic structure
-        feedItems.push(expandNewsToDeepReport(parsedItem) as unknown as NewsItem);
+export async function fetchLiveNewsFromAllChannels(): Promise<SyndicatedNewsItem[]> {
+  try {
+    const res = await fetch("/api/news/feed?topic=all&limit=100", {
+      signal: AbortSignal.timeout(12000),
+    });
+    const contentType = res.headers.get("content-type") || "";
+    if (res.ok && contentType.includes("application/json")) {
+      const data = await res.json();
+      if (Array.isArray(data.items) && data.items.length > 0) {
+        const mapped = data.items.map((it: any) => ({
+          ...expandNewsToDeepReport(it),
+          created_at: it.published_at || new Date().toISOString(),
+          author: it.source_name || it.author || "Redação Worscoi",
+          source_url: it.source_url,
+          is_syndicated: true,
+        }));
+        void persistSyndicatedNewsBatchToCloud(mapped as any);
+        return mapped;
       }
-
-      return feedItems;
-    } catch {
-      return [];
     }
-  });
-
-  const batches = await Promise.all(promises);
-  for (const b of batches) {
-    allParsedItems.push(...b);
+  } catch {
+    // Fallback to client-side rss2json
   }
 
-  return allParsedItems;
+  const results = await Promise.all(RSS_FEED_CHANNELS.map((ch) => fetchChannelViaRss2Json(ch)));
+  const flat = results.flat();
+
+  const seen = new Set<string>();
+  const deduped: SyndicatedNewsItem[] = [];
+  for (const item of flat) {
+    const key = item.title.toLowerCase().replace(/[^a-z0-9]/g, "");
+    if (key.length > 5 && !seen.has(key)) {
+      seen.add(key);
+      deduped.push(item);
+    }
+  }
+
+  deduped.sort((a, b) => new Date(b.published_at).getTime() - new Date(a.published_at).getTime());
+  void persistSyndicatedNewsBatchToCloud(deduped as any);
+  return deduped;
 }

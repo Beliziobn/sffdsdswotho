@@ -16,6 +16,9 @@ import {
   handleNewsFeedRequest,
   handleNewsExtractRequest,
   handleNewsImageProxyRequest,
+  handleNewsArchiveRequest,
+  handleNewsArticleRequest,
+  handleNewsTimelineRequest,
 } from './_newsHandler.js';
 import {
   handlePdfProxyRequest,
@@ -27,6 +30,10 @@ import {
   handleAdminSessionRequest,
   handleAdminLogoutRequest,
 } from './_adminHandler.js';
+import {
+  handleGeoLocateRequest,
+  handleTranslateRequest,
+} from './_geoHandler.js';
 import { handleSeoPrerenderRequest } from './_seoPrerender.js';
 import {
   buildSitemapXml,
@@ -103,18 +110,12 @@ export default async function handler(req: any, res: any) {
       return handleNewsExtractRequest(req, res);
     case '/api/news/image-proxy':
       return handleNewsImageProxyRequest(req, res);
+    case '/api/news/article':
+      return handleNewsArticleRequest(req, res);
     case '/api/news/archive':
-      res.statusCode = 200;
-      res.setHeader('Content-Type', 'application/json; charset=utf-8');
-      res.setHeader('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=600');
-      res.end(JSON.stringify({ items: [], total: 0, page: 1, pageSize: 20, totalPages: 0 }));
-      return;
+      return handleNewsArchiveRequest(req, res);
     case '/api/news/timeline':
-      res.statusCode = 200;
-      res.setHeader('Content-Type', 'application/json; charset=utf-8');
-      res.setHeader('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=600');
-      res.end(JSON.stringify({ timeline: [] }));
-      return;
+      return handleNewsTimelineRequest(req, res);
 
     // Books
     case '/api/books/pdf-proxy':
@@ -232,6 +233,12 @@ export default async function handler(req: any, res: any) {
       return handleAdminSessionRequest(req, res);
     case '/api/admin/logout':
       return handleAdminLogoutRequest(req, res);
+
+    // Geolocation & Auto-Translation
+    case '/api/geo':
+      return handleGeoLocateRequest(req, res);
+    case '/api/translate':
+      return handleTranslateRequest(req, res);
 
     // Health check
     case '/api/health':

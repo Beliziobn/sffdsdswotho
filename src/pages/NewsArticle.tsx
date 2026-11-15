@@ -22,17 +22,25 @@ import { getSmartNewsCover } from "@/lib/newsImageResolver";
 import ShareDialog from "@/components/ShareDialog";
 import { NewsArticleSkeleton } from "@/components/skeletons/AppSkeletons";
 import { CANONICAL_BASE_URL, buildBreadcrumbSchema, usePageSeo } from "@/lib/seo";
+import { useGeoLanguage } from "@/lib/geoLanguage";
 
 const NewsArticle = () => {
   const { slug } = useParams();
   const { data: rawArticle, isLoading } = useArticle(slug);
   const { data: allNews = [] } = useNews();
   const { isAdmin } = useAuth();
+  const { language, translateBatchAsync, t } = useGeoLanguage();
   const { scrollYProgress } = useScroll();
   const scaleX = useSpring(scrollYProgress, { stiffness: 100, damping: 30, restDelta: 0.001 });
 
   const [liveContent, setLiveContent] = useState<string | null>(null);
   const [liveCover, setLiveCover] = useState<string | null>(null);
+  const [translatedData, setTranslatedData] = useState<{
+    slug?: string;
+    title?: string;
+    excerpt?: string;
+    paragraphs?: string[];
+  } | null>(null);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const attemptedUrlRef = useRef<string | null>(null);
 
@@ -50,19 +58,19 @@ const NewsArticle = () => {
   usePageSeo(
     article
       ? {
-          title: `${article.title} — Wotho Notícias`,
-          description: article.excerpt || article.title,
+          title: `${(language === "en" && translatedData?.title) || article.title} — Wotho ${t("Notícias")}`,
+          description: (language === "en" && translatedData?.excerpt) || article.excerpt || article.title,
           canonicalPath: `/noticias/${article.slug}`,
           ogType: "article",
           ogImage: resolvedCoverImage || `${CANONICAL_BASE_URL}/og-image.jpg`,
-          ogImageAlt: article.title,
+          ogImageAlt: (language === "en" && translatedData?.title) || article.title,
           articlePublishedTime: article.published_at || undefined,
           articleSection: article.category || "Notícias",
           jsonLd: [
             {
               "@context": "https://schema.org",
               "@type": "NewsArticle",
-              headline: article.title,
+              headline: (language === "en" && translatedData?.title) || article.title,
               image: [resolvedCoverImage || `${CANONICAL_BASE_URL}/og-image.jpg`],
               datePublished: article.published_at,
               dateModified: article.published_at,
@@ -81,7 +89,7 @@ const NewsArticle = () => {
                   url: `${CANONICAL_BASE_URL}/favicon-512x512.png`,
                 },
               },
-              description: article.excerpt || article.title,
+              description: (language === "en" && translatedData?.excerpt) || article.excerpt || article.title,
               mainEntityOfPage: {
                 "@type": "WebPage",
                 "@id": `${CANONICAL_BASE_URL}/noticias/${article.slug}`,
@@ -89,8 +97,8 @@ const NewsArticle = () => {
             },
             buildBreadcrumbSchema([
               { name: "Wotho", path: "/" },
-              { name: "Notícias", path: "/noticias" },
-              { name: article.title, path: `/noticias/${article.slug}` },
+              { name: t("Notícias"), path: "/noticias" },
+              { name: (language === "en" && translatedData?.title) || article.title, path: `/noticias/${article.slug}` },
             ]),
           ],
         }
@@ -118,6 +126,7 @@ const NewsArticle = () => {
   useEffect(() => {
     setLiveContent(null);
     setLiveCover(null);
+    setTranslatedData(null);
     attemptedUrlRef.current = null;
   }, [slug]);
 
@@ -127,7 +136,7 @@ const NewsArticle = () => {
     if (!sourceUrl || attemptedUrlRef.current === sourceUrl) return;
 
     const currentParagraphs = (article.content || "").split(/\n\s*\n+/).filter(Boolean);
-    const isBrief = currentParagraphs.length < 3 || (article.content || "").length < 400;
+    const isBrief = currentParagraphs.length < 6 || (article.content || "").length < 900;
     const isCustomUpload = article.cover_url?.startsWith("data:");
     const isUnsplashCover = !article.cover_url || article.cover_url.includes("images.unsplash.com");
 
@@ -136,18 +145,70 @@ const NewsArticle = () => {
       fetch(`/api/news/extract?url=${encodeURIComponent(sourceUrl)}`)
         .then((res) => res.json())
         .then((data) => {
+          let nextContent = article.content;
+          let nextCover = article.cover_url;
+          let updated = false;
+
           if (data?.content && data.content.length > (article.content?.length || 0)) {
             setLiveContent(data.content);
+            nextContent = data.content;
+            updated = true;
           }
           if (data?.coverUrl && !data.coverUrl.includes("images.unsplash.com")) {
             setLiveCover(data.coverUrl);
+            nextCover = data.coverUrl;
+            updated = true;
+          }
+
+          if (updated) {
+            const upgraded = {
+              ...article,
+              content: nextContent,
+              cover_url: nextCover,
+            };
+            import("@/lib/newsSyndication").then(({ upsertPermanentClientVault }) => {
+              upsertPermanentClientVault([upgraded as any]);
+            }).catch(() => {});
+            import("@/lib/cloudEditorialService").then(({ persistSyndicatedNewsBatchToCloud }) => {
+              void persistSyndicatedNewsBatchToCloud([upgraded as any]);
+            }).catch(() => {});
           }
         })
         .catch(() => {});
     }
-  }, [article?.source_url, article?.content, article?.cover_url]);
+  }, [article]);
 
   const activeContent = liveContent || article?.content || "";
+
+  // Translate full article into English when visitor is in a non-Lusophone country (language === 'en')
+  useEffect(() => {
+    if (language !== "en" || !article) {
+      setTranslatedData(null);
+      return;
+    }
+
+    let cancelled = false;
+    const rawParas = organizeIntoReadableParagraphs(activeContent)
+      .map((p) => p.trim())
+      .filter(Boolean);
+
+    const payload = [article.title || "", article.excerpt || "", ...rawParas];
+    translateBatchAsync(payload)
+      .then((res) => {
+        if (cancelled || !res || res.length < 2) return;
+        setTranslatedData({
+          slug: article.slug,
+          title: res[0] || article.title,
+          excerpt: res[1] || article.excerpt || "",
+          paragraphs: res.slice(2),
+        });
+      })
+      .catch(() => {});
+
+    return () => {
+      cancelled = true;
+    };
+  }, [language, article, activeContent, translateBatchAsync]);
 
   // Find related news from same category or latest
   const relatedNews = useMemo(() => {
@@ -160,7 +221,10 @@ const NewsArticle = () => {
   // Parse structured blocks from active content with smart paragraph organization
   const contentBlocks = useMemo(() => {
     if (!activeContent) return [];
-    const organizedParagraphs = organizeIntoReadableParagraphs(activeContent);
+    const organizedParagraphs =
+      language === "en" && translatedData?.slug === article?.slug && translatedData?.paragraphs?.length
+        ? translatedData.paragraphs
+        : organizeIntoReadableParagraphs(activeContent);
 
     return organizedParagraphs
       .map((p) => p.trim())
@@ -178,7 +242,7 @@ const NewsArticle = () => {
         }
         return { type: "paragraph", text, key: idx };
       });
-  }, [activeContent]);
+  }, [activeContent, language, translatedData, article?.slug]);
 
   const handleShare = (network?: string) => {
     const url = window.location.href;
@@ -270,25 +334,25 @@ const NewsArticle = () => {
           <div className="max-w-3xl mx-auto space-y-3">
             <div className="flex flex-wrap items-center gap-2 text-xs text-white/80 font-medium">
               <span className="px-2.5 py-1 rounded-full bg-emerald-600 text-white text-[10px] uppercase tracking-wider font-semibold shadow-sm">
-                {article.category}
+                {t(article.category)}
               </span>
               <span className="flex items-center gap-1 bg-black/40 backdrop-blur px-2.5 py-1 rounded-full text-[11px]">
                 <Calendar className="h-3 w-3" />
-                {formatDate(article.published_at)}
+                {t(formatDate(article.published_at))}
               </span>
               <span className="flex items-center gap-1 bg-black/40 backdrop-blur px-2.5 py-1 rounded-full text-[11px]">
                 <Clock className="h-3 w-3" />
-                {readTime} min de leitura
+                {language === "en" ? `${readTime} min read` : `${readTime} min de leitura`}
               </span>
             </div>
 
             <h1 className="text-2xl sm:text-4xl md:text-5xl font-light tracking-tight text-white leading-tight drop-shadow-md">
-              {article.title}
+              {(language === "en" && translatedData?.slug === article.slug && translatedData?.title) || article.title}
             </h1>
 
             {(article as any).author && (
               <p className="text-xs sm:text-sm text-white/90 font-light flex items-center gap-1.5 pt-1">
-                <span>Por</span>
+                <span>{t("Por")}</span>
                 <span className="font-medium text-emerald-300">
                   {(article as any).source_name || (article as any).author}
                 </span>
@@ -307,7 +371,7 @@ const NewsArticle = () => {
               className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors font-medium"
             >
               <ArrowLeft className="h-3.5 w-3.5" />
-              Todas as Notícias
+              {t("Todas as Notícias")}
             </Link>
 
             <div className="flex items-center gap-2">
@@ -319,11 +383,11 @@ const NewsArticle = () => {
                 >
                   <Link to={`/admin?tab=news&edit=${encodeURIComponent(article.slug || article.id)}`}>
                     <Pencil className="h-3 w-3 mr-1.5" />
-                    Editar Publicação
+                    {t("Editar Publicação")}
                   </Link>
                 </Button>
               )}
-              <span className="text-xs text-muted-foreground mr-1 hidden sm:inline">Compartilhar:</span>
+              <span className="text-xs text-muted-foreground mr-1 hidden sm:inline">{t("Compartilhar:")}</span>
               <button
                 onClick={() => handleShare("whatsapp")}
                 className="p-2 rounded-full border border-border bg-card text-emerald-600 hover:bg-accent transition-colors"
@@ -358,9 +422,9 @@ const NewsArticle = () => {
               .startsWith(article.excerpt.replace(/\.{3}$/, "").trim().slice(0, 60).toLowerCase()) && (
               <div className="mb-8 p-5 sm:p-6 rounded-2xl bg-accent/40 border-l-4 border-emerald-500 text-foreground font-light text-base sm:text-lg leading-relaxed shadow-sm">
                 <span className="text-[10px] uppercase tracking-wider text-emerald-600 dark:text-emerald-400 font-semibold block mb-1.5">
-                  Resumo Editorial
+                  {t("Resumo Editorial")}
                 </span>
-                {article.excerpt}
+                {(language === "en" && translatedData?.slug === article.slug && translatedData?.excerpt) || article.excerpt}
               </div>
             )}
 

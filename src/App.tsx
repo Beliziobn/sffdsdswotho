@@ -13,6 +13,7 @@ import CanonicalManager from "./components/CanonicalManager";
 import AppErrorBoundary from "./components/AppErrorBoundary";
 import OfflineBanner from "./components/OfflineBanner";
 import { initCloudEditorialSync } from "./lib/editorialStore";
+import { GeoLanguageProvider } from "./lib/geoLanguage";
 
 function lazyWithRetry<T extends ComponentType<any>>(
   factory: () => Promise<{ default: T }>
@@ -119,65 +120,67 @@ const CloudEditorialQuerySync = () => {
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <CloudEditorialQuerySync />
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <SpeedInsights />
-      <BrowserRouter>
-        <AppErrorBoundary>
-          <ScrollToTop />
-          <CanonicalManager />
-          <CookieConsent />
-          <TermsGate />
-          <OfflineBanner />
-          <Suspense fallback={<RouteLoadingFallback />}>
-          <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/livros" element={<Books />} />
-            <Route path="/livros/:id" element={<BookDetail />} />
-            <Route path="/ler/:id" element={<Reader />} />
-            <Route path="/noticias" element={<News />} />
-            <Route path="/noticias/:slug" element={<NewsArticle />} />
-            <Route path="/biblioteca" element={<Library />} />
-            <Route path="/perfil" element={<Profile />} />
-            <Route path="/meu-perfil" element={<Profile />} />
-            <Route path="/auth" element={<Auth />} />
-            <Route path="/admin" element={<Admin />} />
-            <Route path="/conteudo/:id" element={<ContentDetail />} />
-            <Route path="/leitura/:id" element={<ContentReader />} />
-            <Route path="/webtoons" element={<Webtoons />} />
-            <Route path="/webtoon/:id" element={<WebtoonDetail />} />
-            <Route path="/webtoon/:id/ep/:episodeId" element={<WebtoonReader />} />
-            <Route path="/webtoon/:id/ler/:episodeId" element={<WebtoonReader />} />
-            <Route path="/webtoon/:id/ler" element={<WebtoonReader />} />
-            <Route path="/animes" element={<Animes />} />
-            <Route path="/animes/:id" element={<AnimeDetail />} />
-            <Route path="/animes/:id/manga" element={<AnimeMangaReader />} />
-            <Route path="/animes/:id/manga/:chapterId" element={<AnimeMangaReader />} />
-            <Route path="/cinema" element={<Cinema />} />
-            <Route path="/cinema/:id" element={<CinemaDetail />} />
-            <Route path="/para-voce" element={<ForYou />} />
-            <Route path="/continuar-lendo" element={<ContinueReading />} />
-            <Route path="/buscar" element={<Search />} />
-            <Route path="/compra/sucesso" element={<PurchaseSuccess />} />
-            <Route path="/compra/cancelada" element={<PurchaseCancelled />} />
-            <Route path="/redefinir-senha" element={<ResetPassword />} />
-            <Route path="/mapa-do-site" element={<SiteMapPage />} />
-            <Route path="/sitemap" element={<SiteMapPage />} />
-            <Route path="/termos" element={<Terms />} />
-            <Route path="/privacidade" element={<Privacy />} />
-            <Route path="/sobre" element={<About />} />
-            <Route path="/contato" element={<Contact />} />
-            <Route path="/contacto" element={<Contact />} />
+    <GeoLanguageProvider>
+      <CloudEditorialQuerySync />
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <SpeedInsights />
+        <BrowserRouter>
+          <AppErrorBoundary>
+            <ScrollToTop />
+            <CanonicalManager />
+            <CookieConsent />
+            <TermsGate />
+            <OfflineBanner />
+            <Suspense fallback={<RouteLoadingFallback />}>
+              <Routes>
+                <Route path="/" element={<Index />} />
+                <Route path="/livros" element={<Books />} />
+                <Route path="/livros/:id" element={<BookDetail />} />
+                <Route path="/ler/:id" element={<Reader />} />
+                <Route path="/noticias" element={<News />} />
+                <Route path="/noticias/:slug" element={<NewsArticle />} />
+                <Route path="/biblioteca" element={<Library />} />
+                <Route path="/perfil" element={<Profile />} />
+                <Route path="/meu-perfil" element={<Profile />} />
+                <Route path="/auth" element={<Auth />} />
+                <Route path="/admin" element={<Admin />} />
+                <Route path="/conteudo/:id" element={<ContentDetail />} />
+                <Route path="/leitura/:id" element={<ContentReader />} />
+                <Route path="/webtoons" element={<Webtoons />} />
+                <Route path="/webtoon/:id" element={<WebtoonDetail />} />
+                <Route path="/webtoon/:id/ep/:episodeId" element={<WebtoonReader />} />
+                <Route path="/webtoon/:id/ler/:episodeId" element={<WebtoonReader />} />
+                <Route path="/webtoon/:id/ler" element={<WebtoonReader />} />
+                <Route path="/animes" element={<Animes />} />
+                <Route path="/animes/:id" element={<AnimeDetail />} />
+                <Route path="/animes/:id/manga" element={<AnimeMangaReader />} />
+                <Route path="/animes/:id/manga/:chapterId" element={<AnimeMangaReader />} />
+                <Route path="/cinema" element={<Cinema />} />
+                <Route path="/cinema/:id" element={<CinemaDetail />} />
+                <Route path="/para-voce" element={<ForYou />} />
+                <Route path="/continuar-lendo" element={<ContinueReading />} />
+                <Route path="/buscar" element={<Search />} />
+                <Route path="/compra/sucesso" element={<PurchaseSuccess />} />
+                <Route path="/compra/cancelada" element={<PurchaseCancelled />} />
+                <Route path="/redefinir-senha" element={<ResetPassword />} />
+                <Route path="/mapa-do-site" element={<SiteMapPage />} />
+                <Route path="/sitemap" element={<SiteMapPage />} />
+                <Route path="/termos" element={<Terms />} />
+                <Route path="/privacidade" element={<Privacy />} />
+                <Route path="/sobre" element={<About />} />
+                <Route path="/contato" element={<Contact />} />
+                <Route path="/contacto" element={<Contact />} />
 
-            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-          </Suspense>
-        </AppErrorBoundary>
-      </BrowserRouter>
-    </TooltipProvider>
+                {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </Suspense>
+          </AppErrorBoundary>
+        </BrowserRouter>
+      </TooltipProvider>
+    </GeoLanguageProvider>
   </QueryClientProvider>
 );
 

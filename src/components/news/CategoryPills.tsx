@@ -16,7 +16,10 @@ import {
   Globe,
   Atom,
   Dribbble,
+  Medal,
+  Shirt,
 } from "lucide-react";
+import { useGeoLanguage } from "@/lib/geoLanguage";
 
 interface Props {
   categories: string[];
@@ -26,15 +29,18 @@ interface Props {
 
 const CATEGORY_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
   all: Layers,
+  Futebol: Trophy,
+  Basquete: Dribbble,
+  Desportos: Medal,
+  "Geopolítica": Globe,
   Animes: Tv,
   "Mangás": BookOpen,
   Webtoons: Smartphone,
-  Livros: Library,
   Tecnologias: Cpu,
+  Moda: Shirt,
   Games: Gamepad2,
   Cultura: Sparkles,
-  Futebol: Trophy,
-  Basquete: Dribbble,
+  Livros: Library,
   Mercado: TrendingUp,
   Virais: Flame,
   Listas: ListOrdered,
@@ -45,6 +51,8 @@ const CATEGORY_ICONS: Record<string, React.ComponentType<{ className?: string }>
 
 /** Horizontally scrollable pill filter bar with category icons and elegant badges */
 const CategoryPills = ({ categories, value, onChange }: Props) => {
+  const { language, t } = useGeoLanguage();
+
   return (
     <div className="-mx-6 px-6 lg:mx-0 lg:px-0 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden py-1">
       <div className="flex items-center gap-2 w-max pb-1">
@@ -65,7 +73,13 @@ const CategoryPills = ({ categories, value, onChange }: Props) => {
               }`}
             >
               <Icon className={`h-3.5 w-3.5 ${active ? "text-background" : "text-muted-foreground"}`} />
-              <span>{c === "all" ? "Todas as Categorias" : c}</span>
+              <span>
+                {c === "all"
+                  ? language === "en"
+                    ? "All Categories"
+                    : "Todas as Categorias"
+                  : t(c)}
+              </span>
             </button>
           );
         })}

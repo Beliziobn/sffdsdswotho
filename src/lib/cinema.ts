@@ -161,6 +161,12 @@ export function getCinemaStreamUrl(
       ? "1"
       : "0";
 
+  if (audioMode === "dublado" && (dubLang === "ptbr" || dubLang === "pt")) {
+    return item.type === "filme"
+      ? `https://embedyplayer.xyz/embed/${tmdbId}`
+      : `https://embedyplayer.xyz/embed/${tmdbId}/${season}/${episode}`;
+  }
+
   if (item.type === "filme") {
     return `https://vidstuck.cc/embed/movie/${tmdbId}?autoplay=true&server=orion&dubLang=${dubLang}&dubType=${dubType}&color=f59e0b`;
   } else {

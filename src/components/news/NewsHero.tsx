@@ -3,7 +3,7 @@ import { ArrowRight, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import ProtectedImage from "@/components/ProtectedImage";
 import { formatDate } from "@/lib/format";
-import { byline, photoCredit, readingTime, type CuratedNews } from "@/lib/news";
+import { byline, readingTime, type CuratedNews } from "@/lib/news";
 
 /** Editorial "top story of the day" block shown above the grid. */
 const NewsHero = ({ item }: { item: CuratedNews }) => (
@@ -51,9 +51,6 @@ const NewsHero = ({ item }: { item: CuratedNews }) => (
             />
           </Link>
         </div>
-        <figcaption className="mt-2 text-[10px] uppercase tracking-wider text-muted-foreground font-light">
-          {photoCredit(item)}
-        </figcaption>
       </figure>
     </div>
   </section>

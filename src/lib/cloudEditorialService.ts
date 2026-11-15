@@ -346,6 +346,86 @@ export async function deleteNewsFromCloud(idOrSlug: string): Promise<boolean> {
   }
 }
 
+const PERSISTED_DOC_IDS_SESSION = new Set<string>();
+
+/**
+ * Persists syndicated news articles permanently into Cloud Firestore (news collection)
+ * so that once an article appears on the site, it remains stored in the database for years.
+ */
+export async function persistSyndicatedNewsBatchToCloud(items: NewsItem[]): Promise<void> {
+  if (!Array.isArray(items) || items.length === 0) return;
+  if (typeof navigator !== "undefined" && navigator.onLine === false) return;
+
+  const candidates = items
+    .filter((it) => {
+      if (!it || !it.title || !it.content || it.content.length < 250) return false;
+      const docId = sanitizeDocId(it.slug || it.id);
+      if (!docId || PERSISTED_DOC_IDS_SESSION.has(docId)) return false;
+      return true;
+    })
+    .slice(0, 25);
+
+  if (candidates.length === 0) return;
+
+  const proofToken = "wotho-ed-proof-9f81c4a7b2e6d309581a";
+  const dbPath = `projects/${firebaseConfig.projectId}/databases/${firebaseConfig.firestoreDatabaseId}/documents`;
+  const commitUrl = `https://firestore.googleapis.com/v1/${dbPath}:commit?key=${encodeURIComponent(firebaseConfig.apiKey)}`;
+  const nowIso = new Date().toISOString();
+
+  const writes: any[] = [];
+  for (const item of candidates) {
+    const docId = sanitizeDocId(item.slug || item.id);
+    PERSISTED_DOC_IDS_SESSION.add(docId);
+
+    writes.push({
+      update: {
+        name: `${dbPath}/${EDITORIAL_AUTH_COLLECTION}/${docId}`,
+        fields: {
+          token: { stringValue: proofToken },
+        },
+      },
+      updateTransforms: [
+        {
+          fieldPath: "updatedAt",
+          setToServerValue: "REQUEST_TIME",
+        },
+      ],
+    });
+
+    writes.push({
+      update: {
+        name: `${dbPath}/${NEWS_COLLECTION}/${docId}`,
+        fields: {
+          id: { stringValue: String(item.id || docId).slice(0, 128) },
+          title: { stringValue: String(item.title || "").slice(0, 300) },
+          slug: { stringValue: String(item.slug || docId).slice(0, 150) },
+          excerpt: { stringValue: String(item.excerpt || "").slice(0, 2000) },
+          content: { stringValue: String(item.content || "").slice(0, 50000) },
+          cover_url: { stringValue: String(item.cover_url || "").slice(0, 2000) },
+          category: { stringValue: String(item.category || "Cultura").slice(0, 100) },
+          published: { booleanValue: true },
+          published_at: { stringValue: String(item.published_at || nowIso).slice(0, 64) },
+          created_at: { stringValue: String((item as any).created_at || item.published_at || nowIso).slice(0, 64) },
+          updated_at: { stringValue: nowIso },
+          author: { stringValue: String((item as any).author || (item as any).source_name || "Redação Oficial").slice(0, 150) },
+          source_name: { stringValue: String((item as any).source_name || (item as any).author || "Redação Oficial").slice(0, 150) },
+          source_url: { stringValue: String((item as any).source_url || "").slice(0, 1000) },
+        },
+      },
+    });
+  }
+
+  try {
+    await fetch(commitUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ writes }),
+    });
+  } catch {
+    // Non-blocking background persistence
+  }
+}
+
 export async function fetchCloudNews(forceFresh = false): Promise<NewsItem[]> {
   if (!forceFresh && cachedNewsResult && Date.now() - cachedNewsResult.ts < READ_CACHE_TTL_MS) {
     return cachedNewsResult.data;

@@ -429,6 +429,395 @@ async function queryHlsServer(srvKey, srvLabel, commonHeaders, metaParams, safeL
   }
 }
 
+const BROWSER_UA =
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
+
+function decodeHtmlAndJsonEscapes(str) {
+  return String(str || '')
+    .replace(/&quot;/g, '"')
+    .replace(/&#34;/g, '"')
+    .replace(/&amp;/g, '&')
+    .replace(/\\u0026/gi, '&')
+    .replace(/\\u003d/gi, '=')
+    .replace(/\\u003c/gi, '<')
+    .replace(/\\u003e/gi, '>')
+    .replace(/\\\//g, '/');
+}
+
+async function resolveWatchPlayEmbed({ embedUrl, wantedAudioMode, idSuffix }) {
+  try {
+    const res = await fetchWithTimeout(
+      embedUrl,
+      {
+        headers: {
+          'User-Agent': BROWSER_UA,
+          Referer: 'https://playerflix.ink/',
+          Accept: 'text/html,*/*',
+        },
+      },
+      4500
+    );
+    if (!res.ok) return [];
+    const html = await res.text();
+    const audioMatch = html.match(/MyPlayerAudio\s*=\s*["']([^"']+)["']/i);
+    const urlMatch = html.match(/url\s*:\s*["']([^"']+)["']/i);
+    if (!urlMatch?.[1]) return [];
+
+    const streamUrl = urlMatch[1].replace(/\\\//g, '/').trim();
+    if (!streamUrl.startsWith('http')) return [];
+
+    const declaredAudio = (audioMatch?.[1] || '').trim();
+    const isDeclaredSub = /legend|sub|eng|orig/i.test(declaredAudio);
+    const isDeclaredDub = /dub/i.test(declaredAudio);
+
+    if (wantedAudioMode === 'dublado' && isDeclaredSub && !isDeclaredDub) {
+      return [];
+    }
+
+    const actualMode = isDeclaredDub
+      ? 'dublado'
+      : isDeclaredSub
+      ? 'legendado'
+      : wantedAudioMode;
+    const isMp4 = /\.mp4($|\?)/i.test(streamUrl) && !streamUrl.includes('.m3u8');
+    const langCode = actualMode === 'dublado' ? 'ptbr' : 'pt';
+    const label =
+      actualMode === 'dublado'
+        ? 'Português (Dublado PT-BR · WatchPlay 1080p)'
+        : 'Português (Legendado PT-BR · WatchPlay 1080p)';
+
+    return [
+      {
+        id: `watchplay-${actualMode}-${idSuffix || '0'}`,
+        server: 'watchplay',
+        label,
+        type: isMp4 ? 'mp4' : 'hls',
+        audioMode: actualMode,
+        langCode,
+        quality: '1080p FHD',
+        url: streamUrl,
+        requiresProxy: false,
+        proxyUrl: isMp4
+          ? `/api/cinema/mp4-proxy?url=${encodeURIComponent(streamUrl)}`
+          : `/api/cinema/hls-proxy?url=${encodeURIComponent(streamUrl)}`,
+      },
+    ];
+  } catch {
+    return [];
+  }
+}
+
+async function resolveEmbedplayer2Embed({ embedUrl, embedId, wantedAudioMode, idSuffix }) {
+  try {
+    const eid =
+      embedId ||
+      embedUrl
+        .split('/video/')[1]
+        ?.split(/[?#&/]/)[0]
+        ?.trim();
+    if (!eid) return [];
+
+    const postRes = await fetchWithTimeout(
+      `https://embedplayer2.xyz/player/index.php?data=${encodeURIComponent(eid)}&do=getVideo`,
+      {
+        method: 'POST',
+        headers: {
+          'User-Agent': BROWSER_UA,
+          Referer: embedUrl.startsWith('http') ? embedUrl : `https://embedplayer2.xyz/video/${eid}`,
+          Origin: 'https://embedplayer2.xyz',
+          'X-Requested-With': 'XMLHttpRequest',
+          'Content-Type': 'application/x-www-form-urlencoded',
+          Accept: 'application/json, text/plain, */*',
+        },
+        body: `hash=${encodeURIComponent(eid)}&r=${encodeURIComponent('https://playerflix.ink/')}`,
+      },
+      5000
+    );
+    if (!postRes.ok) return [];
+    const data = await postRes.json();
+    const securedLink = (data?.securedLink || data?.videoSource || '').trim();
+    if (!securedLink || !securedLink.startsWith('http')) return [];
+
+    const preferLang = wantedAudioMode === 'dublado' ? '&preferLang=por' : '';
+    const isMp4 = /\.mp4($|\?)/i.test(securedLink) && !securedLink.includes('.m3u8');
+
+    return [
+      {
+        id: `embedplayer2-${wantedAudioMode}-${idSuffix || '0'}`,
+        server: 'embedplayer2',
+        label:
+          wantedAudioMode === 'dublado'
+            ? 'Português (Dublado PT-BR · EmbedPlayer HD)'
+            : 'Português (Legendado PT-BR · EmbedPlayer HD)',
+        type: isMp4 ? 'mp4' : 'hls',
+        audioMode: wantedAudioMode,
+        langCode: wantedAudioMode === 'dublado' ? 'ptbr' : 'pt',
+        quality: '1080p FHD',
+        url: securedLink,
+        requiresProxy: true,
+        proxyUrl: isMp4
+          ? `/api/cinema/mp4-proxy?url=${encodeURIComponent(securedLink)}`
+          : `/api/cinema/hls-proxy?url=${encodeURIComponent(securedLink)}${preferLang}`,
+      },
+    ];
+  } catch {
+    return [];
+  }
+}
+
+async function resolveBloggerEmbed({ embedUrl, wantedAudioMode, idSuffix }) {
+  try {
+    const res = await fetchWithTimeout(
+      embedUrl,
+      {
+        headers: {
+          'User-Agent': BROWSER_UA,
+          Referer: 'https://playerflix.ink/',
+          Accept: 'text/html,*/*',
+        },
+      },
+      4500
+    );
+    if (!res.ok) return [];
+    const html = await res.text();
+    const decoded = decodeHtmlAndJsonEscapes(html);
+    const rawMatches = [
+      ...decoded.matchAll(/https:\/\/[a-z0-9.-]*googlevideo\.com\/videoplayback\?[^"'\\<\s\]]+/gi),
+    ].map((m) => m[0]);
+
+    if (rawMatches.length === 0) return [];
+
+    const byItag = new Map();
+    for (const u of rawMatches) {
+      let itag = '18';
+      try {
+        const parsed = new URL(u);
+        itag = parsed.searchParams.get('itag') || '18';
+      } catch {}
+      if (!byItag.has(itag)) {
+        byItag.set(itag, u);
+      }
+    }
+
+    const priorityItags = ['37', '22', '59', '18'];
+    const orderedUrls = [];
+    for (const tag of priorityItags) {
+      if (byItag.has(tag)) {
+        orderedUrls.push({ itag: tag, url: byItag.get(tag) });
+        byItag.delete(tag);
+      }
+    }
+    for (const [tag, u] of byItag.entries()) {
+      orderedUrls.push({ itag: tag, url: u });
+    }
+
+    return orderedUrls.slice(0, 2).map((entry, idx) => {
+      const quality =
+        entry.itag === '37'
+          ? '1080p FHD'
+          : entry.itag === '22'
+          ? '720p HD'
+          : entry.itag === '59'
+          ? '480p'
+          : '360p';
+      return {
+        id: `blogger-${wantedAudioMode}-${entry.itag}-${idSuffix || '0'}-${idx}`,
+        server: 'blogger',
+        label:
+          wantedAudioMode === 'dublado'
+            ? `Português (Dublado PT-BR · ${quality})`
+            : `Português (Legendado PT-BR · ${quality})`,
+        type: 'mp4',
+        audioMode: wantedAudioMode,
+        langCode: wantedAudioMode === 'dublado' ? 'ptbr' : 'pt',
+        quality,
+        url: entry.url,
+        requiresProxy: true,
+        proxyUrl: `/api/cinema/mp4-proxy?url=${encodeURIComponent(entry.url)}`,
+      };
+    });
+  } catch {
+    return [];
+  }
+}
+
+function resolvePlayerFlixNativeEmbed({ embedUrl, wantedAudioMode, idSuffix }) {
+  try {
+    const parsed = new URL(embedUrl);
+    const b64 = parsed.searchParams.get('video_url');
+    if (!b64) return [];
+    const decoded = Buffer.from(b64, 'base64').toString('utf8').trim();
+    if (!decoded.startsWith('http')) return [];
+    const isMp4 = /\.mp4($|\?)/i.test(decoded) && !decoded.includes('.m3u8');
+    return [
+      {
+        id: `pfnative-${wantedAudioMode}-${idSuffix || '0'}`,
+        server: 'playerflix-native',
+        label:
+          wantedAudioMode === 'dublado'
+            ? 'Português (Dublado PT-BR · Turbo 1080p)'
+            : 'Português (Legendado PT-BR · Turbo 1080p)',
+        type: isMp4 ? 'mp4' : 'hls',
+        audioMode: wantedAudioMode,
+        langCode: wantedAudioMode === 'dublado' ? 'ptbr' : 'pt',
+        quality: '1080p FHD',
+        url: decoded,
+        requiresProxy: false,
+        proxyUrl: isMp4
+          ? `/api/cinema/mp4-proxy?url=${encodeURIComponent(decoded)}`
+          : `/api/cinema/hls-proxy?url=${encodeURIComponent(decoded)}`,
+      },
+    ];
+  } catch {
+    return [];
+  }
+}
+
+async function resolvePlayerFlixStreams({ tmdbId, type, season, episode, wantedAudioMode }) {
+  const ajaxUrl = `https://playerflix.ink/inc/Ajax.php?type=${type}&id=${encodeURIComponent(
+    String(tmdbId)
+  )}&season=${type === 'tv' ? encodeURIComponent(String(season || '1')) : ''}&episode=${
+    type === 'tv' ? encodeURIComponent(String(episode || '1')) : ''
+  }`;
+
+  const directWatchPlayUrl =
+    type === 'tv'
+      ? `https://v1.watchplay.shop/tvshow/${tmdbId}/${season || '1'}/${episode || '1'}`
+      : `https://v1.watchplay.shop/movie/${tmdbId}`;
+
+  const ptbrEmbedUrls = [];
+  let options = [];
+
+  try {
+    const res = await fetchWithTimeout(
+      ajaxUrl,
+      {
+        headers: {
+          'User-Agent': BROWSER_UA,
+          Referer: 'https://playerflix.ink/',
+          'X-Requested-With': 'XMLHttpRequest',
+          Accept: 'application/json, text/plain, */*',
+        },
+      },
+      5500
+    );
+    if (res.ok) {
+      const json = await res.json();
+      options = Array.isArray(json?.data?.options)
+        ? json.data.options
+        : Array.isArray(json?.data?.players)
+        ? json.data.players
+        : [];
+    }
+  } catch {
+    options = [];
+  }
+
+  const wantedLangSet =
+    wantedAudioMode === 'dublado'
+      ? new Set(['pt-br', 'pt', 'ptbr'])
+      : new Set(['en-us', 'pt-br-leg', 'legendado', 'sub']);
+
+  const matchingOptions = options.filter((opt) => {
+    const lang = String(opt?.lang || '').toLowerCase().trim();
+    return wantedLangSet.has(lang);
+  });
+
+  if (wantedAudioMode === 'dublado') {
+    const hasPtOptions = matchingOptions.length > 0;
+    if (hasPtOptions) {
+      const pageEmbed =
+        type === 'tv'
+          ? `https://playerflix.ink/serie/${tmdbId}/${season || '1'}/${episode || '1'}`
+          : `https://playerflix.ink/filme/${tmdbId}`;
+      const embedyUrl =
+        type === 'tv'
+          ? `https://embedyplayer.xyz/embed/${tmdbId}/${season || '1'}/${episode || '1'}`
+          : `https://embedyplayer.xyz/embed/${tmdbId}`;
+      ptbrEmbedUrls.push(embedyUrl, pageEmbed);
+    }
+    const sf = matchingOptions.find((o) => String(o?.embed || '').includes('superflixapi'));
+    if (sf?.embed) {
+      ptbrEmbedUrls.push(sf.embed);
+    }
+  }
+
+  const tasks = [];
+  let hasWatchPlayOption = false;
+
+  matchingOptions.forEach((opt, idx) => {
+    const embedUrl = String(opt?.embed || '').trim();
+    if (!embedUrl.startsWith('http')) return;
+    const lowerUrl = embedUrl.toLowerCase();
+
+    if (lowerUrl.includes('watchplay.shop') || opt?.id === 'watchplay') {
+      hasWatchPlayOption = true;
+      tasks.push({
+        priority: 0,
+        promise: resolveWatchPlayEmbed({ embedUrl, wantedAudioMode, idSuffix: idx }),
+      });
+    } else if (lowerUrl.includes('embedplayer2.xyz') || opt?.id === 'embedplayer') {
+      tasks.push({
+        priority: 1,
+        promise: resolveEmbedplayer2Embed({
+          embedUrl,
+          embedId: opt?.embed_id,
+          wantedAudioMode,
+          idSuffix: idx,
+        }),
+      });
+    } else if (lowerUrl.includes('blogger.com/video.g')) {
+      tasks.push({
+        priority: 2,
+        promise: resolveBloggerEmbed({ embedUrl, wantedAudioMode, idSuffix: idx }),
+      });
+    } else if (lowerUrl.includes('players/native') || lowerUrl.includes('video_url=')) {
+      tasks.push({
+        priority: 3,
+        promise: Promise.resolve(
+          resolvePlayerFlixNativeEmbed({ embedUrl, wantedAudioMode, idSuffix: idx })
+        ),
+      });
+    }
+  });
+
+  // Always probe WatchPlay directly when seeking PT-BR dub and PlayerFlix didn't return it
+  if (wantedAudioMode === 'dublado' && !hasWatchPlayOption) {
+    tasks.push({
+      priority: 0,
+      promise: resolveWatchPlayEmbed({
+        embedUrl: directWatchPlayUrl,
+        wantedAudioMode: 'dublado',
+        idSuffix: 'direct',
+      }),
+    });
+  }
+
+  const settled = await Promise.all(
+    tasks.map(async (t) => ({
+      priority: t.priority,
+      streams: await t.promise.catch(() => []),
+    }))
+  );
+
+  settled.sort((a, b) => a.priority - b.priority);
+  const streams = [];
+  const seenUrls = new Set();
+  for (const item of settled) {
+    for (const s of item.streams) {
+      if (!s?.url || seenUrls.has(s.url)) continue;
+      seenUrls.add(s.url);
+      streams.push(s);
+    }
+  }
+
+  return {
+    streams,
+    ptbrEmbedUrls,
+    hasPtOptionsInPlayerFlix: matchingOptions.length > 0 || streams.length > 0,
+  };
+}
+
 export async function resolveVidstuckStreams(params) {
   const refererUrl =
     params.type === 'tv'
@@ -436,8 +825,7 @@ export async function resolveVidstuckStreams(params) {
       : `https://vidstuck.cc/embed/movie/${params.tmdbId}`;
 
   const commonHeaders = {
-    'User-Agent':
-      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+    'User-Agent': BROWSER_UA,
     Referer: refererUrl,
     Origin: 'https://vidstuck.cc',
     Accept: 'application/json',
@@ -452,19 +840,14 @@ export async function resolveVidstuckStreams(params) {
   const detailsCacheKey = `${params.type}:${params.tmdbId}`;
   let detailsData = tmdbDetailsCache.get(detailsCacheKey)?.data;
 
-  // Only fetch TMDB details if title is missing/non-ASCII or imdbId is missing
-  const needsTmdbDetails =
-    !detailsData &&
-    (!canonicalTitle || /[^\x20-\x7E]/.test(canonicalTitle) || !canonicalImdbId);
-
   const targetServer = params.preferredServer || 'orion';
 
-  if (needsTmdbDetails) {
+  if (!detailsData) {
     try {
       const detailsRes = await fetchWithTimeout(
         `https://vidstuck.cc/backend/tmdb/details/${params.type}/${params.tmdbId}?language=en-US`,
         { headers: commonHeaders },
-        3000
+        2500
       );
       if (detailsRes.ok) {
         detailsData = await detailsRes.json();
@@ -564,14 +947,10 @@ export async function resolveVidstuckStreams(params) {
       reqDubType = '0';
     }
   } else if (isSteelBallRun && reqDubCode === 'en') {
-    // On TMDB 45790 Season 6 (Steel Ball Run), en:0 is misindexed on Orion to a 480p Part 1 file,
-    // while ja:0 is the authentic 1080p FHD Steel Ball Run release.
     reqDubCode = 'ja';
     reqDubType = '0';
   }
 
-  // On Orion Season 6 (Steel Ball Run), Episode 1 is the 48-min 1st Stage double-episode special,
-  // so PT-BR/JA/ES tracks index 2nd Stage episodes at 3, 5, 6 while FR indexes 1..7 sequentially.
   const sbrOrionEpisodeMap = {
     '1': '1',
     '2': reqDubCode === 'fr' ? '2' : '3',
@@ -587,23 +966,41 @@ export async function resolveVidstuckStreams(params) {
     ? sbrOrionEpisodeMap[String(params.episode)] || '6'
     : params.episode;
 
-  let initialOrion = await queryOrionVariant({
-    commonHeaders,
-    tmdbId: params.tmdbId,
-    mediaType: params.type,
-    title: canonicalTitle,
-    year: canonicalYear,
-    date: canonicalDate,
-    latestDate: safeLatestDate,
-    imdbId: canonicalImdbId,
-    season: params.season,
-    episode: effectiveOrionEpisode,
-    dubCode: reqDubCode,
-    dubType: reqDubType,
-  });
+  const isWantingPtDub =
+    (reqDubCode === 'ptbr' || reqDubCode === 'pt') && reqDubType === '0';
+  const isWantingPtSub =
+    (reqDubCode === 'ptbr' || reqDubCode === 'pt') && reqDubType === '1';
+
+  const [initialOrionResult, playerFlixResult] = await Promise.all([
+    queryOrionVariant({
+      commonHeaders,
+      tmdbId: params.tmdbId,
+      mediaType: params.type,
+      title: canonicalTitle,
+      year: canonicalYear,
+      date: canonicalDate,
+      latestDate: safeLatestDate,
+      imdbId: canonicalImdbId,
+      season: params.season,
+      episode: effectiveOrionEpisode,
+      dubCode: reqDubCode,
+      dubType: reqDubType,
+    }),
+    isWantingPtDub || isWantingPtSub
+      ? resolvePlayerFlixStreams({
+          tmdbId: params.tmdbId,
+          type: params.type,
+          season: params.season,
+          episode: params.episode,
+          wantedAudioMode: isWantingPtDub ? 'dublado' : 'legendado',
+        })
+      : Promise.resolve({ streams: [], ptbrEmbedUrls: [], hasPtOptionsInPlayerFlix: false }),
+  ]);
+
+  let initialOrion = initialOrionResult;
 
   if (!initialOrion && isSteelBallRun) {
-    // Fallback to authentic 1080p Steel Ball Run on Orion (ja:0 or fr:0) so it never serves Part 1
+    // Fallback to authentic 1080p Steel Ball Run on Orion (ptbr:0 or ja:0) so it never serves Part 1
     initialOrion = await queryOrionVariant({
       commonHeaders,
       tmdbId: params.tmdbId,
@@ -637,6 +1034,8 @@ export async function resolveVidstuckStreams(params) {
     });
   }
 
+  let origOption = null;
+
   if (initialOrion) {
     const dubs = initialOrion.dubs || [];
     const seenDubKeys = new Set();
@@ -648,28 +1047,15 @@ export async function resolveVidstuckStreams(params) {
       }
     }
 
-    // Sort availableDubs: Portuguese Dub -> Portuguese Sub -> English -> Spanish -> French -> Others
-    const langPriority = (opt) => {
-      if (opt.id === 'ptbr:0') return 0;
-      if (opt.id === 'pt:0') return 1;
-      if (opt.id === 'ptbr:1' || opt.id === 'pt:1') return 2;
-      if (opt.id === 'en:0' || opt.isOriginal) return 3;
-      if (opt.dubCode === 'esla' || opt.dubCode === 'es') return 4;
-      if (opt.dubCode === 'fr') return 5;
-      if (opt.dubCode === 'it' || opt.dubCode === 'de') return 6;
-      return 10;
-    };
-    availableDubs.sort((a, b) => langPriority(a) - langPriority(b));
-
     const hasPtbrDub = dubs.some((d) => d.lanCode === 'ptbr' && d.type === 0);
     const hasPtStdDub = dubs.some((d) => d.lanCode === 'pt' && d.type === 0);
     const ptSubOption = dubs.find((d) => (d.lanCode === 'ptbr' || d.lanCode === 'pt') && d.type === 1);
-    const origOption =
+    origOption =
       dubs.find((d) => /original/i.test(d.lanName) && d.type === 0) ||
       dubs.find((d) => (d.lanCode === 'en' || d.lanCode === 'ja' || d.lanCode === 'ko') && d.type === 0);
 
-    hasPtDub = hasPtbrDub || hasPtStdDub;
-    hasPtSub = Boolean(ptSubOption);
+    hasPtDub = hasPtbrDub || hasPtStdDub || playerFlixResult.streams.some((s) => s.audioMode === 'dublado');
+    hasPtSub = Boolean(ptSubOption) || playerFlixResult.streams.some((s) => s.audioMode === 'legendado');
 
     const matchedReqOption = availableDubs.find(
       (d) => d.dubCode === reqDubCode.toLowerCase() && d.dubType === String(reqDubType)
@@ -709,7 +1095,7 @@ export async function resolveVidstuckStreams(params) {
           metaParams
         );
       }
-    } else if (reqDubCode === 'pt' && reqDubType === '1' && ptSubOption && ptSubOption.lanCode !== 'pt') {
+    } else if ((reqDubCode === 'pt' || reqDubCode === 'ptbr') && reqDubType === '1' && ptSubOption && ptSubOption.lanCode !== reqDubCode) {
       const ptSubRes = await queryOrionVariant({
         commonHeaders,
         tmdbId: params.tmdbId,
@@ -735,44 +1121,93 @@ export async function resolveVidstuckStreams(params) {
         );
       }
     }
+  } else {
+    hasPtDub = playerFlixResult.streams.some((s) => s.audioMode === 'dublado');
+    hasPtSub = playerFlixResult.streams.some((s) => s.audioMode === 'legendado');
+  }
 
-    // If still no streams appended from explicit match, append initialOrion.links directly
-    if (streams.length === 0 && initialOrion.links.length > 0) {
-      const fallbackMode =
-        reqDubCode === 'ptbr' && hasPtbrDub
-          ? 'dublado'
-          : reqDubType === '1'
-          ? 'legendado'
-          : 'original';
-      const fallbackLang = origOption?.lanCode || reqDubCode || 'en';
-      const fallbackLabel =
-        fallbackMode === 'dublado'
-          ? 'Português (Dublado PT-BR)'
-          : fallbackMode === 'legendado'
-          ? 'Português (Legendado)'
-          : 'Áudio Original';
-      appendOrionLinksAsStreams(
-        streams,
-        initialOrion.links,
-        fallbackMode,
-        fallbackLang,
-        fallbackLabel,
-        metaParams
-      );
+  // Append Brazilian PT-BR / Legendado routes (WatchPlay, Embedplayer2, Blogger, Native)
+  if (playerFlixResult.streams.length > 0) {
+    const existingUrls = new Set(streams.map((s) => s.url));
+    for (const pfStream of playerFlixResult.streams) {
+      if (!existingUrls.has(pfStream.url)) {
+        existingUrls.add(pfStream.url);
+        streams.push(pfStream);
+      }
     }
   }
 
-  // Fast HLS fallback if Orion returned no streams
+  // Ensure ptbr:0 is listed in availableDubs whenever any PT-BR route found dublado audio
+  if (hasPtDub && !availableDubs.some((d) => d.id === 'ptbr:0' || d.id === 'pt:0')) {
+    availableDubs.unshift({
+      id: 'ptbr:0',
+      dubCode: 'ptbr',
+      dubType: '0',
+      label: LANGUAGE_METADATA['ptbr:0'].label,
+      shortLabel: LANGUAGE_METADATA['ptbr:0'].shortLabel,
+      flag: LANGUAGE_METADATA['ptbr:0'].flag,
+      audioMode: 'dublado',
+      isOriginal: false,
+    });
+  }
+  if (hasPtSub && !availableDubs.some((d) => d.id === 'pt:1' || d.id === 'ptbr:1')) {
+    availableDubs.push({
+      id: 'pt:1',
+      dubCode: 'pt',
+      dubType: '1',
+      label: LANGUAGE_METADATA['pt:1'].label,
+      shortLabel: LANGUAGE_METADATA['pt:1'].shortLabel,
+      flag: LANGUAGE_METADATA['pt:1'].flag,
+      audioMode: 'legendado',
+      isOriginal: false,
+    });
+  }
+
+  // Sort availableDubs: Portuguese Dub -> Portuguese Sub -> English -> Spanish -> French -> Others
+  const langPriority = (opt) => {
+    if (opt.id === 'ptbr:0') return 0;
+    if (opt.id === 'pt:0') return 1;
+    if (opt.id === 'ptbr:1' || opt.id === 'pt:1') return 2;
+    if (opt.id === 'en:0' || opt.isOriginal) return 3;
+    if (opt.dubCode === 'esla' || opt.dubCode === 'es') return 4;
+    if (opt.dubCode === 'fr') return 5;
+    if (opt.dubCode === 'it' || opt.dubCode === 'de') return 6;
+    return 10;
+  };
+  availableDubs.sort((a, b) => langPriority(a) - langPriority(b));
+
+  // Only fall back to non-PT Orion default links or English HLS servers if NO matching PT stream was found.
+  // Tag fallback streams honestly with their actual audioMode so the player never hides missing PT-BR dubs.
+  if (streams.length === 0 && initialOrion && initialOrion.links.length > 0) {
+    const actualLang = origOption?.lanCode || 'en';
+    const actualMode = reqDubType === '1' ? 'legendado' : 'original';
+    const actualLabel =
+      actualMode === 'legendado'
+        ? 'Português (Legendado)'
+        : `${origOption?.lanName || 'Áudio Original'} (Sem Dublagem PT-BR)`;
+    appendOrionLinksAsStreams(
+      streams,
+      initialOrion.links,
+      actualMode,
+      actualLang,
+      actualLabel,
+      metaParams
+    );
+  }
+
   if (streams.length === 0) {
     const hlsServers = [
-      { key: 'atlas', label: 'Stream 1080p FHD (Atlas Turbo)' },
-      { key: 'berkas', label: 'Stream 1080p FHD (Berkas)' },
-      { key: 'milkyway', label: 'Stream 1080p FHD (Milkyway)' },
+      { key: 'atlas', label: 'Áudio Original 1080p FHD (Atlas · Legenda PT)' },
+      { key: 'berkas', label: 'Áudio Original 1080p FHD (Berkas · Legenda PT)' },
+      { key: 'milkyway', label: 'Áudio Original 1080p FHD (Milkyway · Legenda PT)' },
     ];
 
     for (const srv of hlsServers) {
       const found = await queryHlsServer(srv.key, srv.label, commonHeaders, metaParams, safeLatestDate);
       if (found.length > 0) {
+        found.forEach((s) => {
+          s.audioMode = 'original';
+        });
         streams.push(...found);
         break;
       }
@@ -785,6 +1220,7 @@ export async function resolveVidstuckStreams(params) {
     resolvedImdbId: canonicalImdbId,
     hasPtDub,
     hasPtSub,
+    ptbrEmbedUrls: playerFlixResult.ptbrEmbedUrls || [],
   };
 }
 
@@ -974,19 +1410,20 @@ export async function handleCinemaResolveRequest(req, res) {
       return;
     }
 
-    const { streams, availableDubs, resolvedImdbId, hasPtDub, hasPtSub } = await resolveVidstuckStreams({
-      tmdbId,
-      imdbId,
-      type,
-      title,
-      year,
-      season,
-      episode,
-      preferredAudioMode,
-      dubCode,
-      dubType,
-      preferredServer,
-    });
+    const { streams, availableDubs, resolvedImdbId, hasPtDub, hasPtSub, ptbrEmbedUrls } =
+      await resolveVidstuckStreams({
+        tmdbId,
+        imdbId,
+        type,
+        title,
+        year,
+        season,
+        episode,
+        preferredAudioMode,
+        dubCode,
+        dubType,
+        preferredServer,
+      });
 
     const effectiveImdbId = resolvedImdbId || imdbId;
     const cleanImdb = (effectiveImdbId || '').replace(/^tt/i, '');
@@ -1023,6 +1460,7 @@ export async function handleCinemaResolveRequest(req, res) {
       hasPtDub,
       hasPtSub,
       availableDubs,
+      ptbrEmbedUrls: ptbrEmbedUrls || [],
       streams,
       subtitles: {
         ptCues,
@@ -1227,6 +1665,8 @@ export async function handleCinemaHlsProxyRequest(req, res) {
     const urlObj = new URL(req.url || '/', 'http://localhost:3000');
     const primaryUrl = (urlObj.searchParams.get('url') || '').trim();
     const fallbackUrl = (urlObj.searchParams.get('fallbackUrl') || '').trim();
+    const preferLang = (urlObj.searchParams.get('preferLang') || '').trim().toLowerCase();
+    const refHint = (urlObj.searchParams.get('ref') || '').trim().toLowerCase();
 
     const candidates = [];
     if (primaryUrl && primaryUrl.startsWith('http')) {
@@ -1263,6 +1703,31 @@ export async function handleCinemaHlsProxyRequest(req, res) {
       return;
     }
 
+    const getUpstreamHeaders = (cand) => {
+      let referer = 'https://vidstuck.cc/';
+      let origin = 'https://vidstuck.cc';
+      if (cand.includes('maximaimg.online')) {
+        referer = 'https://maximaimg.online/';
+        origin = 'https://maximaimg.online';
+      } else if (
+        refHint === 'ep2' ||
+        cand.includes('embedplayer2.xyz') ||
+        cand.includes('embedvip.xyz')
+      ) {
+        referer = 'https://embedplayer2.xyz/';
+        origin = 'https://embedplayer2.xyz';
+      } else if (cand.includes('hclod.qzz.io') || cand.includes('watchplay')) {
+        referer = 'https://v1.watchplay.shop/';
+        origin = 'https://v1.watchplay.shop';
+      }
+      return {
+        'User-Agent': BROWSER_UA,
+        Referer: referer,
+        Origin: origin,
+        Accept: '*/*',
+      };
+    };
+
     let upstream = null;
     let targetUrl = candidates[0];
 
@@ -1270,15 +1735,7 @@ export async function handleCinemaHlsProxyRequest(req, res) {
       try {
         const r = await fetchWithTimeout(
           cand,
-          {
-            headers: {
-              'User-Agent':
-                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-              Referer: cand.includes('maximaimg.online') ? 'https://maximaimg.online/' : 'https://vidstuck.cc/',
-              Origin: cand.includes('maximaimg.online') ? 'https://maximaimg.online' : 'https://vidstuck.cc',
-              Accept: '*/*',
-            },
-          },
+          { headers: getUpstreamHeaders(cand) },
           22000
         );
         if (r.ok) {
@@ -1297,7 +1754,15 @@ export async function handleCinemaHlsProxyRequest(req, res) {
 
     const contentType = upstream.headers.get('content-type') || '';
     const isMaximaImg = targetUrl.includes('maximaimg.online');
+    const isEp2Flow =
+      refHint === 'ep2' ||
+      targetUrl.includes('embedplayer2.xyz') ||
+      targetUrl.includes('embedvip.xyz');
+    const isEmbedPlayerPlaylist =
+      targetUrl.includes('embedplayer2.xyz/cdn/hls/') ||
+      targetUrl.includes('embedplayer2.xyz/hls/');
     const textCandidate =
+      isEmbedPlayerPlaylist ||
       targetUrl.includes('.m3u8') ||
       targetUrl.includes('/edge') ||
       targetUrl.includes('workers.dev') ||
@@ -1308,13 +1773,54 @@ export async function handleCinemaHlsProxyRequest(req, res) {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Cache-Control', 'public, max-age=300');
 
+    const proxyExtraSuffix = `${
+      preferLang ? `&preferLang=${encodeURIComponent(preferLang)}` : ''
+    }${isEp2Flow ? '&ref=ep2' : ''}`;
+
+    const canDirectBypassCdn = (resolvedUrl) => {
+      if (resolvedUrl.includes('.m3u8') || resolvedUrl.includes('embedplayer2.xyz/hls/')) {
+        return false;
+      }
+      if (resolvedUrl.includes('maximaimg.online') || resolvedUrl.includes('hclod.qzz.io')) {
+        return true;
+      }
+      return false;
+    };
+
     if (textCandidate) {
       const arrayBuf = await upstream.arrayBuffer();
       const buf = Buffer.from(arrayBuf);
       const firstBytes = buf.subarray(0, 16).toString('utf8').trim();
       if (firstBytes.startsWith('#EXTM3U')) {
-        const text = buf.toString('utf8');
+        let text = buf.toString('utf8');
         const baseUri = new URL(targetUrl);
+
+        // When requesting PT-BR audio on multi-audio HLS manifests (e.g. embedplayer2.xyz),
+        // promote the Portuguese track to DEFAULT=YES so players start in PT-BR immediately.
+        if (preferLang === 'por' || targetUrl.includes('embedplayer2.xyz')) {
+          const hasPorAudio = /#EXT-X-MEDIA:[^\n]*TYPE=AUDIO[^\n]*(?:LANGUAGE="por"|NAME="Portug)/i.test(
+            text
+          );
+          if (hasPorAudio) {
+            text = text
+              .split('\n')
+              .map((line) => {
+                if (!line.startsWith('#EXT-X-MEDIA:') || !/TYPE=AUDIO/i.test(line)) {
+                  return line;
+                }
+                const isPor = /LANGUAGE="por"|NAME="Portug/i.test(line);
+                let updated = line
+                  .replace(/DEFAULT=(?:YES|NO)/i, `DEFAULT=${isPor ? 'YES' : 'NO'}`)
+                  .replace(/AUTOSELECT=(?:YES|NO)/i, `AUTOSELECT=${isPor ? 'YES' : 'NO'}`);
+                if (!/DEFAULT=/i.test(updated)) {
+                  updated += `,DEFAULT=${isPor ? 'YES' : 'NO'}`;
+                }
+                return updated;
+              })
+              .join('\n');
+          }
+        }
+
         const rewritten = text
           .split('\n')
           .map((line) => {
@@ -1327,10 +1833,10 @@ export async function handleCinemaHlsProxyRequest(req, res) {
                 const segmentRaw = trimmed.slice(commaIdx + 1);
                 try {
                   const resolved = new URL(segmentRaw, baseUri).toString();
-                  if (isMaximaImg || resolved.includes('maximaimg.online')) {
+                  if (isMaximaImg || canDirectBypassCdn(resolved)) {
                     return `${tag}\n${resolved}`;
                   }
-                  return `${tag}\n/api/cinema/hls-proxy?url=${encodeURIComponent(resolved)}`;
+                  return `${tag}\n/api/cinema/hls-proxy?url=${encodeURIComponent(resolved)}${proxyExtraSuffix}`;
                 } catch {
                   return line;
                 }
@@ -1338,10 +1844,10 @@ export async function handleCinemaHlsProxyRequest(req, res) {
               return line.replace(/URI="([^"]+)"/g, (_match, uriVal) => {
                 try {
                   const resolved = new URL(uriVal, baseUri).toString();
-                  if (isMaximaImg || resolved.includes('maximaimg.online')) {
+                  if (isMaximaImg || canDirectBypassCdn(resolved)) {
                     return `URI="${resolved}"`;
                   }
-                  return `URI="/api/cinema/hls-proxy?url=${encodeURIComponent(resolved)}"`;
+                  return `URI="/api/cinema/hls-proxy?url=${encodeURIComponent(resolved)}${proxyExtraSuffix}"`;
                 } catch {
                   return _match;
                 }
@@ -1349,10 +1855,10 @@ export async function handleCinemaHlsProxyRequest(req, res) {
             }
             try {
               const resolved = new URL(trimmed, baseUri).toString();
-              if (isMaximaImg || (resolved.includes('maximaimg.online') && !resolved.includes('.m3u8'))) {
+              if (isMaximaImg || canDirectBypassCdn(resolved)) {
                 return resolved;
               }
-              return `/api/cinema/hls-proxy?url=${encodeURIComponent(resolved)}`;
+              return `/api/cinema/hls-proxy?url=${encodeURIComponent(resolved)}${proxyExtraSuffix}`;
             } catch {
               return line;
             }
@@ -1365,15 +1871,29 @@ export async function handleCinemaHlsProxyRequest(req, res) {
         return;
       }
       res.statusCode = 200;
-      res.setHeader('Content-Type', contentType || 'video/mp2t');
+      res.setHeader(
+        'Content-Type',
+        isEp2Flow ? 'video/mp2t' : contentType || 'video/mp2t'
+      );
       res.end(buf);
       return;
     }
 
-    const arrayBuf = await upstream.arrayBuffer();
     res.statusCode = 200;
-    res.setHeader('Content-Type', contentType || 'video/mp2t');
-    res.end(Buffer.from(arrayBuf));
+    res.setHeader(
+      'Content-Type',
+      isEp2Flow ? 'video/mp2t' : contentType || 'video/mp2t'
+    );
+    if (upstream.body) {
+      const nodeStream = Readable.fromWeb(upstream.body);
+      nodeStream.on('error', () => {
+        if (!res.writableEnded) res.end();
+      });
+      nodeStream.pipe(res);
+    } else {
+      const arrayBuf = await upstream.arrayBuffer();
+      res.end(Buffer.from(arrayBuf));
+    }
   } catch (err) {
     res.statusCode = 502;
     res.end(err?.message || 'Proxy error');

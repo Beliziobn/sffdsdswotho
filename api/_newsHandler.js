@@ -1,558 +1,1533 @@
 import Parser from 'rss-parser';
+import fs from 'fs';
+import path from 'path';
 
 const parser = new Parser({
-  headers: {
-    'User-Agent':
-      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36 WorscoiNewsBot/4.0',
-    Accept: 'application/rss+xml, application/xml, text/xml',
-  },
   customFields: {
     item: [
       ['media:content', 'mediaContent', { keepArray: true }],
       ['media:thumbnail', 'mediaThumbnail', { keepArray: true }],
       ['content:encoded', 'contentEncoded'],
+      ['description', 'description'],
+      ['enclosure', 'enclosure'],
+      ['News:Image', 'bingImage'],
     ],
   },
-  timeout: 8000,
+  headers: {
+    'User-Agent':
+      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+    Accept: 'application/rss+xml, application/xml, text/xml;q=0.9, */*;q=0.8',
+  },
+  timeout: 7000,
 });
 
-const PRIMARY_FEEDS = {
+// Use Bing News RSS with ?format=rss for sites without public XML feeds because Bing News includes
+// the unencrypted original publisher URL in the `&url=` parameter AND the original article thumbnail!
+export const PRIMARY_FEEDS = {
   all: [
-    { url: 'https://g1.globo.com/rss/g1/economia/', category: 'Mercado', source: 'G1 Economia' },
-    { url: 'https://g1.globo.com/rss/g1/politica/', category: 'Política', source: 'G1 Política' },
-    { url: 'https://g1.globo.com/rss/g1/ciencia-e-saude/', category: 'Ciência', source: 'G1 Ciência' },
-    { url: 'https://g1.globo.com/rss/g1/natureza/', category: 'Geografia', source: 'G1 Natureza & Clima' },
-    { url: 'https://ge.globo.com/rss/ge/futebol/futebol-internacional/liga-dos-campeoes/', category: 'Futebol', source: 'UEFA Champions League' },
-    { url: 'https://ge.globo.com/rss/ge/futebol/futebol-internacional/futebol-espanhol/', category: 'Futebol', source: 'La Liga • Espanha' },
-    { url: 'https://ge.globo.com/rss/ge/futebol/futebol-internacional/futebol-ingles/', category: 'Futebol', source: 'Premier League • Inglaterra' },
-    { url: 'https://ge.globo.com/rss/ge/futebol/futebol-internacional/futebol-alemao/', category: 'Futebol', source: 'Bundesliga • Alemanha' },
-    { url: 'https://ge.globo.com/rss/ge/futebol/futebol-internacional/futebol-italiano/', category: 'Futebol', source: 'Serie A • Itália' },
-    { url: 'https://www.jbox.com.br/feed/', category: 'Animes', source: 'JBox' },
-    { url: 'https://www.otakupt.com/feed/', category: 'Animes', source: 'OtakuPT' },
-    { url: 'https://anmtv.com.br/feed/', category: 'Animes', source: 'AnMTV' },
-    { url: 'https://animeunited.com.br/feed/', category: 'Mangás', source: 'Anime United' },
-    { url: 'https://legiaodosherois.com.br/feed', category: 'Cultura', source: 'Legião dos Heróis' },
-    { url: 'https://criticalhits.com.br/feed/', category: 'Games', source: 'Critical Hits' },
-    { url: 'https://tecnoblog.net/feed/', category: 'Tecnologias', source: 'Tecnoblog' },
-    { url: 'https://www.adrenaline.com.br/rss/', category: 'Games', source: 'Adrenaline' },
-    { url: 'https://rss.tecmundo.com.br/feed', category: 'Tecnologias', source: 'TecMundo' },
-    { url: 'https://www.publishnews.com.br/rss/', category: 'Livros', source: 'PublishNews' },
+    // Futebol, Basquete e Outros Desportos: BeSoccer, 365Scores, TNT Sports
+    {
+      url: 'https://www.bing.com/news/search?q=futebol+champions+league+besoccer&setlang=pt-BR&cc=BR&format=rss',
+      source: 'BeSoccer',
+      category: 'Futebol',
+    },
+    {
+      url: 'https://www.bing.com/news/search?q=futebol+brasileirao+champions&setlang=pt-BR&cc=BR&format=rss',
+      source: '365Scores',
+      category: 'Futebol',
+    },
+    {
+      url: 'https://www.bing.com/news/search?q=futebol+europeu+champions+league&setlang=pt-BR&cc=BR&format=rss',
+      source: 'TNT Sports',
+      category: 'Futebol',
+    },
+    {
+      url: 'https://www.bing.com/news/search?q=basquete+NBA+playoffs&setlang=pt-BR&cc=BR&format=rss',
+      source: 'TNT Sports',
+      category: 'Basquete',
+    },
+    {
+      url: 'https://www.bing.com/news/search?q=Formula+1+GP&setlang=pt-BR&cc=BR&format=rss',
+      source: '365Scores',
+      category: 'Desportos',
+    },
+    {
+      url: 'https://www.bing.com/news/search?q=Tenis+ATP+WTA&setlang=pt-BR&cc=BR&format=rss',
+      source: 'BeSoccer',
+      category: 'Desportos',
+    },
+
+    // Geopolítica: The New York Times, Euronews, Band
+    {
+      url: 'https://rss.nytimes.com/services/xml/rss/nyt/World.xml',
+      source: 'The New York Times',
+      category: 'Geopolítica',
+    },
+    {
+      url: 'https://pt.euronews.com/rss',
+      source: 'Euronews',
+      category: 'Geopolítica',
+    },
+    {
+      url: 'https://www.bing.com/news/search?q=Band+internacional&setlang=pt-BR&cc=BR&format=rss',
+      source: 'Band',
+      category: 'Geopolítica',
+    },
+
+    // Anime e Mangá: Crunchyroll Notícias, Anime News Network
+    {
+      url: 'https://cr-news-api-service.prd.crunchyrollsvc.com/v1/pt-BR/rss',
+      source: 'Crunchyroll Notícias',
+      category: 'Animes',
+    },
+    {
+      url: 'https://www.bing.com/news/search?q=Manga+lancamento+anime&setlang=pt-BR&cc=BR&format=rss',
+      source: 'Anime News Network',
+      category: 'Mangás',
+    },
+
+    // Tecnologia: TecMundo, Canaltech
+    {
+      url: 'https://rss.tecmundo.com.br/feed',
+      source: 'TecMundo',
+      category: 'Tecnologias',
+    },
+    {
+      url: 'https://canaltech.com.br/rss/',
+      source: 'Canaltech',
+      category: 'Tecnologias',
+    },
+
+    // Moda: Vogue, ELLE Brasil, Nike, Adidas
+    {
+      url: 'https://vogue.globo.com/rss/vogue/',
+      source: 'Vogue',
+      category: 'Moda',
+    },
+    {
+      url: 'https://www.vogue.com/feed/rss',
+      source: 'Vogue',
+      category: 'Moda',
+    },
+    {
+      url: 'https://www.bing.com/news/search?q=site:elle.com.br&setlang=pt-BR&cc=BR&format=rss',
+      source: 'ELLE Brasil',
+      category: 'Moda',
+    },
+    {
+      url: 'https://www.bing.com/news/search?q=nike+lancamento+tenis+moda&setlang=pt-BR&cc=BR&format=rss',
+      source: 'Nike News',
+      category: 'Moda',
+    },
+    {
+      url: 'https://www.bing.com/news/search?q=adidas+originals+lancamento+moda&setlang=pt-BR&cc=BR&format=rss',
+      source: 'Adidas News',
+      category: 'Moda',
+    },
+
+    // Jogos / Games: MMORPGBR + Eurogamer, GameVicio, IGN Brasil
+    {
+      url: 'https://www.bing.com/news/search?q=MMORPG+jogos&setlang=pt-BR&cc=BR&format=rss',
+      source: 'MMORPGBR',
+      category: 'Games',
+    },
+    {
+      url: 'https://www.eurogamer.pt/feed',
+      source: 'Eurogamer',
+      category: 'Games',
+    },
+    {
+      url: 'https://www.gamevicio.com/feed/',
+      source: 'GameVicio',
+      category: 'Games',
+    },
+    {
+      url: 'https://www.bing.com/news/search?q=site:br.ign.com&setlang=pt-BR&cc=BR&format=rss',
+      source: 'IGN Brasil',
+      category: 'Games',
+    },
+
+    // Cultura: BBC Culture, The Guardian Culture
+    {
+      url: 'https://feeds.bbci.co.uk/news/entertainment_and_arts/rss.xml',
+      source: 'BBC Culture',
+      category: 'Cultura',
+    },
+    {
+      url: 'https://www.theguardian.com/uk/culture/rss',
+      source: 'The Guardian Culture',
+      category: 'Cultura',
+    },
+
+    // Webtoons: webtoon.com / webtoons.com
+    {
+      url: 'https://www.bing.com/news/search?q=webtoon+manhwa+solo+leveling&setlang=pt-BR&cc=BR&format=rss',
+      source: 'WEBTOON',
+      category: 'Webtoons',
+    },
   ],
+
   futebol: [
-    { url: 'https://ge.globo.com/rss/ge/futebol/futebol-internacional/liga-dos-campeoes/', category: 'Futebol', source: 'UEFA Champions League' },
-    { url: 'https://ge.globo.com/rss/ge/futebol/futebol-internacional/futebol-espanhol/', category: 'Futebol', source: 'La Liga' },
-    { url: 'https://ge.globo.com/rss/ge/futebol/futebol-internacional/futebol-ingles/', category: 'Futebol', source: 'Premier League' },
-    { url: 'https://ge.globo.com/rss/ge/futebol/futebol-internacional/futebol-alemao/', category: 'Futebol', source: 'Bundesliga' },
-    { url: 'https://ge.globo.com/rss/ge/futebol/futebol-internacional/futebol-italiano/', category: 'Futebol', source: 'Serie A' },
-    { url: 'https://trivela.com.br/feed/', category: 'Futebol', source: 'Trivela Futebol Europeu' },
+    {
+      url: 'https://www.bing.com/news/search?q=futebol+champions+league+besoccer&setlang=pt-BR&cc=BR&format=rss',
+      source: 'BeSoccer',
+      category: 'Futebol',
+    },
+    {
+      url: 'https://www.bing.com/news/search?q=futebol+brasileirao+champions&setlang=pt-BR&cc=BR&format=rss',
+      source: '365Scores',
+      category: 'Futebol',
+    },
+    {
+      url: 'https://www.bing.com/news/search?q=futebol+europeu+champions+league&setlang=pt-BR&cc=BR&format=rss',
+      source: 'TNT Sports',
+      category: 'Futebol',
+    },
   ],
+
   basquete: [
-    { url: 'https://ge.globo.com/rss/ge/basquete/nba/', category: 'Basquete', source: 'NBA Brasil' },
-    { url: 'https://ge.globo.com/rss/ge/basquete/', category: 'Basquete', source: 'Basquete GE' },
+    {
+      url: 'https://www.bing.com/news/search?q=basquete+NBA+playoffs&setlang=pt-BR&cc=BR&format=rss',
+      source: 'TNT Sports',
+      category: 'Basquete',
+    },
+    {
+      url: 'https://www.bing.com/news/search?q=NBA+Lakers+Celtics+basquete&setlang=pt-BR&cc=BR&format=rss',
+      source: '365Scores',
+      category: 'Basquete',
+    },
+    {
+      url: 'https://www.bing.com/news/search?q=basquete+euroleague+fiba&setlang=pt-BR&cc=BR&format=rss',
+      source: 'BeSoccer',
+      category: 'Basquete',
+    },
   ],
-  mercado: [
-    { url: 'https://g1.globo.com/rss/g1/economia/', category: 'Mercado', source: 'G1 Economia' },
-    { url: 'https://www.infomoney.com.br/feed/', category: 'Mercado', source: 'InfoMoney' },
+
+  desportos: [
+    {
+      url: 'https://www.bing.com/news/search?q=Formula+1+GP&setlang=pt-BR&cc=BR&format=rss',
+      source: 'TNT Sports',
+      category: 'Desportos',
+    },
+    {
+      url: 'https://www.bing.com/news/search?q=Tenis+ATP+WTA&setlang=pt-BR&cc=BR&format=rss',
+      source: '365Scores',
+      category: 'Desportos',
+    },
+    {
+      url: 'https://www.bing.com/news/search?q=UFC+MMA&setlang=pt-BR&cc=BR&format=rss',
+      source: 'BeSoccer',
+      category: 'Desportos',
+    },
   ],
+
+  esportes: [
+    {
+      url: 'https://www.bing.com/news/search?q=Formula+1+GP&setlang=pt-BR&cc=BR&format=rss',
+      source: 'TNT Sports',
+      category: 'Desportos',
+    },
+    {
+      url: 'https://www.bing.com/news/search?q=Tenis+ATP+WTA&setlang=pt-BR&cc=BR&format=rss',
+      source: '365Scores',
+      category: 'Desportos',
+    },
+    {
+      url: 'https://www.bing.com/news/search?q=UFC+MMA&setlang=pt-BR&cc=BR&format=rss',
+      source: 'BeSoccer',
+      category: 'Desportos',
+    },
+  ],
+
+  geopolitica: [
+    {
+      url: 'https://rss.nytimes.com/services/xml/rss/nyt/World.xml',
+      source: 'The New York Times',
+      category: 'Geopolítica',
+    },
+    {
+      url: 'https://pt.euronews.com/rss',
+      source: 'Euronews',
+      category: 'Geopolítica',
+    },
+    {
+      url: 'https://www.bing.com/news/search?q=Band+internacional&setlang=pt-BR&cc=BR&format=rss',
+      source: 'Band',
+      category: 'Geopolítica',
+    },
+  ],
+
   politica: [
-    { url: 'https://g1.globo.com/rss/g1/politica/', category: 'Política', source: 'G1 Política' },
+    {
+      url: 'https://rss.nytimes.com/services/xml/rss/nyt/World.xml',
+      source: 'The New York Times',
+      category: 'Política',
+    },
+    {
+      url: 'https://pt.euronews.com/rss',
+      source: 'Euronews',
+      category: 'Política',
+    },
+    {
+      url: 'https://www.bing.com/news/search?q=Band+internacional&setlang=pt-BR&cc=BR&format=rss',
+      source: 'Band',
+      category: 'Política',
+    },
   ],
-  ciencia: [
-    { url: 'https://g1.globo.com/rss/g1/ciencia-e-saude/', category: 'Ciência', source: 'G1 Ciência' },
-    { url: 'https://tecnoblog.net/feed/', category: 'Ciência', source: 'Tecnoblog Ciência' },
-  ],
-  geografia: [
-    { url: 'https://g1.globo.com/rss/g1/natureza/', category: 'Geografia', source: 'G1 Natureza & Clima' },
-  ],
-  virais: [
-    { url: 'https://tecnoblog.net/feed/', category: 'Virais', source: 'Tecnoblog Internet' },
-    { url: 'https://g1.globo.com/rss/g1/pop-arte/', category: 'Virais', source: 'G1 Pop & Trends' },
-  ],
-  listas: [
-    { url: 'https://legiaodosherois.com.br/feed', category: 'Listas', source: 'Legião Rankings' },
-    { url: 'https://criticalhits.com.br/feed/', category: 'Listas', source: 'Critical Hits Top 10' },
-  ],
+
   animes: [
-    { url: 'https://www.jbox.com.br/feed/', category: 'Animes', source: 'JBox' },
-    { url: 'https://www.otakupt.com/feed/', category: 'Animes', source: 'OtakuPT' },
-    { url: 'https://anmtv.com.br/feed/', category: 'Animes', source: 'AnMTV' },
+    {
+      url: 'https://cr-news-api-service.prd.crunchyrollsvc.com/v1/pt-BR/rss',
+      source: 'Crunchyroll Notícias',
+      category: 'Animes',
+    },
+    {
+      url: 'https://www.bing.com/news/search?q=anime+news+network+manga&setlang=pt-BR&cc=BR&format=rss',
+      source: 'Anime News Network',
+      category: 'Animes',
+    },
   ],
+
   mangas: [
-    { url: 'https://animeunited.com.br/feed/', category: 'Mangás', source: 'Anime United' },
-    { url: 'https://www.otakupt.com/feed/', category: 'Mangás', source: 'OtakuPT' },
-    { url: 'https://www.jbox.com.br/feed/', category: 'Mangás', source: 'JBox' },
+    {
+      url: 'https://cr-news-api-service.prd.crunchyrollsvc.com/v1/pt-BR/rss',
+      source: 'Crunchyroll Notícias',
+      category: 'Mangás',
+    },
+    {
+      url: 'https://www.bing.com/news/search?q=Manga+lancamento+anime&setlang=pt-BR&cc=BR&format=rss',
+      source: 'Anime News Network',
+      category: 'Mangás',
+    },
   ],
-  webtoons: [
-    { url: 'https://www.otakupt.com/feed/', category: 'Webtoons', source: 'OtakuPT' },
-    { url: 'https://anmtv.com.br/feed/', category: 'Webtoons', source: 'AnMTV' },
-    { url: 'https://animeunited.com.br/feed/', category: 'Webtoons', source: 'Anime United' },
-  ],
-  games: [
-    { url: 'https://criticalhits.com.br/feed/', category: 'Games', source: 'Critical Hits' },
-    { url: 'https://www.adrenaline.com.br/rss/', category: 'Games', source: 'Adrenaline' },
-    { url: 'https://www.otakupt.com/feed/', category: 'Games', source: 'OtakuPT' },
-  ],
+
   tecnologias: [
-    { url: 'https://tecnoblog.net/feed/', category: 'Tecnologias', source: 'Tecnoblog' },
-    { url: 'https://rss.tecmundo.com.br/feed', category: 'Tecnologias', source: 'TecMundo' },
-    { url: 'https://g1.globo.com/rss/g1/tecnologia/', category: 'Tecnologias', source: 'G1 Tecnologia' },
+    {
+      url: 'https://rss.tecmundo.com.br/feed',
+      source: 'TecMundo',
+      category: 'Tecnologias',
+    },
+    {
+      url: 'https://canaltech.com.br/rss/',
+      source: 'Canaltech',
+      category: 'Tecnologias',
+    },
   ],
+
+  moda: [
+    {
+      url: 'https://vogue.globo.com/rss/vogue/',
+      source: 'Vogue',
+      category: 'Moda',
+    },
+    {
+      url: 'https://www.vogue.com/feed/rss',
+      source: 'Vogue',
+      category: 'Moda',
+    },
+    {
+      url: 'https://www.bing.com/news/search?q=site:elle.com.br&setlang=pt-BR&cc=BR&format=rss',
+      source: 'ELLE Brasil',
+      category: 'Moda',
+    },
+    {
+      url: 'https://www.bing.com/news/search?q=nike+lancamento+tenis+moda&setlang=pt-BR&cc=BR&format=rss',
+      source: 'Nike News',
+      category: 'Moda',
+    },
+    {
+      url: 'https://www.bing.com/news/search?q=adidas+originals+lancamento+moda&setlang=pt-BR&cc=BR&format=rss',
+      source: 'Adidas News',
+      category: 'Moda',
+    },
+  ],
+
+  games: [
+    {
+      url: 'https://www.bing.com/news/search?q=MMORPG+jogos&setlang=pt-BR&cc=BR&format=rss',
+      source: 'MMORPGBR',
+      category: 'Games',
+    },
+    {
+      url: 'https://www.eurogamer.pt/feed',
+      source: 'Eurogamer',
+      category: 'Games',
+    },
+    {
+      url: 'https://www.gamevicio.com/feed/',
+      source: 'GameVicio',
+      category: 'Games',
+    },
+    {
+      url: 'https://www.bing.com/news/search?q=site:br.ign.com&setlang=pt-BR&cc=BR&format=rss',
+      source: 'IGN Brasil',
+      category: 'Games',
+    },
+  ],
+
   cultura: [
-    { url: 'https://legiaodosherois.com.br/feed', category: 'Cultura', source: 'Legião dos Heróis' },
-    { url: 'https://g1.globo.com/rss/g1/pop-arte/', category: 'Cultura', source: 'G1 Pop & Arte' },
-    { url: 'https://www.jbox.com.br/feed/', category: 'Cultura', source: 'JBox' },
+    {
+      url: 'https://feeds.bbci.co.uk/news/entertainment_and_arts/rss.xml',
+      source: 'BBC Culture',
+      category: 'Cultura',
+    },
+    {
+      url: 'https://www.theguardian.com/uk/culture/rss',
+      source: 'The Guardian Culture',
+      category: 'Cultura',
+    },
   ],
+
+  webtoons: [
+    {
+      url: 'https://www.bing.com/news/search?q=webtoon+manhwa+solo+leveling&setlang=pt-BR&cc=BR&format=rss',
+      source: 'WEBTOON',
+      category: 'Webtoons',
+    },
+  ],
+
   livros: [
-    { url: 'https://www.publishnews.com.br/rss/', category: 'Livros', source: 'PublishNews' },
+    {
+      url: 'https://www.theguardian.com/books/rss',
+      source: 'The Guardian Culture',
+      category: 'Livros',
+    },
+    {
+      url: 'https://feeds.bbci.co.uk/news/entertainment_and_arts/rss.xml',
+      source: 'BBC Culture',
+      category: 'Livros',
+    },
+  ],
+
+  mercado: [
+    {
+      url: 'https://rss.nytimes.com/services/xml/rss/nyt/Business.xml',
+      source: 'The New York Times',
+      category: 'Mercado',
+    },
+    {
+      url: 'https://pt.euronews.com/rss',
+      source: 'Euronews',
+      category: 'Mercado',
+    },
+  ],
+
+  ciencia: [
+    {
+      url: 'https://rss.tecmundo.com.br/feed',
+      source: 'TecMundo',
+      category: 'Ciência',
+    },
+    {
+      url: 'https://canaltech.com.br/rss/',
+      source: 'Canaltech',
+      category: 'Ciência',
+    },
+  ],
+
+  geografia: [
+    {
+      url: 'https://rss.nytimes.com/services/xml/rss/nyt/World.xml',
+      source: 'The New York Times',
+      category: 'Geografia',
+    },
+    {
+      url: 'https://pt.euronews.com/rss',
+      source: 'Euronews',
+      category: 'Geografia',
+    },
+  ],
+
+  virais: [
+    {
+      url: 'https://rss.tecmundo.com.br/feed',
+      source: 'TecMundo',
+      category: 'Virais',
+    },
+    {
+      url: 'https://canaltech.com.br/rss/',
+      source: 'Canaltech',
+      category: 'Virais',
+    },
+  ],
+
+  listas: [
+    {
+      url: 'https://mmorpgbr.com.br/feed/',
+      source: 'MMORPGBR',
+      category: 'Listas',
+    },
+    {
+      url: 'https://canaltech.com.br/rss/',
+      source: 'Canaltech',
+      category: 'Listas',
+    },
   ],
 };
 
-const THEMATIC_COVERS = {
-  Futebol: [
-    'https://images.unsplash.com/photo-1574629810360-7efbbe195018?w=1200&auto=format&fit=crop&q=80',
-    'https://images.unsplash.com/photo-1518091043644-c1d4457512c6?w=1200&auto=format&fit=crop&q=80',
-    'https://images.unsplash.com/photo-1431324155629-1a6deb1dec8d?w=1200&auto=format&fit=crop&q=80',
-    'https://images.unsplash.com/photo-1522778119026-d647f0596c20?w=1200&auto=format&fit=crop&q=80',
-  ],
-  Basquete: [
-    'https://images.unsplash.com/photo-1546519638-68e109498ffc?w=1200&auto=format&fit=crop&q=80',
-    'https://images.unsplash.com/photo-1519766304817-4f37bda74a29?w=1200&auto=format&fit=crop&q=80',
-    'https://images.unsplash.com/photo-1505666287802-931dc83948e9?w=1200&auto=format&fit=crop&q=80',
-  ],
-  Mercado: [
-    'https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=1200&auto=format&fit=crop&q=80',
-    'https://images.unsplash.com/photo-1590283603385-17ffb3a7f29f?w=1200&auto=format&fit=crop&q=80',
-    'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=1200&auto=format&fit=crop&q=80',
-  ],
-  Virais: [
-    'https://images.unsplash.com/photo-1563986768609-322da13575f3?w=1200&auto=format&fit=crop&q=80',
-    'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=1200&auto=format&fit=crop&q=80',
-  ],
-  Listas: [
-    'https://images.unsplash.com/photo-1484480974693-6ca0a78fb36b?w=1200&auto=format&fit=crop&q=80',
-    'https://images.unsplash.com/photo-1507842229450-799042b314a5?w=1200&auto=format&fit=crop&q=80',
-  ],
-  Política: [
-    'https://images.unsplash.com/photo-1541872703-74c5e44368f9?w=1200&auto=format&fit=crop&q=80',
-    'https://images.unsplash.com/photo-1529107386315-e1a2ed48a620?w=1200&auto=format&fit=crop&q=80',
-  ],
-  Geografia: [
-    'https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=1200&auto=format&fit=crop&q=80',
-    'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=1200&auto=format&fit=crop&q=80',
-  ],
-  Ciência: [
-    'https://images.unsplash.com/photo-1507668077129-56e32842fceb?w=1200&auto=format&fit=crop&q=80',
-    'https://images.unsplash.com/photo-1532094349884-543bc11b234d?w=1200&auto=format&fit=crop&q=80',
-  ],
-  Animes: [
-    'https://images.unsplash.com/photo-1578632767115-351597cf2477?w=1200&auto=format&fit=crop&q=80',
-    'https://images.unsplash.com/photo-1563089145-599997674d42?w=1200&auto=format&fit=crop&q=80',
-  ],
-  Mangás: [
-    'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=1200&auto=format&fit=crop&q=80',
-    'https://images.unsplash.com/photo-1578632767115-351597cf2477?w=1200&auto=format&fit=crop&q=80',
-  ],
-  Webtoons: [
-    '/covers/webtoons/solo-leveling-cover.jpg',
-    '/covers/webtoons/orv-cover.jpg',
-    'https://images.unsplash.com/photo-1534447677768-be436bb09401?w=1200&auto=format&fit=crop&q=80',
-  ],
-  Games: [
-    'https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=1200&auto=format&fit=crop&q=80',
-    'https://images.unsplash.com/photo-1606813907291-d86efa9b94db?w=1200&auto=format&fit=crop&q=80',
-  ],
-  Tecnologias: [
-    'https://images.unsplash.com/photo-1518770660439-4636190af475?w=1200&auto=format&fit=crop&q=80',
-    'https://images.unsplash.com/photo-1677442136019-21780ecad995?w=1200&auto=format&fit=crop&q=80',
-  ],
-  Cultura: [
-    'https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=1200&auto=format&fit=crop&q=80',
-    'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=1200&auto=format&fit=crop&q=80',
-  ],
-  Livros: [
-    'https://images.unsplash.com/photo-1512820790803-83ca734da794?w=1200&auto=format&fit=crop&q=80',
-    'https://images.unsplash.com/photo-1524995997946-a1c2e315a42f?w=1200&auto=format&fit=crop&q=80',
-  ],
-};
-
-function extractRealImage(item, title, cat) {
-  if (
-    item.enclosure?.url &&
-    (item.enclosure.type?.includes('image') || /\.(jpg|jpeg|png|webp|avif)/i.test(item.enclosure.url)) &&
-    !/(1x1|spacer|tracking|pixel|feedburner|emoji|\.gif)/i.test(item.enclosure.url)
-  ) {
-    return item.enclosure.url;
-  }
-
-  const mediaCandidates = [
-    ...(Array.isArray(item.mediaContent) ? item.mediaContent : [item.mediaContent]),
-    ...(Array.isArray(item.mediaThumbnail) ? item.mediaThumbnail : [item.mediaThumbnail]),
-    ...(Array.isArray(item['media:content']) ? item['media:content'] : [item['media:content']]),
-    ...(Array.isArray(item['media:thumbnail']) ? item['media:thumbnail'] : [item['media:thumbnail']]),
-  ].filter(Boolean);
-
-  for (const med of mediaCandidates) {
-    const url = med?.url || med?.$?.url || med?.attributes?.url || (typeof med === 'string' ? med : null);
-    if (
-      url &&
-      typeof url === 'string' &&
-      url.startsWith('http') &&
-      !/(1x1|spacer|tracking|pixel|feedburner|emoji|\.gif)/i.test(url)
-    ) {
-      return url.replace(/&amp;/g, '&');
+/**
+ * Unwraps Bing News or redirect links into the exact, direct publisher article URL.
+ */
+export function unwrapPublisherUrl(rawUrl) {
+  if (!rawUrl || typeof rawUrl !== 'string') return '';
+  try {
+    const u = new URL(rawUrl);
+    if (u.hostname.includes('bing.com') && u.searchParams.get('url')) {
+      return u.searchParams.get('url') || rawUrl;
     }
-  }
-
-  const rawHtml =
-    (item.contentEncoded || item['content:encoded'] || '') +
-    ' ' +
-    (item.content || '') +
-    ' ' +
-    (item.description || '');
-  const matches = rawHtml.matchAll(/<img[^>]+(?:src|data-src)=["'](https?:\/\/[^"'\s>]+)["']/gi);
-  for (const m of matches) {
-    let url = m[1].replace(/&amp;/g, '&');
-    if (!/gravatar\.com|emoji|icon|pixel|feedburner|spacer|tracking|1x1|\.gif/i.test(url)) {
-      if (url.includes('infomoney.com.br') && url.includes('fit=300')) {
-        url = url.split('?')[0];
-      }
-      if (url.includes('anmtv.com.br') && url.includes('resize=600')) {
-        url = url.replace(/resize=600%2C300/g, 'fit=1280%2C720');
-      }
-      return url;
+    if (u.searchParams.get('url') && u.searchParams.get('url').startsWith('http')) {
+      return u.searchParams.get('url');
     }
-  }
-
-  let hash = 0;
-  for (let i = 0; i < (title || '').length; i++) {
-    hash = (hash << 5) - hash + title.charCodeAt(i);
-    hash |= 0;
-  }
-  const pool = THEMATIC_COVERS[cat] || THEMATIC_COVERS.Cultura;
-  return pool[Math.abs(hash) % pool.length];
+  } catch {}
+  return rawUrl;
 }
 
-function cleanContent(raw) {
-  const cleaned = (raw || '')
-    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
-    .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '')
-    .replace(/<iframe[^>]*>.*?<\/iframe>/gi, '')
-    .replace(/<p[^>]*>/gi, '\n\n')
-    .replace(/<\/p>/gi, '\n\n')
-    .replace(/<br\s*\/?>/gi, '\n\n')
-    .replace(/<h[1-6][^>]*>(.*?)<\/h[1-6]>/gi, '\n\n### $1\n\n')
-    .replace(/<li[^>]*>(.*?)<\/li>/gi, '\n• $1')
-    .replace(/<blockquote[^>]*>(.*?)<\/blockquote>/gis, '\n\n> "$1"\n\n')
-    .replace(/<[^>]+>/g, ' ')
-    .replace(/&nbsp;/g, ' ')
-    .replace(/&amp;/g, '&')
-    .replace(/&quot;/g, '"')
-    .replace(/&#8217;/g, "'")
-    .replace(/&#8216;/g, "'")
-    .replace(/&#8220;/g, '“')
-    .replace(/&#8221;/g, '”')
-    .replace(/&#8211;/g, '–')
-    .replace(/&#8212;/g, '—')
+function decodeHtmlEntities(str) {
+  if (!str) return '';
+  return str
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#8217;|&rsquo;/gi, '’')
+    .replace(/&#8216;|&lsquo;/gi, '‘')
+    .replace(/&#8220;|&ldquo;/gi, '“')
+    .replace(/&#8221;|&rdquo;/gi, '”')
+    .replace(/&#8211;|&ndash;/gi, '–')
+    .replace(/&#8212;|&mdash;/gi, '—')
+    .replace(/&#39;|&#039;|&#x27;/gi, "'")
     .replace(/&ccedil;/g, 'ç')
+    .replace(/&Ccedil;/g, 'Ç')
     .replace(/&atilde;/g, 'ã')
-    .replace(/&eacute;/g, 'é')
-    .replace(/&iacute;/g, 'í')
-    .replace(/&oacute;/g, 'ó')
-    .replace(/&uacute;/g, 'ú')
+    .replace(/&Atilde;/g, 'Ã')
+    .replace(/&otilde;/g, 'õ')
+    .replace(/&Otilde;/g, 'Õ')
     .replace(/&aacute;/g, 'á')
+    .replace(/&Aacute;/g, 'Á')
+    .replace(/&eacute;/g, 'é')
+    .replace(/&Eacute;/g, 'É')
+    .replace(/&iacute;/g, 'í')
+    .replace(/&Iacute;/g, 'Í')
+    .replace(/&oacute;/g, 'ó')
+    .replace(/&Oacute;/g, 'Ó')
+    .replace(/&uacute;/g, 'ú')
+    .replace(/&Uacute;/g, 'Ú')
+    .replace(/&acirc;/g, 'â')
     .replace(/&ecirc;/g, 'ê')
-    .replace(/&ocirc;/g, 'ô');
-
-  const paragraphs = cleaned
-    .split(/\n\s*\n+/)
-    .map((p) => p.replace(/\s+/g, ' ').trim())
-    .filter((p) => p.length >= 25 && !/^(the post|o post|fonte:|saiba mais|confira também|leia também|assine)/i.test(p));
-
-  const content = paragraphs.join('\n\n');
-  const excerpt = paragraphs[0]
-    ? paragraphs[0].slice(0, 220) + (paragraphs[0].length > 220 ? '...' : '')
-    : '';
-  const wordCount = content.split(/\s+/).filter(Boolean).length;
-  const readTime = Math.max(1, Math.round(wordCount / 180));
-
-  return { content, excerpt, readTime };
+    .replace(/&ocirc;/g, 'ô')
+    .replace(/&#x([0-9a-fA-F]+);/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)))
+    .replace(/&#(\d+);/g, (_, dec) => String.fromCharCode(parseInt(dec, 10)));
 }
 
-function slugify(text) {
-  return text
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/(^-|-$)/g, '')
-    .slice(0, 90);
-}
+function extractRealImageFromRssItem(item) {
+  const candidates = [];
 
-export async function handleNewsFeedRequest(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-  res.setHeader('Content-Type', 'application/json; charset=utf-8');
-  res.setHeader('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=120');
+  if (item.enclosure?.url) candidates.push(item.enclosure.url);
+  if (typeof item.bingImage === 'string') candidates.push(item.bingImage);
+  if (item.bingImage?.$?.url) candidates.push(item.bingImage.$.url);
 
-  if (req.method === 'OPTIONS') {
-    res.statusCode = 200;
-    res.end();
-    return;
+  if (Array.isArray(item.mediaContent)) {
+    for (const m of item.mediaContent) {
+      if (m?.$?.url) candidates.push(m.$.url);
+      if (m?.url) candidates.push(m.url);
+    }
   }
 
-  const url = new URL(req.url || '/', `http://${req.headers?.host || 'localhost'}`);
-  const topic = (url.searchParams.get('topic') || 'all').toLowerCase();
-  const limit = Math.min(80, Math.max(5, parseInt(url.searchParams.get('limit') || '35', 10)));
+  if (Array.isArray(item.mediaThumbnail)) {
+    for (const m of item.mediaThumbnail) {
+      if (m?.$?.url) candidates.push(m.$.url);
+      if (m?.url) candidates.push(m.url);
+    }
+  }
 
-  const sources = PRIMARY_FEEDS[topic] || PRIMARY_FEEDS.all;
-  const rawBatches = await Promise.all(
-    sources.map(async (src) => {
-      try {
-        const feed = await parser.parseURL(src.url);
-        return (feed.items || []).slice(0, 10).map((it) => {
-          const rawTitle = (it.title || '').trim();
-          const lastDash = rawTitle.lastIndexOf(' - ');
-          const title = lastDash > 0 ? rawTitle.substring(0, lastDash).trim() : rawTitle;
-          const sourceName = src.source;
+  const rawHtml = item.contentEncoded || item['content:encoded'] || item.description || item.content || '';
+  const imgRegex = /<img[^>]+(?:data-src|data-lazy-src|src)=["']([^"']+)["']/gi;
+  let match;
+  while ((match = imgRegex.exec(rawHtml)) !== null) {
+    if (match[1]) candidates.push(match[1]);
+  }
 
-          const slug =
-            slugify(title) +
-            '-' +
-            Math.abs(it.link?.split('').reduce((a, b) => (a << 5) - a + b.charCodeAt(0), 0) || 1);
+  const srcsetRegex = /srcset=["']([^"']+)["']/gi;
+  while ((match = srcsetRegex.exec(rawHtml)) !== null) {
+    if (match[1]) {
+      const parts = match[1].split(',').map((s) => s.trim().split(/\s+/)[0]);
+      if (parts.length > 0) candidates.push(parts[parts.length - 1]);
+    }
+  }
 
-          const cover_url = extractRealImage(it, title, src.category);
-          const rawBody = it.contentEncoded || it['content:encoded'] || it.content || it.contentSnippet || it.description || title;
-          const { content, excerpt, readTime } = cleanContent(rawBody);
-
-          return {
-            id: `feed-${slug}`,
-            title,
-            slug,
-            excerpt: excerpt || (content.slice(0, 200) + '...'),
-            content: content || excerpt || title,
-            cover_url,
-            category: src.category,
-            published: true,
-            published_at: it.isoDate || it.pubDate || new Date().toISOString(),
-            created_at: it.isoDate || it.pubDate || new Date().toISOString(),
-            author: sourceName,
-            source_name: sourceName,
-            source_url: it.link || '',
-            read_time: readTime,
-            is_syndicated: true,
-          };
-        });
-      } catch {
-        return [];
+  for (const url of candidates) {
+    const clean = url.replace(/&amp;/g, '&').trim();
+    if (
+      clean.startsWith('http') &&
+      !/gravatar\.com|1x1|spacer|pixel|tracking|feedburner|emoji|s\.w\.org|\.svg|logo-google|gstatic\.com\/kp|lh3\.googleusercontent\.com\/J6_coFbogxhRI9iM864NL_liGXvsQp2AupsKei7z0cNNfDvGUmWUy20nuUhkREQyrpY4bEeIBuc/i.test(
+        clean
+      ) &&
+      !/\.gif(\?.*)?$/i.test(clean)
+    ) {
+      // Upgrade BBC / WordPress / Bing thumbnail resolutions to high-res original
+      let upgraded = clean.replace(/-\d{2,3}x\d{2,3}(?=\.(jpg|jpeg|png|webp))/i, '');
+      upgraded = upgraded.replace(/\/news\/\d{3}\/cpsprodpb\//i, '/news/1024/cpsprodpb/');
+      if (upgraded.includes('bing.com/th?id=')) {
+        upgraded = upgraded.replace(/&w=\d+&h=\d+/i, '&w=1200&h=675');
       }
-    })
+      return upgraded;
+    }
+  }
+
+  return '';
+}
+
+function cleanRssBodyText(item) {
+  const rawHtml = item.contentEncoded || item['content:encoded'] || item.description || item.content || '';
+
+  const blockFormatted = decodeHtmlEntities(
+    rawHtml
+      .replace(/<script[\s\S]*?<\/script>/gi, '')
+      .replace(/<style[\s\S]*?<\/style>/gi, '')
+      .replace(/<figure[\s\S]*?<\/figure>/gi, '\n\n')
+      .replace(/<\/(p|div|h1|h2|h3|h4|blockquote|li|article|section)>/gi, '\n\n')
+      .replace(/<br\s*\/?>/gi, '\n\n')
+      .replace(/<[^>]+>/g, ' ')
   );
 
-  const seen = new Set();
-  const items = [];
-  for (const b of rawBatches) {
-    for (const item of b) {
-      if (!item.title) continue;
-      const norm = item.title.toLowerCase().replace(/[^a-z0-9]/g, '');
-      if (!seen.has(norm) && norm.length > 5) {
-        seen.add(norm);
-        items.push(item);
-      }
-    }
-  }
+  const rawParagraphs = blockFormatted
+    .split(/\n\s*\n+/)
+    .map((p) => p.replace(/\s+/g, ' ').trim())
+    .filter((p) => {
+      if (p.length < 35) return false;
+      if (
+        /^(the post|o post|fonte:|saiba mais|confira também|leia também|assine|compartilhe|inscreva-se|veja mais|siga o canal|clique aqui|adicionar ch|achados\s*promo|receba novidades)/i.test(
+          p
+        )
+      )
+        return false;
+      if (
+        /apareceu primeiro em|todos os direitos reservados|confira o post completo|adicione o ge nas suas fontes|siga e acompanhe as notícias|adicionar ch no google|receba as melhores ofertas|utilizamos cookies/i.test(
+          p
+        )
+      )
+        return false;
+      return true;
+    });
 
-  items.sort((a, b) => new Date(b.published_at).getTime() - new Date(a.published_at).getTime());
+  const fullContent = rawParagraphs.join('\n\n');
+  const firstPara = rawParagraphs[0] || (item.contentSnippet || '').trim();
+  const excerpt = firstPara.length > 220 ? firstPara.slice(0, 217) + '...' : firstPara;
+  const wordCount = fullContent.split(/\s+/).filter(Boolean).length;
+  const readTime = Math.max(1, Math.round(wordCount / 180));
 
-  res.statusCode = 200;
-  res.end(JSON.stringify({ items: items.slice(0, limit), count: items.length, topic }));
+  return { content: fullContent, excerpt, readTime, paragraphCount: rawParagraphs.length };
 }
 
-export async function handleNewsExtractRequest(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-  res.setHeader('Content-Type', 'application/json; charset=utf-8');
+const scrapedUrlCache = new Map();
 
-  if (req.method === 'OPTIONS') {
-    res.statusCode = 200;
-    res.end();
-    return;
-  }
+/**
+ * Extracts the 100% authentic original cover image (og:image / twitter:image / JSON-LD image)
+ * AND the full multi-paragraph original article text from the publisher's webpage.
+ */
+export async function extractFullArticleFromWeb(rawUrl) {
+  const url = unwrapPublisherUrl(rawUrl);
+  if (!url || !url.startsWith('http') || url.includes('news.google.com')) return null;
 
-  const host = req.headers?.host || 'localhost';
-  const urlObj = new URL(req.url || '/', `http://${host}`);
-  const targetUrl = urlObj.searchParams.get('url') || '';
-
-  if (!targetUrl || !targetUrl.startsWith('http')) {
-    res.statusCode = 400;
-    res.end(JSON.stringify({ error: 'Parâmetro url é obrigatório' }));
-    return;
+  if (scrapedUrlCache.has(url)) {
+    return scrapedUrlCache.get(url);
   }
 
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 7000);
-
-    const resp = await fetch(targetUrl, {
+    const timer = setTimeout(() => controller.abort(), 6000);
+    const res = await fetch(url, {
       headers: {
         'User-Agent':
-          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
         Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-        'Accept-Language': 'pt-BR,pt;q=0.9,en-US;q=0.8',
+        'Accept-Language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7',
+        Referer: new URL(url).origin + '/',
       },
       redirect: 'follow',
       signal: controller.signal,
     });
-    clearTimeout(timeoutId);
+    clearTimeout(timer);
+    if (!res.ok) return null;
+    const html = await res.text();
 
-    if (!resp.ok) {
-      res.statusCode = 200;
-      res.end(JSON.stringify({ error: 'Não foi possível carregar o artigo remoto' }));
-      return;
+    // 1. Extract authentic og:image, twitter:image, or JSON-LD image
+    let coverUrl = '';
+    const ogMatch =
+      html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i) ||
+      html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i) ||
+      html.match(/<meta[^>]+name=["']twitter:image(?::src)?["'][^>]+content=["']([^"']+)["']/i) ||
+      html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+name=["']twitter:image(?::src)?["']/i);
+
+    if (ogMatch && ogMatch[1]) {
+      let candidate = ogMatch[1].replace(/&amp;/g, '&').trim();
+      if (candidate.startsWith('//')) candidate = 'https:' + candidate;
+      else if (candidate.startsWith('/')) candidate = new URL(url).origin + candidate;
+      if (
+        candidate.startsWith('http') &&
+        !/logo|favicon|1x1|pixel|spacer|placeholder|default-share|besoccer_logo/i.test(candidate)
+      ) {
+        coverUrl = candidate;
+      }
     }
 
-    const html = await resp.text();
-
-    const ogImg =
-      html.match(/<meta[^>]*property=["']og:image(?::secure_url)?["'][^>]*content=["']([^"']+)["']/i) ||
-      html.match(/<meta[^>]*content=["']([^"']+)["'][^>]*property=["']og:image(?::secure_url)?["']/i) ||
-      html.match(/<meta[^>]*name=["']twitter:image["'][^>]*content=["']([^"']+)["']/i) ||
-      html.match(/<meta[^>]*content=["']([^"']+)["'][^>]*name=["']twitter:image["']/i);
-    const coverUrl = ogImg ? ogImg[1].replace(/&amp;/g, '&') : undefined;
-
-    let paras = [];
-
-    if (targetUrl.includes('globo.com')) {
-      const pMatches = [...html.matchAll(/<p[^>]*class=["'][^"']*content-text__container[^"']*["'][^>]*>([\s\S]*?)<\/p>/gi)];
-      paras = pMatches.map((m) => m[1]);
+    // 2. Parse JSON-LD for articleBody and image if available (used by NYT, BBC, Guardian, Vogue, ELLE, Band, TNT Sports, Canaltech)
+    let jsonLdBody = '';
+    const ldMatches = html.match(/<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi) || [];
+    for (const rawBlock of ldMatches) {
+      const inner = rawBlock.replace(/^<script[^>]*>|<\/script>$/gi, '').trim();
+      try {
+        const parsed = JSON.parse(inner);
+        const nodes = Array.isArray(parsed)
+          ? parsed
+          : Array.isArray(parsed?.['@graph'])
+          ? parsed['@graph']
+          : [parsed];
+        for (const node of nodes) {
+          if (!coverUrl && node?.image) {
+            const imgVal = Array.isArray(node.image)
+              ? typeof node.image[0] === 'string'
+                ? node.image[0]
+                : node.image[0]?.url
+              : typeof node.image === 'string'
+              ? node.image
+              : node.image?.url;
+            if (imgVal && String(imgVal).startsWith('http') && !/logo|favicon/i.test(String(imgVal))) {
+              coverUrl = String(imgVal);
+            }
+          }
+          if (typeof node?.articleBody === 'string' && node.articleBody.length > jsonLdBody.length) {
+            jsonLdBody = decodeHtmlEntities(node.articleBody);
+          }
+        }
+      } catch {}
     }
 
-    if (paras.length === 0) {
-      const containerMatch = html.match(
-        /<(?:article|div|section|main)[^>]*class=["'][^"']*(?:entry-content|article-body|post-content|article__content|article-text|c-news__body|story-body|noticia__conteudo|materia-conteudo|corpo-texto|content-area|post_content|noticia-texto|elementor-widget-theme-post-content)[^"']*["'][\s\S]*?<\/(?:article|div|section|main)>/i
-      );
-      const scope = containerMatch ? containerMatch[0] : html;
-      const pMatches = [...scope.matchAll(/<p[^>]*>([\s\S]*?)<\/p>/gi)];
-      paras = pMatches.map((m) => m[1]);
+    // 3. Extract paragraphs from the main article body in HTML
+    const articleRegionMatch =
+      html.match(
+        /<div[^>]+class=["'][^"']*(?:entry-content|post-content|td-post-content|article-content|mc-body|content-text|materia-conteudo|c-news__body|article__body|story-body|ArticleBody|news-body|meat|article-body-commercial-selector|text-body)[^"']*["'][^>]*>([\s\S]*?)<\/div>\s*(?:<footer|<div[^>]+class=["'][^"']*(?:sharedaddy|post-tags|related|comments|author-box|tags))/i
+      ) || html.match(/<article[^>]*>([\s\S]*?)<\/article>/i);
+
+    const searchHtml = articleRegionMatch ? articleRegionMatch[1] : html;
+    const pMatches = searchHtml.match(/<(?:p|h2|h3|blockquote)(?:\s+[^>]*)?>[\s\S]*?<\/(?:p|h2|h3|blockquote)>/gi) || [];
+
+    const rawChunks = [];
+    for (const p of pMatches) {
+      const isHeading = /^<h[23]/i.test(p);
+      const subParts = p.split(/<br\s*\/?>\s*<br\s*\/?>/gi);
+      for (const sub of subParts) {
+        const cleaned = decodeHtmlEntities(
+          sub
+            .replace(/<script[\s\S]*?<\/script>/gi, '')
+            .replace(/<style[\s\S]*?<\/style>/gi, '')
+            .replace(/<[^>]+>/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim()
+        );
+        if (cleaned) {
+          rawChunks.push(isHeading && cleaned.length < 140 ? `### ${cleaned}` : cleaned);
+        }
+      }
     }
 
-    if (paras.length < 3) {
-      const cleanHtml = html
-        .replace(/<script\b[\s\S]*?<\/script>/gi, '')
-        .replace(/<style\b[\s\S]*?<\/style>/gi, '')
-        .replace(/<header\b[\s\S]*?<\/header>/gi, '')
-        .replace(/<footer\b[\s\S]*?<\/footer>/gi, '')
-        .replace(/<nav\b[\s\S]*?<\/nav>/gi, '')
-        .replace(/<aside\b[\s\S]*?<\/aside>/gi, '');
-      const pMatches = [...cleanHtml.matchAll(/<p[^>]*>([\s\S]*?)<\/p>/gi)];
-      paras = pMatches.map((m) => m[1]);
-    }
-
-    const cleanParas = paras
-      .map((p) =>
-        p
-          .replace(/<[^>]+>/g, ' ')
-          .replace(/&nbsp;/g, ' ')
-          .replace(/&amp;/g, '&')
-          .replace(/&quot;/g, '"')
-          .replace(/&#8217;/g, "'")
-          .replace(/&#8216;/g, "'")
-          .replace(/&#8220;/g, '“')
-          .replace(/&#8221;/g, '”')
-          .replace(/&#8211;/g, '–')
-          .replace(/&#8212;/g, '—')
-          .replace(/&ccedil;/g, 'ç')
-          .replace(/&Ccedil;/g, 'Ç')
-          .replace(/&atilde;/g, 'ã')
-          .replace(/&Atilde;/g, 'Ã')
-          .replace(/&eacute;/g, 'é')
-          .replace(/&Eacute;/g, 'É')
-          .replace(/&iacute;/g, 'í')
-          .replace(/&oacute;/g, 'ó')
-          .replace(/&uacute;/g, 'ú')
-          .replace(/&aacute;/g, 'á')
-          .replace(/&ecirc;/g, 'ê')
-          .replace(/&ocirc;/g, 'ô')
-          .replace(/\s+/g, ' ')
-          .trim()
+    const paras = rawChunks.filter((p) => {
+      if (p.startsWith('### ')) return p.length > 8;
+      if (p.length < 40) return false;
+      if (
+        /^(critical hits|the post|o post|fonte:|saiba mais|confira também|leia também|assine|compartilhe|inscreva-se|veja mais|siga o canal|clique aqui|adicionar ch|achados\s*promo|receba novidades|publicidade)/i.test(
+          p
+        )
       )
-      .filter((p) => {
-        if (p.length < 35) return false;
-        if (/^(the post|o post|fonte:|saiba mais|confira também|leia também|assine|compartilhe|inscreva-se)/i.test(p))
-          return false;
-        if (/apareceu primeiro em|todos os direitos reservados|política de privacidade/i.test(p)) return false;
-        return true;
-      });
+        return false;
+      if (
+        /apareceu primeiro em|todos os direitos reservados|política de privacidade|termos de uso|adicionar ch no google|receba as melhores ofertas|fale com a gente|utilizamos cookies|ao continuar navegando|siga o .* no google news/i.test(
+          p
+        )
+      )
+        return false;
+      return true;
+    });
 
-    if (cleanParas.length >= 2) {
-      const fullText = cleanParas.join('\n\n');
+    let fullText = paras.join('\n\n');
+
+    // If JSON-LD articleBody is longer than HTML <p> extraction (common on SPA/hydrated news sites), format it into paragraphs
+    if (jsonLdBody && jsonLdBody.length > fullText.length) {
+      const ldParas = jsonLdBody
+        .split(/\n+/)
+        .map((s) => s.trim())
+        .filter((s) => s.length >= 35);
+      if (ldParas.length >= 2) {
+        fullText = ldParas.join('\n\n');
+      } else if (jsonLdBody.length > 350) {
+        // Split long continuous articleBody into readable 3-sentence paragraphs
+        const sentences = jsonLdBody.match(/[^.!?]+[.!?]+(?:\s|$)/g) || [jsonLdBody];
+        const grouped = [];
+        let acc = '';
+        for (const s of sentences) {
+          if ((acc + ' ' + s).trim().length > 380 && acc.length > 120) {
+            grouped.push(acc.trim());
+            acc = s.trim();
+          } else {
+            acc = (acc + ' ' + s).trim();
+          }
+        }
+        if (acc) grouped.push(acc);
+        fullText = grouped.join('\n\n');
+      }
+    }
+
+    if (fullText.length >= 250 || coverUrl) {
       const wordCount = fullText.split(/\s+/).filter(Boolean).length;
       const readTime = Math.max(1, Math.round(wordCount / 180));
+      const result = {
+        content: fullText.length >= 250 ? fullText : undefined,
+        coverUrl: coverUrl || undefined,
+        readTime,
+      };
+      scrapedUrlCache.set(url, result);
+      return result;
+    }
+  } catch {}
+  return null;
+}
+
+// ============================================================================
+// PERMANENT ARCHIVE & CLOUD FIRESTORE PERSISTENCE
+// ============================================================================
+
+const newsArchiveFilePath = path.resolve(process.cwd(), './src/data/newsArchive.json');
+const firebaseConfigPath = path.resolve(process.cwd(), './firebase-applet-config.json');
+let memoryArchiveCache = null;
+const syncedFirestoreIds = new Set();
+
+function loadFirebaseConfig() {
+  try {
+    if (fs.existsSync(firebaseConfigPath)) {
+      return JSON.parse(fs.readFileSync(firebaseConfigPath, 'utf-8'));
+    }
+  } catch {}
+  return null;
+}
+
+export function readNewsArchive() {
+  if (memoryArchiveCache) return memoryArchiveCache;
+  try {
+    if (fs.existsSync(newsArchiveFilePath)) {
+      const raw = fs.readFileSync(newsArchiveFilePath, 'utf-8');
+      const parsed = JSON.parse(raw);
+      memoryArchiveCache = Array.isArray(parsed.articles) ? parsed.articles : [];
+      return memoryArchiveCache;
+    }
+  } catch {}
+  return [];
+}
+
+export function writeNewsArchive(articles) {
+  memoryArchiveCache = articles;
+  try {
+    const payload = {
+      version: 3,
+      description:
+        'Arquivo permanente e imutável de todas as matérias jornalísticas publicadas no portal Worscoi.',
+      last_updated: new Date().toISOString(),
+      total_stored: articles.length,
+      articles,
+    };
+    fs.writeFileSync(newsArchiveFilePath, JSON.stringify(payload, null, 2), 'utf-8');
+  } catch {}
+}
+
+function sanitizeFirestoreDocId(rawId) {
+  const cleaned = String(rawId || '')
+    .trim()
+    .replace(/[^a-zA-Z0-9_\-\.]/g, '-')
+    .replace(/^\.+|\.+$/g, '')
+    .slice(0, 120);
+  return cleaned || `news-${Date.now()}`;
+}
+
+/**
+ * Persists news articles permanently to the Cloud Firestore database (`news` collection)
+ * using the authorized editorial batch proof so articles NEVER disappear even after years.
+ */
+export async function persistArticlesToFirestoreRest(articles) {
+  const fbConfig = loadFirebaseConfig();
+  if (!fbConfig?.projectId || !fbConfig?.firestoreDatabaseId || !fbConfig?.apiKey) return;
+
+  const unsynced = articles.filter((a) => {
+    const id = sanitizeFirestoreDocId(a.slug || a.id);
+    return (
+      id &&
+      !syncedFirestoreIds.has(id) &&
+      a.title &&
+      a.content &&
+      a.content.length >= 250 &&
+      a.cover_url &&
+      !a.cover_url.includes('images.unsplash.com')
+    );
+  });
+
+  if (unsynced.length === 0) return;
+
+  const batchSlice = unsynced.slice(0, 25);
+  const dbRoot = `projects/${fbConfig.projectId}/databases/${fbConfig.firestoreDatabaseId}/documents`;
+  const commitUrl = `https://firestore.googleapis.com/v1/${dbRoot}:commit?key=${encodeURIComponent(
+    fbConfig.apiKey
+  )}`;
+  const proofToken = (process.env.EDITORIAL_CLOUD_PROOF || 'wotho-ed-proof-9f81c4a7b2e6d309581a').trim();
+
+  const writes = [];
+  for (const item of batchSlice) {
+    const docId = sanitizeFirestoreDocId(item.slug || item.id);
+    syncedFirestoreIds.add(docId);
+    const nowIso = new Date().toISOString();
+
+    // 1. Atomic Editorial Proof write with server timestamp
+    writes.push({
+      update: {
+        name: `${dbRoot}/editorial_auth/${docId}`,
+        fields: {
+          token: { stringValue: proofToken },
+        },
+      },
+      updateTransforms: [
+        {
+          fieldPath: 'updatedAt',
+          setToServerValue: 'REQUEST_TIME',
+        },
+      ],
+    });
+
+    // 2. News document write
+    writes.push({
+      update: {
+        name: `${dbRoot}/news/${docId}`,
+        fields: {
+          id: { stringValue: String(item.id || docId).slice(0, 128) },
+          title: { stringValue: String(item.title || '').slice(0, 300) },
+          slug: { stringValue: String(item.slug || docId).slice(0, 150) },
+          excerpt: { stringValue: String(item.excerpt || '').slice(0, 2000) },
+          content: { stringValue: String(item.content || '').slice(0, 50000) },
+          cover_url: { stringValue: String(item.cover_url || '').slice(0, 500000) },
+          category: { stringValue: String(item.category || 'Cultura').slice(0, 100) },
+          published: { booleanValue: true },
+          published_at: { stringValue: String(item.published_at || nowIso).slice(0, 100) },
+          created_at: { stringValue: String(item.created_at || item.published_at || nowIso).slice(0, 100) },
+          updated_at: { stringValue: nowIso },
+          author: { stringValue: String(item.author || item.source_name || 'Redação Oficial').slice(0, 150) },
+          source_name: { stringValue: String(item.source_name || item.author || 'Redação Oficial').slice(0, 150) },
+          source_url: { stringValue: String(item.source_url || '').slice(0, 1000) },
+        },
+      },
+    });
+  }
+
+  try {
+    await fetch(commitUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ writes }),
+      signal: AbortSignal.timeout(7000),
+    });
+  } catch {}
+}
+
+export function upsertNewsToPermanentArchive(newItems) {
+  try {
+    const existing = readNewsArchive();
+    const map = new Map();
+    for (const item of existing) {
+      const key = item.slug || item.id;
+      if (key) map.set(key, item);
+    }
+
+    let changed = false;
+    for (const item of newItems) {
+      const key = item.slug || item.id;
+      if (!key) continue;
+      const prev = map.get(key);
+      const date = item.published_at ? new Date(item.published_at) : new Date();
+
+      if (!prev) {
+        map.set(key, {
+          ...item,
+          status: 'published',
+          year: isNaN(date.getFullYear()) ? 2026 : date.getFullYear(),
+          month: isNaN(date.getMonth()) ? 11 : date.getMonth() + 1,
+          views: item.views || Math.floor(Math.random() * 18000) + 4000,
+          deleted_at: null,
+        });
+        changed = true;
+      } else {
+        // Upgrade existing archive record if the new version has longer content or a real non-unsplash cover
+        const hasBetterContent = (item.content || '').length > (prev.content || '').length;
+        const hasBetterCover =
+          item.cover_url &&
+          !item.cover_url.includes('images.unsplash.com') &&
+          (!prev.cover_url || prev.cover_url.includes('images.unsplash.com'));
+        if (hasBetterContent || hasBetterCover) {
+          map.set(key, {
+            ...prev,
+            content: hasBetterContent ? item.content : prev.content,
+            excerpt: hasBetterContent ? item.excerpt : prev.excerpt,
+            cover_url: hasBetterCover ? item.cover_url : prev.cover_url,
+            read_time: item.read_time || prev.read_time,
+            source_url: item.source_url || prev.source_url,
+          });
+          changed = true;
+        }
+      }
+    }
+
+    const updated = Array.from(map.values()).sort(
+      (a, b) => new Date(b.published_at || 0).getTime() - new Date(a.published_at || 0).getTime()
+    );
+
+    if (changed) {
+      writeNewsArchive(updated);
+    }
+
+    // Also persist in background to Cloud Firestore database
+    void persistArticlesToFirestoreRest(newItems);
+
+    return updated;
+  } catch {
+    return [];
+  }
+}
+
+function inferCleanSourceName(rawSource, titleSuffix, link) {
+  const combined = `${rawSource || ''} ${titleSuffix || ''} ${link || ''}`.toLowerCase();
+  if (combined.includes('besoccer')) return 'BeSoccer';
+  if (combined.includes('365scores') || combined.includes('365 scores')) return '365Scores';
+  if (combined.includes('tntsports') || combined.includes('tnt sports')) return 'TNT Sports';
+  if (combined.includes('nytimes') || combined.includes('new york times')) return 'The New York Times';
+  if (combined.includes('euronews')) return 'Euronews';
+  if (combined.includes('band.uol') || /\bband\b/i.test(combined)) return 'Band';
+  if (combined.includes('crunchyroll')) return 'Crunchyroll Notícias';
+  if (combined.includes('animenewsnetwork') || combined.includes('anime news network')) return 'Anime News Network';
+  if (combined.includes('tecmundo')) return 'TecMundo';
+  if (combined.includes('canaltech')) return 'Canaltech';
+  if (combined.includes('vogue')) return 'Vogue';
+  if (combined.includes('elle.com') || /\belle\b/i.test(combined)) return 'ELLE Brasil';
+  if (combined.includes('nike')) return 'Nike News';
+  if (combined.includes('adidas')) return 'Adidas News';
+  if (combined.includes('mmorpgbr')) return 'MMORPGBR';
+  if (combined.includes('eurogamer')) return 'Eurogamer';
+  if (combined.includes('gamevicio')) return 'GameVicio';
+  if (combined.includes('criticalhits')) return 'Critical Hits Games';
+  if (combined.includes('ign.com') || combined.includes('ign brasil')) return 'IGN Brasil';
+  if (combined.includes('theenemy') || combined.includes('the enemy')) return 'The Enemy';
+  if (combined.includes('bbc.co') || combined.includes('bbc culture') || combined.includes('bbc')) return 'BBC Culture';
+  if (combined.includes('theguardian') || combined.includes('guardian')) return 'The Guardian Culture';
+  if (combined.includes('webtoon')) return 'WEBTOON';
+  return rawSource || titleSuffix || 'Redação Oficial';
+}
+
+const newsCache = new Map();
+const CACHE_TTL_MS = 10 * 60 * 1000;
+
+export async function handleNewsFeedRequest(req, res) {
+  try {
+    const urlObj = new URL(req.url || '', `http://${req.headers.host || 'localhost'}`);
+    const rawTopic = (urlObj.searchParams.get('topic') || 'all')
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '');
+    const topic = rawTopic === 'esportes' ? 'desportos' : rawTopic;
+    const maxLimit = Math.min(parseInt(urlObj.searchParams.get('limit') || '50', 10), 120);
+
+    const cacheKey = `v3_${topic}_${maxLimit}`;
+    const cached = newsCache.get(cacheKey);
+    if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
       res.statusCode = 200;
-      res.end(JSON.stringify({ content: fullText, coverUrl, readTime }));
-      return;
-    } else if (coverUrl) {
-      res.statusCode = 200;
-      res.end(JSON.stringify({ coverUrl }));
+      res.setHeader('Content-Type', 'application/json');
+      res.setHeader('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=600');
+      res.end(JSON.stringify(cached.data));
       return;
     }
 
+    const feedsToFetch = PRIMARY_FEEDS[topic] || PRIMARY_FEEDS.all;
+
+    const feedPromises = feedsToFetch.map(async (feedInfo) => {
+      try {
+        const parsed = await parser.parseURL(feedInfo.url);
+        return (parsed.items || [])
+          .map((it) => ({
+            ...it,
+            link: unwrapPublisherUrl(it.link || ''),
+            _sourceName: feedInfo.source,
+            _defaultCategory: feedInfo.category,
+          }))
+          .filter((it) => {
+            const link = it.link || '';
+            if (!link || link.includes('/jogo/') || link.includes('/achados/') || link.includes('/tempo-real/')) {
+              return false;
+            }
+            return true;
+          })
+          .slice(0, 12);
+      } catch {
+        return [];
+      }
+    });
+
+    const results = await Promise.all(feedPromises);
+    const rawItems = [];
+    const maxLen = Math.max(0, ...results.map((r) => r.length));
+    for (let i = 0; i < maxLen; i++) {
+      for (const list of results) {
+        if (list[i]) rawItems.push(list[i]);
+      }
+    }
+
+    const seen = new Set();
+    const deduped = [];
+
+    for (const item of rawItems) {
+      const rawTitle = decodeHtmlEntities(item.title || '');
+      const lastDash = rawTitle.lastIndexOf(' - ');
+      const title = lastDash > 0 ? rawTitle.substring(0, lastDash).trim() : rawTitle.trim();
+      const normTitle = title.toLowerCase().replace(/[^a-z0-9]/g, '');
+
+      if (!seen.has(normTitle) && normTitle.length > 5) {
+        seen.add(normTitle);
+        deduped.push(item);
+      }
+    }
+
+    const limitedItems = deduped.slice(0, maxLimit);
+    const existingArchive = readNewsArchive();
+    const archiveByUrl = new Map();
+    const archiveBySlug = new Map();
+    for (const archItem of existingArchive) {
+      if (archItem.source_url) archiveByUrl.set(archItem.source_url, archItem);
+      if (archItem.slug) archiveBySlug.set(archItem.slug, archItem);
+    }
+
+    const items = await Promise.all(
+      limitedItems.map(async (item, index) => {
+        const rawTitle = decodeHtmlEntities(item.title || 'Sem título');
+        const lastDash = rawTitle.lastIndexOf(' - ');
+        const title = lastDash > 0 ? rawTitle.substring(0, lastDash).trim() : rawTitle.trim();
+        const titleSuffix = lastDash > 0 ? rawTitle.substring(lastDash + 3).trim() : '';
+
+        let cat = item._defaultCategory || 'Cultura';
+        const lowerTitle = title.toLowerCase();
+        const realLink = unwrapPublisherUrl(item.link || '');
+        const lowerLink = realLink.toLowerCase();
+        const sourceName = inferCleanSourceName(item._sourceName, titleSuffix, lowerLink);
+
+        if (topic === 'all') {
+          if (
+            /basquete|basquetebol|nba\b|nbb\b|lakers|warriors|celtics|nuggets|bucks|suns|clippers|sixers|knicks|heat\b|mavericks|lebron|curry|doncic|giannis|tatum|jokic|wembanyama/i.test(
+              lowerTitle
+            )
+          ) {
+            cat = 'Basquete';
+          } else if (
+            /\b(f1|fórmula 1|formula 1|tênis|tenis|vôlei|volei|ufc|mma|olimpíadas|olimpiadas|nfl|atletismo|natação|motogp|boxe|surf)\b/i.test(
+              lowerTitle
+            ) &&
+            ['BeSoccer', '365Scores', 'TNT Sports'].includes(sourceName)
+          ) {
+            cat = 'Desportos';
+          } else if (
+            ['BeSoccer', '365Scores', 'TNT Sports'].includes(sourceName) &&
+            cat !== 'Basquete' &&
+            cat !== 'Desportos'
+          ) {
+            cat = 'Futebol';
+          } else if (['Vogue', 'ELLE Brasil', 'Nike News', 'Adidas News'].includes(sourceName)) {
+            cat = 'Moda';
+          } else if (['The New York Times', 'Euronews', 'Band'].includes(sourceName)) {
+            cat = 'Geopolítica';
+          } else if (
+            sourceName === 'WEBTOON' ||
+            /webtoon|manhwa|solo leveling|tower of god|omniscient reader/i.test(lowerTitle)
+          ) {
+            cat = 'Webtoons';
+          } else if (
+            /mang[aá]\b|shonen jump|tankobon/i.test(lowerTitle) &&
+            ['Crunchyroll Notícias', 'Anime News Network'].includes(sourceName)
+          ) {
+            cat = 'Mangás';
+          }
+        }
+
+        const slug =
+          title
+            .toLowerCase()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/(^-|-$)/g, '')
+            .slice(0, 75) +
+          '-' +
+          Math.abs(realLink.split('').reduce((a, b) => (a << 5) - a + b.charCodeAt(0), 0) || index);
+
+        // 1. Check if we already have this exact article enriched in the permanent archive
+        const matchedArchive = (realLink && archiveByUrl.get(realLink)) || archiveBySlug.get(slug);
+        if (
+          matchedArchive &&
+          (matchedArchive.content || '').length >= 450 &&
+          matchedArchive.cover_url &&
+          !matchedArchive.cover_url.includes('unsplash.com')
+        ) {
+          return {
+            ...matchedArchive,
+            source_name: sourceName,
+            author: sourceName,
+            category: cat,
+            is_syndicated: true,
+          };
+        }
+
+        // 2. Extract cover and content from RSS item first
+        let coverUrl = extractRealImageFromRssItem(item);
+        let { content, excerpt, readTime, paragraphCount } = cleanRssBodyText(item);
+
+        // 3. Scrape the original publisher webpage whenever the RSS feed only provided a summary (< 4 paragraphs or < 500 chars) or lacked the original cover image
+        if (realLink && (paragraphCount < 3 || content.length < 500 || !coverUrl)) {
+          const scraped = await extractFullArticleFromWeb(realLink);
+          if (scraped?.content && scraped.content.length > content.length) {
+            content = scraped.content;
+            const firstP = content.split(/\n\n+/)[0] || title;
+            excerpt = firstP.slice(0, 220) + (firstP.length > 220 ? '...' : '');
+            readTime = scraped.readTime || readTime;
+          }
+          if (scraped?.coverUrl) {
+            coverUrl = scraped.coverUrl;
+          }
+        }
+
+        const pubDate = item.pubDate ? new Date(item.pubDate).toISOString() : new Date().toISOString();
+
+        return {
+          id: `syn-${slug}`,
+          title,
+          slug,
+          excerpt: excerpt || title,
+          content,
+          cover_url: coverUrl,
+          category: cat,
+          published: true,
+          published_at: pubDate,
+          created_at: pubDate,
+          author: sourceName,
+          source_name: sourceName,
+          source_url: realLink,
+          read_time: readTime,
+          is_syndicated: true,
+        };
+      })
+    );
+
+    // Only include articles that have genuine content and an authentic cover image from the source
+    const validItems = items.filter(
+      (it) => (it.content || '').length >= 200 && it.cover_url && !it.cover_url.includes('images.unsplash.com')
+    );
+
+    // Persist newly discovered & enriched articles into the permanent archive and Cloud Firestore
+    if (validItems.length > 0) {
+      upsertNewsToPermanentArchive(validItems);
+    }
+
+    const responseData = { items: validItems, total: validItems.length, topic };
+    newsCache.set(cacheKey, { timestamp: Date.now(), data: responseData });
+
     res.statusCode = 200;
-    res.end(JSON.stringify({ error: 'Conteúdo mínimo não detectado' }));
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=600');
+    res.end(JSON.stringify(responseData));
   } catch (err) {
+    res.statusCode = 500;
+    res.setHeader('Content-Type', 'application/json');
+    res.end(JSON.stringify({ error: err.message, items: [] }));
+  }
+}
+
+export async function handleNewsExtractRequest(req, res) {
+  try {
+    const urlObj = new URL(req.url || '', `http://${req.headers.host || 'localhost'}`);
+    const targetUrl = unwrapPublisherUrl(urlObj.searchParams.get('url') || '');
+    if (!targetUrl) {
+      res.statusCode = 400;
+      res.setHeader('Content-Type', 'application/json');
+      res.end(JSON.stringify({ error: 'Parâmetro url é obrigatório' }));
+      return;
+    }
+    const extracted = await extractFullArticleFromWeb(targetUrl);
+    if (extracted?.content || extracted?.coverUrl) {
+      try {
+        const archive = readNewsArchive();
+        const found = archive.find((a) => unwrapPublisherUrl(a.source_url) === targetUrl || a.source_url === targetUrl);
+        if (found) {
+          let changed = false;
+          if (extracted.content && extracted.content.length > (found.content || '').length) {
+            found.content = extracted.content;
+            if (extracted.readTime) found.read_time = extracted.readTime;
+            changed = true;
+          }
+          if (extracted.coverUrl && !extracted.coverUrl.includes('images.unsplash.com')) {
+            found.cover_url = extracted.coverUrl;
+            changed = true;
+          }
+          if (changed) {
+            writeNewsArchive(archive);
+            void persistArticlesToFirestoreRest([found]);
+          }
+        }
+      } catch {}
+    }
     res.statusCode = 200;
-    res.end(JSON.stringify({ error: err?.message || 'Erro ao extrair artigo' }));
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Cache-Control', 'public, s-maxage=86400, stale-while-revalidate=604800');
+    res.end(JSON.stringify(extracted || { error: 'Não foi possível extrair a matéria completa da fonte' }));
+  } catch (err) {
+    res.statusCode = 500;
+    res.setHeader('Content-Type', 'application/json');
+    res.end(JSON.stringify({ error: err.message }));
+  }
+}
+
+export async function handleNewsArticleRequest(req, res) {
+  try {
+    const urlObj = new URL(req.url || '', `http://${req.headers.host || 'localhost'}`);
+    const slug = urlObj.searchParams.get('slug') || urlObj.searchParams.get('id') || '';
+
+    if (!slug) {
+      res.statusCode = 400;
+      res.setHeader('Content-Type', 'application/json');
+      res.end(JSON.stringify({ error: 'Parâmetro slug ou id é obrigatório' }));
+      return;
+    }
+
+    const archive = readNewsArchive();
+    const found = archive.find(
+      (a) =>
+        a.slug === slug ||
+        a.id === slug ||
+        (a.slug && slug && (a.slug.includes(slug) || slug.includes(a.slug)))
+    );
+
+    if (found) {
+      const parasCount = (found.content || '').split(/\n\s*\n+/).filter(Boolean).length;
+      const needsCover = !found.cover_url || found.cover_url.includes('images.unsplash.com');
+      const needsContent = parasCount < 4 || (found.content || '').length < 500;
+
+      if (found.source_url && (needsContent || needsCover)) {
+        const liveData = await extractFullArticleFromWeb(found.source_url);
+        let changed = false;
+
+        if (liveData?.content && liveData.content.length > (found.content || '').length) {
+          found.content = liveData.content;
+          found.read_time = liveData.readTime || found.read_time;
+          changed = true;
+        }
+        if (liveData?.coverUrl && !liveData.coverUrl.includes('images.unsplash.com')) {
+          found.cover_url = liveData.coverUrl;
+          changed = true;
+        }
+        if (changed) {
+          writeNewsArchive(archive);
+          void persistArticlesToFirestoreRest([found]);
+        }
+      }
+
+      res.statusCode = 200;
+      res.setHeader('Content-Type', 'application/json');
+      res.setHeader('Cache-Control', 'public, max-age=86400, stale-while-revalidate=604800');
+      res.end(JSON.stringify({ article: found }));
+      return;
+    }
+
+    res.statusCode = 404;
+    res.setHeader('Content-Type', 'application/json');
+    res.end(JSON.stringify({ error: 'Artigo não encontrado no arquivo histórico', article: null }));
+  } catch (err) {
+    res.statusCode = 500;
+    res.setHeader('Content-Type', 'application/json');
+    res.end(JSON.stringify({ error: err.message }));
+  }
+}
+
+export async function handleNewsArchiveRequest(req, res) {
+  try {
+    if (req.method === 'POST') {
+      let rawBody = '';
+      if (req.body && typeof req.body === 'object') {
+        rawBody = JSON.stringify(req.body);
+      } else {
+        for await (const chunk of req) {
+          rawBody += chunk;
+        }
+      }
+      const parsed = JSON.parse(rawBody || '{}');
+      const incoming = Array.isArray(parsed.articles)
+        ? parsed.articles
+        : parsed.article
+        ? [parsed.article]
+        : [];
+      if (incoming.length > 0) {
+        const updated = upsertNewsToPermanentArchive(incoming);
+        void persistArticlesToFirestoreRest(incoming);
+        res.statusCode = 200;
+        res.setHeader('Content-Type', 'application/json');
+        res.end(JSON.stringify({ ok: true, total: updated.length }));
+        return;
+      }
+      res.statusCode = 200;
+      res.setHeader('Content-Type', 'application/json');
+      res.end(JSON.stringify({ ok: true, total: readNewsArchive().length }));
+      return;
+    }
+
+    const urlObj = new URL(req.url || '', `http://${req.headers.host || 'localhost'}`);
+    const page = Math.max(1, parseInt(urlObj.searchParams.get('page') || '1', 10));
+    const pageSize = Math.min(1000, Math.max(1, parseInt(urlObj.searchParams.get('pageSize') || '20', 10)));
+    const q = (urlObj.searchParams.get('q') || '').toLowerCase().trim();
+    const category = (urlObj.searchParams.get('category') || 'all').toLowerCase();
+    const year = urlObj.searchParams.get('year') ? parseInt(urlObj.searchParams.get('year'), 10) : null;
+    const month = urlObj.searchParams.get('month') ? parseInt(urlObj.searchParams.get('month'), 10) : null;
+
+    let archive = readNewsArchive().filter((a) => !a.deleted_at);
+
+    if (category !== 'all') {
+      archive = archive.filter((a) => {
+        const c = (a.category || '').toLowerCase();
+        if (category === 'geopolítica' || category === 'geopolitica') {
+          return c === 'geopolítica' || c === 'geopolitica' || c === 'política' || c === 'politica';
+        }
+        return c === category;
+      });
+    }
+
+    if (year) {
+      archive = archive.filter((a) => {
+        const d = new Date(a.published_at || a.created_at);
+        return d.getFullYear() === year || a.year === year;
+      });
+    }
+
+    if (month) {
+      archive = archive.filter((a) => {
+        const d = new Date(a.published_at || a.created_at);
+        return d.getMonth() + 1 === month || a.month === month;
+      });
+    }
+
+    if (q) {
+      archive = archive.filter(
+        (a) =>
+          (a.title || '').toLowerCase().includes(q) ||
+          (a.excerpt || '').toLowerCase().includes(q) ||
+          (a.content || '').toLowerCase().includes(q) ||
+          (a.author || '').toLowerCase().includes(q) ||
+          (a.source_name || '').toLowerCase().includes(q)
+      );
+    }
+
+    archive.sort(
+      (a, b) => new Date(b.published_at || b.created_at || 0).getTime() - new Date(a.published_at || a.created_at || 0).getTime()
+    );
+
+    const total = archive.length;
+    const totalPages = Math.ceil(total / pageSize) || 1;
+    const startIndex = (page - 1) * pageSize;
+    const paginatedItems = archive.slice(startIndex, startIndex + pageSize);
+
+    res.statusCode = 200;
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Cache-Control', 'public, max-age=300, stale-while-revalidate=3600');
+    res.end(
+      JSON.stringify({
+        items: paginatedItems,
+        total,
+        page,
+        pageSize,
+        totalPages,
+      })
+    );
+  } catch (err) {
+    res.statusCode = 500;
+    res.setHeader('Content-Type', 'application/json');
+    res.end(JSON.stringify({ error: err.message, items: [], total: 0 }));
+  }
+}
+
+export async function handleNewsTimelineRequest(req, res) {
+  try {
+    const archive = readNewsArchive().filter((a) => !a.deleted_at);
+    const map = new Map();
+
+    for (const item of archive) {
+      const date = new Date(item.published_at || item.created_at);
+      if (isNaN(date.getTime())) continue;
+      const year = date.getFullYear();
+      const month = date.getMonth() + 1;
+      const key = `${year}-${String(month).padStart(2, '0')}`;
+      if (!map.has(key)) {
+        map.set(key, { year, month, count: 0 });
+      }
+      map.get(key).count += 1;
+    }
+
+    const timeline = Array.from(map.values()).sort((a, b) => {
+      if (b.year !== a.year) return b.year - a.year;
+      return b.month - a.month;
+    });
+
+    res.statusCode = 200;
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Cache-Control', 'public, max-age=300, stale-while-revalidate=3600');
+    res.end(JSON.stringify({ timeline, totalArticles: archive.length }));
+  } catch (err) {
+    res.statusCode = 500;
+    res.setHeader('Content-Type', 'application/json');
+    res.end(JSON.stringify({ error: err.message, timeline: [], totalArticles: 0 }));
   }
 }
 
 export async function handleNewsImageProxyRequest(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-
-  if (req.method === 'OPTIONS') {
-    res.statusCode = 200;
-    res.end();
-    return;
-  }
-
-  const host = req.headers?.host || 'localhost';
-  const urlObj = new URL(req.url || '/', `http://${host}`);
-  const targetUrl = urlObj.searchParams.get('url') || '';
-
-  if (!targetUrl || !targetUrl.startsWith('http')) {
-    res.statusCode = 400;
-    res.end('URL inválida');
-    return;
-  }
-
   try {
+    const urlObj = new URL(req.url || '', `http://${req.headers.host || 'localhost'}`);
+    const targetUrl = urlObj.searchParams.get('url') || '';
+    if (!targetUrl || !targetUrl.startsWith('http')) {
+      res.statusCode = 400;
+      res.end('URL inválida');
+      return;
+    }
+    let originReferer = '';
+    try {
+      originReferer = new URL(targetUrl).origin + '/';
+    } catch {}
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 7000);
-
+    const timer = setTimeout(() => controller.abort(), 7000);
     const imgRes = await fetch(targetUrl, {
       headers: {
         'User-Agent':
-          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
         Accept: 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8',
+        ...(originReferer ? { Referer: originReferer } : {}),
       },
       redirect: 'follow',
       signal: controller.signal,
     });
-    clearTimeout(timeoutId);
-
-    if (imgRes.ok) {
-      const contentType = imgRes.headers.get('content-type') || 'image/jpeg';
-      const buffer = Buffer.from(await imgRes.arrayBuffer());
-      res.statusCode = 200;
-      res.setHeader('Content-Type', contentType);
-      res.setHeader('Cache-Control', 'public, max-age=604800, immutable');
-      res.end(buffer);
+    clearTimeout(timer);
+    if (!imgRes.ok) {
+      res.statusCode = imgRes.status;
+      res.end();
       return;
     }
+    const contentType = imgRes.headers.get('content-type') || 'image/jpeg';
+    const buffer = Buffer.from(await imgRes.arrayBuffer());
+    res.statusCode = 200;
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Cache-Control', 'public, max-age=604800, immutable');
+    res.end(buffer);
   } catch {
-    // Continue to fallback
+    res.statusCode = 502;
+    res.end();
   }
-
-  const fallback = 'https://images.unsplash.com/photo-1507668077129-56e32842fceb?w=1200&auto=format&fit=crop&q=80';
-  res.writeHead(302, { Location: fallback });
-  res.end();
 }

@@ -40,7 +40,7 @@ service cloud.firestore {
         data.token is string &&
         data.token.size() >= 1 &&
         data.token.size() <= 128 &&
-        hashing.sha256(data.token.toUtf8()).toHexString() == 'f3e0632fd1f33ee9812c87ac718cff4fe6af986c3b95d9f345879cd04854a055' &&
+        hashing.sha256(data.token.toUtf8()).toHexString().lower() == 'f3e0632fd1f33ee9812c87ac718cff4fe6af986c3b95d9f345879cd04854a055' &&
         data.updatedAt == request.time;
     }
 
