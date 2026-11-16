@@ -1,6 +1,10 @@
 <!doctype html>
 <html lang="pt-BR">
   <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="referrer" content="strict-origin-when-cross-origin" />
+
     <!-- Google AdSense -->
     <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8089523516720577"
      crossorigin="anonymous"></script>
@@ -21,7 +25,6 @@
         } catch (e) {}
       });
     </script>
-    <meta charset="UTF-8" />
     <meta name="google-site-verification" content="n_nVQKGN9hqwtcg5XjGbYyX8xzfR0aaTIEiLNZuZgwk" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
@@ -29,8 +32,6 @@
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
     <link rel="shortcut icon" href="/favicon.ico" />
     <link rel="manifest" href="/site.webmanifest" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="referrer" content="no-referrer" />
     <title>Wotho — Livros Digitais, Notícias Globais, Streaming e Webtoons</title>
     <meta name="description" content="Explore a Wotho: biblioteca digital no navegador, jornalismo global em tempo real, streaming de cinema e animes em HD e webtoons em leitura vertical." />
     <meta name="keywords" content="Wotho, livros digitais, notícias globais, streaming, cinema online, animes, webtoons, leitura online, cultura, literatura, ENEM" />
@@ -257,53 +258,6 @@
         <p>Ative o JavaScript no seu navegador para acessar todos os recursos interativos da Wotho.</p>
       </main>
     </noscript>
-    <script>
-      (function () {
-        var showOfflineState = function () {
-          if (window.__WOTHO_APP_MOUNTED__) return;
-          var loader = document.getElementById("wotho-boot-loader");
-          var status = document.getElementById("wotho-boot-status");
-          var offline = document.getElementById("wotho-boot-offline");
-          if (loader) loader.style.display = "none";
-          if (status) {
-            status.textContent = navigator.onLine === false ? "Sem conexão com a internet" : "Conexão instável";
-          }
-          if (offline) offline.style.display = "flex";
-        };
-
-        if (navigator.onLine === false) {
-          setTimeout(showOfflineState, 1500);
-        }
-
-        window.addEventListener("offline", function () {
-          if (!window.__WOTHO_APP_MOUNTED__) showOfflineState();
-        });
-
-        window.addEventListener(
-          "error",
-          function (e) {
-            if (window.__WOTHO_APP_MOUNTED__) return;
-            var target = e && e.target;
-            if (target && target.tagName === "SCRIPT") {
-              var src = target.getAttribute("src") || target.src || "";
-              var isAppEntry =
-                src.indexOf("/src/main.tsx") !== -1 ||
-                /\/assets\/(index|vendor-react)-[^/]+\.js/.test(src);
-              if (isAppEntry) {
-                setTimeout(showOfflineState, 1500);
-              }
-            }
-          },
-          true
-        );
-
-        setTimeout(function () {
-          if (!window.__WOTHO_APP_MOUNTED__ && navigator.onLine === false) {
-            showOfflineState();
-          }
-        }, 4500);
-      })();
-    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

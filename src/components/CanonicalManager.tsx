@@ -186,6 +186,14 @@ export const CanonicalManager = () => {
   useEffect(() => {
     if (typeof window === "undefined") return;
 
+    // Ensure referrer policy never reverts to no-referrer (prevents Vercel Code 11 browser verification failure)
+    upsertMetaTag(
+      'meta[name="referrer"]',
+      "name",
+      "referrer",
+      "strict-origin-when-cross-origin"
+    );
+
     // Guarantee Google AdSense script and account meta tag are present in <head> on every route
     upsertMetaTag(
       'meta[name="google-adsense-account"]',
@@ -196,11 +204,16 @@ export const CanonicalManager = () => {
     const adsenseSrc =
       "https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8089523516720577";
     if (!document.head.querySelector(`script[src*="ca-pub-8089523516720577"]`)) {
-      const adScript = document.createElement("script");
-      adScript.async = true;
-      adScript.src = adsenseSrc;
-      adScript.crossOrigin = "anonymous";
-      document.head.prepend(adScript);
+      try {
+        const adScript = document.createElement("script");
+        adScript.async = true;
+        adScript.src = adsenseSrc;
+        adScript.crossOrigin = "anonymous";
+        adScript.onerror = () => {};
+        document.head.appendChild(adScript);
+      } catch {
+        // Ignore in restricted iframe contexts
+      }
     }
 
     const normalizedPath = normalizeCanonicalPath(location.pathname);

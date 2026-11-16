@@ -175,15 +175,12 @@ export const WorscoCinemaPlayer: React.FC<WorscoCinemaPlayerProps> = ({
   const [activeCueText, setActiveCueText] = useState<string>("");
   const [controlsVisible, setControlsVisible] = useState<boolean>(true);
 
-  // Ensure document referrer policy is no-referrer so direct CDN MP4 streams respond in ~12ms without 429 blocks
+  // Keep document referrer policy as strict-origin-when-cross-origin so browser security verification never fails with Code 11
   useEffect(() => {
-    let meta = document.querySelector('meta[name="referrer"]') as HTMLMetaElement | null;
-    if (!meta) {
-      meta = document.createElement("meta");
-      meta.name = "referrer";
-      document.head.appendChild(meta);
+    const meta = document.querySelector('meta[name="referrer"]') as HTMLMetaElement | null;
+    if (meta && meta.content === "no-referrer") {
+      meta.content = "strict-origin-when-cross-origin";
     }
-    meta.content = "no-referrer";
   }, []);
 
   // Keep audioMode synced if external language prop changes
@@ -788,7 +785,6 @@ export const WorscoCinemaPlayer: React.FC<WorscoCinemaPlayerProps> = ({
       <div
         ref={containerRef}
         onMouseMove={showControlsTemporarily}
-        onContextMenu={(e) => e.preventDefault()}
         className="relative aspect-video w-full bg-black select-none overflow-hidden group"
       >
         {internalPipelineStage === "embed" ? (
@@ -800,8 +796,7 @@ export const WorscoCinemaPlayer: React.FC<WorscoCinemaPlayerProps> = ({
               className="w-full h-full border-0"
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
               allowFullScreen
-              referrerPolicy="origin"
-              sandbox="allow-scripts allow-same-origin allow-forms allow-presentation"
+              referrerPolicy="strict-origin-when-cross-origin"
             />
           </div>
         ) : (

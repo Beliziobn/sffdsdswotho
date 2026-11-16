@@ -1306,6 +1306,8 @@ function sitemapPlugin(): Plugin {
       const isHtmlRoute =
         req.method === 'GET' &&
         !urlPath.startsWith('/api/') &&
+        !urlPath.startsWith('/_vercel/') &&
+        !urlPath.startsWith('/.well-known/') &&
         !urlPath.startsWith('/assets/') &&
         !urlPath.startsWith('/src/') &&
         !urlPath.startsWith('/@') &&

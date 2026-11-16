@@ -106,10 +106,9 @@ export const AnimePlayerModal = ({ anime, isOpen, onClose }: AnimePlayerModalPro
           </div>
         </div>
 
-        {/* Sandboxed Video Player with Anti-Redirect Hotzone Shields */}
+        {/* Video Player */}
         <div
           className="relative aspect-video w-full bg-black group"
-          onContextMenu={(e) => e.preventDefault()}
         >
           {showIntro && (
             <WorscoiIntroPlayer
@@ -127,7 +126,6 @@ export const AnimePlayerModal = ({ anime, isOpen, onClose }: AnimePlayerModalPro
             key={`${anime.id}-s${activeSeason?.seasonNumber || 1}-${trailerId}`}
             src={safeTrailerUrl}
             title={`Trailer Oficial de ${anime.title}`}
-            sandbox="allow-scripts allow-same-origin allow-forms allow-presentation"
             referrerPolicy="strict-origin-when-cross-origin"
             allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture; fullscreen"
             allowFullScreen

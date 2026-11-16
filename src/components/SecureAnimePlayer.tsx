@@ -1081,13 +1081,12 @@ export const SecureAnimePlayer: React.FC<SecureAnimePlayerProps> = ({
             )}
           </>
         ) : (
-          /* Sandboxed Fallback Player (Zero Redirects Guaranteed) */
+          /* Fallback Player */
           <iframe
             key={`${episode.id}-sandbox-${selectedDubId}`}
             src={anivideoIframeUrl}
             title={`${animeTitle} - T${season.seasonNumber}:E${episode.number}`}
-            sandbox="allow-scripts allow-same-origin allow-forms allow-presentation"
-            referrerPolicy="no-referrer"
+            referrerPolicy="strict-origin-when-cross-origin"
             allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture; fullscreen"
             allowFullScreen
             className="w-full h-full border-0 select-none"

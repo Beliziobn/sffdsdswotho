@@ -39,7 +39,7 @@
       "destination": "/api/[...route]?route=$1"
     },
     {
-      "source": "/((?!api/|assets/|chapters/|pdf/|sitemap.*\\.xml|news-sitemap\\.xml|rss\\.xml|feed\\.xml|robots\\.txt|llms.*\\.txt|.*\\..*).*)",
+      "source": "/((?!api/|_vercel/|\\.well-known/|assets/|chapters/|pdf/|sitemap.*\\.xml|news-sitemap\\.xml|rss\\.xml|feed\\.xml|robots\\.txt|llms.*\\.txt|.*\\..*).*)",
       "has": [
         {
           "type": "header",
@@ -50,7 +50,7 @@
       "destination": "/api/[...route]?route=seo-prerender&path=/$1"
     },
     {
-      "source": "/((?!api/|assets/|chapters/|pdf/|sitemap.*\\.xml|news-sitemap\\.xml|rss\\.xml|feed\\.xml|robots\\.txt|llms.*\\.txt|.*\\..*).*)",
+      "source": "/((?!api/|_vercel/|\\.well-known/|assets/|chapters/|pdf/|sitemap.*\\.xml|news-sitemap\\.xml|rss\\.xml|feed\\.xml|robots\\.txt|llms.*\\.txt|.*\\..*).*)",
       "destination": "/index.html"
     }
   ],
@@ -142,7 +142,7 @@
       ]
     },
     {
-      "source": "/((?!api/).*)",
+      "source": "/((?!api/|_vercel/|\\.well-known/).*)",
       "headers": [
         {
           "key": "Referrer-Policy",
