@@ -1,4 +1,7 @@
-let mangaConfigsCache: Record<string, any> = {};
+import verifiedAnimesCatalogJson from "@/data/verifiedAnimesCatalog.json";
+import { ANIME_MANGA_CONFIGS } from "./mangadex";
+
+const mangaConfigsCache: Record<string, any> = ANIME_MANGA_CONFIGS || {};
 
 export interface AnimeSource {
   id: string;
@@ -127,66 +130,17 @@ export const ANIME_GENRES = [
   "Comédia",
 ];
 
-let verifiedCatalog: Record<
+const verifiedCatalog = verifiedAnimesCatalogJson as unknown as Record<
   string,
   {
     trailerYoutubeId: string;
     episodesCount: number;
     seasons: AnimeSeason[];
   }
-> = {};
-
-let verifiedLoadPromise: Promise<void> | null = null;
+>;
 
 export function ensureVerifiedAnimesLoaded(): Promise<void> {
-  if (Object.keys(verifiedCatalog).length > 0) return Promise.resolve();
-  if (!verifiedLoadPromise) {
-    verifiedLoadPromise = Promise.all([
-      import("@/data/verifiedAnimesCatalog.json"),
-      import("./mangadex").catch(() => ({ ANIME_MANGA_CONFIGS: {} })),
-    ])
-      .then(([mod, mangaMod]) => {
-        verifiedCatalog = ((mod as any).default || mod) as typeof verifiedCatalog;
-        mangaConfigsCache = (mangaMod as any).ANIME_MANGA_CONFIGS || {};
-        for (const anime of ANIMES_DATA) {
-          const entry = verifiedCatalog[anime.id];
-          if (entry) {
-            if (Array.isArray(entry.seasons) && entry.seasons.length > 0) {
-              anime.seasons = entry.seasons;
-            }
-            if (entry.episodesCount) {
-              anime.episodesCount = entry.episodesCount;
-            }
-            if (entry.trailerYoutubeId) {
-              anime.trailerYoutubeId = entry.trailerYoutubeId;
-            }
-          }
-          const cfg = mangaConfigsCache[anime.id];
-          if (cfg && anime.manga) {
-            anime.manga = {
-              title: cfg.canonicalTitle,
-              chaptersCount: cfg.totalChaptersEstimate,
-              author: cfg.author,
-              artist: cfg.artist,
-              cover: cfg.officialCover,
-              status: cfg.status === "Completo" ? "Completo" : "Em publicação",
-              mangadexId: cfg.mangadexId,
-              serialization: cfg.serialization,
-              publisher: cfg.publisher,
-              chapters: (cfg.initialChapters || []).map((ch: any) => ({
-                ...ch,
-                pages: ch.pages || [],
-              })),
-            };
-          }
-        }
-        if (typeof window !== "undefined") {
-          window.dispatchEvent(new Event("worscoi_animes_verified_loaded"));
-        }
-      })
-      .catch(() => {});
-  }
-  return verifiedLoadPromise;
+  return Promise.resolve();
 }
 
 function getVerifiedSeasons(animeId: string): AnimeSeason[] {

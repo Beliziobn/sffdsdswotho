@@ -32,6 +32,9 @@ function isAuthenticPublisherCover(url?: string | null): boolean {
   );
 }
 
+let lastFeedRssSyncTs = 0;
+let hasPersistedVaultInFeedSession = false;
+
 /** Infinite news feed combining real-time syndicated RSS, Cloud Firestore DB, Supabase DB and Permanent Historical Archive */
 export const useNewsFeed = (filters: NewsFilters) =>
   useInfiniteQuery({
@@ -43,8 +46,10 @@ export const useNewsFeed = (filters: NewsFilters) =>
     queryFn: async ({ pageParam = 0 }) => {
       const cachedSyndicated = (getCachedNews() as unknown as NewsItem[]) || [];
 
-      // Trigger background daily RSS refresh non-blockingly when we already have cached/fallback items
-      if (pageParam === 0) {
+      // Trigger background daily RSS refresh at most once every 10 minutes
+      const now = Date.now();
+      if (pageParam === 0 && now - lastFeedRssSyncTs > 10 * 60 * 1000) {
+        lastFeedRssSyncTs = now;
         void syncDailyNews().catch(() => {});
       }
 
@@ -101,7 +106,7 @@ export const useNewsFeed = (filters: NewsFilters) =>
           try {
             const list = await fetchCloudNews();
             if (list.length > 0) {
-              mergeCloudNewsIntoStore(list);
+              mergeCloudNewsIntoStore(list, true);
             }
             return list;
           } catch {
@@ -181,11 +186,12 @@ export const useNewsFeed = (filters: NewsFilters) =>
 
       let all: NewsItem[] = Array.from(byKey.values());
 
-      // Persist newly discovered items into permanent client vault and Cloud Firestore DB
-      if (pageParam === 0 && (topicLive.length > 0 || syndicated.length > 0)) {
+      // Persist newly discovered items into permanent client vault and Cloud Firestore DB once per session
+      if (pageParam === 0 && !hasPersistedVaultInFeedSession && (topicLive.length > 0 || syndicated.length > 0)) {
+        hasPersistedVaultInFeedSession = true;
         try {
-          upsertPermanentClientVault(all.slice(0, 120) as any);
-          void persistSyndicatedNewsBatchToCloud(all.slice(0, 25));
+          upsertPermanentClientVault(all.slice(0, 36) as any);
+          void persistSyndicatedNewsBatchToCloud(all.slice(0, 6));
         } catch {}
       }
 

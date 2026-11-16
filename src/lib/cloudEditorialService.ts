@@ -23,8 +23,8 @@ const CHAPTERS_COLLECTION = "chapters";
 const ANIME_OVERRIDES_COLLECTION = "anime_overrides";
 const EDITORIAL_AUTH_COLLECTION = "editorial_auth";
 
-const READ_CACHE_TTL_MS = 10_000;
-const FIRESTORE_READ_TIMEOUT_MS = 6_000;
+const READ_CACHE_TTL_MS = 120_000;
+const FIRESTORE_READ_TIMEOUT_MS = 4_500;
 
 const EDITORIAL_PROOF_STORAGE_KEY = "worscoi_editorial_proof_v1";
 
@@ -347,12 +347,14 @@ export async function deleteNewsFromCloud(idOrSlug: string): Promise<boolean> {
 }
 
 const PERSISTED_DOC_IDS_SESSION = new Set<string>();
+let hasPersistedBatchThisSession = false;
 
 /**
  * Persists syndicated news articles permanently into Cloud Firestore (news collection)
  * so that once an article appears on the site, it remains stored in the database for years.
  */
 export async function persistSyndicatedNewsBatchToCloud(items: NewsItem[]): Promise<void> {
+  if (hasPersistedBatchThisSession) return;
   if (!Array.isArray(items) || items.length === 0) return;
   if (typeof navigator !== "undefined" && navigator.onLine === false) return;
 
@@ -363,9 +365,10 @@ export async function persistSyndicatedNewsBatchToCloud(items: NewsItem[]): Prom
       if (!docId || PERSISTED_DOC_IDS_SESSION.has(docId)) return false;
       return true;
     })
-    .slice(0, 25);
+    .slice(0, 6);
 
   if (candidates.length === 0) return;
+  hasPersistedBatchThisSession = true;
 
   const proofToken = "wotho-ed-proof-9f81c4a7b2e6d309581a";
   const dbPath = `projects/${firebaseConfig.projectId}/databases/${firebaseConfig.firestoreDatabaseId}/documents`;
@@ -448,7 +451,7 @@ export async function fetchCloudNews(forceFresh = false): Promise<NewsItem[]> {
                 value: { booleanValue: true },
               },
             },
-            limit: 500,
+            limit: 36,
           });
           const items = restDocs.map((d) => d.data as NewsItem);
           cachedNewsResult = { data: items, ts: Date.now() };
@@ -457,7 +460,7 @@ export async function fetchCloudNews(forceFresh = false): Promise<NewsItem[]> {
         const q = query(
           collection(db, NEWS_COLLECTION),
           where("published", "==", true),
-          limit(500)
+          limit(36)
         );
         const snapshot = await getDocs(q);
         const items = snapshot.docs.map((d) => d.data() as NewsItem);
@@ -559,7 +562,7 @@ export function subscribeToCloudNews(
       const q = query(
         collection(db, NEWS_COLLECTION),
         where("published", "==", true),
-        limit(500)
+        limit(36)
       );
       unsubscribeSnapshot = onSnapshot(
         q,

@@ -14,31 +14,19 @@ const SLIDE_DURATION = 5000;
 
 const Hero = () => {
   const [currentSlide, setCurrentSlide] = useState(0);
-  const [progress, setProgress] = useState(0);
 
   const nextSlide = useCallback(() => {
     setCurrentSlide((prev) => (prev + 1) % slides.length);
-    setProgress(0);
   }, []);
 
   const goToSlide = (index: number) => {
     setCurrentSlide(index);
-    setProgress(0);
   };
 
   useEffect(() => {
-    const progressInterval = setInterval(() => {
-      setProgress((prev) => {
-        if (prev >= 100) {
-          nextSlide();
-          return 0;
-        }
-        return prev + 100 / (SLIDE_DURATION / 50);
-      });
-    }, 50);
-
-    return () => clearInterval(progressInterval);
-  }, [nextSlide]);
+    const slideTimer = setInterval(nextSlide, SLIDE_DURATION);
+    return () => clearInterval(slideTimer);
+  }, [nextSlide, currentSlide]);
 
   return (
     <section className="relative h-screen min-h-[620px] w-full overflow-hidden">
@@ -72,10 +60,14 @@ const Hero = () => {
             aria-label={`Ir para o slide ${index + 1}`}
           >
             <div
-              className="h-full bg-white transition-all duration-100 ease-linear"
-              style={{
-                width: index === currentSlide ? `${progress}%` : index < currentSlide ? "100%" : "0%",
-              }}
+              key={`${index}-${currentSlide === index ? "active" : "idle"}`}
+              className={`h-full bg-white ${
+                index === currentSlide
+                  ? "w-full transition-all duration-[5000ms] ease-linear"
+                  : index < currentSlide
+                  ? "w-full"
+                  : "w-0"
+              }`}
             />
           </button>
         ))}

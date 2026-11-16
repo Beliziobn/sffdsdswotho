@@ -84,6 +84,15 @@ const DEFAULT_ANIME_DUB_PRESETS: AvailableDubOption[] = [
     audioMode: "original",
   },
   {
+    id: "en:0",
+    dubCode: "en",
+    dubType: "0",
+    label: "Inglês (Dublado / Sub EN)",
+    shortLabel: "🇺🇸 Inglês",
+    flag: "🇺🇸",
+    audioMode: "multi",
+  },
+  {
     id: "esla:0",
     dubCode: "esla",
     dubType: "0",
@@ -494,11 +503,11 @@ export const SecureAnimePlayer: React.FC<SecureAnimePlayerProps> = ({
     DEFAULT_ANIME_DUB_PRESETS.forEach((p) => map.set(p.id, p));
     availableDubs.forEach((d) => map.set(d.id, d));
 
-    const priorityIds = ["ptbr:0", "pt:1", "ja:0", "esla:0", "es:0", "fr:0"];
+    const priorityIds = ["ptbr:0", "pt:1", "ja:0", "en:0", "esla:0", "es:0", "fr:0"];
     const result: AvailableDubOption[] = [];
     for (const id of priorityIds) {
       const found = map.get(id);
-      if (found && result.length < 5) {
+      if (found && result.length < 6) {
         if (id === "es:0" && result.some((r) => r.id === "esla:0")) continue;
         result.push(found);
       }
@@ -882,7 +891,7 @@ export const SecureAnimePlayer: React.FC<SecureAnimePlayerProps> = ({
       className="rounded-2xl overflow-hidden border border-border bg-card text-foreground shadow-2xl transition-all duration-300 w-full"
     >
       {/* Unified Apple TV+-style Audio & Subtitles Control Strip */}
-      <div className="px-4 py-2.5 bg-card border-b border-border flex items-center justify-between gap-3 text-xs">
+      <div className="px-4 py-2.5 bg-card border-b border-border flex flex-wrap items-center justify-between gap-3 text-xs">
         <div className="min-w-0 flex items-center gap-2 text-muted-foreground">
           <span className="font-semibold text-foreground truncate">
             T{season.seasonNumber} · Ep. {episode.number}
@@ -891,26 +900,64 @@ export const SecureAnimePlayer: React.FC<SecureAnimePlayerProps> = ({
           <span className="truncate hidden sm:inline">{episode.title}</span>
         </div>
 
-        {/* Single Unified Audio & Subtitles Popover */}
-        <div ref={audioMenuRef} className="relative shrink-0">
+        {/* Direct 1-Click Language Pills + Unified Audio & Subtitles Popover */}
+        <div className="flex flex-wrap items-center gap-1.5">
+          <div className="hidden md:flex items-center gap-1 mr-1">
+            {quickDubPresets.map((opt) => {
+              const active = selectedDubId === opt.id;
+              return (
+                <button
+                  key={opt.id}
+                  type="button"
+                  onClick={() => {
+                    handleSelectDubOption(opt);
+                    if (opt.audioMode === "dublado") {
+                      setSubtitleTrack("off");
+                    } else if (subtitleTrack === "off") {
+                      setSubtitleTrack("pt-br");
+                    }
+                  }}
+                  className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors cursor-pointer whitespace-nowrap border ${
+                    active
+                      ? "bg-primary text-primary-foreground border-primary shadow-sm"
+                      : "bg-secondary/60 hover:bg-accent text-muted-foreground hover:text-foreground border-border"
+                  }`}
+                  title={opt.label}
+                >
+                  {opt.shortLabel}
+                </button>
+              );
+            })}
+          </div>
+
           <button
             type="button"
-            onClick={() => setIsAudioMenuOpen((prev) => !prev)}
-            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-secondary hover:bg-accent border border-border text-foreground font-medium transition-colors cursor-pointer whitespace-nowrap"
-            aria-expanded={isAudioMenuOpen}
-            aria-haspopup="menu"
+            onClick={() => setUseEmbedFallback((prev) => !prev)}
+            className="px-2.5 py-1.5 rounded-lg bg-secondary/70 hover:bg-accent border border-border text-muted-foreground hover:text-foreground text-[11px] font-medium transition-colors cursor-pointer whitespace-nowrap"
+            title="Alternar entre Player Nativo HD e Servidor Multi-Áudio Alternativo"
           >
-            <Languages className="h-3.5 w-3.5 text-primary" />
-            <span>{activeDubObj.shortLabel}</span>
-            <span className="text-muted-foreground hidden sm:inline">
-              · Leg: {subtitleTrack === "off" ? "Off" : subtitleTrack.toUpperCase()}
-            </span>
-            <ChevronDown
-              className={`h-3.5 w-3.5 text-muted-foreground transition-transform ${
-                isAudioMenuOpen ? "rotate-180" : ""
-              }`}
-            />
+            {useEmbedFallback ? "Player Nativo HD" : "Servidor Alternativo"}
           </button>
+
+          <div ref={audioMenuRef} className="relative shrink-0">
+            <button
+              type="button"
+              onClick={() => setIsAudioMenuOpen((prev) => !prev)}
+              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-secondary hover:bg-accent border border-border text-foreground font-medium transition-colors cursor-pointer whitespace-nowrap"
+              aria-expanded={isAudioMenuOpen}
+              aria-haspopup="menu"
+            >
+              <Languages className="h-3.5 w-3.5 text-primary" />
+              <span>{activeDubObj.shortLabel}</span>
+              <span className="text-muted-foreground hidden sm:inline">
+                · Leg: {subtitleTrack === "off" ? "Off" : subtitleTrack.toUpperCase()}
+              </span>
+              <ChevronDown
+                className={`h-3.5 w-3.5 text-muted-foreground transition-transform ${
+                  isAudioMenuOpen ? "rotate-180" : ""
+                }`}
+              />
+            </button>
 
           {isAudioMenuOpen && (
             <div
@@ -1000,6 +1047,7 @@ export const SecureAnimePlayer: React.FC<SecureAnimePlayerProps> = ({
               </div>
             </div>
           )}
+          </div>
         </div>
       </div>
 

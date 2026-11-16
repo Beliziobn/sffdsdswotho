@@ -44,7 +44,7 @@ function toTimestamp(val?: string | null): number {
   return Number.isFinite(t) ? t : 0;
 }
 
-export function mergeCloudNewsIntoStore(cloudNews: NewsItem[]): boolean {
+export function mergeCloudNewsIntoStore(cloudNews: NewsItem[], silent = false): boolean {
   if (typeof window === "undefined" || !Array.isArray(cloudNews) || cloudNews.length === 0) {
     return false;
   }
@@ -54,14 +54,23 @@ export function mergeCloudNewsIntoStore(cloudNews: NewsItem[]): boolean {
   const deletedSet = new Set(getDeletedNewsIds().map((k) => k.toLowerCase()));
   let changed = false;
 
-  for (const cn of cloudNews) {
+  // Process at most the 40 newest cloud items to keep memory and localStorage fast
+  const boundedCloudNews = cloudNews.slice(0, 40);
+
+  for (const cn of boundedCloudNews) {
     if (!cn || (!cn.id && !cn.slug)) continue;
     const idKey = (cn.id || "").toLowerCase();
     const slugKey = (cn.slug || "").toLowerCase();
 
     if (cn.published === false) {
-      if (cn.id) delete overrides[cn.id];
-      if (cn.slug) delete overrides[cn.slug];
+      if (cn.id && overrides[cn.id]) {
+        delete overrides[cn.id];
+        changed = true;
+      }
+      if (cn.slug && overrides[cn.slug]) {
+        delete overrides[cn.slug];
+        changed = true;
+      }
       const before = customList.length;
       const filtered = customList.filter(
         (c) => c.id?.toLowerCase() !== idKey && (!slugKey || c.slug?.toLowerCase() !== slugKey)
@@ -75,14 +84,7 @@ export function mergeCloudNewsIntoStore(cloudNews: NewsItem[]): boolean {
     }
 
     if ((idKey && deletedSet.has(idKey)) || (slugKey && deletedSet.has(slugKey))) {
-      // Remove from deleted list if a fresh published version exists on server
-      const cnTs = toTimestamp((cn as any).updated_at || cn.published_at);
-      if (cnTs > 0) {
-        deletedSet.delete(idKey);
-        if (slugKey) deletedSet.delete(slugKey);
-      } else {
-        continue;
-      }
+      continue;
     }
 
     const existingOverride =
@@ -101,12 +103,14 @@ export function mergeCloudNewsIntoStore(cloudNews: NewsItem[]): boolean {
       toTimestamp((existingCustom as any)?.updated_at || existingCustom?.published_at)
     );
 
-    const shouldUpdate =
+    const hasContentDiff =
       !existingCustom ||
-      cloudTs >= localTs ||
       existingCustom.cover_url !== cn.cover_url ||
       existingCustom.title !== cn.title ||
-      existingCustom.content !== cn.content;
+      (cn.content && existingCustom.content !== cn.content);
+
+    // Strictly check if item is genuinely new or has newer timestamp with actual content differences
+    const shouldUpdate = !existingCustom || (cloudTs > localTs && hasContentDiff);
 
     if (shouldUpdate) {
       if (cn.id) overrides[cn.id] = cn;
@@ -121,28 +125,28 @@ export function mergeCloudNewsIntoStore(cloudNews: NewsItem[]): boolean {
   }
 
   if (changed) {
+    const cappedCustom = customList.slice(0, 35);
     memoryNewsOverrides = overrides;
-    memoryCustomNews = customList;
-    safeWriteJson(CUSTOM_NEWS_KEY, customList);
-    // Store lighter override references when already in customList to avoid doubling base64 storage
-    safeWriteJson(NEWS_OVERRIDES_KEY, overrides);
-    window.dispatchEvent(new Event("worscoi_editorial_updated"));
+    memoryCustomNews = cappedCustom;
+    safeWriteJson(CUSTOM_NEWS_KEY, cappedCustom, false);
+    safeWriteJson(NEWS_OVERRIDES_KEY, overrides, false);
+    if (!silent) {
+      window.dispatchEvent(new Event("worscoi_editorial_updated"));
+    }
   }
 
   return changed;
 }
 
 let isCloudSyncing = false;
-export async function initCloudEditorialSync(): Promise<void> {
-  if (typeof window === "undefined" || isCloudSyncing) return;
-  isCloudSyncing = true;
-  try {
-    if (!unsubscribeCloudNewsListener) {
-      unsubscribeCloudNewsListener = subscribeToCloudNews((liveNews) => {
-        mergeCloudNewsIntoStore(liveNews);
-      });
-    }
+let hasCompletedInitialCloudSync = false;
 
+export async function initCloudEditorialSync(force = false): Promise<void> {
+  if (typeof window === "undefined" || isCloudSyncing) return;
+  if (!force && hasCompletedInitialCloudSync) return;
+  isCloudSyncing = true;
+  hasCompletedInitialCloudSync = true;
+  try {
     const [cloudNews, cloudBooks, cloudAnimes] = await Promise.all([
       fetchCloudNews(),
       fetchCloudBooks(),
@@ -152,35 +156,51 @@ export async function initCloudEditorialSync(): Promise<void> {
     let changed = false;
 
     if (cloudNews && cloudNews.length > 0) {
-      if (mergeCloudNewsIntoStore(cloudNews)) {
+      if (mergeCloudNewsIntoStore(cloudNews, true)) {
         changed = true;
       }
     }
 
     if (cloudBooks && cloudBooks.length > 0) {
-      const customBooks = getCustomBooks();
-      const overrides = getBookOverrides();
+      const customBooks = [...getCustomBooks()];
+      const overrides = { ...getBookOverrides() };
+      let booksChanged = false;
       for (const cb of cloudBooks) {
-        overrides[cb.id] = cb;
-        const idx = customBooks.findIndex((b) => b.id === cb.id);
-        if (idx >= 0) {
-          customBooks[idx] = cb;
-        } else {
-          customBooks.unshift(cb);
+        if (!cb || !cb.id) continue;
+        const prev = overrides[cb.id];
+        if (!prev || prev.title !== cb.title || prev.cover_url !== cb.cover_url) {
+          overrides[cb.id] = cb;
+          const idx = customBooks.findIndex((b) => b.id === cb.id);
+          if (idx >= 0) {
+            customBooks[idx] = cb;
+          } else {
+            customBooks.unshift(cb);
+          }
+          booksChanged = true;
         }
       }
-      safeWriteJson(BOOK_OVERRIDES_KEY, overrides);
-      safeWriteJson(CUSTOM_BOOKS_KEY, customBooks);
-      changed = true;
+      if (booksChanged) {
+        safeWriteJson(BOOK_OVERRIDES_KEY, overrides, false);
+        safeWriteJson(CUSTOM_BOOKS_KEY, customBooks.slice(0, 40), false);
+        changed = true;
+      }
     }
 
     if (cloudAnimes && Object.keys(cloudAnimes).length > 0) {
-      const overrides = getAnimeOverrides();
+      const overrides = { ...getAnimeOverrides() };
+      let animesChanged = false;
       for (const aId of Object.keys(cloudAnimes)) {
-        overrides[aId] = { ...(overrides[aId] || {}), ...cloudAnimes[aId] };
+        const nextVal = cloudAnimes[aId];
+        const prevVal = overrides[aId];
+        if (!prevVal || JSON.stringify(prevVal) !== JSON.stringify(nextVal)) {
+          overrides[aId] = { ...(prevVal || {}), ...nextVal };
+          animesChanged = true;
+        }
       }
-      safeWriteJson(ANIME_OVERRIDES_KEY, overrides);
-      changed = true;
+      if (animesChanged) {
+        safeWriteJson(ANIME_OVERRIDES_KEY, overrides, false);
+        changed = true;
+      }
     }
 
     if (changed) {
@@ -198,7 +218,7 @@ if (typeof window !== "undefined") {
     void refreshSpecialAdminSession();
   }
   onAuthStateChanged(auth, (user) => {
-    if (user) {
+    if (user && !hasCompletedInitialCloudSync) {
       void initCloudEditorialSync();
     }
   });
@@ -214,35 +234,41 @@ function safeReadJson<T>(key: string, fallback: T): T {
   }
 }
 
-function safeWriteJson<T>(key: string, value: T): void {
+function safeWriteJson<T>(key: string, value: T, notify = true): void {
   if (typeof window === "undefined") return;
   try {
-    localStorage.setItem(key, JSON.stringify(value));
-  } catch (err) {
-    // Handle QuotaExceededError gracefully: for overrides, strip heavy base64 strings if customList already has them
     if (key === NEWS_OVERRIDES_KEY && value && typeof value === "object") {
-      try {
-        const compacted: Record<string, any> = {};
-        for (const [k, entry] of Object.entries(value as Record<string, any>)) {
-          if (entry && typeof entry.cover_url === "string" && entry.cover_url.startsWith("data:") && entry.cover_url.length > 4000) {
-            const { cover_url: _drop, ...rest } = entry;
-            compacted[k] = rest;
-          } else {
-            compacted[k] = entry;
-          }
-        }
-        localStorage.setItem(key, JSON.stringify(compacted));
-      } catch {
-        console.warn("[EditorialStore] localStorage quota notice:", err);
+      const compacted: Record<string, any> = {};
+      const entries = Object.entries(value as Record<string, any>).slice(0, 60);
+      for (const [k, entry] of entries) {
+        if (!entry || typeof entry !== "object") continue;
+        const { content, ...rest } = entry;
+        compacted[k] = {
+          ...rest,
+          ...(typeof content === "string" ? { content: content.slice(0, 1200) } : {}),
+        };
       }
+      localStorage.setItem(key, JSON.stringify(compacted));
+    } else if (key === CUSTOM_NEWS_KEY && Array.isArray(value)) {
+      const compacted = value.slice(0, 35).map((item: any) => ({
+        ...item,
+        ...(typeof item?.content === "string" && item.content.length > 2500
+          ? { content: item.content.slice(0, 2500) }
+          : {}),
+      }));
+      localStorage.setItem(key, JSON.stringify(compacted));
     } else {
-      console.warn("[EditorialStore] localStorage write notice:", err);
+      localStorage.setItem(key, JSON.stringify(value));
     }
+  } catch (err) {
+    console.warn("[EditorialStore] localStorage write notice:", err);
   } finally {
-    try {
-      window.dispatchEvent(new Event("worscoi_editorial_updated"));
-    } catch {
-      // Ignore
+    if (notify) {
+      try {
+        window.dispatchEvent(new Event("worscoi_editorial_updated"));
+      } catch {
+        // Ignore
+      }
     }
   }
 }

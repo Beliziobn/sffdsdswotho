@@ -326,9 +326,39 @@ export const useContents = (options?: { type?: ContentType; category?: string; l
               }));
           } catch {}
 
+          const curatedWebtoonPreview: Content[] = !options?.type
+            ? CURATED_WEBTOONS.slice(0, 8).map((w) => ({
+                id: w.id,
+                type: "webtoon" as ContentType,
+                title: w.title,
+                subtitle: `${w.status} · ${w.release_day}`,
+                description: w.description,
+                author: `${w.author} / ${w.artist}`,
+                tags: Array.from(new Set([...w.genres, w.release_day, w.status])).filter(Boolean),
+                category: w.genres[0] || "Ação",
+                slug: w.slug,
+                cover: w.cover,
+                rating: w.rating,
+                rating_count: w.rating_count,
+                formats: ["Tira Vertical", "Webtoon"],
+                language: "pt",
+                year: 2026,
+                size: `${w.episodes_count} Episódios`,
+                views: w.views,
+                read_time: 15,
+                episode_count: w.episodes_count,
+                price_cents: 0,
+                currency: "BRL",
+                published: true,
+                featured: !!w.featured,
+                collection: w.collection || "Webtoons em Destaque",
+                created_at: new Date().toISOString(),
+              }))
+            : [];
+
           const map = new Map<string, Content>();
-          // Scientific articles & Curricular textbooks first, then Automated books, then modern bestsellers, then classics, then original PDFs, then db
-          for (const item of [...sciMapped, ...currMapped, ...autoMapped, ...modernMapped, ...gutenMapped, ...pdfMapped, ...dbData]) {
+          // Scientific articles & Curricular textbooks first, then Automated books, then modern bestsellers, then classics, then original PDFs, then curated webtoons, then db
+          for (const item of [...sciMapped, ...currMapped, ...autoMapped, ...modernMapped, ...gutenMapped, ...pdfMapped, ...curatedWebtoonPreview, ...dbData]) {
             if (!map.has(item.id)) map.set(item.id, item);
           }
           const combined = filterExcludedItems(Array.from(map.values()));
@@ -336,14 +366,10 @@ export const useContents = (options?: { type?: ContentType; category?: string; l
         } catch {}
       }
 
-      // If requested type is "webtoon" or all, merge Curated Webtoons
-      if (!options?.type || options.type === "webtoon") {
+      // If requested type is "webtoon", merge Curated Webtoons
+      if (options?.type === "webtoon") {
         try {
-          if (options?.type === "webtoon") {
-            await ensureExpandedWebtoonsLoaded();
-          } else {
-            void ensureExpandedWebtoonsLoaded();
-          }
+          await ensureExpandedWebtoonsLoaded();
           if (dbData.length === 0) {
             dbData = await Promise.race([
               dbPromise,

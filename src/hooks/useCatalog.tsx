@@ -587,6 +587,8 @@ export const useChapters = (bookId?: string) =>
     },
   });
 
+let lastUseNewsBackgroundSyncTs = 0;
+
 export const useNews = () =>
   useQuery({
     queryKey: ["news"],
@@ -595,8 +597,10 @@ export const useNews = () =>
     queryFn: async () => {
       const cachedSyndicated = getCachedNews() as unknown as NewsItem[];
 
-      // Trigger background sync non-blockingly if cache already has items
-      if (cachedSyndicated.length > 0) {
+      // Trigger background sync at most once every 10 minutes
+      const now = Date.now();
+      if (cachedSyndicated.length > 0 && now - lastUseNewsBackgroundSyncTs > 10 * 60 * 1000) {
+        lastUseNewsBackgroundSyncTs = now;
         void syncDailyNews().catch(() => {});
       }
 
@@ -614,7 +618,7 @@ export const useNews = () =>
         (async (): Promise<NewsItem[]> => {
           try {
             const list = await fetchCloudNews();
-            if (list.length > 0) mergeCloudNewsIntoStore(list);
+            if (list.length > 0) mergeCloudNewsIntoStore(list, true);
             return list;
           } catch {}
           return [];
