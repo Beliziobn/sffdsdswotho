@@ -194,6 +194,20 @@ export const CanonicalManager = () => {
       "strict-origin-when-cross-origin"
     );
 
+    // Guarantee Google & Bing Webmaster verification tags remain intact in <head>
+    upsertMetaTag(
+      'meta[name="google-site-verification"]',
+      "name",
+      "google-site-verification",
+      "n_nVQKGN9hqwtcg5XjGbYyX8xzfR0aaTIEiLNZuZgwk"
+    );
+    upsertMetaTag(
+      'meta[name="msvalidate.01"]',
+      "name",
+      "msvalidate.01",
+      "3DD20C5692A3D68BDDFFEA861D2C737F"
+    );
+
     // Guarantee Google AdSense script and account meta tag are present in <head> on every route
     upsertMetaTag(
       'meta[name="google-adsense-account"]',

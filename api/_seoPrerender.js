@@ -984,10 +984,22 @@ export function injectSeoIntoHtml(html, rawPathname, options = {}) {
     out = out.replace('</head>', `    ${jsonLdScripts}\n  </head>`);
   }
 
-  // 6b. Guarantee Google AdSense script is present in <head> on every prerendered page
+  // 6b. Guarantee Google AdSense script and Webmaster verification tags are present in <head> on every prerendered page
   if (!out.includes('ca-pub-8089523516720577')) {
     const adsenseSnippet = `<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8089523516720577"\n     crossorigin="anonymous"></script>\n    <meta name="google-adsense-account" content="ca-pub-8089523516720577" />`;
     out = out.replace('<head>', `<head>\n    ${adsenseSnippet}`);
+  }
+  if (!out.includes('n_nVQKGN9hqwtcg5XjGbYyX8xzfR0aaTIEiLNZuZgwk')) {
+    out = out.replace(
+      '</head>',
+      `    <meta name="google-site-verification" content="n_nVQKGN9hqwtcg5XjGbYyX8xzfR0aaTIEiLNZuZgwk" />\n  </head>`
+    );
+  }
+  if (!out.includes('3DD20C5692A3D68BDDFFEA861D2C737F')) {
+    out = out.replace(
+      '</head>',
+      `    <meta name="msvalidate.01" content="3DD20C5692A3D68BDDFFEA861D2C737F" />\n  </head>`
+    );
   }
 
   // 7. For search engine bots & social link previewers, replace the loading spinner with rich semantic HTML5
@@ -1023,6 +1035,8 @@ function findIndexHtmlTemplate() {
   <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8089523516720577"
      crossorigin="anonymous"></script>
   <meta name="google-adsense-account" content="ca-pub-8089523516720577" />
+  <meta name="google-site-verification" content="n_nVQKGN9hqwtcg5XjGbYyX8xzfR0aaTIEiLNZuZgwk" />
+  <meta name="msvalidate.01" content="3DD20C5692A3D68BDDFFEA861D2C737F" />
   <meta charset="UTF-8" />
   <title>Wotho</title>
   <meta name="description" content="Wotho" />
