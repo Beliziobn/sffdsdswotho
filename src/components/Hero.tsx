@@ -51,6 +51,15 @@ const Hero = () => {
         </motion.div>
       </AnimatePresence>
 
+      <div className="absolute bottom-14 left-6 md:left-12 lg:left-16 right-6 md:right-12 lg:right-16 z-10 pointer-events-none">
+        <span className="block text-[11px] uppercase tracking-[0.2em] text-white/75 mb-2">
+          Plataforma Editorial &amp; Streaming
+        </span>
+        <h1 className="text-xl sm:text-2xl md:text-3xl font-light tracking-tight text-white max-w-2xl leading-snug drop-shadow-sm">
+          Wotho — Livros Digitais, Notícias Globais, Streaming e Webtoons
+        </h1>
+      </div>
+
       <div className="absolute bottom-8 left-6 md:left-12 lg:left-16 right-6 md:right-12 lg:right-16 z-10 flex gap-2">
         {slides.map((_, index) => (
           <button

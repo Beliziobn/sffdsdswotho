@@ -69,6 +69,15 @@ function escapeHtml(str) {
     .replace(/'/g, '&#39;');
 }
 
+function clampHeading(str, maxLength = 150) {
+  const clean = String(str || '').replace(/\s+/g, ' ').trim();
+  if (clean.length <= maxLength) return clean;
+  const sliced = clean.slice(0, maxLength - 1);
+  const lastSpace = sliced.lastIndexOf(' ');
+  const base = lastSpace > 40 ? sliced.slice(0, lastSpace) : sliced;
+  return `${base.trim()}…`;
+}
+
 function toAbsoluteUrl(urlOrPath, origin = DEFAULT_ORIGIN) {
   if (!urlOrPath || typeof urlOrPath !== 'string') return `${origin}/og-image.jpg`;
   const trimmed = urlOrPath.trim();
@@ -919,7 +928,7 @@ function renderSemanticBotShell(seo, origin = DEFAULT_ORIGIN) {
   </header>
   <main>
     <article>
-      <h1>${escapeHtml(seo.h1 || seo.title)}</h1>
+      <h1>${escapeHtml(clampHeading(seo.h1 || seo.title, 150))}</h1>
       ${seo.subtitle ? `<p><strong>${escapeHtml(seo.subtitle)}</strong></p>` : ''}
       <section data-snippet="true" aria-label="Síntese Principal">
         <p>${escapeHtml(seo.bodyText || seo.description)}</p>
@@ -1098,9 +1107,11 @@ export function injectSeoIntoHtml(html, rawPathname, options = {}) {
     );
   }
 
-  // 7. For search engine bots & social link previewers, replace the loading spinner with rich semantic HTML5
+  // 7. For search engine bots & social link previewers, replace the loading spinner with rich semantic HTML5;
+  //    for standard HTML shell requests, ensure the visible <h1> inside <body> matches the route heading (<= 150 chars).
+  const safeH1 = clampHeading(seo.h1 || seo.title, 150);
   if (isBot) {
-    const botBody = renderSemanticBotShell(seo, origin);
+    const botBody = renderSemanticBotShell({ ...seo, h1: safeH1 }, origin);
     const ssrMarkerMatch = /<!--WOTHO_SSR_START-->[\s\S]*?<!--WOTHO_SSR_END-->/i;
     const bootShellMatch = /<div\s+id="wotho-boot-shell"[\s\S]*?<\/div>\s*(?=<\/div>\s*<noscript>)/i;
     if (ssrMarkerMatch.test(out)) {
@@ -1110,6 +1121,11 @@ export function injectSeoIntoHtml(html, rawPathname, options = {}) {
     } else {
       out = out.replace(/<div id="root">[\s\S]*?<\/div>/i, `<div id="root">\n      ${botBody}\n    </div>`);
     }
+  } else if (/<h1\s+id="wotho-boot-heading"[^>]*>[\s\S]*?<\/h1>/i.test(out)) {
+    out = out.replace(
+      /(<h1\s+id="wotho-boot-heading"[^>]*>)[\s\S]*?(<\/h1>)/i,
+      `$1${escapeHtml(safeH1)}$2`
+    );
   }
 
   return { html: out, seo };
@@ -1154,7 +1170,7 @@ function findIndexHtmlTemplate() {
   <meta name="twitter:image:alt" content="Wotho" />
 </head>
 <body>
-  <div id="root"></div>
+  <div id="root"><h1 id="wotho-boot-heading">Wotho — Livros Digitais, Notícias Globais, Streaming e Webtoons</h1></div>
 </body>
 </html>`;
 }
