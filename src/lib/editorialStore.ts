@@ -16,6 +16,7 @@ import {
 import { auth } from "./firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import { isExcludedItem, filterExcludedItems, EXCLUDED_IDS, EXCLUDED_SLUGS } from "./excludedItems";
+import { notifyIndexNowRealtime } from "./seo";
 
 export const SPECIAL_ADMIN_EMAIL = "miguelworscoi@gmail.com";
 
@@ -637,6 +638,9 @@ export function saveNewsPublication(
   const fullItem = persistLocalNewsPublication(input);
   // Sync with Firestore Cloud immediately so all users receive the publication
   void publishNewsToCloud(fullItem);
+  if (fullItem.published && fullItem.slug) {
+    notifyIndexNowRealtime(`/noticias/${fullItem.slug}`, "update");
+  }
   return fullItem;
 }
 
@@ -651,6 +655,9 @@ export async function saveNewsPublicationWithSync(
 ): Promise<{ item: NewsItem; cloudSynced: boolean; cloudError?: string }> {
   const fullItem = persistLocalNewsPublication(input);
   const res = await publishNewsToCloudDetailed(fullItem);
+  if (fullItem.published && fullItem.slug) {
+    notifyIndexNowRealtime(`/noticias/${fullItem.slug}`, "update");
+  }
   return {
     item: fullItem,
     cloudSynced: res.ok,
@@ -673,8 +680,9 @@ export function deleteNewsPublication(idOrSlug: string): void {
   memoryCustomNews = customList;
   safeWriteJson(CUSTOM_NEWS_KEY, customList);
 
-  // Remove from Firestore Cloud
+  // Remove from Firestore Cloud and notify IndexNow immediately
   void deleteNewsFromCloud(clean);
+  notifyIndexNowRealtime(`/noticias/${clean}`, "delete");
 }
 
 // ============================================================================
@@ -1282,6 +1290,9 @@ export function saveBookPublication(
 
   // Sync book to Firestore Cloud so all users see it immediately
   void publishBookToCloud(fullBook);
+  if (fullBook.published) {
+    notifyIndexNowRealtime(`/livros/${fullBook.id}`, "update");
+  }
 
   return fullBook;
 }
@@ -1295,8 +1306,9 @@ export function deleteBookPublication(id: string): void {
   const customBooks = getCustomBooks().filter((b) => b.id !== id);
   safeWriteJson(CUSTOM_BOOKS_KEY, customBooks);
 
-  // Mark book deleted in Firestore Cloud
+  // Mark book deleted in Firestore Cloud and notify IndexNow
   void deleteBookFromCloud(id);
+  notifyIndexNowRealtime(`/livros/${id}`, "delete");
 }
 
 export function getCustomBookChapters(bookId: string): Chapter[] {
@@ -1359,8 +1371,9 @@ export function saveAnimeEditorialOverride(animeId: string, patch: Record<string
   };
   safeWriteJson(ANIME_OVERRIDES_KEY, overrides);
 
-  // Sync anime override to Firestore Cloud
+  // Sync anime override to Firestore Cloud and notify IndexNow
   void publishAnimeOverrideToCloud(animeId, patch);
+  notifyIndexNowRealtime(`/animes/${animeId}`, "update");
 }
 
 export function getAnimeWithEditorialOverride<T extends { id: string }>(anime: T): T {

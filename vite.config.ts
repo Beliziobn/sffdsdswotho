@@ -17,7 +17,12 @@ import {
   injectSeoIntoHtml,
   isSearchOrSocialBot,
   handleSeoPrerenderRequest,
+  resolvePermanentRedirect,
 } from './api/_seoPrerender.js';
+import {
+  handleIndexNowRequest,
+  getIndexNowStats,
+} from './api/_indexNowHandler.js';
 import { cinemaStreamingPlugin } from './src/lib/cinemaServerPlugin';
 import {
   handleMangaChaptersRequest,
@@ -1279,6 +1284,11 @@ function sitemapPlugin(): Plugin {
         return;
       }
 
+      if (urlPath === '/api/seo/indexnow' || urlPath === '/seo/indexnow') {
+        await handleIndexNowRequest(req, res);
+        return;
+      }
+
       if (urlPath === '/api/seo/status') {
         const cat = loadSeoCatalog();
         res.statusCode = 200;
@@ -1288,6 +1298,19 @@ function sitemapPlugin(): Plugin {
             ok: true,
             domain: origin,
             generatedAt: cat.generatedAt,
+            verification: {
+              googleSiteVerification: true,
+              bingMsValidate: '3DD20C5692A3D68BDDFFEA861D2C737F',
+              bingSiteAuthXml: '/BingSiteAuth.xml',
+            },
+            copilotGrounding: {
+              noarchiveBlocked: false,
+              nocacheBlocked: false,
+              bingbotPrerenderEnabled: true,
+              dataSnippetAnnotated: true,
+              jsonLdConsistent: true,
+              indexNow: getIndexNowStats(),
+            },
             counts: {
               books: cat.books?.length || 0,
               cinema: cat.cinema?.length || 0,
@@ -1297,6 +1320,16 @@ function sitemapPlugin(): Plugin {
             },
           })
         );
+        return;
+      }
+
+      // Permanent 301 redirects for legacy/alias paths
+      const redirectTarget = resolvePermanentRedirect(urlPath);
+      if (redirectTarget && req.method === 'GET' && !urlPath.startsWith('/api/')) {
+        res.statusCode = 301;
+        res.setHeader('Location', redirectTarget);
+        res.setHeader('Cache-Control', 'public, max-age=86400');
+        res.end();
         return;
       }
 

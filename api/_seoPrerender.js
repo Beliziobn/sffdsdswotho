@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { loadSeoCatalog } from '../scripts/generate_sitemap.js';
+import { notifyIndexNowUrl } from './_indexNowHandler.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -10,7 +11,22 @@ const rootDir = path.resolve(__dirname, '..');
 const DEFAULT_ORIGIN = (process.env.VITE_APP_URL || 'https://wotho.vercel.app').replace(/\/+$/, '');
 
 const BOT_USER_AGENT_RE =
-  /(googlebot|google-inspectiontool|adsbot-google|mediapartners-google|storebot-google|googleother|bingbot|slurp|duckduckbot|applebot|yandex|baiduspider|sogou|exabot|facebookexternalhit|twitterbot|linkedinbot|whatsapp|slackbot|telegrambot|discordbot|pinterest|screaming frog|ahrefsbot|semrushbot|mj12bot|petalbot)/i;
+  /(googlebot|google-inspectiontool|adsbot-google|mediapartners-google|storebot-google|googleother|bingbot|bingpreview|msnbot|adidxbot|slurp|duckduckbot|applebot|applebot-extended|oai-searchbot|chatgpt-user|gptbot|claudebot|perplexitybot|yandex|baiduspider|sogou|exabot|facebookexternalhit|twitterbot|linkedinbot|whatsapp|slackbot|telegrambot|discordbot|pinterest|screaming frog|ahrefsbot|semrushbot|mj12bot|petalbot)/i;
+
+export function resolvePermanentRedirect(rawPathname) {
+  let pathname = String(rawPathname || '/').split('?')[0];
+  if (!pathname.startsWith('/')) pathname = `/${pathname}`;
+  const clean = pathname === '/' ? '/' : pathname.replace(/\/+$/, '');
+  if (clean === '/contacto') return '/contato';
+  if (clean === '/sitemap') return '/mapa-do-site';
+  if (clean === '/meu-perfil') return '/perfil';
+  if (clean === '/index.html') return '/';
+  if (clean.startsWith('/webtoons/')) {
+    const slug = clean.slice('/webtoons/'.length);
+    if (slug) return `/webtoon/${slug}`;
+  }
+  return null;
+}
 
 const PRIVATE_NOINDEX_PREFIXES = [
   '/auth',
@@ -393,7 +409,7 @@ export function resolveRouteSeo(rawPathname, customOrigin = DEFAULT_ORIGIN) {
     const id = decodeURIComponent(canonicalPath.slice(prefix.length).split('/')[0] || '');
     const book = catalog.books.find((b) => b.id === id);
 
-    if (book || id.startsWith('gut-') || id.startsWith('mod-') || id.startsWith('curr-') || id.startsWith('sci-') || id.startsWith('auto-')) {
+    if (book || id.startsWith('gut-') || id.startsWith('guten-') || id.startsWith('mod-') || id.startsWith('curr-') || id.startsWith('sci-') || id.startsWith('auto-')) {
       const bookTitle = book?.title || humanizeSlug(id.replace(/^(gut|mod|curr|sci|auto)-/, ''));
       const authorName = book?.author || 'Acervo Wotho';
       const pageTitle = `${bookTitle} — ${authorName} | Wotho Livros`;
@@ -447,6 +463,15 @@ export function resolveRouteSeo(rawPathname, customOrigin = DEFAULT_ORIGIN) {
         subtitle: `Por ${authorName}${book?.category ? ` · ${book.category}` : ''}`,
         bodyText: desc,
         coverImage: cover,
+        facts: [
+          { label: 'Obra', value: bookTitle },
+          { label: 'Autor(a)', value: authorName },
+          ...(book?.category ? [{ label: 'Categoria', value: book.category }] : []),
+          ...(book?.year ? [{ label: 'Ano', value: String(book.year) }] : []),
+          { label: 'Formato', value: 'Livro Digital no Navegador (HTML5 / PDF)' },
+          { label: 'Plataforma', value: 'Wotho Biblioteca Digital' },
+          { label: 'Idioma', value: 'Português (Brasil)' },
+        ],
         links: [
           { href: `/ler/${encodeURIComponent(id)}`, label: `Ler "${bookTitle}" online no navegador` },
           ...relatedLinks,
@@ -526,6 +551,16 @@ export function resolveRouteSeo(rawPathname, customOrigin = DEFAULT_ORIGIN) {
         subtitle: `${isSeries ? 'Série' : 'Filme'} · ${item.director || 'Cinema Wotho'} · ${(item.genres || []).join(', ')}`,
         bodyText: desc,
         coverImage: cover,
+        facts: [
+          { label: 'Título', value: item.title },
+          ...(item.originalTitle ? [{ label: 'Título Original', value: item.originalTitle }] : []),
+          { label: 'Tipo', value: isSeries ? 'Série' : 'Filme' },
+          { label: 'Ano de Lançamento', value: String(item.year) },
+          ...(item.director ? [{ label: 'Direção', value: item.director }] : []),
+          ...(item.genres?.length ? [{ label: 'Gêneros', value: item.genres.join(', ') }] : []),
+          { label: 'Áudio e Legendas', value: 'Dublado Português (PT-BR) & Legendado' },
+          { label: 'Plataforma', value: 'Wotho Cinema & Séries' },
+        ],
         links: relatedLinks,
         jsonLd: [
           cinemaJsonLd,
@@ -605,6 +640,16 @@ export function resolveRouteSeo(rawPathname, customOrigin = DEFAULT_ORIGIN) {
         subtitle: `${anime.studio || 'Anime'} · ${anime.year || ''} · ${(anime.genres || []).join(', ')}`,
         bodyText: desc,
         coverImage: cover,
+        facts: [
+          { label: 'Título', value: anime.title },
+          ...(anime.japaneseTitle ? [{ label: 'Título em Japonês', value: anime.japaneseTitle }] : []),
+          ...(anime.studio ? [{ label: 'Estúdio', value: anime.studio }] : []),
+          ...(anime.year ? [{ label: 'Ano', value: String(anime.year) }] : []),
+          ...(anime.episodesCount ? [{ label: 'Episódios Verificados', value: String(anime.episodesCount) }] : []),
+          ...(anime.genres?.length ? [{ label: 'Gêneros', value: anime.genres.join(', ') }] : []),
+          { label: 'Idiomas Disponíveis', value: 'Dublado PT-BR, Legendado PT-BR, Japonês Original, Inglês, Espanhol e Francês' },
+          { label: 'Plataforma', value: 'Wotho Animes & Mangás' },
+        ],
         links: [{ href: `/animes/${anime.id}/manga`, label: `Ler mangá de ${anime.title}` }, ...relatedLinks],
         jsonLd: isMangaReader
           ? []
@@ -684,6 +729,14 @@ export function resolveRouteSeo(rawPathname, customOrigin = DEFAULT_ORIGIN) {
         subtitle: `${wt.author || 'Webtoon'}${wt.genres?.length ? ` · ${wt.genres.join(', ')}` : ''}`,
         bodyText: desc,
         coverImage: cover,
+        facts: [
+          { label: 'Título', value: wt.title },
+          { label: 'Autor / Criador', value: wt.author || 'Wotho Webtoons' },
+          ...(wt.genres?.length ? [{ label: 'Gêneros', value: wt.genres.join(', ') }] : []),
+          { label: 'Formato', value: 'Webtoon Scroll Vertical em Alta Definição' },
+          { label: 'Idioma', value: 'Português (Brasil)' },
+          { label: 'Plataforma', value: 'Wotho Webtoons & Comics' },
+        ],
         links: [{ href: `/webtoon/${wt.id}/ler`, label: `Ler "${wt.title}" online` }, ...relatedLinks],
         jsonLd: isEpisodeReader
           ? []
@@ -707,14 +760,16 @@ export function resolveRouteSeo(rawPathname, customOrigin = DEFAULT_ORIGIN) {
     const slug = decodeURIComponent(canonicalPath.slice('/noticias/'.length).split('/')[0] || '');
     if (slug) {
       const article = catalog.news.find((n) => n.slug === slug || n.id === slug);
-      const headline = article?.title || humanizeSlug(slug);
-      const pageTitle = `${headline} — Wotho Notícias`;
-      const desc =
-        article?.excerpt ||
-        `Leia a reportagem completa "${headline}" com análise aprofundada no portal de notícias Wotho.`;
-      const cover = toAbsoluteUrl(article?.cover_url, origin);
-      const canonicalUrl = `${origin}/noticias/${encodeURIComponent(slug)}`;
-      const pubDate = article?.published_at || new Date().toISOString();
+      const isValidLiveRssSlug = /-\d{6,}$/.test(slug) || slug.startsWith('telescopio-james-webb') || slug.startsWith('marco-regulatorio-') || slug.startsWith('startups-brasileiras-');
+      if (article || isValidLiveRssSlug) {
+        const headline = article?.title || humanizeSlug(slug);
+        const pageTitle = `${headline} — Wotho Notícias`;
+        const desc =
+          article?.excerpt ||
+          `Leia a reportagem completa "${headline}" com análise aprofundada no portal de notícias Wotho.`;
+        const cover = toAbsoluteUrl(article?.cover_url, origin);
+        const canonicalUrl = `${origin}/noticias/${encodeURIComponent(slug)}`;
+        const pubDate = article?.published_at || new Date().toISOString();
 
       const newsJsonLd = {
         '@context': 'https://schema.org',
@@ -759,6 +814,13 @@ export function resolveRouteSeo(rawPathname, customOrigin = DEFAULT_ORIGIN) {
         subtitle: `${article?.category || 'Reportagem Especial'} · ${article?.source_name || 'Wotho Notícias'}`,
         bodyText: desc,
         coverImage: cover,
+        facts: [
+          { label: 'Manchete', value: headline },
+          { label: 'Editoria', value: article?.category || 'Notícias Globais' },
+          { label: 'Publicação / Fonte', value: article?.source_name || 'Redação Wotho' },
+          { label: 'Data de Publicação', value: pubDate },
+          { label: 'Veículo', value: 'Wotho Jornalismo Independente' },
+        ],
         links: relatedLinks,
         jsonLd: [
           newsJsonLd,
@@ -772,6 +834,7 @@ export function resolveRouteSeo(rawPathname, customOrigin = DEFAULT_ORIGIN) {
           ),
         ],
       };
+      }
     }
   }
 
@@ -804,12 +867,12 @@ export function resolveRouteSeo(rawPathname, customOrigin = DEFAULT_ORIGIN) {
 function renderSemanticBotShell(seo, origin = DEFAULT_ORIGIN) {
   const navLinks = [
     { href: '/', label: 'Início' },
-    { href: '/livros', label: 'Livros' },
-    { href: '/noticias', label: 'Notícias' },
+    { href: '/livros', label: 'Livros Digitais' },
+    { href: '/noticias', label: 'Notícias Globais' },
     { href: '/cinema', label: 'Cinema & Séries' },
-    { href: '/animes', label: 'Animes' },
+    { href: '/animes', label: 'Animes & Mangás' },
     { href: '/webtoons', label: 'Webtoons' },
-    { href: '/sobre', label: 'Sobre' },
+    { href: '/sobre', label: 'Sobre a Wotho' },
     { href: '/contato', label: 'Contato' },
     { href: '/mapa-do-site', label: 'Mapa do Site' },
   ];
@@ -825,11 +888,30 @@ function renderSemanticBotShell(seo, origin = DEFAULT_ORIGIN) {
   const coverHtml = seo.coverImage
     ? `<figure style="margin:16px 0;"><img src="${escapeHtml(seo.coverImage)}" alt="${escapeHtml(
         seo.ogImageAlt || seo.h1 || seo.title
-      )}" width="320" style="max-width:100%;height:auto;border-radius:8px;" /></figure>`
+      )}" width="320" style="max-width:100%;height:auto;border-radius:8px;" /><figcaption style="font-size:12px;color:#52525b;margin-top:6px;">${escapeHtml(
+        seo.ogImageAlt || seo.h1 || seo.title
+      )} — Wotho</figcaption></figure>`
     : '';
 
+  const factsHtml =
+    Array.isArray(seo.facts) && seo.facts.length > 0
+      ? `<section aria-label="Ficha Técnica e Fatos Verificados" data-snippet="true" style="margin:16px 0;padding:14px 18px;border:1px solid #e4e4e7;border-radius:8px;">
+        <h2 style="font-size:16px;margin:0 0 10px 0;">Dados Verificados</h2>
+        <dl style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px 16px;margin:0;">
+          ${seo.facts
+            .map(
+              (f) =>
+                `<div><dt style="font-size:12px;color:#52525b;font-weight:600;">${escapeHtml(
+                  f.label
+                )}</dt><dd style="margin:2px 0 0 0;font-size:14px;">${escapeHtml(f.value)}</dd></div>`
+            )
+            .join('\n          ')}
+        </dl>
+      </section>`
+      : '';
+
   return `<div id="wotho-ssr-seo" style="max-width:960px;margin:0 auto;padding:24px;font-family:'DM Sans',system-ui,sans-serif;line-height:1.6;">
-  <header style="border-bottom:1px solid #e4e4e7;padding-bottom:16px;margin-bottom:24px;">
+  <header data-nosnippet style="border-bottom:1px solid #e4e4e7;padding-bottom:16px;margin-bottom:24px;">
     <a href="/" style="font-weight:600;font-size:20px;text-decoration:none;color:inherit;">Wotho</a>
     <nav aria-label="Navegação Principal" style="margin-top:12px;display:flex;flex-wrap:wrap;gap:14px;">
       ${navLinks.map((n) => `<a href="${escapeHtml(n.href)}">${escapeHtml(n.label)}</a>`).join('\n      ')}
@@ -839,8 +921,11 @@ function renderSemanticBotShell(seo, origin = DEFAULT_ORIGIN) {
     <article>
       <h1>${escapeHtml(seo.h1 || seo.title)}</h1>
       ${seo.subtitle ? `<p><strong>${escapeHtml(seo.subtitle)}</strong></p>` : ''}
+      <section data-snippet="true" aria-label="Síntese Principal">
+        <p>${escapeHtml(seo.bodyText || seo.description)}</p>
+      </section>
+      ${factsHtml}
       ${coverHtml}
-      <p>${escapeHtml(seo.bodyText || seo.description)}</p>
     </article>
     ${
       linksHtml
@@ -853,7 +938,7 @@ function renderSemanticBotShell(seo, origin = DEFAULT_ORIGIN) {
         : ''
     }
   </main>
-  <footer style="border-top:1px solid #e4e4e7;margin-top:40px;padding-top:16px;font-size:13px;">
+  <footer data-nosnippet style="border-top:1px solid #e4e4e7;margin-top:40px;padding-top:16px;font-size:13px;">
     <p>&copy; 2026 Wotho — Livros Digitais, Notícias Globais, Streaming e Webtoons.</p>
     <nav aria-label="Links Institucionais" style="display:flex;flex-wrap:wrap;gap:12px;">
       <a href="/sobre">Sobre</a>
@@ -887,7 +972,7 @@ export function injectSeoIntoHtml(html, rawPathname, options = {}) {
     `<meta name="description" content="${escapeHtml(seo.description)}" />`
   );
 
-  // 3. Robots & Googlebot directives
+  // 3. Robots, Googlebot & Bingbot directives (never emit noarchive/nocache on indexable pages for Copilot Grounding)
   out = out.replace(
     /<meta\s+name="robots"\s+content="[^"]*"\s*\/?>/i,
     `<meta name="robots" content="${escapeHtml(seo.robots)}" />`
@@ -896,6 +981,17 @@ export function injectSeoIntoHtml(html, rawPathname, options = {}) {
     /<meta\s+name="googlebot"\s+content="[^"]*"\s*\/?>/i,
     `<meta name="googlebot" content="${escapeHtml(seo.robots)}" />`
   );
+  if (/<meta\s+name="bingbot"/i.test(out)) {
+    out = out.replace(
+      /<meta\s+name="bingbot"\s+content="[^"]*"\s*\/?>/i,
+      `<meta name="bingbot" content="${escapeHtml(seo.robots)}" />`
+    );
+  } else {
+    out = out.replace(
+      '</head>',
+      `    <meta name="bingbot" content="${escapeHtml(seo.robots)}" />\n  </head>`
+    );
+  }
 
   // 4. Canonical link (remove on 404 to prevent Soft 404 clustering)
   if (seo.canonicalUrl) {
@@ -1040,8 +1136,9 @@ function findIndexHtmlTemplate() {
   <meta charset="UTF-8" />
   <title>Wotho</title>
   <meta name="description" content="Wotho" />
-  <meta name="robots" content="index, follow" />
-  <meta name="googlebot" content="index, follow" />
+  <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
+  <meta name="googlebot" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
+  <meta name="bingbot" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
   <link rel="canonical" href="${DEFAULT_ORIGIN}/" />
   <meta property="og:type" content="website" />
   <meta property="og:url" content="${DEFAULT_ORIGIN}/" />
@@ -1074,11 +1171,27 @@ export async function handleSeoPrerenderRequest(req, res) {
   const ua = req.headers?.['user-agent'] || '';
   const isBot = isSearchOrSocialBot(ua) || parsedUrl.searchParams.get('_bot') === '1';
 
+  // Permanent 301 Redirects for legacy/alias paths
+  const redirectTarget = resolvePermanentRedirect(normalizedPath);
+  if (redirectTarget) {
+    const destUrl = redirectTarget === '/' ? `${DEFAULT_ORIGIN}/` : `${DEFAULT_ORIGIN}${redirectTarget}`;
+    res.statusCode = 301;
+    res.setHeader('Location', destUrl);
+    res.setHeader('Cache-Control', 'public, max-age=86400');
+    res.end();
+    return;
+  }
+
   const template = findIndexHtmlTemplate();
   const { html, seo } = injectSeoIntoHtml(template, normalizedPath, {
     origin: DEFAULT_ORIGIN,
     isBot: true,
   });
+
+  if (seo.statusCode === 404) {
+    // Notify IndexNow of removed/missing URL without blocking response
+    void notifyIndexNowUrl(`${DEFAULT_ORIGIN}${normalizedPath}`, 'delete').catch(() => {});
+  }
 
   res.statusCode = seo.statusCode || 200;
   res.setHeader('Content-Type', 'text/html; charset=utf-8');

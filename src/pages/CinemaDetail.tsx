@@ -567,7 +567,7 @@ export default function CinemaDetail() {
               )}
 
               {/* Sinopse */}
-              <section className="bg-zinc-900/40 border border-white/5 rounded-xl p-6 sm:p-8 backdrop-blur-sm">
+              <section data-snippet="true" className="bg-zinc-900/40 border border-white/5 rounded-xl p-6 sm:p-8 backdrop-blur-sm">
                 <h2 className="text-lg font-serif font-semibold text-white mb-3 flex items-center gap-2">
                   Sinopse Oficial
                 </h2>

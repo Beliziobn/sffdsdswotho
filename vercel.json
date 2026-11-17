@@ -5,6 +5,33 @@
       "includeFiles": "{index.html,dist/index.html,api/_seoCatalog.json,public/robots.txt,public/sitemap.xml}"
     }
   },
+  "redirects": [
+    {
+      "source": "/contacto",
+      "destination": "/contato",
+      "statusCode": 301
+    },
+    {
+      "source": "/sitemap",
+      "destination": "/mapa-do-site",
+      "statusCode": 301
+    },
+    {
+      "source": "/meu-perfil",
+      "destination": "/perfil",
+      "statusCode": 301
+    },
+    {
+      "source": "/index.html",
+      "destination": "/",
+      "statusCode": 301
+    },
+    {
+      "source": "/webtoons/:id",
+      "destination": "/webtoon/:id",
+      "statusCode": 301
+    }
+  ],
   "rewrites": [
     {
       "source": "/sitemap.xml",
@@ -44,7 +71,7 @@
         {
           "type": "header",
           "key": "user-agent",
-          "value": ".*(Googlebot|Google-InspectionTool|AdsBot-Google|Mediapartners-Google|Storebot-Google|GoogleOther|Bingbot|Slurp|DuckDuckBot|Applebot|Yandex|facebookexternalhit|Twitterbot|LinkedInBot|WhatsApp|Slackbot|TelegramBot|Discordbot).*"
+          "value": ".*(Googlebot|Google-InspectionTool|AdsBot-Google|Mediapartners-Google|Storebot-Google|GoogleOther|Bingbot|BingPreview|msnbot|AdIdxBot|Slurp|DuckDuckBot|Applebot|OAI-SearchBot|ChatGPT-User|GPTBot|ClaudeBot|PerplexityBot|Yandex|facebookexternalhit|Twitterbot|LinkedInBot|WhatsApp|Slackbot|TelegramBot|Discordbot).*"
         }
       ],
       "destination": "/api/[...route]?route=seo-prerender&path=/$1"

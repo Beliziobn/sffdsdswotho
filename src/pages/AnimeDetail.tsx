@@ -670,7 +670,7 @@ export const AnimeDetail = () => {
             </p>
 
             {/* Synopsis */}
-            <div className="mb-8 max-w-3xl">
+            <div data-snippet="true" className="mb-8 max-w-3xl">
               <p className="text-sm md:text-base text-foreground/85 leading-relaxed">
                 {anime.synopsis}
               </p>

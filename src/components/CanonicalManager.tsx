@@ -240,6 +240,7 @@ export const CanonicalManager = () => {
       if (staleCanonical) staleCanonical.remove();
       upsertMetaTag('meta[name="robots"]', "name", "robots", "noindex, nofollow");
       upsertMetaTag('meta[name="googlebot"]', "name", "googlebot", "noindex, nofollow");
+      upsertMetaTag('meta[name="bingbot"]', "name", "bingbot", "noindex, nofollow");
       setDynamicJsonLd(null);
       return;
     }

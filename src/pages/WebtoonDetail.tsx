@@ -244,8 +244,8 @@ const WebtoonDetail = () => {
       <main className="py-24 lg:py-32 px-6 lg:px-12">
         <div className="max-w-5xl mx-auto">
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}>
-            <span className="text-[11px] uppercase tracking-wider text-muted-foreground mb-4 block">Sinopse</span>
-            <p className="text-sm text-muted-foreground font-light leading-relaxed whitespace-pre-line mb-6">
+            <h2 className="text-[11px] uppercase tracking-wider text-muted-foreground mb-4 block">Sinopse</h2>
+            <p data-snippet="true" className="text-sm text-muted-foreground font-light leading-relaxed whitespace-pre-line mb-6">
               {item.description}
             </p>
 

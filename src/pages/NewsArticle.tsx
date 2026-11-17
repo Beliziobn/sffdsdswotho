@@ -420,7 +420,10 @@ const NewsArticle = () => {
             !(contentBlocks[0].text || "")
               .toLowerCase()
               .startsWith(article.excerpt.replace(/\.{3}$/, "").trim().slice(0, 60).toLowerCase()) && (
-              <div className="mb-8 p-5 sm:p-6 rounded-2xl bg-accent/40 border-l-4 border-emerald-500 text-foreground font-light text-base sm:text-lg leading-relaxed shadow-sm">
+              <div
+                data-snippet="true"
+                className="mb-8 p-5 sm:p-6 rounded-2xl bg-accent/40 border-l-4 border-emerald-500 text-foreground font-light text-base sm:text-lg leading-relaxed shadow-sm"
+              >
                 <span className="text-[10px] uppercase tracking-wider text-emerald-600 dark:text-emerald-400 font-semibold block mb-1.5">
                   {t("Resumo Editorial")}
                 </span>
@@ -429,16 +432,16 @@ const NewsArticle = () => {
             )}
 
           {/* Rich Body Content organized in clear, comfortable paragraphs */}
-          <div className="space-y-6 text-base sm:text-[17.5px] text-foreground/90 font-light leading-[1.85]">
+          <div data-snippet="true" className="space-y-6 text-base sm:text-[17.5px] text-foreground/90 font-light leading-[1.85]">
             {contentBlocks.map((block, index) => {
               if (block.type === "heading") {
                 return (
-                  <h3
+                  <h2
                     key={block.key}
                     className="text-xl sm:text-2xl font-medium text-foreground pt-6 pb-1 tracking-tight border-b border-border/50"
                   >
                     {block.text}
-                  </h3>
+                  </h2>
                 );
               }
 

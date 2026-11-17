@@ -36,6 +36,10 @@ import {
 } from './_geoHandler.js';
 import { handleSeoPrerenderRequest } from './_seoPrerender.js';
 import {
+  handleIndexNowRequest,
+  getIndexNowStats,
+} from './_indexNowHandler.js';
+import {
   buildSitemapXml,
   buildSitemapIndexXml,
   buildSubSitemapXml,
@@ -198,6 +202,10 @@ export default async function handler(req: any, res: any) {
       return;
     }
 
+    case '/api/seo/indexnow':
+    case '/seo/indexnow':
+      return handleIndexNowRequest(req, res);
+
     case '/api/seo/status': {
       const cat = loadSeoCatalog();
       res.statusCode = 200;
@@ -208,6 +216,19 @@ export default async function handler(req: any, res: any) {
           ok: true,
           domain: 'https://wotho.vercel.app',
           generatedAt: cat.generatedAt,
+          verification: {
+            googleSiteVerification: true,
+            bingMsValidate: '3DD20C5692A3D68BDDFFEA861D2C737F',
+            bingSiteAuthXml: '/BingSiteAuth.xml',
+          },
+          copilotGrounding: {
+            noarchiveBlocked: false,
+            nocacheBlocked: false,
+            bingbotPrerenderEnabled: true,
+            dataSnippetAnnotated: true,
+            jsonLdConsistent: true,
+            indexNow: getIndexNowStats(),
+          },
           counts: {
             books: cat.books?.length || 0,
             cinema: cat.cinema?.length || 0,

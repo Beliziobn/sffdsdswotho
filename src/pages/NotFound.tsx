@@ -10,13 +10,15 @@ const NotFound = () => {
     document.title = "404 — Página não encontrada | Wotho";
     const canonical = document.querySelector('link[rel="canonical"]');
     if (canonical) canonical.remove();
-    let robots = document.querySelector('meta[name="robots"]') as HTMLMetaElement | null;
-    if (!robots) {
-      robots = document.createElement("meta");
-      robots.setAttribute("name", "robots");
-      document.head.appendChild(robots);
-    }
-    robots.setAttribute("content", "noindex, nofollow");
+    ["robots", "googlebot", "bingbot"].forEach((name) => {
+      let tag = document.querySelector(`meta[name="${name}"]`) as HTMLMetaElement | null;
+      if (!tag) {
+        tag = document.createElement("meta");
+        tag.setAttribute("name", name);
+        document.head.appendChild(tag);
+      }
+      tag.setAttribute("content", "noindex, nofollow");
+    });
   }, [location.pathname]);
 
   return (

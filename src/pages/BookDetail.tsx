@@ -226,17 +226,17 @@ const BookDetail = () => {
             transition={{ duration: 0.6 }}
             className="lg:col-span-2"
           >
-            <span className="text-[11px] uppercase tracking-wider text-muted-foreground mb-4 block">Sobre a obra</span>
-            <p className="text-sm text-muted-foreground font-light leading-relaxed whitespace-pre-line mb-12">
+            <h2 className="text-[11px] uppercase tracking-wider text-muted-foreground mb-4 block">Sobre a obra</h2>
+            <p data-snippet="true" className="text-sm text-muted-foreground font-light leading-relaxed whitespace-pre-line mb-12">
               {book.description}
             </p>
 
             <div className="border border-border/80 rounded-xl p-5 bg-card/60 backdrop-blur-sm mb-6">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
                 <div>
-                  <h3 className="text-base font-medium text-foreground tracking-tight">
+                  <h2 className="text-base font-medium text-foreground tracking-tight">
                     Índice de Capítulos Completo
-                  </h3>
+                  </h2>
                   <p className="text-xs text-muted-foreground font-light mt-0.5">
                     {chapters.length} capítulos e módulos completos com leitura contínua
                   </p>

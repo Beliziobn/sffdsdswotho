@@ -445,56 +445,95 @@ function wrapUrlset(entries, origin) {
 
 function buildSectionEntries(catalog, customOrigin = BASE_URL) {
   const origin = (customOrigin || BASE_URL).replace(/\/+$/, '');
-  const todayDate = new Date().toISOString().split('T')[0];
+  const catalogLastmodIso = toIsoDate(catalog.generatedAt, new Date().toISOString());
+  const catalogLastmodDate = catalogLastmodIso.split('T')[0];
 
-  const pages = STATIC_ROUTES.map((route) => ({
-    loc: route.path === '/' ? `${origin}/` : `${origin}${route.path}`,
-    lastmod: todayDate,
-    changefreq: route.changefreq,
-    priority: route.priority,
-    image: `${origin}/og-image.jpg`,
-    imageTitle: route.title,
-  }));
+  const latestNewsIso =
+    (catalog.news || [])
+      .map((n) => n?.published_at)
+      .filter(Boolean)
+      .sort()
+      .pop() || catalogLastmodIso;
+  const latestNewsDate = toIsoDate(latestNewsIso, catalogLastmodIso).split('T')[0];
 
-  const books = (catalog.books || []).map((b) => ({
-    loc: `${origin}/livros/${encodeURIComponent(b.id)}`,
-    lastmod: b.published_at ? toIsoDate(b.published_at, todayDate).split('T')[0] : todayDate,
-    changefreq: b.kind === 'scientific' ? 'monthly' : 'weekly',
-    priority: '0.8',
-    image: b.cover_url || `${origin}/og-image.jpg`,
-    imageTitle: b.title || b.id,
-  }));
+  const pages = STATIC_ROUTES.map((route) => {
+    const isDynamicFeedRoute = route.path === '/' || route.path === '/noticias';
+    return {
+      loc: route.path === '/' ? `${origin}/` : `${origin}${route.path}`,
+      lastmod: isDynamicFeedRoute ? latestNewsDate : catalogLastmodDate,
+      changefreq: route.changefreq,
+      priority: route.priority,
+      image: `${origin}/og-image.jpg`,
+      imageTitle: route.title,
+    };
+  });
 
-  const cinema = (catalog.cinema || []).map((c) => ({
-    loc: `${origin}/cinema/${encodeURIComponent(c.id)}`,
-    lastmod: todayDate,
-    changefreq: 'weekly',
-    priority: '0.8',
-    image: c.posterUrl || c.backdropUrl || `${origin}/og-image.jpg`,
-    imageTitle: c.title || c.id,
-  }));
+  const books = (catalog.books || []).map((b) => {
+    const rawDate =
+      b.updated_at ||
+      b.published_at ||
+      (b.year ? `${Math.min(Math.max(Number(b.year) || 2024, 1900), 2026)}-06-01T00:00:00.000Z` : catalogLastmodIso);
+    return {
+      loc: `${origin}/livros/${encodeURIComponent(b.id)}`,
+      lastmod: toIsoDate(rawDate, catalogLastmodIso).split('T')[0],
+      changefreq: b.kind === 'scientific' ? 'monthly' : 'weekly',
+      priority: '0.8',
+      image: b.cover_url || `${origin}/og-image.jpg`,
+      imageTitle: b.title || b.id,
+    };
+  });
 
-  const animes = (catalog.animes || []).map((a) => ({
-    loc: `${origin}/animes/${encodeURIComponent(a.id)}`,
-    lastmod: todayDate,
-    changefreq: 'weekly',
-    priority: '0.8',
-    image: a.cover || a.banner || `${origin}/og-image.jpg`,
-    imageTitle: a.title || a.id,
-  }));
+  const cinema = (catalog.cinema || []).map((c) => {
+    const rawDate =
+      c.updated_at ||
+      (c.year && Number(c.year) >= 2026
+        ? catalogLastmodIso
+        : c.year
+        ? `${Math.min(Math.max(Number(c.year), 1920), 2026)}-06-01T00:00:00.000Z`
+        : catalogLastmodIso);
+    return {
+      loc: `${origin}/cinema/${encodeURIComponent(c.id)}`,
+      lastmod: toIsoDate(rawDate, catalogLastmodIso).split('T')[0],
+      changefreq: 'weekly',
+      priority: '0.8',
+      image: c.posterUrl || c.backdropUrl || `${origin}/og-image.jpg`,
+      imageTitle: c.title || c.id,
+    };
+  });
 
-  const webtoons = (catalog.webtoons || []).map((w) => ({
-    loc: `${origin}/webtoon/${encodeURIComponent(w.id)}`,
-    lastmod: todayDate,
-    changefreq: 'weekly',
-    priority: '0.8',
-    image: w.cover || w.banner || `${origin}/og-image.jpg`,
-    imageTitle: w.title || w.id,
-  }));
+  const animes = (catalog.animes || []).map((a) => {
+    const rawDate =
+      a.updated_at ||
+      (a.year && Number(a.year) >= 2026
+        ? catalogLastmodIso
+        : a.year
+        ? `${Math.min(Math.max(Number(a.year), 1980), 2026)}-06-01T00:00:00.000Z`
+        : catalogLastmodIso);
+    return {
+      loc: `${origin}/animes/${encodeURIComponent(a.id)}`,
+      lastmod: toIsoDate(rawDate, catalogLastmodIso).split('T')[0],
+      changefreq: 'weekly',
+      priority: '0.8',
+      image: a.cover || a.banner || `${origin}/og-image.jpg`,
+      imageTitle: a.title || a.id,
+    };
+  });
+
+  const webtoons = (catalog.webtoons || []).map((w) => {
+    const rawDate = w.updated_at || w.published_at || catalogLastmodIso;
+    return {
+      loc: `${origin}/webtoon/${encodeURIComponent(w.id)}`,
+      lastmod: toIsoDate(rawDate, catalogLastmodIso).split('T')[0],
+      changefreq: w.status === 'Completo' ? 'monthly' : 'weekly',
+      priority: '0.8',
+      image: w.cover || w.banner || `${origin}/og-image.jpg`,
+      imageTitle: w.title || w.id,
+    };
+  });
 
   const news = (catalog.news || []).slice(0, 1500).map((n) => ({
     loc: `${origin}/noticias/${encodeURIComponent(n.slug)}`,
-    lastmod: toIsoDate(n.published_at, todayDate).split('T')[0],
+    lastmod: toIsoDate(n.updated_at || n.published_at, catalogLastmodIso),
     changefreq: 'daily',
     priority: '0.7',
     image: n.cover_url || `${origin}/og-image.jpg`,
@@ -546,25 +585,30 @@ export function buildSubSitemapXml(sectionName, customOrigin = BASE_URL, catalog
   };
 }
 
-export function buildSitemapIndexXml(customOrigin = BASE_URL) {
+export function buildSitemapIndexXml(customOrigin = BASE_URL, catalogOverride = null) {
   const origin = (customOrigin || BASE_URL).replace(/\/+$/, '');
-  const lastmod = new Date().toISOString();
+  const catalog = catalogOverride || loadSeoCatalog();
+  const catalogLastmod = toIsoDate(catalog.generatedAt, new Date().toISOString());
+  const latestNewsIso = toIsoDate(
+    (catalog.news || []).map((n) => n?.published_at).filter(Boolean).sort().pop(),
+    catalogLastmod
+  );
   const sitemaps = [
-    `${origin}/sitemap-pages.xml`,
-    `${origin}/sitemap-books.xml`,
-    `${origin}/sitemap-cinema.xml`,
-    `${origin}/sitemap-animes.xml`,
-    `${origin}/sitemap-webtoons.xml`,
-    `${origin}/sitemap-news.xml`,
-    `${origin}/news-sitemap.xml`,
+    { loc: `${origin}/sitemap-pages.xml`, lastmod: latestNewsIso },
+    { loc: `${origin}/sitemap-books.xml`, lastmod: catalogLastmod },
+    { loc: `${origin}/sitemap-cinema.xml`, lastmod: catalogLastmod },
+    { loc: `${origin}/sitemap-animes.xml`, lastmod: catalogLastmod },
+    { loc: `${origin}/sitemap-webtoons.xml`, lastmod: catalogLastmod },
+    { loc: `${origin}/sitemap-news.xml`, lastmod: latestNewsIso },
+    { loc: `${origin}/news-sitemap.xml`, lastmod: latestNewsIso },
   ];
 
   let xml = '<?xml version="1.0" encoding="UTF-8"?>\n';
   xml += '<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n';
-  for (const loc of sitemaps) {
+  for (const sm of sitemaps) {
     xml += '  <sitemap>\n';
-    xml += `    <loc>${escapeXml(loc)}</loc>\n`;
-    xml += `    <lastmod>${lastmod}</lastmod>\n`;
+    xml += `    <loc>${escapeXml(sm.loc)}</loc>\n`;
+    xml += `    <lastmod>${escapeXml(sm.lastmod)}</lastmod>\n`;
     xml += '  </sitemap>\n';
   }
   xml += '</sitemapindex>\n';

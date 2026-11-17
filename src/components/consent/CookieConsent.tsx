@@ -9,7 +9,7 @@ import { useCookieConsent } from "@/hooks/useConsent";
 const isSearchBot = (): boolean => {
   if (typeof navigator === "undefined") return false;
   const ua = navigator.userAgent || "";
-  return /Googlebot|bingbot|Baiduspider|DuckDuckBot|YandexBot|Sogou|Slurp|ia_archiver/i.test(ua);
+  return /Googlebot|bingbot|BingPreview|msnbot|AdIdxBot|OAI-SearchBot|ChatGPT-User|GPTBot|ClaudeBot|PerplexityBot|Baiduspider|DuckDuckBot|YandexBot|Sogou|Slurp|ia_archiver/i.test(ua);
 };
 
 const CookieConsent = () => {
@@ -32,6 +32,7 @@ const CookieConsent = () => {
           className="fixed bottom-0 left-0 right-0 z-[200] p-4 sm:p-6"
           role="dialog"
           aria-label="Consentimento de cookies"
+          data-nosnippet
         >
           <div className="container mx-auto max-w-3xl rounded-xl border border-border bg-card p-6 shadow-[var(--hover-shadow)]">
             <div className="flex items-start gap-3">

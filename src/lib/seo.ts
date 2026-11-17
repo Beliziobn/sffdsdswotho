@@ -135,9 +135,17 @@ export function applySeoMetadata(options: PageSeoOptions) {
   if (typeof document === "undefined") return;
 
   const cleanDesc = (options.description || "").replace(/\s+/g, " ").trim();
-  const robotsValue =
+  const rawRobots =
     options.robots ||
     "index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1";
+  const isNoindex = /\bnoindex\b/i.test(rawRobots);
+  // Per Bing Copilot Grounding guidelines: never attach noarchive/nocache to indexable pages
+  const robotsValue = isNoindex
+    ? rawRobots
+    : rawRobots
+        .replace(/\b(noarchive|nocache)\b,?\s*/gi, "")
+        .replace(/,\s*$/, "") ||
+      "index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1";
 
   const canonicalPath = normalizeCanonicalPath(
     options.canonicalPath || (typeof window !== "undefined" ? window.location.pathname : "/")
@@ -152,6 +160,7 @@ export function applySeoMetadata(options: PageSeoOptions) {
   upsertMetaTag('meta[name="description"]', "name", "description", cleanDesc);
   upsertMetaTag('meta[name="robots"]', "name", "robots", robotsValue);
   upsertMetaTag('meta[name="googlebot"]', "name", "googlebot", robotsValue);
+  upsertMetaTag('meta[name="bingbot"]', "name", "bingbot", robotsValue);
 
   if (options.keywords) {
     upsertMetaTag('meta[name="keywords"]', "name", "keywords", options.keywords);
@@ -218,4 +227,36 @@ export function usePageSeo(options: PageSeoOptions | null) {
     options?.articleSection,
     serializedJsonLd,
   ]);
+}
+
+const notifiedIndexNowCache = new Map<string, number>();
+
+/**
+ * Notifies IndexNow in real time for a single canonical URL addition, update, or removal (404).
+ * Strictly avoids batch submissions and deduplicates within a 60s window.
+ */
+export function notifyIndexNowRealtime(
+  pathOrUrl: string,
+  action: "update" | "delete" = "update"
+): void {
+  if (typeof window === "undefined" || !pathOrUrl) return;
+  const normalized = pathOrUrl.startsWith("http")
+    ? pathOrUrl
+    : normalizeCanonicalPath(pathOrUrl);
+  const key = `${action}:${normalized}`;
+  const now = Date.now();
+  const last = notifiedIndexNowCache.get(key);
+  if (last && now - last < 60_000) return;
+  notifiedIndexNowCache.set(key, now);
+
+  try {
+    void fetch("/api/seo/indexnow", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ url: normalized, action }),
+      keepalive: true,
+    }).catch(() => {});
+  } catch {
+    // Non-blocking telemetry
+  }
 }
