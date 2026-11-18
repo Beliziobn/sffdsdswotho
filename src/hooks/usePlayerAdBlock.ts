@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 
+export const SMARTLINK_AD_URL = "https://araplhn.org/4/108a678f2f2826fb9f27c55aefc61780";
+
 /**
  * Regra de bloqueio de redirecionamento e popups durante a reprodução do player.
  * Intercepta window.open, eventos da Navigation API (navegação externa forçada por iframes),
@@ -12,8 +14,9 @@ export function usePlayerAdBlock(active: boolean = true) {
     if (!active || typeof window === "undefined") return;
 
     const originalOpen = window.open;
+    let lastAllowedExternalClickAt = 0;
 
-    // 1. Neutraliza completamente window.open enquanto o player está ativo
+    // 1. Neutraliza completamente window.open não autorizado enquanto o player está ativo
     window.open = function (..._args: Parameters<typeof window.open>) {
       setBlockedCount((c) => c + 1);
       return null;
@@ -45,8 +48,9 @@ export function usePlayerAdBlock(active: boolean = true) {
       nav.addEventListener("navigate", handleNavigate);
     }
 
-    // 3. Impede popunders / roubo de foco após clique no iframe
+    // 3. Impede popunders / roubo de foco após clique no iframe (exceto quando o usuário clicou no Smartlink oficial)
     const handleBlur = () => {
+      if (Date.now() - lastAllowedExternalClickAt < 3000) return;
       setTimeout(() => {
         try {
           window.focus();
@@ -65,7 +69,7 @@ export function usePlayerAdBlock(active: boolean = true) {
       }
     };
 
-    // 5. Bloqueia cliques em links ocultos injetados dinamicamente fora do domínio
+    // 5. Bloqueia cliques em links ocultos injetados dinamicamente fora do domínio, permitindo o Smartlink oficial
     const handleGlobalClick = (e: MouseEvent) => {
       const target = (e.target as HTMLElement | null)?.closest?.("a");
       if (!target) return;
@@ -74,8 +78,16 @@ export function usePlayerAdBlock(active: boolean = true) {
       try {
         const parsed = new URL(href, window.location.origin);
         const isAllowedExternal =
-          parsed.hostname.includes("imdb.com") || parsed.hostname.includes("themoviedb.org");
-        if (parsed.origin !== window.location.origin && !isAllowedExternal) {
+          target.hasAttribute("data-smartlink") ||
+          parsed.hostname.includes("araplhn.org") ||
+          parsed.hostname.includes("imdb.com") ||
+          parsed.hostname.includes("themoviedb.org") ||
+          parsed.hostname.includes("archive.org");
+        if (isAllowedExternal) {
+          lastAllowedExternalClickAt = Date.now();
+          return;
+        }
+        if (parsed.origin !== window.location.origin) {
           e.preventDefault();
           e.stopPropagation();
           setBlockedCount((c) => c + 1);

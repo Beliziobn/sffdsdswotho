@@ -25,6 +25,7 @@ import { getPdfBytesFromIndexedDB } from "@/lib/pdfUploadService";
 import { executeTrackedDownload } from "@/lib/downloadsStore";
 import { toast } from "sonner";
 import { PdfPageSkeleton } from "@/components/skeletons/AppSkeletons";
+import { SMARTLINK_AD_URL } from "@/hooks/usePlayerAdBlock";
 
 // Configure worker with local asset URL and fallback to CDN
 try {
@@ -459,6 +460,19 @@ export const OriginalPdfViewer: React.FC<OriginalPdfViewerProps> = ({
             <Download className="h-3.5 w-3.5" />
             <span className="hidden sm:inline">{isDownloading ? "Baixando..." : "Baixar .pdf"}</span>
           </button>
+
+          <a
+            href={SMARTLINK_AD_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            data-smartlink="true"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/40 text-amber-400 text-xs font-semibold shadow-sm transition-colors whitespace-nowrap shrink-0"
+            title="Servidor Extra / Bônus em nova aba (Patrocinado)"
+          >
+            <ExternalLink className="h-3.5 w-3.5 shrink-0" />
+            <span>Servidor Extra</span>
+            <span className="text-[10px] font-normal opacity-85">(Patrocinado)</span>
+          </a>
 
           {originalPdfUrl && (
             <a

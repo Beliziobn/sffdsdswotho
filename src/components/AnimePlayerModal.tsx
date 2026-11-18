@@ -2,7 +2,7 @@ import { useRef, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "./ui/dialog";
 import { Anime } from "@/lib/animes";
 import { sanitizeTrailerEmbedUrl } from "@/lib/animeMetadataSync";
-import { usePlayerAdBlock } from "@/hooks/usePlayerAdBlock";
+import { usePlayerAdBlock, SMARTLINK_AD_URL } from "@/hooks/usePlayerAdBlock";
 import { Star, Tv, Calendar, Building2, ExternalLink, ShieldCheck, Play, Pause, Layers, Sparkles } from "lucide-react";
 import { Link } from "react-router-dom";
 import { WorscoiIntroPlayer } from "@/components/WorscoiIntroPlayer";
@@ -79,6 +79,19 @@ export const AnimePlayerModal = ({ anime, isOpen, onClose }: AnimePlayerModalPro
               <Sparkles className="h-3 w-3 text-primary" />
               <span>Intro Wotho</span>
             </button>
+
+            <a
+              href={SMARTLINK_AD_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              data-smartlink="true"
+              className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/40 text-amber-300 transition-colors whitespace-nowrap"
+              title="Abrir Servidor Extra / Bônus em nova aba (Patrocinado)"
+            >
+              <ExternalLink className="h-3 w-3 shrink-0" />
+              <span>Servidor Extra</span>
+              <span className="text-[10px] font-normal opacity-80">(Patrocinado)</span>
+            </a>
 
             {seasons.length > 1 && (
               <div className="flex items-center gap-1 overflow-x-auto max-w-full pr-2">

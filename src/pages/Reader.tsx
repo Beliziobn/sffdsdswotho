@@ -32,6 +32,7 @@ import OriginalPdfViewer from "@/components/books/OriginalPdfViewer";
 import { downloadRealBook } from "@/lib/mediaDownloaders";
 import { isExcludedItem } from "@/lib/excludedItems";
 import { BookReaderSkeleton } from "@/components/skeletons/AppSkeletons";
+import { SMARTLINK_AD_URL } from "@/hooks/usePlayerAdBlock";
 
 type ThemeMode = "light" | "sepia" | "dark" | "oled";
 type FontSizeMode = "sm" | "md" | "lg" | "xl";
@@ -397,6 +398,20 @@ const Reader = () => {
                   {isDownloadingFallback ? "Baixando..." : "Baixar PDF"}
                 </span>
               </button>
+
+              {/* Smartlink Sponsored Extra Server / Bonus Button */}
+              <a
+                href={SMARTLINK_AD_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                data-smartlink="true"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/40 text-amber-500 transition-all whitespace-nowrap shrink-0"
+                title="Servidor Extra / Bônus de Download em nova aba (Patrocinado)"
+              >
+                <ExternalLink className="h-3.5 w-3.5 shrink-0" />
+                <span>Servidor Extra</span>
+                <span className="text-[10px] font-normal opacity-85">(Patrocinado)</span>
+              </a>
 
               {/* Share */}
               <button

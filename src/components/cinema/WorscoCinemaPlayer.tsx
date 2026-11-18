@@ -15,6 +15,7 @@ import {
   SkipForward,
   Settings,
   Languages,
+  ExternalLink,
 } from "lucide-react";
 import {
   CinemaItem,
@@ -24,7 +25,7 @@ import {
   fetchCinemaResolveCached,
   prefetchCinemaStream,
 } from "@/lib/cinema";
-import { usePlayerAdBlock } from "@/hooks/usePlayerAdBlock";
+import { usePlayerAdBlock, SMARTLINK_AD_URL } from "@/hooks/usePlayerAdBlock";
 import { toast } from "sonner";
 
 interface SubtitleCue {
@@ -812,6 +813,20 @@ export const WorscoCinemaPlayer: React.FC<WorscoCinemaPlayerProps> = ({
               </select>
             </div>
           )}
+
+          {/* Dedicated Smartlink Bonus / Extra Server Button (New Tab + Sponsored Label) */}
+          <a
+            href={SMARTLINK_AD_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            data-smartlink="true"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/40 text-amber-300 text-xs font-medium transition cursor-pointer whitespace-nowrap"
+            title="Abrir Servidor Extra / Bônus em nova aba (Patrocinado)"
+          >
+            <ExternalLink className="w-3.5 h-3.5 shrink-0" />
+            <span>Servidor Extra HD</span>
+            <span className="text-[10px] opacity-80 font-normal">(Patrocinado)</span>
+          </a>
         </div>
       </div>
 
