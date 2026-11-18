@@ -3,6 +3,291 @@
         xmlns:news="http://www.google.com/schemas/sitemap-news/0.9"
         xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
   <url>
+    <loc>https://wotho.vercel.app/noticias/trump-xi-and-putin-shake-hands-as-leaders-gather-in-china-6966843840</loc>
+    <news:news>
+      <news:publication>
+        <news:name>Wotho</news:name>
+        <news:language>pt</news:language>
+      </news:publication>
+      <news:publication_date>2026-11-18T17:23:48.000Z</news:publication_date>
+      <news:title>Trump, Xi and Putin Shake Hands as Leaders Gather in China</news:title>
+    </news:news>
+    <image:image>
+      <image:loc>https://static01.nyt.com/images/2026/11/18/multimedia/18trump-summits-promo6am/18trump-summits-promo6am-mediumSquareAt3X.jpg</image:loc>
+      <image:title>Trump, Xi and Putin Shake Hands as Leaders Gather in China</image:title>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://wotho.vercel.app/noticias/jeff-bezos-revela-bastidores-de-como-robert-pattinson-virou-o-novo-james-bo-13691443854</loc>
+    <news:news>
+      <news:publication>
+        <news:name>Wotho</news:name>
+        <news:language>pt</news:language>
+      </news:publication>
+      <news:publication_date>2026-11-18T17:03:00.000Z</news:publication_date>
+      <news:title>Jeff Bezos revela bastidores de como Robert Pattinson virou o novo James Bond</news:title>
+    </news:news>
+    <image:image>
+      <image:loc>https://tl.ctcdn.com.br/ZyMryWA-rg8k141GIpluz80sGvw=/0x0/filters:format(webp):quality(85)/68e63756-eed7-40fe-946d-c8cb31c5fe26.png</image:loc>
+      <image:title>Jeff Bezos revela bastidores de como Robert Pattinson virou o novo James Bond</image:title>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://wotho.vercel.app/noticias/openai-lanca-gpt-6-2-astra-e-sol-mais-baratos-mas-estreia-divide-usuarios-1436668839</loc>
+    <news:news>
+      <news:publication>
+        <news:name>Wotho</news:name>
+        <news:language>pt</news:language>
+      </news:publication>
+      <news:publication_date>2026-11-18T17:02:00.000Z</news:publication_date>
+      <news:title>OpenAI lança GPT-6.2 Astra e Sol mais baratos, mas estreia divide usuários</news:title>
+    </news:news>
+    <image:image>
+      <image:loc>https://tl.ctcdn.com.br/47KZ8teS09ddDYX0PA4tpJgOMdM=/0x0/filters:format(webp):quality(85)/18446ab6-fd96-4ef4-ad57-251e00fc4358.png</image:loc>
+      <image:title>OpenAI lança GPT-6.2 Astra e Sol mais baratos, mas estreia divide usuários</image:title>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://wotho.vercel.app/noticias/onde-comprar-o-gta-6-pelo-menor-preco-2824597553</loc>
+    <news:news>
+      <news:publication>
+        <news:name>Wotho</news:name>
+        <news:language>pt</news:language>
+      </news:publication>
+      <news:publication_date>2026-11-18T17:00:00.000Z</news:publication_date>
+      <news:title>Onde comprar o GTA 6 pelo menor preço?</news:title>
+    </news:news>
+    <image:image>
+      <image:loc>https://www.estadao.com.br/resizer/v2/6V2GGQGDUJFBDPAZZBG66HKYZM.jpg?quality=80&amp;auth=17b1a2ea0b7f2ee8b6bce19cc71242c93accd5765860094136dc297846dac3e0&amp;width=710</image:loc>
+      <image:title>Onde comprar o GTA 6 pelo menor preço?</image:title>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://wotho.vercel.app/noticias/gta-6-tem-quantos-trofeus-e-conquistas-veja-a-lista-completa-5454386622</loc>
+    <news:news>
+      <news:publication>
+        <news:name>Wotho</news:name>
+        <news:language>pt</news:language>
+      </news:publication>
+      <news:publication_date>2026-11-18T16:15:00.000Z</news:publication_date>
+      <news:title>GTA 6 tem quantos troféus e conquistas? Veja a lista completa</news:title>
+    </news:news>
+    <image:image>
+      <image:loc>https://www.estadao.com.br/resizer/v2/XWGY2ZHIWRCMPECFET24BEFGPQ.jpg?quality=80&amp;auth=948ad2fcd54724ccf4595b11378c561e970117e7655650bc12be5fe1667b776f&amp;width=710</image:loc>
+      <image:title>GTA 6 tem quantos troféus e conquistas? Veja a lista completa</image:title>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://wotho.vercel.app/noticias/conheca-os-dubladores-brasileiros-da-1-temporada-de-a-returner-s-magic-shou-17732436360</loc>
+    <news:news>
+      <news:publication>
+        <news:name>Wotho</news:name>
+        <news:language>pt</news:language>
+      </news:publication>
+      <news:publication_date>2026-11-18T16:00:00.000Z</news:publication_date>
+      <news:title>Conheça os dubladores brasileiros da 1ª temporada de A Returner&apos;s Magic Should Be Special</news:title>
+    </news:news>
+    <image:image>
+      <image:loc>https://a.storyblok.com/f/178900/1200x675/fd3bad28b8/a-returner-s-magic-should-be-special-titelbild.jpg</image:loc>
+      <image:title>Conheça os dubladores brasileiros da 1ª temporada de A Returner&apos;s Magic Should Be Special</image:title>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://wotho.vercel.app/noticias/gta-6-a-720p-com-constantes-quedas-de-desempenho-na-xbox-series-s-7238913555</loc>
+    <news:news>
+      <news:publication>
+        <news:name>Wotho</news:name>
+        <news:language>pt</news:language>
+      </news:publication>
+      <news:publication_date>2026-11-18T15:15:20.000Z</news:publication_date>
+      <news:title>GTA 6 a 720p com constantes quedas de desempenho na Xbox Series S</news:title>
+    </news:news>
+    <image:image>
+      <image:loc>https://assetsio.gnwcdn.com/Grand-Theft-Auto-VI_20261030101318.jpg?width=690&amp;quality=85&amp;format=jpg&amp;auto=webp</image:loc>
+      <image:title>GTA 6 a 720p com constantes quedas de desempenho na Xbox Series S</image:title>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://wotho.vercel.app/noticias/grand-theft-auto-vi-review-gaming-s-most-depraved-world-is-now-also-its-gre-7666196977</loc>
+    <news:news>
+      <news:publication>
+        <news:name>Wotho</news:name>
+        <news:language>pt</news:language>
+      </news:publication>
+      <news:publication_date>2026-11-18T11:00:55.000Z</news:publication_date>
+      <news:title>Grand Theft Auto VI review – gaming’s most depraved world is now also its greatest love story</news:title>
+    </news:news>
+    <image:image>
+      <image:loc>https://i.guim.co.uk/img/media/53ac3eb2cb6dc9001ada3ba916d998589415975e/164_0_1827_1462/master/1827.jpg?width=140&amp;quality=85&amp;auto=format&amp;fit=max&amp;s=4ed0b6d61b03463e2536ef1c2e36a427</image:loc>
+      <image:title>Grand Theft Auto VI review – gaming’s most depraved world is now also its greatest love story</image:title>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://wotho.vercel.app/noticias/black-witch-mirror-o-manga-de-yonan-togawa-termina-no-quarto-volume-2671859281</loc>
+    <news:news>
+      <news:publication>
+        <news:name>Wotho</news:name>
+        <news:language>pt</news:language>
+      </news:publication>
+      <news:publication_date>2026-11-18T07:39:00.000Z</news:publication_date>
+      <news:title>Black Witch Mirror: o mangá de Yonan Togawa termina no quarto volume</news:title>
+    </news:news>
+    <image:image>
+      <image:loc>http://www.bing.com/th?id=ONUT.sSPk1vvk-4Jq6eT37WgHyw&amp;pid=News</image:loc>
+      <image:title>Black Witch Mirror: o mangá de Yonan Togawa termina no quarto volume</image:title>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://wotho.vercel.app/noticias/vale-a-pena-comprar-a-edicao-ultimate-de-gta-6-5202644547</loc>
+    <news:news>
+      <news:publication>
+        <news:name>Wotho</news:name>
+        <news:language>pt</news:language>
+      </news:publication>
+      <news:publication_date>2026-11-18T06:13:00.000Z</news:publication_date>
+      <news:title>Vale a pena comprar a edição Ultimate de GTA 6?</news:title>
+    </news:news>
+    <image:image>
+      <image:loc>http://www.bing.com/th?id=ONUT.DD7j-yTjD22hoExHk4fzdg&amp;pid=News</image:loc>
+      <image:title>Vale a pena comprar a edição Ultimate de GTA 6?</image:title>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://wotho.vercel.app/noticias/gp-de-las-vegas-da-formula-1-veja-datas-horarios-e-onde-assistir-12535101252</loc>
+    <news:news>
+      <news:publication>
+        <news:name>Wotho</news:name>
+        <news:language>pt</news:language>
+      </news:publication>
+      <news:publication_date>2026-11-18T05:05:00.000Z</news:publication_date>
+      <news:title>GP de Las Vegas da Fórmula 1: veja datas, horários e onde assistir</news:title>
+    </news:news>
+    <image:image>
+      <image:loc>https://classic.exame.com/wp-content/uploads/2024/12/ED1270_Ideias_8.jpg</image:loc>
+      <image:title>GP de Las Vegas da Fórmula 1: veja datas, horários e onde assistir</image:title>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://wotho.vercel.app/noticias/jogos-de-hoje-quarta-18-de-novembro-onde-assistir-futebol-ao-vivo-e-horario-18663792480</loc>
+    <news:news>
+      <news:publication>
+        <news:name>Wotho</news:name>
+        <news:language>pt</news:language>
+      </news:publication>
+      <news:publication_date>2026-11-18T01:00:00.000Z</news:publication_date>
+      <news:title>Jogos de hoje, quarta, 18 de novembro: onde assistir futebol ao vivo e horários</news:title>
+    </news:news>
+    <image:image>
+      <image:loc>https://veja.abril.com.br/wp-content/uploads/2025/08/GettyImages-1810162066.jpg?quality=70&amp;strip=info&amp;resize=1200,630&amp;crop=1</image:loc>
+      <image:title>Jogos de hoje, quarta, 18 de novembro: onde assistir futebol ao vivo e horários</image:title>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://wotho.vercel.app/noticias/panini-anuncia-solo-leveling-ragnarok-gyarus-nao-podem-ser-gentis-com-otaku-22626997384</loc>
+    <news:news>
+      <news:publication>
+        <news:name>Wotho</news:name>
+        <news:language>pt</news:language>
+      </news:publication>
+      <news:publication_date>2026-11-17T19:47:00.000Z</news:publication_date>
+      <news:title>Panini anuncia Solo Leveling: Ragnarok, Gyarus não podem ser gentis com otakus?! e outros títulos</news:title>
+    </news:news>
+    <image:image>
+      <image:loc>https://a.storyblok.com/f/178900/1280x720/de63ae87a6/gals-cant-be-kind-to-otaku-opening-hero.png</image:loc>
+      <image:title>Panini anuncia Solo Leveling: Ragnarok, Gyarus não podem ser gentis com otakus?! e outros títulos</image:title>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://wotho.vercel.app/noticias/atp-finals-wta-da-barraca-fim-do-2-servico-e-cuecas-azuis-17953321136</loc>
+    <news:news>
+      <news:publication>
+        <news:name>Wotho</news:name>
+        <news:language>pt</news:language>
+      </news:publication>
+      <news:publication_date>2026-11-17T11:00:00.000Z</news:publication_date>
+      <news:title>ATP Finals, WTA dá barraca, fim do 2º serviço e cuecas azuis</news:title>
+    </news:news>
+    <image:image>
+      <image:loc>http://www.bing.com/th?id=ONUT.YmLn87NkWhV79tGEg_oweQ&amp;pid=News</image:loc>
+      <image:title>ATP Finals, WTA dá barraca, fim do 2º serviço e cuecas azuis</image:title>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://wotho.vercel.app/noticias/o-corpo-invisivel-2840772014</loc>
+    <news:news>
+      <news:publication>
+        <news:name>Wotho</news:name>
+        <news:language>pt</news:language>
+      </news:publication>
+      <news:publication_date>2026-11-17T10:26:00.000Z</news:publication_date>
+      <news:title>O corpo invisível</news:title>
+    </news:news>
+    <image:image>
+      <image:loc>http://www.bing.com/th?id=ONUT.i9hOLdwMT67ok7ALASB5nQ&amp;pid=News</image:loc>
+      <image:title>O corpo invisível</image:title>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://wotho.vercel.app/noticias/adidas-transforma-galocha-classica-em-item-de-streetwear-6172971489</loc>
+    <news:news>
+      <news:publication>
+        <news:name>Wotho</news:name>
+        <news:language>pt</news:language>
+      </news:publication>
+      <news:publication_date>2026-11-16T16:00:00.000Z</news:publication_date>
+      <news:title>Adidas transforma galocha clássica em item de streetwear</news:title>
+    </news:news>
+    <image:image>
+      <image:loc>http://www.bing.com/th?id=ONUT.qIOu26UNbDddc_D2rICBuw&amp;pid=News</image:loc>
+      <image:title>Adidas transforma galocha clássica em item de streetwear</image:title>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://wotho.vercel.app/noticias/iconica-bola-da-champions-league-sera-reformulada-e-tera-novo-visual-apos-t-6007194137</loc>
+    <news:news>
+      <news:publication>
+        <news:name>Wotho</news:name>
+        <news:language>pt</news:language>
+      </news:publication>
+      <news:publication_date>2026-11-16T05:03:00.000Z</news:publication_date>
+      <news:title>Icônica bola da Champions League será reformulada e terá novo visual após troca de patrocinador</news:title>
+    </news:news>
+    <image:image>
+      <image:loc>http://www.bing.com/th?id=ONUT.3M8AQJjI_CF2-MPATb-KhA&amp;pid=News</image:loc>
+      <image:title>Icônica bola da Champions League será reformulada e terá novo visual após troca de patrocinador</image:title>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://wotho.vercel.app/noticias/mirra-andreeva-ascende-a-n-2-da-wta-nuno-borges-e-41-atp-14962854360</loc>
+    <news:news>
+      <news:publication>
+        <news:name>Wotho</news:name>
+        <news:language>pt</news:language>
+      </news:publication>
+      <news:publication_date>2026-11-16T02:51:00.000Z</news:publication_date>
+      <news:title>Mirra Andreeva ascende a n.º 2 da WTA, Nuno Borges é 41.º ATP</news:title>
+    </news:news>
+    <image:image>
+      <image:loc>http://www.bing.com/th?id=ONUT.M8fHPd3OOUaFIzrYwcv0jg&amp;pid=News</image:loc>
+      <image:title>Mirra Andreeva ascende a n.º 2 da WTA, Nuno Borges é 41.º ATP</image:title>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://wotho.vercel.app/noticias/10-jogos-de-rpg-tipo-the-witcher-3-mas-com-mundos-ainda-maiores-4880110305</loc>
+    <news:news>
+      <news:publication>
+        <news:name>Wotho</news:name>
+        <news:language>pt</news:language>
+      </news:publication>
+      <news:publication_date>2026-11-15T20:01:00.000Z</news:publication_date>
+      <news:title>10 jogos de RPG tipo The Witcher 3, mas com mundos ainda maiores</news:title>
+    </news:news>
+    <image:image>
+      <image:loc>http://www.bing.com/th?id=ONUT.h3UvO-7hQrBHnvrMq9tJQA&amp;pid=News</image:loc>
+      <image:title>10 jogos de RPG tipo The Witcher 3, mas com mundos ainda maiores</image:title>
+    </image:image>
+  </url>
+  <url>
     <loc>https://wotho.vercel.app/noticias/star-wars-galactic-racer-atinge-1-5-milhao-de-jogadores-cinco-semanas-apos--5160748138</loc>
     <news:news>
       <news:publication>
@@ -3465,291 +3750,6 @@
     <image:image>
       <image:loc>https://www.otakupt.com/wp-content/uploads/2024/08/Herdling-game-visual.jpg</image:loc>
       <image:title>Herdling – Nintendo Switch 2 Edition já está disponível</image:title>
-    </image:image>
-  </url>
-  <url>
-    <loc>https://wotho.vercel.app/noticias/outlook-fica-fora-do-ar-nesta-quinta-12-e-dificulta-acesso-a-emails-4406081864</loc>
-    <news:news>
-      <news:publication>
-        <news:name>Wotho</news:name>
-        <news:language>pt</news:language>
-      </news:publication>
-      <news:publication_date>2026-11-12T18:41:27.000Z</news:publication_date>
-      <news:title>Outlook fica fora do ar nesta quinta (12) e dificulta acesso a emails</news:title>
-    </news:news>
-    <image:image>
-      <image:loc>https://files.tecnoblog.net/wp-content/uploads/2024/03/capa-outlook_tb.png</image:loc>
-      <image:title>Outlook fica fora do ar nesta quinta (12) e dificulta acesso a emails</image:title>
-    </image:image>
-  </url>
-  <url>
-    <loc>https://wotho.vercel.app/noticias/outlook-fora-do-ar-servico-de-e-mail-e-ia-da-microsoft-apresentam-instabili-11383929000</loc>
-    <news:news>
-      <news:publication>
-        <news:name>Wotho</news:name>
-        <news:language>pt</news:language>
-      </news:publication>
-      <news:publication_date>2026-11-12T18:40:04.000Z</news:publication_date>
-      <news:title>Outlook fora do ar? Serviço de e-mail e IA da Microsoft apresentam instabilidade nesta quinta</news:title>
-    </news:news>
-    <image:image>
-      <image:loc>https://s2-g1.glbimg.com/p6em53stHln_Q00KrBOjE3391Hk=/i.s3.glbimg.com/v1/AUTH_59edd422c0c84a879bd37670ae4f538a/internal_photos/bs/2023/5/X/j7ie9ITcWGokB0ImViYA/2023-01-25t085942z-1524107725-rc2kxy962ywx-rtrmadp-3-microsoft-outages.jpg</image:loc>
-      <image:title>Outlook fora do ar? Serviço de e-mail e IA da Microsoft apresentam instabilidade nesta quinta</image:title>
-    </image:image>
-  </url>
-  <url>
-    <loc>https://wotho.vercel.app/noticias/grime-ii-chega-a-switch-e-switch-2-ainda-este-mes-14648816145</loc>
-    <news:news>
-      <news:publication>
-        <news:name>Wotho</news:name>
-        <news:language>pt</news:language>
-      </news:publication>
-      <news:publication_date>2026-11-12T18:40:02.000Z</news:publication_date>
-      <news:title>GRIME II chega à Switch e Switch 2 ainda este mês</news:title>
-    </news:news>
-    <image:image>
-      <image:loc>https://www.otakupt.com/wp-content/uploads/2026/11/GRIME-II_dataswitch-scaled-e1794508638675.jpg</image:loc>
-      <image:title>GRIME II chega à Switch e Switch 2 ainda este mês</image:title>
-    </image:image>
-  </url>
-  <url>
-    <loc>https://wotho.vercel.app/noticias/lula-embarca-para-filipinas-para-participar-de-cupula-e-ampliar-mercado-bra-9073338822</loc>
-    <news:news>
-      <news:publication>
-        <news:name>Wotho</news:name>
-        <news:language>pt</news:language>
-      </news:publication>
-      <news:publication_date>2026-11-12T18:37:20.000Z</news:publication_date>
-      <news:title>Lula embarca para Filipinas para participar de cúpula e ampliar mercado brasileiro na Ásia</news:title>
-    </news:news>
-    <image:image>
-      <image:loc>https://s2-g1.glbimg.com/6vm5E6U6Pn4sfXewq2NJGTJxi5k=/i.s3.glbimg.com/v1/AUTH_59edd422c0c84a879bd37670ae4f538a/internal_photos/bs/2026/h/h/YkTcHASOyLCvCHqrUqUw/55645239849-bdf19baf80-k.jpg</image:loc>
-      <image:title>Lula embarca para Filipinas para participar de cúpula e ampliar mercado brasileiro na Ásia</image:title>
-    </image:image>
-  </url>
-  <url>
-    <loc>https://wotho.vercel.app/noticias/stf-mantem-afastamento-de-marco-buzzi-do-stj-apos-acusacao-de-assedio-mas-m-27520482075</loc>
-    <news:news>
-      <news:publication>
-        <news:name>Wotho</news:name>
-        <news:language>pt</news:language>
-      </news:publication>
-      <news:publication_date>2026-11-12T18:35:37.000Z</news:publication_date>
-      <news:title>STF mantém afastamento de Marco Buzzi do STJ após acusação de assédio, mas mantém salário</news:title>
-    </news:news>
-    <image:image>
-      <image:loc>https://s2-g1.glbimg.com/iy-i9FtfrGwDKUWfcL7xoSAFfh4=/i.s3.glbimg.com/v1/AUTH_59edd422c0c84a879bd37670ae4f538a/internal_photos/bs/2026/4/4/Nk6QsGRyyufrGDFEJ9Vw/ministro-buzzi.jpg</image:loc>
-      <image:title>STF mantém afastamento de Marco Buzzi do STJ após acusação de assédio, mas mantém salário</image:title>
-    </image:image>
-  </url>
-  <url>
-    <loc>https://wotho.vercel.app/noticias/detective-conan-motorista-diz-que-cena-do-anime-o-ajudou-a-escapar-de-carro-14775712783</loc>
-    <news:news>
-      <news:publication>
-        <news:name>Wotho</news:name>
-        <news:language>pt</news:language>
-      </news:publication>
-      <news:publication_date>2026-11-12T18:32:37.000Z</news:publication_date>
-      <news:title>Detective Conan: motorista diz que cena do anime o ajudou a escapar de carro submerso</news:title>
-    </news:news>
-    <image:image>
-      <image:loc>https://i0.wp.com/anmtv.com.br/wp-content/uploads/2026/11/Conan.jpg?fit=600%2C300&amp;ssl=1</image:loc>
-      <image:title>Detective Conan: motorista diz que cena do anime o ajudou a escapar de carro submerso</image:title>
-    </image:image>
-  </url>
-  <url>
-    <loc>https://wotho.vercel.app/noticias/fa-coloca-personagens-de-umamusume-em-need-for-speed-underground-2-2759229422</loc>
-    <news:news>
-      <news:publication>
-        <news:name>Wotho</news:name>
-        <news:language>pt</news:language>
-      </news:publication>
-      <news:publication_date>2026-11-12T18:31:01.000Z</news:publication_date>
-      <news:title>Fã coloca personagens de Umamusume em Need for Speed: Underground 2</news:title>
-    </news:news>
-    <image:image>
-      <image:loc>https://i0.wp.com/anmtv.com.br/wp-content/uploads/2026/11/Umamusume-.jpg?fit=600%2C300&amp;ssl=1</image:loc>
-      <image:title>Fã coloca personagens de Umamusume em Need for Speed: Underground 2</image:title>
-    </image:image>
-  </url>
-  <url>
-    <loc>https://wotho.vercel.app/noticias/empresas-chinesas-buscam-chips-da-nvidia-no-exterior-diante-de-risco-de-res-21094699211</loc>
-    <news:news>
-      <news:publication>
-        <news:name>Wotho</news:name>
-        <news:language>pt</news:language>
-      </news:publication>
-      <news:publication_date>2026-11-12T18:30:00.000Z</news:publication_date>
-      <news:title>Empresas chinesas buscam chips da Nvidia no exterior diante de risco de restrições dos EUA</news:title>
-    </news:news>
-    <image:image>
-      <image:loc>https://www.estadao.com.br/resizer/v2/EXB3K6TGBNOOFDPIANQ4KDYXDI.jpg?quality=80&amp;auth=b688ba6ae35c32e7b26bdc8a90aa6ab0620b2c08dce30537ac1ffadcd93c0889&amp;width=710</image:loc>
-      <image:title>Empresas chinesas buscam chips da Nvidia no exterior diante de risco de restrições dos EUA</image:title>
-    </image:image>
-  </url>
-  <url>
-    <loc>https://wotho.vercel.app/noticias/laocorn-gaudeamus-vai-viajar-de-1994-ate-fatal-fury-city-of-the-wolves-em-n-6396997731</loc>
-    <news:news>
-      <news:publication>
-        <news:name>Wotho</news:name>
-        <news:language>pt</news:language>
-      </news:publication>
-      <news:publication_date>2026-11-12T18:20:54.000Z</news:publication_date>
-      <news:title>Laocorn Gaudeamus vai viajar de 1994 até Fatal Fury: City of the Wolves em Novembro de 2026</news:title>
-    </news:news>
-    <image:image>
-      <image:loc>https://www.otakupt.com/wp-content/uploads/2026/11/Laocorn-Fatal-fury-.jpg</image:loc>
-      <image:title>Laocorn Gaudeamus vai viajar de 1994 até Fatal Fury: City of the Wolves em Novembro de 2026</image:title>
-    </image:image>
-  </url>
-  <url>
-    <loc>https://wotho.vercel.app/noticias/lava-loucas-electrolux-com-8-servicos-com-um-otimo-desconto-19059547001</loc>
-    <news:news>
-      <news:publication>
-        <news:name>Wotho</news:name>
-        <news:language>pt</news:language>
-      </news:publication>
-      <news:publication_date>2026-11-12T18:20:00.000Z</news:publication_date>
-      <news:title>Lava-louças Electrolux com 8 serviços com um ótimo desconto</news:title>
-    </news:news>
-    <image:image>
-      <image:loc>https://www.estadao.com.br/resizer/v2/PIVT2RWWYRATVKNFUW2DPILZDY.jpg?quality=80&amp;auth=e65f3eca1a9cebcf507e45f6ccf3e03ba82bfe05054072a75352b839c698ebb1&amp;width=710</image:loc>
-      <image:title>Lava-louças Electrolux com 8 serviços com um ótimo desconto</image:title>
-    </image:image>
-  </url>
-  <url>
-    <loc>https://wotho.vercel.app/noticias/alerta-vazamento-na-caixa-expoe-dados-de-7-6-milhoes-de-clientes-6382452940</loc>
-    <news:news>
-      <news:publication>
-        <news:name>Wotho</news:name>
-        <news:language>pt</news:language>
-      </news:publication>
-      <news:publication_date>2026-11-12T18:19:33.000Z</news:publication_date>
-      <news:title>Alerta: vazamento na Caixa expõe dados de 7,6 milhões de clientes</news:title>
-    </news:news>
-    <image:image>
-      <image:loc>https://files.tecnoblog.net/wp-content/uploads/2026/11/capas_caixa-04.jpg</image:loc>
-      <image:title>Alerta: vazamento na Caixa expõe dados de 7,6 milhões de clientes</image:title>
-    </image:image>
-  </url>
-  <url>
-    <loc>https://wotho.vercel.app/noticias/remake-de-ocarina-of-time-atinge-5-2-milhoes-de-copias-vendidas-em-4-dias-e-3649049367</loc>
-    <news:news>
-      <news:publication>
-        <news:name>Wotho</news:name>
-        <news:language>pt</news:language>
-      </news:publication>
-      <news:publication_date>2026-11-12T18:15:00.000Z</news:publication_date>
-      <news:title>Remake de Ocarina of Time atinge 5,2 milhões de cópias vendidas em 4 dias e bate recorde histórico</news:title>
-    </news:news>
-    <image:image>
-      <image:loc>https://www.estadao.com.br/resizer/v2/JLRG75KHTVEWHGW75BXNGKRWIU.jpg?quality=80&amp;auth=2e7bfc328b75eda743d7fbdc613e779b412d248f9bac56c8279bf4859e24a893&amp;width=710</image:loc>
-      <image:title>Remake de Ocarina of Time atinge 5,2 milhões de cópias vendidas em 4 dias e bate recorde histórico</image:title>
-    </image:image>
-  </url>
-  <url>
-    <loc>https://wotho.vercel.app/noticias/galaxy-s6-fe-fica-pelo-menor-valor-com-o-cupom-da-samsung-de-black-friday-15206976529</loc>
-    <news:news>
-      <news:publication>
-        <news:name>Wotho</news:name>
-        <news:language>pt</news:language>
-      </news:publication>
-      <news:publication_date>2026-11-12T18:02:00.000Z</news:publication_date>
-      <news:title>Galaxy S6 FE fica pelo menor valor com o cupom da Samsung de Black Friday</news:title>
-    </news:news>
-    <image:image>
-      <image:loc>https://www.estadao.com.br/resizer/v2/QN7GA5X33NCFDOE2LK5NAFYTTM.jpg?quality=80&amp;auth=f2158b9d33f38990d9c3ef604c595251090f21d65855f08deccb2859474d1cdb&amp;width=710</image:loc>
-      <image:title>Galaxy S6 FE fica pelo menor valor com o cupom da Samsung de Black Friday</image:title>
-    </image:image>
-  </url>
-  <url>
-    <loc>https://wotho.vercel.app/noticias/filhos-de-sangue-e-osso-ganha-segundo-trailer-oficial-6573647650</loc>
-    <news:news>
-      <news:publication>
-        <news:name>Wotho</news:name>
-        <news:language>pt</news:language>
-      </news:publication>
-      <news:publication_date>2026-11-12T18:00:44.000Z</news:publication_date>
-      <news:title>Filhos de Sangue e Osso ganha segundo trailer oficial</news:title>
-    </news:news>
-    <image:image>
-      <image:loc>https://i0.wp.com/anmtv.com.br/wp-content/uploads/2026/11/filhos-de-sangue-e-osso-4-2.jpg?fit=600%2C300&amp;ssl=1</image:loc>
-      <image:title>Filhos de Sangue e Osso ganha segundo trailer oficial</image:title>
-    </image:image>
-  </url>
-  <url>
-    <loc>https://wotho.vercel.app/noticias/whatsapp-testa-mensagens-de-texto-de-visualizacao-unica-no-android-22188496501</loc>
-    <news:news>
-      <news:publication>
-        <news:name>Wotho</news:name>
-        <news:language>pt</news:language>
-      </news:publication>
-      <news:publication_date>2026-11-12T18:00:00.000Z</news:publication_date>
-      <news:title>WhatsApp testa mensagens de texto de visualização única no Android</news:title>
-    </news:news>
-    <image:image>
-      <image:loc>https://www.estadao.com.br/resizer/v2/RS3F6X6UMFHR3JJPZQGJZCCDB4.webp?quality=80&amp;auth=0bd88a522d4780511d88dd08884f20873fe4158ab74c2f249e54452b18c8700b&amp;width=710</image:loc>
-      <image:title>WhatsApp testa mensagens de texto de visualização única no Android</image:title>
-    </image:image>
-  </url>
-  <url>
-    <loc>https://wotho.vercel.app/noticias/crise-na-nvidia-fortuna-de-jensen-huang-encolhe-quase-us-33-bilhoes-em-nove-8958845115</loc>
-    <news:news>
-      <news:publication>
-        <news:name>Wotho</news:name>
-        <news:language>pt</news:language>
-      </news:publication>
-      <news:publication_date>2026-11-12T17:57:02.000Z</news:publication_date>
-      <news:title>Crise na Nvidia: fortuna de Jensen Huang encolhe quase US$ 33 bilhões em novembro</news:title>
-    </news:news>
-    <image:image>
-      <image:loc>https://s2-g1.glbimg.com/22XEKSu6f5zZG4WXle_QeY__7wo=/i.s3.glbimg.com/v1/AUTH_59edd422c0c84a879bd37670ae4f538a/internal_photos/bs/2026/v/u/hWsMECTGWbgeWtTLsw8g/2026-03-17t190331z-1569419364-rc2i6kamf29y-rtrmadp-3-nvidia-gtc.jpg</image:loc>
-      <image:title>Crise na Nvidia: fortuna de Jensen Huang encolhe quase US$ 33 bilhões em novembro</image:title>
-    </image:image>
-  </url>
-  <url>
-    <loc>https://wotho.vercel.app/noticias/justica-proibe-uber-de-cobrar-taxa-para-motoristas-aceitarem-corridas-no-br-3659071448</loc>
-    <news:news>
-      <news:publication>
-        <news:name>Wotho</news:name>
-        <news:language>pt</news:language>
-      </news:publication>
-      <news:publication_date>2026-11-12T17:54:07.000Z</news:publication_date>
-      <news:title>Justiça proíbe Uber de cobrar taxa para motoristas aceitarem corridas no Brasil</news:title>
-    </news:news>
-    <image:image>
-      <image:loc>https://s2-g1.glbimg.com/DzfM5hxcTehSZt875-AFEmqxYE0=/i.s3.glbimg.com/v1/AUTH_59edd422c0c84a879bd37670ae4f538a/internal_photos/bs/2026/b/x/Q9HS9XQGCTQLBB96QuLA/2026-09-02t114002z-1782714086-rc281gaoo6aq-rtrmadp-3-uber-layoffs.jpg</image:loc>
-      <image:title>Justiça proíbe Uber de cobrar taxa para motoristas aceitarem corridas no Brasil</image:title>
-    </image:image>
-  </url>
-  <url>
-    <loc>https://wotho.vercel.app/noticias/sonic-ganha-curta-em-celebracao-aos-seus-35-anos-358581021</loc>
-    <news:news>
-      <news:publication>
-        <news:name>Wotho</news:name>
-        <news:language>pt</news:language>
-      </news:publication>
-      <news:publication_date>2026-11-12T17:45:30.000Z</news:publication_date>
-      <news:title>Sonic ganha curta em celebração aos seus 35 anos</news:title>
-    </news:news>
-    <image:image>
-      <image:loc>https://i0.wp.com/anmtv.com.br/wp-content/uploads/2026/11/Sonic-35-1.jpg?fit=600%2C300&amp;ssl=1</image:loc>
-      <image:title>Sonic ganha curta em celebração aos seus 35 anos</image:title>
-    </image:image>
-  </url>
-  <url>
-    <loc>https://wotho.vercel.app/noticias/duran-duran-drummer-roger-taylor-leaves-band-due-to-tinnitus-579721948</loc>
-    <news:news>
-      <news:publication>
-        <news:name>Wotho</news:name>
-        <news:language>pt</news:language>
-      </news:publication>
-      <news:publication_date>2026-11-12T17:44:44.000Z</news:publication_date>
-      <news:title>Duran Duran drummer Roger Taylor leaves band due to tinnitus</news:title>
-    </news:news>
-    <image:image>
-      <image:loc>https://i.guim.co.uk/img/media/b2547339d360dadcd2623b61529bb331a875d26c/793_174_692_553/master/692.jpg?width=140&amp;quality=85&amp;auto=format&amp;fit=max&amp;s=6e5bbfe909c0d6946a3c44b0966b5606</image:loc>
-      <image:title>Duran Duran drummer Roger Taylor leaves band due to tinnitus</image:title>
     </image:image>
   </url>
 </urlset>

@@ -18,6 +18,9 @@ export interface AnimeEpisode {
   seasonId: string;
   seasonNumber: number;
   number: number;
+  globalEpisodeNumber?: number;
+  tmdbMovieId?: number;
+  imdbId?: string;
   title: string;
   duration: string;
   thumbnail: string;
@@ -1972,6 +1975,53 @@ export const ANIMES_DATA: Anime[] = [
       status: "Em publicação",
       serialization: "Monthly Comic Alive",
       publisher: "Media Factory / Kadokawa",
+    }),
+  },
+
+  // 40. SLAM DUNK (4 Temporadas de TV [101 Episódios] + Temporada 5 [5 Filmes Oficiais & The First Slam Dunk])
+  {
+    id: "slam-dunk",
+    title: "Slam Dunk: Coleção Completa (101 Episódios + 5 Filmes & The First Slam Dunk)",
+    japaneseTitle: "SLAM DUNK (スラムダンク)",
+    slug: "slam-dunk",
+    synopsis:
+      "Hanamichi Sakuragi é um delinquente colegial ruivo de 1,88m que ingressa na Escola Shohoku após levar 50 foras consecutivos. Ao conhecer Haruko Akagi, apaixonada por basquete, Sakuragi entra para o desacreditado time de basquete de Shohoku liderado pelo capitão Takenori Akagi e passa a dividir a quadra com seu arqui-rival Kaede Rukawa, o explosivo armador Ryota Miyagi e o especialista em bolas de três Hisashi Mitsui. Sob o comando do lendário técnico Mitsuyoshi Anzai, o quinteto desafia potências como Shoyo, Kainan, Ryonan e os campeões nacionais de Sannoh.",
+    cover: "https://image.tmdb.org/t/p/w500/jabve6ukmlej2TQu2Q7DOm01DUk.jpg",
+    banner: "https://image.tmdb.org/t/p/w1280/eklM8HZeGKB5KMKRqkuff0yW0Oq.jpg",
+    rating: 9.8,
+    ratingCount: 189400,
+    episodesCount: getVerifiedEpisodesCount("slam-dunk", 106),
+    genres: ["Esporte", "Comédia", "Drama", "Shonen", "Ação"],
+    status: "Completo",
+    season: "4 Temporadas (101 Eps) + 5 Filmes Oficiais & The First Slam Dunk",
+    studio: "Toei Animation / Dandelion Animation Studio",
+    year: 2022,
+    audio: "Multilíngue: Dublado PT-BR, Legendado PT-BR, Japonês, Inglês & Espanhol",
+    trailerYoutubeId: getVerifiedTrailer("slam-dunk", "9o5rV7s_fEA"),
+    broadcastDay: "Sábado",
+    featured: true,
+    trending: true,
+    isDeepPhilosophical: true,
+    isRecentTop: true,
+    rank: 40,
+    malId: 170,
+    tmdbId: 42573,
+    anilistId: 170,
+    imdbId: "tt0965547",
+    seasons: getVerifiedSeasons("slam-dunk"),
+    get episodes() {
+      return this.seasons.flatMap((s) => s.episodes);
+    },
+    manga: buildMangaInfo("slam-dunk", {
+      title: "Slam Dunk (Edição Completa — 31 Volumes / 276 Capítulos)",
+      chaptersCount: 276,
+      author: "Takehiko Inoue",
+      artist: "Takehiko Inoue",
+      cover: "https://image.tmdb.org/t/p/w500/jabve6ukmlej2TQu2Q7DOm01DUk.jpg",
+      status: "Completo",
+      mangadexId: "319df2e2-e6a6-4e3a-a31c-68539c140a84",
+      serialization: "Weekly Shōnen Jump",
+      publisher: "Shueisha",
     }),
   },
 ];

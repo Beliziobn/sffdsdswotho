@@ -13,7 +13,7 @@
   </url>
   <url>
     <loc>https://wotho.vercel.app/animes/frieren-beyond-journeys-end</loc>
-    <lastmod>2026-11-17</lastmod>
+    <lastmod>2026-11-18</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
     <image:image>
@@ -73,7 +73,7 @@
   </url>
   <url>
     <loc>https://wotho.vercel.app/animes/jujutsu-kaisen-culling-game</loc>
-    <lastmod>2026-11-17</lastmod>
+    <lastmod>2026-11-18</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
     <image:image>
@@ -223,7 +223,7 @@
   </url>
   <url>
     <loc>https://wotho.vercel.app/animes/steel-ball-run</loc>
-    <lastmod>2026-11-17</lastmod>
+    <lastmod>2026-11-18</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
     <image:image>
@@ -389,6 +389,16 @@
     <image:image>
       <image:loc>https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx98659-WNyPLIZDpGGY.jpg</image:loc>
       <image:title>Classroom of the Elite: Trilogia Primeiro Ano</image:title>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://wotho.vercel.app/animes/slam-dunk</loc>
+    <lastmod>2022-06-01</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+    <image:image>
+      <image:loc>https://image.tmdb.org/t/p/w500/jabve6ukmlej2TQu2Q7DOm01DUk.jpg</image:loc>
+      <image:title>Slam Dunk: Coleção Completa (101 Episódios + 5 Filmes &amp; The First Slam Dunk)</image:title>
     </image:image>
   </url>
 </urlset>

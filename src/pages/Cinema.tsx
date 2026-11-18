@@ -1,21 +1,19 @@
-import { useState, useMemo, useEffect } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import { motion, AnimatePresence } from "framer-motion";
+import { useState, useMemo, useEffect, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Film,
   Tv,
-  Star,
   Search,
   Sparkles,
   Award,
-  Play,
   RotateCcw,
   Bookmark,
-  TrendingUp,
   X,
-  Clock,
-  Layers,
   Globe,
+  Flame,
+  Heart,
+  Zap,
+  ChevronDown,
 } from "lucide-react";
 import Navigation from "@/components/Navigation";
 import Footer from "@/components/Footer";
@@ -24,7 +22,6 @@ import {
   CINEMA_CATALOG,
   CINEMA_GENRES,
   CINEMA_LANGUAGE_OPTIONS,
-  CinemaItem,
   CinemaLanguage,
   ensureExpandedCinemaLoaded,
   getCinemaWatchlist,
@@ -37,12 +34,25 @@ import { CinemaCard } from "@/components/cinema/CinemaCard";
 import { useContentProtection } from "@/hooks/useContentProtection";
 import { toast } from "sonner";
 
+const PAGE_BATCH_SIZE = 48;
+
+type CinemaTabType =
+  | "all"
+  | "filme"
+  | "serie"
+  | "doramas"
+  | "juvenis"
+  | "acao"
+  | "romance"
+  | "award"
+  | "watchlist";
+
 export const Cinema = () => {
   useContentProtection();
   const navigate = useNavigate();
 
   const [search, setSearch] = useState("");
-  const [selectedType, setSelectedType] = useState<"all" | "filme" | "serie" | "award" | "watchlist">("all");
+  const [selectedType, setSelectedType] = useState<CinemaTabType>("all");
   const [selectedGenre, setSelectedGenre] = useState<string>("Todos");
   const [watchlistIds, setWatchlistIds] = useState<string[]>([]);
   const [progressMap, setProgressMap] = useState<Record<string, { progressPercent: number }>>({});
@@ -50,10 +60,14 @@ export const Cinema = () => {
     getCinemaLanguagePreference()
   );
   const [catalogVersion, setCatalogVersion] = useState(0);
+  const [isLoadingExpanded, setIsLoadingExpanded] = useState(() => CINEMA_CATALOG.length < 50);
+  const [visibleCount, setVisibleCount] = useState(PAGE_BATCH_SIZE);
+  const loadMoreTriggerRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     void ensureExpandedCinemaLoaded().then(() => {
       setCatalogVersion((v) => v + 1);
+      setIsLoadingExpanded(false);
     });
     setWatchlistIds(getCinemaWatchlist());
     setProgressMap(getCinemaProgressMap());
@@ -61,7 +75,10 @@ export const Cinema = () => {
     const handleWatchlist = () => setWatchlistIds(getCinemaWatchlist());
     const handleProgress = () => setProgressMap(getCinemaProgressMap());
     const handleLang = () => setSelectedLanguage(getCinemaLanguagePreference());
-    const handleCatalogUpdated = () => setCatalogVersion((v) => v + 1);
+    const handleCatalogUpdated = () => {
+      setCatalogVersion((v) => v + 1);
+      setIsLoadingExpanded(false);
+    };
 
     window.addEventListener("worscoi_cinema_watchlist_updated", handleWatchlist);
     window.addEventListener("worscoi_cinema_progress_updated", handleProgress);
@@ -75,6 +92,11 @@ export const Cinema = () => {
       window.removeEventListener("worscoi_cinema_catalog_updated", handleCatalogUpdated);
     };
   }, []);
+
+  // Reset batch pagination when filters change
+  useEffect(() => {
+    setVisibleCount(PAGE_BATCH_SIZE);
+  }, [search, selectedType, selectedGenre]);
 
   const handleLanguageChange = (lang: CinemaLanguage) => {
     setSelectedLanguage(lang);
@@ -90,6 +112,39 @@ export const Cinema = () => {
   const heroItem = useMemo(() => {
     return CINEMA_CATALOG.find((c) => c.featured) || CINEMA_CATALOG[0];
   }, [catalogVersion]);
+
+  // Dedicated Category Lists
+  const moviesList = useMemo(
+    () => CINEMA_CATALOG.filter((item) => item.type === "filme"),
+    [catalogVersion]
+  );
+  const seriesList = useMemo(
+    () => CINEMA_CATALOG.filter((item) => item.type === "serie"),
+    [catalogVersion]
+  );
+  const doramasList = useMemo(
+    () => CINEMA_CATALOG.filter((item) => item.genres.includes("Doramas")),
+    [catalogVersion]
+  );
+  const youthList = useMemo(
+    () => CINEMA_CATALOG.filter((item) => item.genres.includes("Séries Juvenis")),
+    [catalogVersion]
+  );
+  const actionList = useMemo(
+    () =>
+      CINEMA_CATALOG.filter((item) =>
+        item.genres.some((g) => g.toLowerCase() === "ação" || g.toLowerCase() === "acao")
+      ),
+    [catalogVersion]
+  );
+  const romanceList = useMemo(
+    () => CINEMA_CATALOG.filter((item) => item.genres.includes("Romance")),
+    [catalogVersion]
+  );
+  const awardList = useMemo(
+    () => CINEMA_CATALOG.filter((item) => item.awardWinning),
+    [catalogVersion]
+  );
 
   // Filtered catalog
   const filteredCatalog = useMemo(() => {
@@ -107,9 +162,18 @@ export const Cinema = () => {
         }
       }
 
-      // Type Filter
+      // Type / Quick Tab Filter
       if (selectedType === "filme" && item.type !== "filme") return false;
       if (selectedType === "serie" && item.type !== "serie") return false;
+      if (selectedType === "doramas" && !item.genres.includes("Doramas")) return false;
+      if (selectedType === "juvenis" && !item.genres.includes("Séries Juvenis")) return false;
+      if (
+        selectedType === "acao" &&
+        !item.genres.some((g) => g.toLowerCase() === "ação" || g.toLowerCase() === "acao")
+      ) {
+        return false;
+      }
+      if (selectedType === "romance" && !item.genres.includes("Romance")) return false;
       if (selectedType === "award" && !item.awardWinning) return false;
       if (selectedType === "watchlist" && !watchlistIds.includes(item.id)) return false;
 
@@ -130,28 +194,39 @@ export const Cinema = () => {
       }
 
       return true;
-    }).sort((a, b) => b.rating - a.rating);
+    });
   }, [search, selectedType, selectedGenre, watchlistIds, catalogVersion]);
+
+  const visibleCatalog = useMemo(
+    () => filteredCatalog.slice(0, visibleCount),
+    [filteredCatalog, visibleCount]
+  );
+
+  // Automatic progressive loading via IntersectionObserver
+  useEffect(() => {
+    const el = loadMoreTriggerRef.current;
+    if (!el || visibleCount >= filteredCatalog.length) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) {
+          setVisibleCount((prev) => Math.min(prev + PAGE_BATCH_SIZE, filteredCatalog.length));
+        }
+      },
+      { rootMargin: "450px" }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [visibleCount, filteredCatalog.length]);
 
   // Continue Watching items
   const continueWatchingItems = useMemo(() => {
-    return CINEMA_CATALOG.filter((item) => progressMap[item.id] && progressMap[item.id].progressPercent > 0);
+    return CINEMA_CATALOG.filter(
+      (item) => progressMap[item.id] && progressMap[item.id].progressPercent > 0
+    );
   }, [progressMap, catalogVersion]);
 
-  // Movies list
-  const moviesList = useMemo(() => {
-    return CINEMA_CATALOG.filter((item) => item.type === "filme");
-  }, [catalogVersion]);
-
-  // Series list
-  const seriesList = useMemo(() => {
-    return CINEMA_CATALOG.filter((item) => item.type === "serie");
-  }, [catalogVersion]);
-
-  // Award winning list
-  const awardList = useMemo(() => {
-    return CINEMA_CATALOG.filter((item) => item.awardWinning);
-  }, [catalogVersion]);
+  const showShowcaseSections =
+    selectedType === "all" && !search.trim() && selectedGenre === "Todos";
 
   return (
     <div className="min-h-screen bg-[#09090b] text-zinc-100 flex flex-col selection:bg-amber-400 selection:text-black">
@@ -163,16 +238,18 @@ export const Cinema = () => {
       {/* Main Content Area */}
       <main className="flex-1 container mx-auto px-6 lg:px-12 py-12 max-w-7xl">
         {/* Search, Language & Filter Header Bar */}
-        <div className="mb-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6 pb-6 border-b border-zinc-800">
+        <div className="mb-8 flex flex-col lg:flex-row lg:items-center justify-between gap-6 pb-6 border-b border-zinc-800">
           <div>
             <span className="text-[11px] uppercase tracking-wider text-amber-400 font-medium block mb-1">
-              Cinema & Séries • {CINEMA_CATALOG.length} Títulos Oficiais
+              Cinema, Séries & Doramas • {CINEMA_CATALOG.length} Títulos Oficiais
             </span>
             <h2 className="text-2xl sm:text-3xl font-light text-white tracking-tight">
               Catálogo de Transmissão
             </h2>
             <p className="text-xs text-zinc-400 font-light mt-1">
-              Explore {moviesList.length} filmes e {seriesList.length} séries desde os lançamentos mais recentes até os mais aclamados em Português (PT-BR) ou Inglês (EN).
+              Explore {moviesList.length} filmes, {seriesList.length} séries completas,{" "}
+              {doramasList.length} doramas e {youthList.length} séries juvenis (estilo Weak Hero) com
+              todas as temporadas e episódios originais.
             </p>
           </div>
 
@@ -209,7 +286,7 @@ export const Cinema = () => {
                 type="text"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Buscar por título, ator ou diretor…"
+                placeholder="Buscar dorama, filme, série ou ator…"
                 className="w-full bg-zinc-900 border border-zinc-800 rounded-full pl-10 pr-9 py-2 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-amber-400 transition-colors"
               />
               {search && (
@@ -225,13 +302,17 @@ export const Cinema = () => {
           </div>
         </div>
 
-        {/* Filter Controls: Segmented Type Selector */}
-        <div className="flex flex-wrap items-center gap-2 mb-6">
+        {/* Filter Controls: Segmented Type & Collection Selector */}
+        <div className="flex flex-wrap items-center gap-2 mb-5">
           {[
             { id: "all", label: `Tudo (${CINEMA_CATALOG.length})`, icon: Sparkles },
+            { id: "doramas", label: `Doramas & K-Dramas (${doramasList.length})`, icon: Flame },
+            { id: "juvenis", label: `Séries Juvenis & Weak Hero (${youthList.length})`, icon: Zap },
+            { id: "acao", label: `Ação (${actionList.length})`, icon: Film },
+            { id: "romance", label: `Romance (${romanceList.length})`, icon: Heart },
             { id: "filme", label: `Filmes (${moviesList.length})`, icon: Film },
             { id: "serie", label: `Séries (${seriesList.length})`, icon: Tv },
-            { id: "award", label: `Obras Premiadas (${awardList.length})`, icon: Award },
+            { id: "award", label: `Premiados (${awardList.length})`, icon: Award },
             { id: "watchlist", label: `Minha Lista (${watchlistIds.length})`, icon: Bookmark },
           ].map((tab) => {
             const Icon = tab.icon;
@@ -240,8 +321,8 @@ export const Cinema = () => {
               <button
                 key={tab.id}
                 type="button"
-                onClick={() => setSelectedType(tab.id as any)}
-                className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-medium transition-all ${
+                onClick={() => setSelectedType(tab.id as CinemaTabType)}
+                className={`flex items-center gap-1.5 px-3.5 py-2 rounded-full text-xs font-medium transition-all cursor-pointer ${
                   active
                     ? "bg-white text-black shadow-md"
                     : "bg-zinc-900 text-zinc-400 hover:text-white hover:bg-zinc-800 border border-zinc-800"
@@ -263,7 +344,7 @@ export const Cinema = () => {
                 key={genre}
                 type="button"
                 onClick={() => setSelectedGenre(genre)}
-                className={`text-xs px-3.5 py-1.5 rounded-md font-light whitespace-nowrap transition-colors ${
+                className={`text-xs px-3.5 py-1.5 rounded-md font-light whitespace-nowrap transition-colors cursor-pointer ${
                   active
                     ? "bg-amber-400/15 text-amber-300 font-medium border border-amber-400/30"
                     : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/40"
@@ -276,14 +357,16 @@ export const Cinema = () => {
         </div>
 
         {/* Continue Watching Section (if any exists) */}
-        {continueWatchingItems.length > 0 && selectedType === "all" && !search && selectedGenre === "Todos" && (
+        {continueWatchingItems.length > 0 && showShowcaseSections && (
           <section className="mb-14">
             <div className="flex items-center gap-2 mb-4">
               <RotateCcw className="h-4 w-4 text-amber-400" />
-              <h3 className="text-base font-light text-white tracking-tight">Continuar Assistindo</h3>
+              <h3 className="text-base font-light text-white tracking-tight">
+                Continuar Assistindo
+              </h3>
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-              {continueWatchingItems.map((item) => (
+              {continueWatchingItems.slice(0, 6).map((item) => (
                 <CinemaCard
                   key={`continue-${item.id}`}
                   item={item}
@@ -295,7 +378,143 @@ export const Cinema = () => {
           </section>
         )}
 
-        {/* Filtered Grid or Empty State */}
+        {/* Curated Showcase Row 1: Séries Juvenis & Ação Escolar (Estilo Weak Hero) */}
+        {showShowcaseSections && youthList.length > 0 && (
+          <section className="mb-14 pb-10 border-b border-zinc-800/80">
+            <div className="flex items-center justify-between mb-5">
+              <div>
+                <span className="text-[11px] uppercase tracking-wider text-amber-400 font-medium block">
+                  Ação Escolar, Sobrevivência & Juventude
+                </span>
+                <h3 className="text-xl sm:text-2xl font-light text-white tracking-tight mt-0.5">
+                  Séries Juvenis do Estilo de Weak Hero
+                </h3>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setSelectedType("juvenis")}
+                className="text-xs text-amber-400 hover:text-amber-300 uppercase tracking-wider font-normal"
+              >
+                Ver Todas ({youthList.length})
+              </Button>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4 sm:gap-6">
+              {youthList.slice(0, 12).map((item) => (
+                <CinemaCard
+                  key={`youth-${item.id}`}
+                  item={item}
+                  onPlay={(item) => navigate(`/cinema/${item.id}`)}
+                  showProgress={progressMap[item.id]?.progressPercent}
+                />
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* Curated Showcase Row 2: Doramas & K-Dramas em Destaque */}
+        {showShowcaseSections && doramasList.length > 0 && (
+          <section className="mb-14 pb-10 border-b border-zinc-800/80">
+            <div className="flex items-center justify-between mb-5">
+              <div>
+                <span className="text-[11px] uppercase tracking-wider text-amber-400 font-medium block">
+                  K-Dramas, C-Dramas & J-Dramas Completos
+                </span>
+                <h3 className="text-xl sm:text-2xl font-light text-white tracking-tight mt-0.5">
+                  Doramas Aclamados (Dublados & Legendados)
+                </h3>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setSelectedType("doramas")}
+                className="text-xs text-amber-400 hover:text-amber-300 uppercase tracking-wider font-normal"
+              >
+                Ver Todos ({doramasList.length})
+              </Button>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4 sm:gap-6">
+              {doramasList.slice(0, 12).map((item) => (
+                <CinemaCard
+                  key={`dorama-${item.id}`}
+                  item={item}
+                  onPlay={(item) => navigate(`/cinema/${item.id}`)}
+                  showProgress={progressMap[item.id]?.progressPercent}
+                />
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* Curated Showcase Row 3: Filmes e Séries de Romance */}
+        {showShowcaseSections && romanceList.length > 0 && (
+          <section className="mb-14 pb-10 border-b border-zinc-800/80">
+            <div className="flex items-center justify-between mb-5">
+              <div>
+                <span className="text-[11px] uppercase tracking-wider text-amber-400 font-medium block">
+                  Paixão, Drama & Comédia Romântica
+                </span>
+                <h3 className="text-xl sm:text-2xl font-light text-white tracking-tight mt-0.5">
+                  Filmes e Séries de Romance
+                </h3>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setSelectedType("romance")}
+                className="text-xs text-amber-400 hover:text-amber-300 uppercase tracking-wider font-normal"
+              >
+                Ver Todos ({romanceList.length})
+              </Button>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4 sm:gap-6">
+              {romanceList.slice(0, 12).map((item) => (
+                <CinemaCard
+                  key={`romance-${item.id}`}
+                  item={item}
+                  onPlay={(item) => navigate(`/cinema/${item.id}`)}
+                  showProgress={progressMap[item.id]?.progressPercent}
+                />
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* Curated Showcase Row 4: Filmes e Séries de Ação */}
+        {showShowcaseSections && actionList.length > 0 && (
+          <section className="mb-14 pb-10 border-b border-zinc-800/80">
+            <div className="flex items-center justify-between mb-5">
+              <div>
+                <span className="text-[11px] uppercase tracking-wider text-amber-400 font-medium block">
+                  Adrenalina, Artes Marciais & Blockbusters
+                </span>
+                <h3 className="text-xl sm:text-2xl font-light text-white tracking-tight mt-0.5">
+                  Ação e Combate em Alta Definição
+                </h3>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setSelectedType("acao")}
+                className="text-xs text-amber-400 hover:text-amber-300 uppercase tracking-wider font-normal"
+              >
+                Ver Todos ({actionList.length})
+              </Button>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4 sm:gap-6">
+              {actionList.slice(0, 12).map((item) => (
+                <CinemaCard
+                  key={`action-${item.id}`}
+                  item={item}
+                  onPlay={(item) => navigate(`/cinema/${item.id}`)}
+                  showProgress={progressMap[item.id]?.progressPercent}
+                />
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* Complete Filtered Catalog Grid */}
         {filteredCatalog.length === 0 ? (
           <div className="py-24 text-center border border-dashed border-zinc-800 rounded-xl">
             <Film className="h-10 w-10 text-zinc-600 mx-auto mb-3" />
@@ -318,14 +537,23 @@ export const Cinema = () => {
           </div>
         ) : (
           <div>
-            <div className="flex items-center justify-between mb-4">
-              <span className="text-xs text-zinc-400 font-light">
-                Exibindo <span className="text-white font-medium">{filteredCatalog.length}</span> títulos disponíveis
-              </span>
+            <div className="flex items-center justify-between mb-5">
+              <div>
+                <h3 className="text-lg sm:text-xl font-light text-white tracking-tight">
+                  {selectedType === "all" && selectedGenre === "Todos" && !search
+                    ? "Acervo Completo (Filmes, Séries e Doramas)"
+                    : "Resultados do Catálogo"}
+                </h3>
+                <span className="text-xs text-zinc-400 font-light">
+                  Exibindo <span className="text-white font-medium">{visibleCatalog.length}</span> de{" "}
+                  <span className="text-white font-medium">{filteredCatalog.length}</span> títulos
+                  disponíveis
+                </span>
+              </div>
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 sm:gap-6">
-              {filteredCatalog.map((item) => (
+              {visibleCatalog.map((item) => (
                 <CinemaCard
                   key={item.id}
                   item={item}
@@ -333,78 +561,39 @@ export const Cinema = () => {
                   showProgress={progressMap[item.id]?.progressPercent}
                 />
               ))}
+              {isLoadingExpanded &&
+                Array.from({ length: 12 }).map((_, idx) => (
+                  <div
+                    key={`cinema-skel-${idx}`}
+                    className="rounded-xl overflow-hidden bg-zinc-900/60 border border-zinc-800/80 animate-pulse"
+                  >
+                    <div className="aspect-[2/3] w-full bg-zinc-800/80" />
+                    <div className="p-3 space-y-2">
+                      <div className="h-3.5 bg-zinc-800 rounded w-4/5" />
+                      <div className="h-2.5 bg-zinc-800/70 rounded w-1/2" />
+                    </div>
+                  </div>
+                ))}
             </div>
+
+            {visibleCount < filteredCatalog.length && (
+              <div ref={loadMoreTriggerRef} className="mt-10 flex flex-col items-center gap-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() =>
+                    setVisibleCount((prev) =>
+                      Math.min(prev + PAGE_BATCH_SIZE, filteredCatalog.length)
+                    )
+                  }
+                  className="rounded-full px-6 py-2.5 text-xs uppercase tracking-wider border-zinc-700 bg-zinc-900 hover:bg-zinc-800 text-white"
+                >
+                  <ChevronDown className="h-4 w-4 mr-2 text-amber-400" />
+                  Mostrar mais títulos ({filteredCatalog.length - visibleCount} restantes)
+                </Button>
+              </div>
+            )}
           </div>
-        )}
-
-        {/* Dedicated Section: Filmes em Destaque */}
-        {selectedType === "all" && !search && selectedGenre === "Todos" && (
-          <section className="mt-16 pt-12 border-t border-zinc-800/80">
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <span className="text-[11px] uppercase tracking-wider text-amber-400 font-medium block">
-                  Longas-Metragens
-                </span>
-                <h3 className="text-xl sm:text-2xl font-light text-white tracking-tight mt-0.5">
-                  Filmes Consagrados
-                </h3>
-              </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setSelectedType("filme")}
-                className="text-xs text-zinc-400 hover:text-white uppercase tracking-wider font-normal"
-              >
-                Ver Todos os Filmes
-              </Button>
-            </div>
-
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4 sm:gap-6">
-              {moviesList.slice(0, 6).map((item) => (
-                <CinemaCard
-                  key={`film-${item.id}`}
-                  item={item}
-                  onPlay={(item) => navigate(`/cinema/${item.id}`)}
-                  showProgress={progressMap[item.id]?.progressPercent}
-                />
-              ))}
-            </div>
-          </section>
-        )}
-
-        {/* Dedicated Section: Séries em Destaque */}
-        {selectedType === "all" && !search && selectedGenre === "Todos" && (
-          <section className="mt-16 pt-12 border-t border-zinc-800/80">
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <span className="text-[11px] uppercase tracking-wider text-amber-400 font-medium block">
-                  Produções Seriadas
-                </span>
-                <h3 className="text-xl sm:text-2xl font-light text-white tracking-tight mt-0.5">
-                  Séries Aclamadas
-                </h3>
-              </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setSelectedType("serie")}
-                className="text-xs text-zinc-400 hover:text-white uppercase tracking-wider font-normal"
-              >
-                Ver Todas as Séries
-              </Button>
-            </div>
-
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4 sm:gap-6">
-              {seriesList.slice(0, 6).map((item) => (
-                <CinemaCard
-                  key={`serie-${item.id}`}
-                  item={item}
-                  onPlay={(item) => navigate(`/cinema/${item.id}`)}
-                  showProgress={progressMap[item.id]?.progressPercent}
-                />
-              ))}
-            </div>
-          </section>
         )}
       </main>
 

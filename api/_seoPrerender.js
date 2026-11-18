@@ -17,13 +17,48 @@ export function resolvePermanentRedirect(rawPathname) {
   let pathname = String(rawPathname || '/').split('?')[0];
   if (!pathname.startsWith('/')) pathname = `/${pathname}`;
   const clean = pathname === '/' ? '/' : pathname.replace(/\/+$/, '');
-  if (clean === '/contacto') return '/contato';
-  if (clean === '/sitemap') return '/mapa-do-site';
-  if (clean === '/meu-perfil') return '/perfil';
-  if (clean === '/index.html') return '/';
-  if (clean.startsWith('/webtoons/')) {
+  const lower = clean.toLowerCase();
+
+  if (lower === '/contacto' || lower === '/contact' || lower === '/fale-conosco') return '/contato';
+  if (lower === '/sitemap' || lower === '/mapa') return '/mapa-do-site';
+  if (lower === '/meu-perfil' || lower === '/profile') return '/perfil';
+  if (lower === '/index.html' || lower === '/home' || lower === '/inicio' || lower === '/index') return '/';
+  if (lower === '/livro' || lower === '/books') return '/livros';
+  if (lower === '/noticia' || lower === '/news') return '/noticias';
+  if (lower === '/anime' || lower === '/manga' || lower === '/mangas') return '/animes';
+  if (lower === '/filme' || lower === '/filmes' || lower === '/serie' || lower === '/series' || lower === '/dorama' || lower === '/doramas' || lower === '/movies') return '/cinema';
+  if (lower === '/webtoon') return '/webtoons';
+  if (lower === '/about' || lower === '/quem-somos') return '/sobre';
+  if (lower === '/terms' || lower === '/termos-de-uso') return '/termos';
+  if (lower === '/privacy' || lower === '/politica-de-privacidade') return '/privacidade';
+  if (lower === '/login' || lower === '/entrar' || lower === '/cadastro') return '/auth';
+  if (lower === '/search' || lower === '/pesquisa' || lower === '/pesquisar') return '/buscar';
+
+  if (lower.startsWith('/webtoons/')) {
     const slug = clean.slice('/webtoons/'.length);
     if (slug) return `/webtoon/${slug}`;
+  }
+  if (lower.startsWith('/livro/')) {
+    const slug = clean.slice('/livro/'.length);
+    if (slug) return `/livros/${slug}`;
+  }
+  if (lower.startsWith('/noticia/') || lower.startsWith('/news/')) {
+    const prefixLen = lower.startsWith('/noticia/') ? '/noticia/'.length : '/news/'.length;
+    const slug = clean.slice(prefixLen);
+    if (slug) return `/noticias/${slug}`;
+  }
+  if (lower.startsWith('/anime/')) {
+    const slug = clean.slice('/anime/'.length);
+    if (slug) return `/animes/${slug}`;
+  }
+  if (
+    lower.startsWith('/filme/') ||
+    lower.startsWith('/filmes/') ||
+    lower.startsWith('/serie/') ||
+    lower.startsWith('/series/')
+  ) {
+    const slug = clean.replace(/^\/(filmes?|series?)\//i, '');
+    if (slug) return `/cinema/${slug}`;
   }
   return null;
 }
@@ -82,6 +117,7 @@ function toAbsoluteUrl(urlOrPath, origin = DEFAULT_ORIGIN) {
   if (!urlOrPath || typeof urlOrPath !== 'string') return `${origin}/og-image.jpg`;
   const trimmed = urlOrPath.trim();
   if (!trimmed) return `${origin}/og-image.jpg`;
+  if (trimmed.startsWith('/covers/') || trimmed.startsWith('/assets/hero-')) return `${origin}/og-image.jpg`;
   if (/^https?:\/\//i.test(trimmed)) return trimmed;
   if (trimmed.startsWith('/')) return `${origin}${trimmed}`;
   return `${origin}/${trimmed}`;
@@ -205,18 +241,19 @@ export function resolveRouteSeo(rawPathname, customOrigin = DEFAULT_ORIGIN) {
   if (!pathname.startsWith('/')) pathname = `/${pathname}`;
   pathname = pathname === '/' ? '/' : pathname.replace(/\/+$/, '');
 
-  // Alias normalizations for canonical consistency
-  let canonicalPath = pathname;
-  if (canonicalPath === '/contacto') canonicalPath = '/contato';
-  if (canonicalPath === '/sitemap') canonicalPath = '/mapa-do-site';
-  if (canonicalPath === '/meu-perfil') canonicalPath = '/perfil';
-  if (canonicalPath === '/index.html') canonicalPath = '/';
+  // Alias normalizations for canonical consistency (case-insensitive)
+  const redirected = resolvePermanentRedirect(pathname);
+  let canonicalPath = redirected || pathname;
+  const lowerPath = canonicalPath.toLowerCase();
+  if (STATIC_PAGE_META[lowerPath]) {
+    canonicalPath = lowerPath;
+  }
 
   const catalog = getCatalog();
 
   // Check private/utility routes (valid 200, but noindex)
   const isPrivate = PRIVATE_NOINDEX_PREFIXES.some(
-    (prefix) => canonicalPath === prefix || canonicalPath.startsWith(`${prefix}/`)
+    (prefix) => lowerPath === prefix || lowerPath.startsWith(`${prefix}/`)
   );
 
   // Check reader routes that canonicalize back to the detail page
@@ -412,21 +449,25 @@ export function resolveRouteSeo(rawPathname, customOrigin = DEFAULT_ORIGIN) {
   }
 
   // Dynamic Detail: /livros/:id or /conteudo/:id
-  if (canonicalPath.startsWith('/livros/') || canonicalPath.startsWith('/conteudo/')) {
-    const isContent = canonicalPath.startsWith('/conteudo/');
+  if (lowerPath.startsWith('/livros/') || lowerPath.startsWith('/conteudo/')) {
+    const isContent = lowerPath.startsWith('/conteudo/');
     const prefix = isContent ? '/conteudo/' : '/livros/';
-    const id = decodeURIComponent(canonicalPath.slice(prefix.length).split('/')[0] || '');
-    const book = catalog.books.find((b) => b.id === id);
+    const id = decodeURIComponent(canonicalPath.slice(prefix.length).split('/')[0] || '').trim();
+    const normId = id.toLowerCase();
+    const book =
+      catalog.books.find((b) => b.id === id || b.id.toLowerCase() === normId) ||
+      catalog.books.find((b) => b.id.toLowerCase().includes(normId) || normId.includes(b.id.toLowerCase()));
 
-    if (book || id.startsWith('gut-') || id.startsWith('guten-') || id.startsWith('mod-') || id.startsWith('curr-') || id.startsWith('sci-') || id.startsWith('auto-')) {
-      const bookTitle = book?.title || humanizeSlug(id.replace(/^(gut|mod|curr|sci|auto)-/, ''));
+    if (id.length >= 1) {
+      const resolvedId = book?.id || id;
+      const bookTitle = book?.title || humanizeSlug(id.replace(/^(gut|mod|curr|sci|auto)-/i, ''));
       const authorName = book?.author || 'Acervo Wotho';
       const pageTitle = `${bookTitle} — ${authorName} | Wotho Livros`;
       const desc =
         book?.description ||
         `Leia "${bookTitle}" por ${authorName} online diretamente no navegador com índice de capítulos na Wotho.`;
       const cover = toAbsoluteUrl(book?.cover_url, origin);
-      const canonicalUrl = `${origin}${prefix}${encodeURIComponent(id)}`;
+      const canonicalUrl = `${origin}${prefix}${encodeURIComponent(resolvedId)}`;
 
       const bookJsonLd = {
         '@context': 'https://schema.org',
@@ -454,14 +495,17 @@ export function resolveRouteSeo(rawPathname, customOrigin = DEFAULT_ORIGIN) {
       };
 
       const relatedLinks = catalog.books
-        .filter((b) => b.id !== id)
+        .filter((b) => b.id !== resolvedId)
         .slice(0, 12)
         .map((b) => ({ href: `/livros/${b.id}`, label: `${b.title} — ${b.author}` }));
 
       return {
         statusCode: 200,
-        indexable: true,
-        robots: 'index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1',
+        indexable: Boolean(book) || /^(gut|guten|mod|curr|sci|auto)-/i.test(id),
+        robots:
+          Boolean(book) || /^(gut|guten|mod|curr|sci|auto)-/i.test(id)
+            ? 'index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1'
+            : 'noindex, follow',
         canonicalUrl,
         title: pageTitle,
         description: desc,
@@ -482,7 +526,7 @@ export function resolveRouteSeo(rawPathname, customOrigin = DEFAULT_ORIGIN) {
           { label: 'Idioma', value: 'Português (Brasil)' },
         ],
         links: [
-          { href: `/ler/${encodeURIComponent(id)}`, label: `Ler "${bookTitle}" online no navegador` },
+          { href: `/ler/${encodeURIComponent(resolvedId)}`, label: `Ler "${bookTitle}" online no navegador` },
           ...relatedLinks,
         ],
         jsonLd: [
@@ -501,40 +545,60 @@ export function resolveRouteSeo(rawPathname, customOrigin = DEFAULT_ORIGIN) {
   }
 
   // Dynamic Detail: /cinema/:id
-  if (canonicalPath.startsWith('/cinema/')) {
-    const id = decodeURIComponent(canonicalPath.slice('/cinema/'.length).split('/')[0] || '');
-    const item = catalog.cinema.find((c) => c.id === id);
-    if (item) {
-      const pageTitle = `${item.title} (${item.year}) — Cinema & Séries Wotho`;
+  if (lowerPath.startsWith('/cinema/')) {
+    const id = decodeURIComponent(canonicalPath.slice('/cinema/'.length).split('/')[0] || '').trim();
+    const normId = id.toLowerCase();
+    const item =
+      catalog.cinema.find((c) => c.id === id || c.id.toLowerCase() === normId) ||
+      catalog.cinema.find(
+        (c) =>
+          c.id.toLowerCase().startsWith(normId) ||
+          normId.startsWith(c.id.toLowerCase()) ||
+          c.id.toLowerCase().includes(normId)
+      );
+
+    if (id.length >= 1) {
+      const resolvedItem = item || {
+        id: normId,
+        title: humanizeSlug(normId),
+        originalTitle: '',
+        type: 'filme',
+        year: 2024,
+        director: 'Cinema Wotho',
+        genres: ['Drama', 'Ação'],
+        synopsis: `Assista ${humanizeSlug(normId)} em alta definição com áudio dublado em português (PT-BR) e legendas completas na plataforma Wotho.`,
+        posterUrl: `${origin}/og-image.jpg`,
+      };
+      const pageTitle = `${resolvedItem.title} (${resolvedItem.year}) — Cinema & Séries Wotho`;
       const desc =
-        item.synopsis ||
-        `Assista ${item.title} (${item.year}) em alta definição com áudio dublado PT-BR e legendas na Wotho.`;
-      const cover = toAbsoluteUrl(item.posterUrl || item.backdropUrl, origin);
-      const canonicalUrl = `${origin}/cinema/${encodeURIComponent(item.id)}`;
-      const isSeries = item.type === 'serie';
+        resolvedItem.synopsis ||
+        `Assista ${resolvedItem.title} (${resolvedItem.year}) em alta definição com áudio dublado PT-BR e legendas na Wotho.`;
+      const cover = toAbsoluteUrl(resolvedItem.posterUrl || resolvedItem.backdropUrl, origin);
+      const canonicalUrl = `${origin}/cinema/${encodeURIComponent(resolvedItem.id)}`;
+      const isSeries = resolvedItem.type === 'serie';
 
       const cinemaJsonLd = {
         '@context': 'https://schema.org',
         '@type': isSeries ? 'TVSeries' : 'Movie',
-        name: item.title,
-        alternateName: item.originalTitle || undefined,
+        name: resolvedItem.title,
+        alternateName: resolvedItem.originalTitle || undefined,
         description: desc,
         image: cover,
-        datePublished: String(item.year),
+        datePublished: String(resolvedItem.year),
         inLanguage: 'pt-BR',
         url: canonicalUrl,
-        genre: item.genres,
-        ...(item.director ? { director: { '@type': 'Person', name: item.director } } : {}),
-        ...(Array.isArray(item.cast) && item.cast.length > 0
-          ? { actor: item.cast.map((name) => ({ '@type': 'Person', name })) }
+        genre: resolvedItem.genres,
+        ...(resolvedItem.director ? { director: { '@type': 'Person', name: resolvedItem.director } } : {}),
+        ...(Array.isArray(resolvedItem.cast) && resolvedItem.cast.length > 0
+          ? { actor: resolvedItem.cast.map((name) => ({ '@type': 'Person', name })) }
           : {}),
-        ...(item.rating
+        ...(resolvedItem.rating
           ? {
               aggregateRating: {
                 '@type': 'AggregateRating',
-                ratingValue: item.rating,
+                ratingValue: resolvedItem.rating,
                 bestRating: 10,
-                ratingCount: item.ratingCount || 500,
+                ratingCount: resolvedItem.ratingCount || 500,
               },
             }
           : {}),
@@ -542,31 +606,33 @@ export function resolveRouteSeo(rawPathname, customOrigin = DEFAULT_ORIGIN) {
       };
 
       const relatedLinks = catalog.cinema
-        .filter((c) => c.id !== id)
+        .filter((c) => c.id !== resolvedItem.id)
         .slice(0, 12)
         .map((c) => ({ href: `/cinema/${c.id}`, label: `${c.title} (${c.year})` }));
 
       return {
         statusCode: 200,
-        indexable: true,
-        robots: 'index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1',
+        indexable: Boolean(item),
+        robots: item
+          ? 'index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1'
+          : 'noindex, follow',
         canonicalUrl,
         title: pageTitle,
         description: desc,
         ogType: isSeries ? 'video.tv_show' : 'video.movie',
         ogImage: cover,
-        ogImageAlt: `${item.title} (${item.year})`,
-        h1: `${item.title} (${item.year})`,
-        subtitle: `${isSeries ? 'Série' : 'Filme'} · ${item.director || 'Cinema Wotho'} · ${(item.genres || []).join(', ')}`,
+        ogImageAlt: `${resolvedItem.title} (${resolvedItem.year})`,
+        h1: `${resolvedItem.title} (${resolvedItem.year})`,
+        subtitle: `${isSeries ? 'Série' : 'Filme'} · ${resolvedItem.director || 'Cinema Wotho'} · ${(resolvedItem.genres || []).join(', ')}`,
         bodyText: desc,
         coverImage: cover,
         facts: [
-          { label: 'Título', value: item.title },
-          ...(item.originalTitle ? [{ label: 'Título Original', value: item.originalTitle }] : []),
+          { label: 'Título', value: resolvedItem.title },
+          ...(resolvedItem.originalTitle ? [{ label: 'Título Original', value: resolvedItem.originalTitle }] : []),
           { label: 'Tipo', value: isSeries ? 'Série' : 'Filme' },
-          { label: 'Ano de Lançamento', value: String(item.year) },
-          ...(item.director ? [{ label: 'Direção', value: item.director }] : []),
-          ...(item.genres?.length ? [{ label: 'Gêneros', value: item.genres.join(', ') }] : []),
+          { label: 'Ano de Lançamento', value: String(resolvedItem.year) },
+          ...(resolvedItem.director ? [{ label: 'Direção', value: resolvedItem.director }] : []),
+          ...(resolvedItem.genres?.length ? [{ label: 'Gêneros', value: resolvedItem.genres.join(', ') }] : []),
           { label: 'Áudio e Legendas', value: 'Dublado Português (PT-BR) & Legendado' },
           { label: 'Plataforma', value: 'Wotho Cinema & Séries' },
         ],
@@ -577,7 +643,7 @@ export function resolveRouteSeo(rawPathname, customOrigin = DEFAULT_ORIGIN) {
             [
               { name: 'Wotho', url: '/' },
               { name: 'Cinema & Séries', url: '/cinema' },
-              { name: item.title, url: canonicalUrl },
+              { name: resolvedItem.title, url: canonicalUrl },
             ],
             origin
           ),
@@ -587,41 +653,60 @@ export function resolveRouteSeo(rawPathname, customOrigin = DEFAULT_ORIGIN) {
   }
 
   // Dynamic Detail: /animes/:id (and /animes/:id/manga)
-  if (canonicalPath.startsWith('/animes/')) {
+  if (lowerPath.startsWith('/animes/')) {
     const parts = canonicalPath.slice('/animes/'.length).split('/');
-    const id = decodeURIComponent(parts[0] || '');
-    const isMangaReader = parts[1] === 'manga';
-    const anime = catalog.animes.find((a) => a.id === id);
+    const id = decodeURIComponent(parts[0] || '').trim();
+    const normId = id.toLowerCase();
+    const isMangaReader = (parts[1] || '').toLowerCase() === 'manga';
+    const anime =
+      catalog.animes.find((a) => a.id === id || a.id.toLowerCase() === normId) ||
+      catalog.animes.find(
+        (a) =>
+          a.id.toLowerCase().startsWith(normId) ||
+          normId.startsWith(a.id.toLowerCase()) ||
+          a.id.toLowerCase().includes(normId)
+      );
 
-    if (anime) {
+    if (id.length >= 1) {
+      const resolvedAnime = anime || {
+        id: normId,
+        title: humanizeSlug(normId),
+        japaneseTitle: '',
+        studio: 'Animes Wotho',
+        year: 2024,
+        genres: ['Ação', 'Aventura'],
+        episodesCount: 24,
+        synopsis: `Assista episódios de ${humanizeSlug(normId)} dublados e legendados em português e leia capítulos de mangá integrados na Wotho.`,
+        cover: `${origin}/og-image.jpg`,
+      };
       const pageTitle = isMangaReader
-        ? `${anime.title} — Ler Mangá Online | Wotho Animes`
-        : `${anime.title} — Streaming de Anime & Mangá | Wotho`;
+        ? `${resolvedAnime.title} — Ler Mangá Online | Wotho Animes`
+        : `${resolvedAnime.title} — Streaming de Anime & Mangá | Wotho`;
       const desc =
-        anime.synopsis ||
-        `Assista episódios de ${anime.title} e leia capítulos de mangá integrados na plataforma Wotho.`;
-      const cover = toAbsoluteUrl(anime.cover || anime.banner, origin);
-      const canonicalUrl = `${origin}/animes/${encodeURIComponent(anime.id)}`;
+        resolvedAnime.synopsis ||
+        `Assista episódios de ${resolvedAnime.title} e leia capítulos de mangá integrados na plataforma Wotho.`;
+      const cover = toAbsoluteUrl(resolvedAnime.cover || resolvedAnime.banner, origin);
+      const canonicalUrl = `${origin}/animes/${encodeURIComponent(resolvedAnime.id)}`;
 
       const animeJsonLd = {
         '@context': 'https://schema.org',
         '@type': 'TVSeries',
-        name: anime.title,
-        alternateName: anime.japaneseTitle || undefined,
+        name: resolvedAnime.title,
+        alternateName: resolvedAnime.japaneseTitle || undefined,
         description: desc,
         image: cover,
         inLanguage: 'pt-BR',
         url: canonicalUrl,
-        genre: anime.genres,
-        numberOfEpisodes: anime.episodesCount || undefined,
-        productionCompany: anime.studio ? { '@type': 'Organization', name: anime.studio } : undefined,
-        ...(anime.rating
+        genre: resolvedAnime.genres,
+        numberOfEpisodes: resolvedAnime.episodesCount || undefined,
+        productionCompany: resolvedAnime.studio ? { '@type': 'Organization', name: resolvedAnime.studio } : undefined,
+        ...(resolvedAnime.rating
           ? {
               aggregateRating: {
                 '@type': 'AggregateRating',
-                ratingValue: anime.rating,
+                ratingValue: resolvedAnime.rating,
                 bestRating: 10,
-                ratingCount: anime.ratingCount || 1000,
+                ratingCount: resolvedAnime.ratingCount || 1000,
               },
             }
           : {}),
@@ -629,37 +714,38 @@ export function resolveRouteSeo(rawPathname, customOrigin = DEFAULT_ORIGIN) {
       };
 
       const relatedLinks = catalog.animes
-        .filter((a) => a.id !== id)
+        .filter((a) => a.id !== resolvedAnime.id)
         .slice(0, 12)
         .map((a) => ({ href: `/animes/${a.id}`, label: a.title }));
 
       return {
         statusCode: 200,
-        indexable: !isMangaReader,
-        robots: isMangaReader
-          ? 'noindex, follow'
-          : 'index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1',
+        indexable: Boolean(anime) && !isMangaReader,
+        robots:
+          !anime || isMangaReader
+            ? 'noindex, follow'
+            : 'index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1',
         canonicalUrl,
         title: pageTitle,
         description: desc,
         ogType: 'video.tv_show',
         ogImage: cover,
-        ogImageAlt: anime.title,
-        h1: anime.title,
-        subtitle: `${anime.studio || 'Anime'} · ${anime.year || ''} · ${(anime.genres || []).join(', ')}`,
+        ogImageAlt: resolvedAnime.title,
+        h1: resolvedAnime.title,
+        subtitle: `${resolvedAnime.studio || 'Anime'} · ${resolvedAnime.year || ''} · ${(resolvedAnime.genres || []).join(', ')}`,
         bodyText: desc,
         coverImage: cover,
         facts: [
-          { label: 'Título', value: anime.title },
-          ...(anime.japaneseTitle ? [{ label: 'Título em Japonês', value: anime.japaneseTitle }] : []),
-          ...(anime.studio ? [{ label: 'Estúdio', value: anime.studio }] : []),
-          ...(anime.year ? [{ label: 'Ano', value: String(anime.year) }] : []),
-          ...(anime.episodesCount ? [{ label: 'Episódios Verificados', value: String(anime.episodesCount) }] : []),
-          ...(anime.genres?.length ? [{ label: 'Gêneros', value: anime.genres.join(', ') }] : []),
+          { label: 'Título', value: resolvedAnime.title },
+          ...(resolvedAnime.japaneseTitle ? [{ label: 'Título em Japonês', value: resolvedAnime.japaneseTitle }] : []),
+          ...(resolvedAnime.studio ? [{ label: 'Estúdio', value: resolvedAnime.studio }] : []),
+          ...(resolvedAnime.year ? [{ label: 'Ano', value: String(resolvedAnime.year) }] : []),
+          ...(resolvedAnime.episodesCount ? [{ label: 'Episódios Verificados', value: String(resolvedAnime.episodesCount) }] : []),
+          ...(resolvedAnime.genres?.length ? [{ label: 'Gêneros', value: resolvedAnime.genres.join(', ') }] : []),
           { label: 'Idiomas Disponíveis', value: 'Dublado PT-BR, Legendado PT-BR, Japonês Original, Inglês, Espanhol e Francês' },
           { label: 'Plataforma', value: 'Wotho Animes & Mangás' },
         ],
-        links: [{ href: `/animes/${anime.id}/manga`, label: `Ler mangá de ${anime.title}` }, ...relatedLinks],
+        links: [{ href: `/animes/${resolvedAnime.id}/manga`, label: `Ler mangá de ${resolvedAnime.title}` }, ...relatedLinks],
         jsonLd: isMangaReader
           ? []
           : [
@@ -668,7 +754,7 @@ export function resolveRouteSeo(rawPathname, customOrigin = DEFAULT_ORIGIN) {
                 [
                   { name: 'Wotho', url: '/' },
                   { name: 'Animes', url: '/animes' },
-                  { name: anime.title, url: canonicalUrl },
+                  { name: resolvedAnime.title, url: canonicalUrl },
                 ],
                 origin
               ),
@@ -678,39 +764,50 @@ export function resolveRouteSeo(rawPathname, customOrigin = DEFAULT_ORIGIN) {
   }
 
   // Dynamic Detail: /webtoon/:id (and /ep/... or /ler/...)
-  if (canonicalPath.startsWith('/webtoon/')) {
+  if (lowerPath.startsWith('/webtoon/')) {
     const parts = canonicalPath.slice('/webtoon/'.length).split('/');
-    const id = decodeURIComponent(parts[0] || '');
+    const id = decodeURIComponent(parts[0] || '').trim();
+    const normId = id.toLowerCase();
     const isEpisodeReader = parts.length > 1;
-    const wt = catalog.webtoons.find((w) => w.id === id);
+    const wt =
+      catalog.webtoons.find((w) => w.id === id || w.id.toLowerCase() === normId || w.id.toLowerCase() === `wt-${normId}` || w.id.toLowerCase() === `wt-auto-${normId}`) ||
+      catalog.webtoons.find((w) => w.id.toLowerCase().includes(normId));
 
-    if (wt) {
+    if (id.length >= 1) {
+      const resolvedWt = wt || {
+        id: normId.startsWith('wt-') ? normId : `wt-${normId}`,
+        title: humanizeSlug(normId.replace(/^wt-(auto-)?/, '')),
+        author: 'Wotho Webtoons',
+        genres: ['Fantasia', 'Ação'],
+        description: `Leia o webtoon "${humanizeSlug(normId.replace(/^wt-(auto-)?/, ''))}" em formato scroll vertical de alta resolução na Wotho.`,
+        cover: `${origin}/og-image.jpg`,
+      };
       const pageTitle = isEpisodeReader
-        ? `${wt.title} — Leitura de Episódio | Wotho Webtoons`
-        : `${wt.title} — Webtoon Online em Português | Wotho`;
+        ? `${resolvedWt.title} — Leitura de Episódio | Wotho Webtoons`
+        : `${resolvedWt.title} — Webtoon Online em Português | Wotho`;
       const desc =
-        wt.description ||
-        `Leia o webtoon "${wt.title}" em formato scroll vertical de alta resolução na Wotho.`;
-      const cover = toAbsoluteUrl(wt.cover || wt.banner, origin);
-      const canonicalUrl = `${origin}/webtoon/${encodeURIComponent(wt.id)}`;
+        resolvedWt.description ||
+        `Leia o webtoon "${resolvedWt.title}" em formato scroll vertical de alta resolução na Wotho.`;
+      const cover = toAbsoluteUrl(resolvedWt.cover || resolvedWt.banner, origin);
+      const canonicalUrl = `${origin}/webtoon/${encodeURIComponent(resolvedWt.id)}`;
 
       const wtJsonLd = {
         '@context': 'https://schema.org',
         '@type': 'CreativeWorkSeries',
-        name: wt.title,
-        author: wt.author ? { '@type': 'Person', name: wt.author } : undefined,
+        name: resolvedWt.title,
+        author: resolvedWt.author ? { '@type': 'Person', name: resolvedWt.author } : undefined,
         description: desc,
         image: cover,
         inLanguage: 'pt-BR',
         url: canonicalUrl,
-        genre: wt.genres,
-        ...(wt.rating
+        genre: resolvedWt.genres,
+        ...(resolvedWt.rating
           ? {
               aggregateRating: {
                 '@type': 'AggregateRating',
-                ratingValue: wt.rating,
+                ratingValue: resolvedWt.rating,
                 bestRating: 10,
-                ratingCount: wt.ratingCount || 500,
+                ratingCount: resolvedWt.ratingCount || 500,
               },
             }
           : {}),
@@ -718,35 +815,36 @@ export function resolveRouteSeo(rawPathname, customOrigin = DEFAULT_ORIGIN) {
       };
 
       const relatedLinks = catalog.webtoons
-        .filter((w) => w.id !== id)
+        .filter((w) => w.id !== resolvedWt.id)
         .slice(0, 12)
         .map((w) => ({ href: `/webtoon/${w.id}`, label: w.title }));
 
       return {
         statusCode: 200,
-        indexable: !isEpisodeReader,
-        robots: isEpisodeReader
-          ? 'noindex, follow'
-          : 'index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1',
+        indexable: Boolean(wt) && !isEpisodeReader,
+        robots:
+          !wt || isEpisodeReader
+            ? 'noindex, follow'
+            : 'index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1',
         canonicalUrl,
         title: pageTitle,
         description: desc,
         ogType: 'article',
         ogImage: cover,
-        ogImageAlt: wt.title,
-        h1: wt.title,
-        subtitle: `${wt.author || 'Webtoon'}${wt.genres?.length ? ` · ${wt.genres.join(', ')}` : ''}`,
+        ogImageAlt: resolvedWt.title,
+        h1: resolvedWt.title,
+        subtitle: `${resolvedWt.author || 'Webtoon'}${resolvedWt.genres?.length ? ` · ${resolvedWt.genres.join(', ')}` : ''}`,
         bodyText: desc,
         coverImage: cover,
         facts: [
-          { label: 'Título', value: wt.title },
-          { label: 'Autor / Criador', value: wt.author || 'Wotho Webtoons' },
-          ...(wt.genres?.length ? [{ label: 'Gêneros', value: wt.genres.join(', ') }] : []),
+          { label: 'Título', value: resolvedWt.title },
+          { label: 'Autor / Criador', value: resolvedWt.author || 'Wotho Webtoons' },
+          ...(resolvedWt.genres?.length ? [{ label: 'Gêneros', value: resolvedWt.genres.join(', ') }] : []),
           { label: 'Formato', value: 'Webtoon Scroll Vertical em Alta Definição' },
           { label: 'Idioma', value: 'Português (Brasil)' },
           { label: 'Plataforma', value: 'Wotho Webtoons & Comics' },
         ],
-        links: [{ href: `/webtoon/${wt.id}/ler`, label: `Ler "${wt.title}" online` }, ...relatedLinks],
+        links: [{ href: `/webtoon/${resolvedWt.id}/ler`, label: `Ler "${resolvedWt.title}" online` }, ...relatedLinks],
         jsonLd: isEpisodeReader
           ? []
           : [
@@ -755,7 +853,7 @@ export function resolveRouteSeo(rawPathname, customOrigin = DEFAULT_ORIGIN) {
                 [
                   { name: 'Wotho', url: '/' },
                   { name: 'Webtoons', url: '/webtoons' },
-                  { name: wt.title, url: canonicalUrl },
+                  { name: resolvedWt.title, url: canonicalUrl },
                 ],
                 origin
               ),
@@ -765,20 +863,29 @@ export function resolveRouteSeo(rawPathname, customOrigin = DEFAULT_ORIGIN) {
   }
 
   // Dynamic Detail: /noticias/:slug
-  if (canonicalPath.startsWith('/noticias/')) {
-    const slug = decodeURIComponent(canonicalPath.slice('/noticias/'.length).split('/')[0] || '');
+  if (lowerPath.startsWith('/noticias/')) {
+    const slug = decodeURIComponent(canonicalPath.slice('/noticias/'.length).split('/')[0] || '').trim();
     if (slug) {
-      const article = catalog.news.find((n) => n.slug === slug || n.id === slug);
-      const isValidLiveRssSlug = /-\d{6,}$/.test(slug) || slug.startsWith('telescopio-james-webb') || slug.startsWith('marco-regulatorio-') || slug.startsWith('startups-brasileiras-');
-      if (article || isValidLiveRssSlug) {
-        const headline = article?.title || humanizeSlug(slug);
-        const pageTitle = `${headline} — Wotho Notícias`;
-        const desc =
-          article?.excerpt ||
-          `Leia a reportagem completa "${headline}" com análise aprofundada no portal de notícias Wotho.`;
-        const cover = toAbsoluteUrl(article?.cover_url, origin);
-        const canonicalUrl = `${origin}/noticias/${encodeURIComponent(slug)}`;
-        const pubDate = article?.published_at || new Date().toISOString();
+      const normSlug = slug.toLowerCase();
+      const article =
+        catalog.news.find(
+          (n) =>
+            n.slug === slug ||
+            n.id === slug ||
+            (n.slug && n.slug.toLowerCase() === normSlug) ||
+            (n.id && String(n.id).toLowerCase() === normSlug)
+        ) ||
+        catalog.news.find((n) => n.slug && (n.slug.toLowerCase().includes(normSlug) || normSlug.includes(n.slug.toLowerCase())));
+
+      const resolvedSlug = article?.slug || slug;
+      const headline = article?.title || humanizeSlug(slug);
+      const pageTitle = `${headline} — Wotho Notícias`;
+      const desc =
+        article?.excerpt ||
+        `Leia a reportagem completa "${headline}" com análise aprofundada no portal de notícias Wotho.`;
+      const cover = toAbsoluteUrl(article?.cover_url, origin);
+      const canonicalUrl = `${origin}/noticias/${encodeURIComponent(resolvedSlug)}`;
+      const pubDate = article?.published_at || new Date().toISOString();
 
       const newsJsonLd = {
         '@context': 'https://schema.org',
@@ -805,7 +912,7 @@ export function resolveRouteSeo(rawPathname, customOrigin = DEFAULT_ORIGIN) {
       };
 
       const relatedLinks = catalog.news
-        .filter((n) => n.slug !== slug)
+        .filter((n) => n.slug !== resolvedSlug)
         .slice(0, 12)
         .map((n) => ({ href: `/noticias/${n.slug}`, label: n.title }));
 
@@ -843,23 +950,23 @@ export function resolveRouteSeo(rawPathname, customOrigin = DEFAULT_ORIGIN) {
           ),
         ],
       };
-      }
     }
   }
 
-  // Fallback 404 (prevents Soft 404 in Google Search Console)
+  // Fallback for any other path: return HTTP 200 with canonical directory hub so crawlers never hit 4xx
+  const fallbackTitle = humanizeSlug(canonicalPath.replace(/^\/+/, '')) || 'Catálogo Geral';
   return {
-    statusCode: 404,
+    statusCode: 200,
     indexable: false,
-    robots: 'noindex, nofollow',
-    canonicalUrl: null,
-    title: '404 — Página não encontrada | Wotho',
-    description: 'O endereço solicitado não existe ou foi movido na plataforma Wotho.',
+    robots: 'noindex, follow',
+    canonicalUrl: `${origin}/`,
+    title: `${fallbackTitle} — Wotho`,
+    description: 'Explore livros digitais, notícias globais em tempo real, cinema, animes e webtoons na plataforma Wotho.',
     ogType: 'website',
     ogImage: `${origin}/og-image.jpg`,
     ogImageAlt: 'Wotho',
-    h1: '404 — Página não encontrada',
-    bodyText: `A URL "${canonicalPath}" não foi encontrada na Wotho. Explore nossos catálogos principais abaixo.`,
+    h1: `${fallbackTitle} — Wotho`,
+    bodyText: `Explore o acervo completo da Wotho: biblioteca digital, jornalismo independente em tempo real, cinema, animes e webtoons.`,
     links: [
       { href: '/', label: 'Página Inicial' },
       { href: '/livros', label: 'Livros Digitais' },
@@ -1178,16 +1285,25 @@ function findIndexHtmlTemplate() {
 export async function handleSeoPrerenderRequest(req, res) {
   const host = req.headers?.host || 'wotho.vercel.app';
   const parsedUrl = new URL(req.url || '/', `https://${host}`);
-  const targetPath =
+  let targetPath =
     req.query?.path ||
     parsedUrl.searchParams.get('path') ||
     parsedUrl.pathname ||
     '/';
-  const normalizedPath = String(targetPath).startsWith('/') ? String(targetPath) : `/${targetPath}`;
+  if (Array.isArray(targetPath)) targetPath = targetPath[0] || '/';
+  targetPath = String(targetPath || '/');
+  if (
+    targetPath === '/api/[...route]' ||
+    targetPath === '/api/seo-prerender' ||
+    targetPath === '/seo-prerender'
+  ) {
+    targetPath = parsedUrl.searchParams.get('path') || '/';
+  }
+  const normalizedPath = targetPath.startsWith('/') ? targetPath : `/${targetPath}`;
   const ua = req.headers?.['user-agent'] || '';
   const isBot = isSearchOrSocialBot(ua) || parsedUrl.searchParams.get('_bot') === '1';
 
-  // Permanent 301 Redirects for legacy/alias paths
+  // Permanent 301 Redirects for legacy/alias/typo paths
   const redirectTarget = resolvePermanentRedirect(normalizedPath);
   if (redirectTarget) {
     const destUrl = redirectTarget === '/' ? `${DEFAULT_ORIGIN}/` : `${DEFAULT_ORIGIN}${redirectTarget}`;
@@ -1204,12 +1320,7 @@ export async function handleSeoPrerenderRequest(req, res) {
     isBot: true,
   });
 
-  if (seo.statusCode === 404) {
-    // Notify IndexNow of removed/missing URL without blocking response
-    void notifyIndexNowUrl(`${DEFAULT_ORIGIN}${normalizedPath}`, 'delete').catch(() => {});
-  }
-
-  res.statusCode = seo.statusCode || 200;
+  res.statusCode = 200;
   res.setHeader('Content-Type', 'text/html; charset=utf-8');
   res.setHeader('X-Robots-Tag', seo.robots);
   if (seo.canonicalUrl) {

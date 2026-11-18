@@ -531,7 +531,7 @@ async function resolveEmbedplayer2Embed({ embedUrl, embedId, wantedAudioMode, id
         },
         body: `hash=${encodeURIComponent(eid)}&r=${encodeURIComponent('https://playerflix.ink/')}`,
       },
-      5000
+      8000
     );
     if (!postRes.ok) return [];
     const data = await postRes.json();
@@ -699,7 +699,7 @@ async function resolvePlayerFlixStreams({ tmdbId, type, season, episode, wantedA
           Accept: 'application/json, text/plain, */*',
         },
       },
-      5500
+      8000
     );
     if (res.ok) {
       const json = await res.json();
@@ -879,6 +879,7 @@ export async function resolveVidstuckStreams(params) {
 
   if (/[^\x20-\x7E]/.test(canonicalTitle)) {
     const cleaned = canonicalTitle
+      .replace(/\s*\([^)]*[^\x20-\x7E]+[^)]*\)/g, '')
       .normalize('NFD')
       .replace(/[\u0300-\u036f]/g, '')
       .replace(/[^\w\s:'-]/g, ' ')
@@ -1054,7 +1055,11 @@ export async function resolveVidstuckStreams(params) {
       dubs.find((d) => /original/i.test(d.lanName) && d.type === 0) ||
       dubs.find((d) => (d.lanCode === 'en' || d.lanCode === 'ja' || d.lanCode === 'ko') && d.type === 0);
 
-    hasPtDub = hasPtbrDub || hasPtStdDub || playerFlixResult.streams.some((s) => s.audioMode === 'dublado');
+    hasPtDub =
+      hasPtbrDub ||
+      hasPtStdDub ||
+      playerFlixResult.streams.some((s) => s.audioMode === 'dublado') ||
+      Boolean(playerFlixResult.hasPtOptionsInPlayerFlix);
     hasPtSub = Boolean(ptSubOption) || playerFlixResult.streams.some((s) => s.audioMode === 'legendado');
 
     const matchedReqOption = availableDubs.find(
@@ -1428,25 +1433,27 @@ export async function handleCinemaResolveRequest(req, res) {
     const effectiveImdbId = resolvedImdbId || imdbId;
     const cleanImdb = (effectiveImdbId || '').replace(/^tt/i, '');
 
-    // Check if subtitles are already warm in memory cache (0ms latency)
-    const cachedPt =
+    // Check if subtitles are already warm in memory cache, or fetch PT-BR subtitles with a fast 3.2s race
+    let cachedPt =
       subtitleVttCache.get(`${cleanImdb}:pob:${type}:${season || 0}:${episode || 0}`) ||
       subtitleVttCache.get(`${cleanImdb}:por:${type}:${season || 0}:${episode || 0}`);
     const cachedEn = subtitleVttCache.get(`${cleanImdb}:eng:${type}:${season || 0}:${episode || 0}`);
 
+    if (cleanImdb && !cachedPt) {
+      cachedPt = await Promise.race([
+        fetchOpenSubtitlesTrack({ imdbId: effectiveImdbId, lang3: 'pob', type, season, episode }).then(
+          (resTrack) =>
+            resTrack ||
+            fetchOpenSubtitlesTrack({ imdbId: effectiveImdbId, lang3: 'por', type, season, episode })
+        ),
+        new Promise((resolve) => setTimeout(() => resolve(null), 3200)),
+      ]).catch(() => null);
+    }
+
     const ptCues = cachedPt?.cues || [];
     const enCues = cachedEn?.cues || [];
+    const finalHasPtSub = Boolean(hasPtSub || ptCues.length > 0);
 
-    // Warm subtitle cache in background without blocking video stream resolution!
-    if (cleanImdb && !cachedPt) {
-      fetchOpenSubtitlesTrack({ imdbId: effectiveImdbId, lang3: 'pob', type, season, episode })
-        .then((resTrack) => {
-          if (!resTrack) {
-            return fetchOpenSubtitlesTrack({ imdbId: effectiveImdbId, lang3: 'por', type, season, episode });
-          }
-        })
-        .catch(() => {});
-    }
     if (cleanImdb && !cachedEn) {
       fetchOpenSubtitlesTrack({ imdbId: effectiveImdbId, lang3: 'eng', type, season, episode }).catch(() => {});
     }
@@ -1458,7 +1465,7 @@ export async function handleCinemaResolveRequest(req, res) {
       season: type === 'tv' ? Number(season) : undefined,
       episode: type === 'tv' ? Number(episode) : undefined,
       hasPtDub,
-      hasPtSub,
+      hasPtSub: finalHasPtSub,
       availableDubs,
       ptbrEmbedUrls: ptbrEmbedUrls || [],
       streams,
@@ -1688,13 +1695,6 @@ export async function handleCinemaHlsProxyRequest(req, res) {
           candidates.push(v2Fallback);
         }
       }
-    }
-    if (primaryUrl && primaryUrl.includes('maximaimg.online')) {
-      const cleanPrimary = primaryUrl.split('?')[0];
-      const ep1Primary = cleanPrimary.replace(/\/\d+(?:v2)?\.mp4\//, '/01.mp4/');
-      const ep1V2Primary = cleanPrimary.replace(/\/\d+(?:v2)?\.mp4\//, '/01v2.mp4/');
-      if (!candidates.includes(ep1Primary)) candidates.push(ep1Primary);
-      if (!candidates.includes(ep1V2Primary)) candidates.push(ep1V2Primary);
     }
 
     if (candidates.length === 0) {

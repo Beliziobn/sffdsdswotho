@@ -796,6 +796,7 @@ export async function extractFullArticleFromWeb(rawUrl) {
 // ============================================================================
 
 const newsArchiveFilePath = path.resolve(process.cwd(), './src/data/newsArchive.json');
+const tmpArchiveFilePath = '/tmp/worscoi_newsArchive.json';
 const firebaseConfigPath = path.resolve(process.cwd(), './firebase-applet-config.json');
 let memoryArchiveCache = null;
 const syncedFirestoreIds = new Set();
@@ -812,12 +813,23 @@ function loadFirebaseConfig() {
 export function readNewsArchive() {
   if (memoryArchiveCache) return memoryArchiveCache;
   try {
+    let baseArticles = [];
     if (fs.existsSync(newsArchiveFilePath)) {
       const raw = fs.readFileSync(newsArchiveFilePath, 'utf-8');
       const parsed = JSON.parse(raw);
-      memoryArchiveCache = Array.isArray(parsed.articles) ? parsed.articles : [];
-      return memoryArchiveCache;
+      baseArticles = Array.isArray(parsed.articles) ? parsed.articles : [];
     }
+    if (fs.existsSync(tmpArchiveFilePath)) {
+      const tmpRaw = fs.readFileSync(tmpArchiveFilePath, 'utf-8');
+      const tmpParsed = JSON.parse(tmpRaw);
+      const tmpArticles = Array.isArray(tmpParsed.articles) ? tmpParsed.articles : [];
+      if (tmpArticles.length >= baseArticles.length) {
+        memoryArchiveCache = tmpArticles;
+        return memoryArchiveCache;
+      }
+    }
+    memoryArchiveCache = baseArticles;
+    return memoryArchiveCache;
   } catch {}
   return [];
 }
@@ -839,10 +851,10 @@ export function writeNewsArchive(articles) {
       total_stored: articles.length,
       articles,
     };
-    fs.promises
-      .writeFile(newsArchiveFilePath, JSON.stringify(payload, null, 2), 'utf-8')
-      .catch(() => {});
-  }, 2000);
+    const serialized = JSON.stringify(payload, null, 2);
+    fs.promises.writeFile(tmpArchiveFilePath, serialized, 'utf-8').catch(() => {});
+    fs.promises.writeFile(newsArchiveFilePath, serialized, 'utf-8').catch(() => {});
+  }, 1500);
 }
 
 function sanitizeFirestoreDocId(rawId) {
@@ -1263,10 +1275,22 @@ async function refreshTopicFeedInBackground(topic, maxLimit, cacheKey) {
 
     if (validItems.length > 0) {
       upsertNewsToPermanentArchive(validItems);
-      const lightItems = validItems.map(toLightweightFeedItem);
+      const liveLightItems = validItems.map(toLightweightFeedItem);
+      const archiveFallback = getInstantArchiveFeedItems(topic, maxLimit);
+      const seenKeys = new Set();
+      const mergedItems = [];
+      for (const it of [...liveLightItems, ...archiveFallback]) {
+        const k = `${it.id || ''}|${(it.slug || it.title || '').toLowerCase().trim()}`;
+        if (seenKeys.has(k) || seenKeys.has(it.id) || seenKeys.has(it.slug)) continue;
+        seenKeys.add(k);
+        if (it.id) seenKeys.add(it.id);
+        if (it.slug) seenKeys.add(it.slug);
+        mergedItems.push(it);
+        if (mergedItems.length >= maxLimit) break;
+      }
       newsCache.set(cacheKey, {
         timestamp: Date.now(),
-        data: { items: lightItems, total: lightItems.length, topic },
+        data: { items: mergedItems, total: mergedItems.length, topic },
       });
     }
   } catch {
@@ -1285,39 +1309,40 @@ export async function handleNewsFeedRequest(req, res) {
       .replace(/[\u0300-\u036f]/g, '');
     const topic = rawTopic === 'esportes' ? 'desportos' : rawTopic;
     const maxLimit = Math.min(parseInt(urlObj.searchParams.get('limit') || '50', 10), 100);
+    const forceRefresh = urlObj.searchParams.get('force') === '1';
 
-    const cacheKey = `v3_${topic}_${maxLimit}`;
+    const cacheKey = `v4_${topic}_${maxLimit}`;
     const cached = newsCache.get(cacheKey);
-    if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
+    if (!forceRefresh && cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
       res.statusCode = 200;
       res.setHeader('Content-Type', 'application/json');
-      res.setHeader('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=600');
+      res.setHeader('Cache-Control', 'public, max-age=0, s-maxage=60, stale-while-revalidate=120');
       res.end(JSON.stringify(cached.data));
       return;
     }
 
-    // Fast path: Serve immediately from the permanent archive in <5ms so the client never waits,
-    // and kick off the live RSS refresh asynchronously in the background!
-    const instantItems = getInstantArchiveFeedItems(topic, maxLimit);
-    if (instantItems.length >= 10) {
-      const responseData = { items: instantItems, total: instantItems.length, topic };
-      newsCache.set(cacheKey, { timestamp: Date.now(), data: responseData });
-      void refreshTopicFeedInBackground(topic, maxLimit, cacheKey);
+    // Always await live RSS feed fetching on Vercel Serverless (with a 5.5s race timeout)
+    // so Vercel never freezes the Lambda before live RSS news is fetched!
+    await Promise.race([
+      refreshTopicFeedInBackground(topic, maxLimit, cacheKey),
+      new Promise((resolve) => setTimeout(resolve, 5500)),
+    ]);
 
+    const updatedCache = newsCache.get(cacheKey);
+    if (updatedCache?.data?.items?.length > 0) {
       res.statusCode = 200;
       res.setHeader('Content-Type', 'application/json');
-      res.setHeader('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=600');
-      res.end(JSON.stringify(responseData));
+      res.setHeader('Cache-Control', 'public, max-age=0, s-maxage=60, stale-while-revalidate=120');
+      res.end(JSON.stringify(updatedCache.data));
       return;
     }
 
-    await refreshTopicFeedInBackground(topic, maxLimit, cacheKey);
-    const updatedCache = newsCache.get(cacheKey);
-    const finalData = updatedCache?.data || { items: instantItems, total: instantItems.length, topic };
+    const instantItems = getInstantArchiveFeedItems(topic, maxLimit);
+    const finalData = { items: instantItems, total: instantItems.length, topic };
 
     res.statusCode = 200;
     res.setHeader('Content-Type', 'application/json');
-    res.setHeader('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=600');
+    res.setHeader('Cache-Control', 'public, max-age=0, s-maxage=30, stale-while-revalidate=60');
     res.end(JSON.stringify(finalData));
   } catch (err) {
     res.statusCode = 500;

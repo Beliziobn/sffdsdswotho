@@ -268,15 +268,18 @@ export function prefetchCinemaStream(
 
 export const CINEMA_GENRES = [
   "Todos",
+  "Doramas",
+  "Séries Juvenis",
+  "Ação",
+  "Romance",
   "Ficção Científica",
   "Drama",
-  "Ação",
   "Suspense",
   "Crime",
-  "Histórico",
-  "Animação",
   "Comédia",
   "Aventura",
+  "Animação",
+  "Histórico",
 ] as const;
 
 export const CINEMA_CATALOG: CinemaItem[] = [

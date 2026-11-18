@@ -91,10 +91,10 @@ export const THEMATIC_IMAGE_POOLS: Record<string, string[]> = {
     "https://images.unsplash.com/photo-1534447677768-be436bb09401?w=1200&auto=format&fit=crop&q=80",
   ],
   Webtoons: [
-    "/covers/webtoons/solo-leveling-cover.jpg",
-    "/covers/webtoons/orv-cover.jpg",
-    "/covers/webtoons/tbate-cover.jpg",
-    "/covers/webtoons/nano-machine-cover.jpg",
+    "https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/bx105398-b673Vt5ZSuz3.jpg",
+    "https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/bx119257-Pi21aq3ey9GG.jpg",
+    "https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/bx120980-RZ9WLd0o9hyo.jpg",
+    "https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/bx85143-23oup3ETbFJk.jpg",
     "https://images.unsplash.com/photo-1534447677768-be436bb09401?w=1200&auto=format&fit=crop&q=80",
   ],
   Livros: [

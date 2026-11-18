@@ -41,6 +41,7 @@ const MANGA_PATH_MAP = {
   'wind-breaker': '/manga/5830/wind-breaker-nii-satoru',
   'jigokuraku': '/manga/2069/jigokuraku',
   'classroom-of-the-elite': '/manga/2330/youkoso-jitsuryoku-shijou-shugi-no-kyoushitsu-e',
+  'slam-dunk': '/manga/9/slam-dunk',
 };
 
 const MANGADEX_ID_MAP = {
@@ -81,6 +82,7 @@ const MANGADEX_ID_MAP = {
   'wind-breaker': 'c73cc9a0-2f94-4d89-b1d7-d7ff7d3fa8f0',
   'jigokuraku': '6fb18a4a-10f8-45be-b921-689360d5bfa4',
   'classroom-of-the-elite': '765275e7-2b73-455b-b9fb-26466f28cfc6',
+  'slam-dunk': '319df2e2-e6a6-4e3a-a31c-68539c140a84',
 };
 
 const chaptersCache = new Map();

@@ -144,14 +144,15 @@ const ANIME_TMDB_MAP: Record<string, number> = {
   "my-hero-academia": 65930,
   "death-note": 13916,
   "fullmetal-alchemist-brotherhood": 31911,
-  "sakamoto-days": 240411,
+  "sakamoto-days": 207332,
   "dr-stone": 86031,
   "mob-psycho-100": 67075,
-  "shangri-la-frontier": 205908,
-  "mashle": 205366,
+  "shangri-la-frontier": 205050,
+  "mashle": 204832,
   "wind-breaker": 223500,
   "jigokuraku": 117465,
   "classroom-of-the-elite": 72517,
+  "slam-dunk": 42573,
 };
 
 function formatSeconds(sec: number): string {
@@ -192,6 +193,9 @@ export const SecureAnimePlayer: React.FC<SecureAnimePlayerProps> = ({
   const [isAudioMenuOpen, setIsAudioMenuOpen] = useState(false);
   const [subtitleTrack, setSubtitleTrack] = useState<"pt-br" | "en" | "off">("pt-br");
 
+  const [ptCues, setPtCues] = useState<Array<{ start: number; end: number; text: string }>>([]);
+  const [enCues, setEnCues] = useState<Array<{ start: number; end: number; text: string }>>([]);
+
   const containerRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const hlsInstanceRef = useRef<Hls | null>(null);
@@ -212,6 +216,7 @@ export const SecureAnimePlayer: React.FC<SecureAnimePlayerProps> = ({
 
   const animeId = episode.animeId || season.animeId;
   const isSteelBallRun = animeId === "steel-ball-run";
+  const isMovieEpisode = Boolean(episode.tmdbMovieId);
 
   // Extract authentic Dublado (PT-BR) and Legendado (PT-BR) URLs from the verified anime episode catalog
   const cleanStreamUrl = (episode.streamUrl || "").split("?")[0];
@@ -226,9 +231,12 @@ export const SecureAnimePlayer: React.FC<SecureAnimePlayerProps> = ({
 
   const isCatalogDubExplicit =
     !isSteelBallRun &&
+    !isMovieEpisode &&
+    animeId !== "slam-dunk" &&
+    !catalogDubUrl.startsWith("/api/") &&
     /-dublado|-dub\b|op-cn|dublado|-pt\.mp4/i.test(catalogDubUrl);
 
-  // Map anime catalog seasons/episodes to exact TMDB ID, Season & Episode
+  // Map anime catalog seasons/episodes to exact TMDB ID, Media Type, Season & Episode
   const tmdbTarget = useMemo(() => {
     const baseTmdbId = ANIME_TMDB_MAP[animeId];
     const sNum = season.seasonNumber || 1;
@@ -236,9 +244,46 @@ export const SecureAnimePlayer: React.FC<SecureAnimePlayerProps> = ({
     const urlEpMatch = cleanStreamUrl.match(/\/(\d+)(?:v2)?\.mp4/i);
     const parsedFileEp = urlEpMatch ? parseInt(urlEpMatch[1], 10) : epNum;
 
+    // Official Movie Episode (e.g. Slam Dunk Season 5: The First Slam Dunk & Classic Movies)
+    if (episode.tmdbMovieId) {
+      return {
+        tmdbId: episode.tmdbMovieId,
+        imdbId: episode.imdbId || "",
+        mediaType: "movie" as const,
+        season: 1,
+        episode: 1,
+        title: episode.title.includes("THE FIRST SLAM DUNK") ? "The First Slam Dunk" : "Slam Dunk",
+        year: episode.tmdbMovieId === 783675 ? 2022 : 1994,
+      };
+    }
+
+    // Slam Dunk TV (42573): all 101 episodes are in TMDB Season 1 (1..101)
+    if (animeId === "slam-dunk") {
+      const globalEp =
+        episode.globalEpisodeNumber ||
+        (sNum === 1
+          ? epNum
+          : sNum === 2
+          ? 20 + epNum
+          : sNum === 3
+          ? 49 + epNum
+          : 84 + epNum);
+      return {
+        tmdbId: 42573,
+        imdbId: "tt0965547",
+        mediaType: "tv" as const,
+        season: 1,
+        episode: globalEp,
+        title: "Slam Dunk",
+        year: 1993,
+      };
+    }
+
     if (isSteelBallRun) {
       return {
         tmdbId: 45790,
+        imdbId: "",
+        mediaType: "tv" as const,
         season: 6,
         episode: sNum === 1 ? 1 : epNum + 1,
         title: "JoJo's Bizarre Adventure",
@@ -246,10 +291,198 @@ export const SecureAnimePlayer: React.FC<SecureAnimePlayerProps> = ({
       };
     }
 
+    // Dragon Ball: S1 = DBZ (12971), S2 = DB Super (62715), S3 = DB Super Torneio do Poder (62715 ep 114+e), S4 = DB Daima (240413)
+    if (animeId === "dragon-ball") {
+      if (sNum === 2) {
+        return { tmdbId: 62715, imdbId: "tt4644488", mediaType: "tv" as const, season: 1, episode: epNum, title: "Dragon Ball Super", year: 2015 };
+      }
+      if (sNum === 3) {
+        return { tmdbId: 62715, imdbId: "tt4644488", mediaType: "tv" as const, season: 1, episode: 114 + epNum, title: "Dragon Ball Super", year: 2017 };
+      }
+      if (sNum === 4) {
+        return { tmdbId: 240413, imdbId: "tt29485149", mediaType: "tv" as const, season: 1, episode: epNum, title: "Dragon Ball Daima", year: 2024 };
+      }
+      return { tmdbId: 12971, imdbId: "tt0121220", mediaType: "tv" as const, season: 1, episode: epNum, title: "Dragon Ball Z", year: 1989 };
+    }
+
+    // Bleach: Thousand-Year Blood War on TMDB 30984 is Season 2 (episodes 1..52)
+    if (animeId === "bleach-tybw") {
+      const tybwEp = sNum === 1 ? epNum : sNum === 2 ? 13 + epNum : sNum === 3 ? 26 + epNum : 40 + epNum;
+      return {
+        tmdbId: 30984,
+        imdbId: "tt14986406",
+        mediaType: "tv" as const,
+        season: 2,
+        episode: tybwEp,
+        title: "Bleach: Thousand-Year Blood War",
+        year: 2022,
+      };
+    }
+
+    // Continuous Season 1 Animes on TMDB (where TMDB stores all episodes in Season 1)
+    if (animeId === "solo-leveling") {
+      return {
+        tmdbId: 127532,
+        imdbId: "tt21209876",
+        mediaType: "tv" as const,
+        season: 1,
+        episode: sNum === 1 ? epNum : 12 + epNum,
+        title: "Solo Leveling",
+        year: 2024,
+      };
+    }
+    if (animeId === "dandadan") {
+      return {
+        tmdbId: 240411,
+        imdbId: "tt30217403",
+        mediaType: "tv" as const,
+        season: 1,
+        episode: sNum === 1 ? epNum : 12 + epNum,
+        title: "DAN DA DAN",
+        year: 2024,
+      };
+    }
+    if (animeId === "jujutsu-kaisen-culling-game") {
+      return {
+        tmdbId: 95479,
+        imdbId: "tt12343534",
+        mediaType: "tv" as const,
+        season: 1,
+        episode: sNum === 1 ? epNum : sNum === 2 ? 24 + epNum : 47 + epNum,
+        title: "Jujutsu Kaisen",
+        year: 2020,
+      };
+    }
+    if (animeId === "apothecary-diaries") {
+      return {
+        tmdbId: 220542,
+        imdbId: "tt26743760",
+        mediaType: "tv" as const,
+        season: 1,
+        episode: sNum === 1 ? epNum : 24 + epNum,
+        title: "The Apothecary Diaries",
+        year: 2023,
+      };
+    }
+    if (animeId === "kaiju-no-8") {
+      return {
+        tmdbId: 207468,
+        imdbId: "tt21975436",
+        mediaType: "tv" as const,
+        season: 1,
+        episode: sNum === 1 ? epNum : 12 + epNum,
+        title: "Kaiju No. 8",
+        year: 2024,
+      };
+    }
+    if (animeId === "oshi-no-ko") {
+      return {
+        tmdbId: 203737,
+        imdbId: "tt21030032",
+        mediaType: "tv" as const,
+        season: 1,
+        episode: sNum === 1 ? epNum : sNum === 2 ? 11 + epNum : 24 + epNum,
+        title: "Oshi no Ko",
+        year: 2023,
+      };
+    }
+    if (animeId === "blue-lock") {
+      return {
+        tmdbId: 131041,
+        imdbId: "tt15222080",
+        mediaType: "tv" as const,
+        season: 1,
+        episode: sNum === 1 ? epNum : 24 + epNum,
+        title: "Blue Lock",
+        year: 2022,
+      };
+    }
+    if (animeId === "wind-breaker") {
+      return {
+        tmdbId: 223500,
+        imdbId: "tt27399886",
+        mediaType: "tv" as const,
+        season: 1,
+        episode: sNum === 1 ? epNum : 13 + epNum,
+        title: "Wind Breaker",
+        year: 2024,
+      };
+    }
+    if (animeId === "jigokuraku") {
+      return {
+        tmdbId: 117465,
+        imdbId: "tt13911284",
+        mediaType: "tv" as const,
+        season: 1,
+        episode: sNum === 1 ? epNum : 13 + epNum,
+        title: "Hell's Paradise",
+        year: 2023,
+      };
+    }
+    if (animeId === "re-zero") {
+      const reZeroGlobalEp =
+        sNum === 1 ? epNum : sNum === 2 ? 25 + epNum : sNum === 3 ? 38 + epNum : 50 + epNum;
+      return {
+        tmdbId: 65942,
+        imdbId: "tt5607616",
+        mediaType: "tv" as const,
+        season: 1,
+        episode: reZeroGlobalEp,
+        title: "Re:Zero",
+        year: 2016,
+      };
+    }
+    if (animeId === "black-clover") {
+      return {
+        tmdbId: 73223,
+        imdbId: "tt7441658",
+        mediaType: "tv" as const,
+        season: 1,
+        episode: parsedFileEp > epNum ? parsedFileEp : (sNum - 1) * 16 + epNum,
+        title: "Black Clover",
+        year: 2017,
+      };
+    }
+    if (animeId === "monster") {
+      return {
+        tmdbId: 30981,
+        imdbId: "tt0434706",
+        mediaType: "tv" as const,
+        season: 1,
+        episode: sNum === 1 ? epNum : 24 + epNum,
+        title: "Monster",
+        year: 2004,
+      };
+    }
+    if (animeId === "death-note") {
+      return {
+        tmdbId: 13916,
+        imdbId: "tt0877057",
+        mediaType: "tv" as const,
+        season: 1,
+        episode: sNum === 1 ? epNum : 19 + epNum,
+        title: "Death Note",
+        year: 2006,
+      };
+    }
+    if (animeId === "fullmetal-alchemist-brotherhood") {
+      return {
+        tmdbId: 31911,
+        imdbId: "tt1355642",
+        mediaType: "tv" as const,
+        season: 1,
+        episode: sNum === 1 ? epNum : sNum === 2 ? 16 + epNum : 32 + epNum,
+        title: "Fullmetal Alchemist: Brotherhood",
+        year: 2009,
+      };
+    }
+
     // Naruto S3/S4 in catalog are Naruto Shippuden (TMDB 31910)
     if (animeId === "naruto" && sNum >= 3) {
       return {
         tmdbId: 31910,
+        imdbId: "tt0988824",
+        mediaType: "tv" as const,
         season: 1,
         episode: parsedFileEp || epNum,
         title: "Naruto Shippuden",
@@ -257,13 +490,28 @@ export const SecureAnimePlayer: React.FC<SecureAnimePlayerProps> = ({
       };
     }
 
+    // Boruto on TMDB 70881 is a single continuous Season 1 (1..293)
+    if (animeId === "boruto") {
+      return {
+        tmdbId: 70881,
+        imdbId: "tt6342474",
+        mediaType: "tv" as const,
+        season: 1,
+        episode: sNum === 1 ? epNum : 180 + epNum,
+        title: "Boruto: Naruto Next Generations",
+        year: 2017,
+      };
+    }
+
     // Hunter x Hunter on TMDB 46298 is a single continuous Season 1 (1..148)
     if (animeId === "hunter-x-hunter") {
       return {
         tmdbId: 46298,
+        imdbId: "tt2098220",
+        mediaType: "tv" as const,
         season: 1,
-        episode: parsedFileEp || epNum,
-        title: animeTitle,
+        episode: parsedFileEp > epNum ? parsedFileEp : (sNum - 1) * 16 + epNum,
+        title: "Hunter x Hunter",
         year: 2011,
       };
     }
@@ -272,9 +520,11 @@ export const SecureAnimePlayer: React.FC<SecureAnimePlayerProps> = ({
     if (animeId === "attack-on-titan" && sNum === 5) {
       return {
         tmdbId: 1429,
+        imdbId: "tt2560140",
+        mediaType: "tv" as const,
         season: 4,
         episode: epNum + 16,
-        title: animeTitle,
+        title: "Attack on Titan",
         year: 2013,
       };
     }
@@ -282,31 +532,23 @@ export const SecureAnimePlayer: React.FC<SecureAnimePlayerProps> = ({
     // Frieren S2 in catalog = TMDB Season 1 episodes 17..28; S3 = TMDB Season 2
     if (animeId === "frieren-beyond-journeys-end") {
       if (sNum === 2) {
-        return { tmdbId: 209867, season: 1, episode: epNum + 16, title: animeTitle, year: 2023 };
+        return { tmdbId: 209867, imdbId: "tt22248376", mediaType: "tv" as const, season: 1, episode: epNum + 16, title: "Frieren: Beyond Journey's End", year: 2023 };
       }
       if (sNum === 3) {
-        return { tmdbId: 209867, season: 2, episode: epNum, title: animeTitle, year: 2026 };
-      }
-    }
-
-    // Re:Zero S3 in catalog = TMDB Season 2 Part 2; S4 = TMDB Season 3
-    if (animeId === "re-zero") {
-      if (sNum === 3) {
-        return { tmdbId: 65942, season: 2, episode: epNum + 13, title: animeTitle, year: 2020 };
-      }
-      if (sNum === 4) {
-        return { tmdbId: 65942, season: 3, episode: epNum, title: animeTitle, year: 2024 };
+        return { tmdbId: 209867, imdbId: "tt22248376", mediaType: "tv" as const, season: 2, episode: epNum, title: "Frieren: Beyond Journey's End", year: 2026 };
       }
     }
 
     return {
       tmdbId: baseTmdbId,
+      imdbId: episode.imdbId || "",
+      mediaType: "tv" as const,
       season: sNum,
       episode: epNum,
       title: animeTitle,
       year: season.year || 2024,
     };
-  }, [animeId, season.seasonNumber, season.year, episode.number, cleanStreamUrl, isSteelBallRun, animeTitle]);
+  }, [animeId, season.seasonNumber, season.year, episode.number, episode.globalEpisodeNumber, episode.tmdbMovieId, episode.imdbId, episode.title, cleanStreamUrl, isSteelBallRun, animeTitle]);
 
   const effectiveTmdbSeason = tmdbTarget.season;
   const effectiveTmdbEpisode = tmdbTarget.episode;
@@ -316,6 +558,8 @@ export const SecureAnimePlayer: React.FC<SecureAnimePlayerProps> = ({
     let cancelled = false;
     setOrionStreams([]);
     setPtbrEmbedUrls([]);
+    setPtCues([]);
+    setEnCues([]);
     setCandidateIdx(0);
     const tmdbId = tmdbTarget.tmdbId;
     if (!tmdbId) {
@@ -326,6 +570,7 @@ export const SecureAnimePlayer: React.FC<SecureAnimePlayerProps> = ({
     const [dubCode, dubType] = selectedDubId.split(":");
     const shouldWaitForOrion =
       isSteelBallRun ||
+      isMovieEpisode ||
       !isCatalogDubExplicit ||
       selectedDubId !== "ptbr:0";
 
@@ -342,7 +587,7 @@ export const SecureAnimePlayer: React.FC<SecureAnimePlayerProps> = ({
 
     const params = new URLSearchParams({
       tmdbId: String(tmdbId),
-      type: "tv",
+      type: tmdbTarget.mediaType,
       season: String(effectiveTmdbSeason),
       episode: String(effectiveTmdbEpisode),
       title: tmdbTarget.title,
@@ -350,6 +595,7 @@ export const SecureAnimePlayer: React.FC<SecureAnimePlayerProps> = ({
       audioMode: audioModeParam,
       dubCode,
       dubType,
+      ...(tmdbTarget.imdbId ? { imdbId: tmdbTarget.imdbId } : {}),
     });
 
     fetch(`/api/cinema/resolve?${params.toString()}`)
@@ -365,6 +611,35 @@ export const SecureAnimePlayer: React.FC<SecureAnimePlayerProps> = ({
         if (Array.isArray(data?.availableDubs) && data.availableDubs.length > 0) {
           setAvailableDubs(data.availableDubs);
         }
+        if (Array.isArray(data?.subtitles?.ptCues) && data.subtitles.ptCues.length > 0) {
+          setPtCues(data.subtitles.ptCues);
+        }
+        if (Array.isArray(data?.subtitles?.enCues) && data.subtitles.enCues.length > 0) {
+          setEnCues(data.subtitles.enCues);
+        }
+        // If ptCues weren't cached yet, fetch them directly from /api/cinema/vtt
+        const resolvedImdbId = data?.imdbId || tmdbTarget.imdbId;
+        if (
+          resolvedImdbId &&
+          (!Array.isArray(data?.subtitles?.ptCues) || data.subtitles.ptCues.length === 0)
+        ) {
+          const vttParams = new URLSearchParams({
+            imdbId: resolvedImdbId,
+            lang: "pob",
+            type: tmdbTarget.mediaType,
+            season: String(effectiveTmdbSeason),
+            episode: String(effectiveTmdbEpisode),
+            format: "json",
+          });
+          fetch(`/api/cinema/vtt?${vttParams.toString()}`)
+            .then((r) => r.json())
+            .then((subData) => {
+              if (!cancelled && Array.isArray(subData?.cues) && subData.cues.length > 0) {
+                setPtCues(subData.cues);
+              }
+            })
+            .catch(() => {});
+        }
         setIsResolvingOrion(false);
       })
       .catch(() => {
@@ -378,6 +653,7 @@ export const SecureAnimePlayer: React.FC<SecureAnimePlayerProps> = ({
     episode.id,
     tmdbTarget,
     isSteelBallRun,
+    isMovieEpisode,
     isCatalogDubExplicit,
     selectedDubId,
     effectiveTmdbSeason,
@@ -432,31 +708,33 @@ export const SecureAnimePlayer: React.FC<SecureAnimePlayerProps> = ({
 
     if (selectedDubId === "ptbr:0" || selectedDubId === "pt:0") {
       // 1. Verified explicit PT-BR dub URL from catalog (maximaimg -dublado)
-      if (isCatalogDubExplicit && catalogDubUrl) {
+      if (isCatalogDubExplicit && catalogDubUrl && !catalogDubUrl.startsWith("/api/")) {
         addCandidate(makeCatalogStream(catalogDubUrl, "dublado", "Português (Dublado PT-BR)"));
       }
       // 2. All PT-BR dubbed streams from Orion / WatchPlay / Embedplayer2 / Blogger
       dubResolved.forEach(addCandidate);
       // 3. Only if zero PT-BR dubbed routes worked, fall back gracefully to original + sub
       nonDubResolved.forEach(addCandidate);
-      if (catalogSubUrl) {
-        addCandidate(makeCatalogStream(catalogSubUrl, "original", "Japonês (Original · Sem Dublagem PT-BR)"));
+      if (catalogSubUrl && !catalogSubUrl.startsWith("/api/") && animeId !== "slam-dunk") {
+        addCandidate(makeCatalogStream(catalogSubUrl, "original", "Japonês (Original · Legendado PT-BR)"));
       }
       return list;
     }
 
     if (selectedDubId === "pt:1" || selectedDubId === "ptbr:1") {
       orionStreams.forEach(addCandidate);
-      if (catalogSubUrl && !/-dublado|-dub\b|op-cn|dublado/i.test(catalogSubUrl)) {
-        addCandidate(makeCatalogStream(catalogSubUrl, "legendado", "Português (Legendado)"));
-      } else if (catalogSubUrl) {
+      if (catalogSubUrl && !catalogSubUrl.startsWith("/api/") && animeId !== "slam-dunk") {
         addCandidate(makeCatalogStream(catalogSubUrl, "legendado", "Português (Legendado)"));
       }
       return list;
     }
 
     orionStreams.forEach(addCandidate);
-    if (catalogSubUrl || catalogDubUrl) {
+    if (
+      (catalogSubUrl || catalogDubUrl) &&
+      !(catalogSubUrl || catalogDubUrl).startsWith("/api/") &&
+      animeId !== "slam-dunk"
+    ) {
       addCandidate(
         makeCatalogStream(catalogSubUrl || catalogDubUrl, "original", "Áudio Original")
       );
@@ -470,6 +748,7 @@ export const SecureAnimePlayer: React.FC<SecureAnimePlayerProps> = ({
     catalogSubUrl,
     orionStreams,
     episode.id,
+    animeId,
   ]);
 
   const activeStream = candidateStreams[candidateIdx] || candidateStreams[0] || null;
@@ -1097,13 +1376,31 @@ export const SecureAnimePlayer: React.FC<SecureAnimePlayerProps> = ({
               className="w-full h-full object-contain bg-black"
             />
 
+            {/* Synchronized Subtitle Overlay (PT-BR / EN) */}
+            {(() => {
+              const forcePtSubWhenOriginal =
+                (selectedDubId === "ptbr:0" || selectedDubId === "pt:0" || selectedDubId === "pt:1") &&
+                activeStream?.audioMode !== "dublado";
+              const effectiveSubLang = forcePtSubWhenOriginal ? "pt-br" : subtitleTrack;
+              if (effectiveSubLang === "off") return null;
+              const cues = effectiveSubLang === "en" && enCues.length > 0 ? enCues : ptCues;
+              if (!cues || cues.length === 0) return null;
+              const activeCue = cues.find((c) => currentTime >= c.start && currentTime <= c.end);
+              if (!activeCue?.text) return null;
+              return (
+                <div className="absolute bottom-14 left-1/2 -translate-x-1/2 z-20 max-w-[90%] sm:max-w-[78%] pointer-events-none text-center px-3.5 py-1.5 rounded-lg bg-black/80 text-white text-xs sm:text-sm md:text-base font-medium leading-snug shadow-xl border border-white/10 whitespace-pre-line">
+                  {activeCue.text}
+                </div>
+              );
+            })()}
+
             {/* Quiet Active Track Indicator (Appears cleanly on hover) */}
             <div className="absolute top-3 left-3 z-20 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-200">
               <span className="px-2.5 py-1 rounded-md bg-black/75 border border-white/15 text-[11px] font-medium text-white backdrop-blur-md">
                 {activeStream &&
                 (selectedDubId === "ptbr:0" || selectedDubId === "pt:0") &&
                 activeStream.audioMode !== "dublado"
-                  ? activeStream.label || "Japonês Original (Sem Dublagem PT-BR)"
+                  ? "Português (Legendado PT-BR · Áudio Original)"
                   : activeDubObj.label}
               </span>
             </div>
@@ -1123,7 +1420,7 @@ export const SecureAnimePlayer: React.FC<SecureAnimePlayerProps> = ({
                   )}
                 </div>
                 <span className="mt-3 px-4 py-1.5 rounded-full bg-black/80 border border-white/15 text-xs font-medium text-white shadow-lg">
-                  Assistir Episódio {episode.number} ({activeDubObj.flag} {activeDubObj.label})
+                  Assistir {episode.tmdbMovieId ? episode.title : `Episódio ${episode.number}`} ({activeDubObj.flag} {activeDubObj.label})
                 </span>
               </button>
             )}

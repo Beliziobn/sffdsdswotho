@@ -142,42 +142,84 @@ const App = () => (
             <Suspense fallback={<RouteLoadingFallback />}>
               <Routes>
                 <Route path="/" element={<Index />} />
+                <Route path="/home" element={<Index />} />
+                <Route path="/inicio" element={<Index />} />
+                <Route path="/index.html" element={<Index />} />
                 <Route path="/livros" element={<Books />} />
+                <Route path="/livro" element={<Books />} />
+                <Route path="/books" element={<Books />} />
                 <Route path="/livros/:id" element={<BookDetail />} />
+                <Route path="/livro/:id" element={<BookDetail />} />
                 <Route path="/ler/:id" element={<Reader />} />
                 <Route path="/noticias" element={<News />} />
+                <Route path="/noticia" element={<News />} />
+                <Route path="/news" element={<News />} />
                 <Route path="/noticias/:slug" element={<NewsArticle />} />
+                <Route path="/noticia/:slug" element={<NewsArticle />} />
+                <Route path="/news/:slug" element={<NewsArticle />} />
                 <Route path="/biblioteca" element={<Library />} />
                 <Route path="/perfil" element={<Profile />} />
                 <Route path="/meu-perfil" element={<Profile />} />
+                <Route path="/profile" element={<Profile />} />
                 <Route path="/auth" element={<Auth />} />
+                <Route path="/login" element={<Auth />} />
+                <Route path="/entrar" element={<Auth />} />
+                <Route path="/cadastro" element={<Auth />} />
                 <Route path="/admin" element={<Admin />} />
                 <Route path="/conteudo/:id" element={<ContentDetail />} />
                 <Route path="/leitura/:id" element={<ContentReader />} />
                 <Route path="/webtoons" element={<Webtoons />} />
+                <Route path="/webtoon" element={<Webtoons />} />
                 <Route path="/webtoon/:id" element={<WebtoonDetail />} />
+                <Route path="/webtoons/:id" element={<WebtoonDetail />} />
                 <Route path="/webtoon/:id/ep/:episodeId" element={<WebtoonReader />} />
                 <Route path="/webtoon/:id/ler/:episodeId" element={<WebtoonReader />} />
                 <Route path="/webtoon/:id/ler" element={<WebtoonReader />} />
                 <Route path="/animes" element={<Animes />} />
+                <Route path="/anime" element={<Animes />} />
+                <Route path="/manga" element={<Animes />} />
+                <Route path="/mangas" element={<Animes />} />
                 <Route path="/animes/:id" element={<AnimeDetail />} />
+                <Route path="/anime/:id" element={<AnimeDetail />} />
                 <Route path="/animes/:id/manga" element={<AnimeMangaReader />} />
                 <Route path="/animes/:id/manga/:chapterId" element={<AnimeMangaReader />} />
                 <Route path="/cinema" element={<Cinema />} />
+                <Route path="/filme" element={<Cinema />} />
+                <Route path="/filmes" element={<Cinema />} />
+                <Route path="/serie" element={<Cinema />} />
+                <Route path="/series" element={<Cinema />} />
+                <Route path="/dorama" element={<Cinema />} />
+                <Route path="/doramas" element={<Cinema />} />
                 <Route path="/cinema/:id" element={<CinemaDetail />} />
+                <Route path="/filme/:id" element={<CinemaDetail />} />
+                <Route path="/filmes/:id" element={<CinemaDetail />} />
+                <Route path="/serie/:id" element={<CinemaDetail />} />
+                <Route path="/series/:id" element={<CinemaDetail />} />
                 <Route path="/para-voce" element={<ForYou />} />
                 <Route path="/continuar-lendo" element={<ContinueReading />} />
                 <Route path="/buscar" element={<Search />} />
+                <Route path="/search" element={<Search />} />
+                <Route path="/pesquisa" element={<Search />} />
+                <Route path="/pesquisar" element={<Search />} />
                 <Route path="/compra/sucesso" element={<PurchaseSuccess />} />
                 <Route path="/compra/cancelada" element={<PurchaseCancelled />} />
                 <Route path="/redefinir-senha" element={<ResetPassword />} />
                 <Route path="/mapa-do-site" element={<SiteMapPage />} />
                 <Route path="/sitemap" element={<SiteMapPage />} />
+                <Route path="/mapa" element={<SiteMapPage />} />
                 <Route path="/termos" element={<Terms />} />
+                <Route path="/terms" element={<Terms />} />
+                <Route path="/termos-de-uso" element={<Terms />} />
                 <Route path="/privacidade" element={<Privacy />} />
+                <Route path="/privacy" element={<Privacy />} />
+                <Route path="/politica-de-privacidade" element={<Privacy />} />
                 <Route path="/sobre" element={<About />} />
+                <Route path="/about" element={<About />} />
+                <Route path="/quem-somos" element={<About />} />
                 <Route path="/contato" element={<Contact />} />
                 <Route path="/contacto" element={<Contact />} />
+                <Route path="/contact" element={<Contact />} />
+                <Route path="/fale-conosco" element={<Contact />} />
 
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                 <Route path="*" element={<NotFound />} />

@@ -77,16 +77,30 @@ const News = () => {
   };
 
   const feed = useNewsFeed({ category, order, q, year, month });
-  const items = useMemo(
-    () => (feed.data?.pages.flatMap((p) => p.items) ?? []) as CuratedNews[],
-    [feed.data],
-  );
+  const items = useMemo(() => {
+    const raw = (feed.data?.pages.flatMap((p) => p.items) ?? []) as CuratedNews[];
+    const seen = new Set<string>();
+    return raw.filter((item) => {
+      if (!item || !item.id) return false;
+      const k = String(item.id).trim();
+      if (seen.has(k)) return false;
+      seen.add(k);
+      return true;
+    });
+  }, [feed.data]);
 
   const { data: all = [] } = useNews();
-  const published = useMemo(
-    () => (all.length > 0 ? all.filter((n) => n.published) : items) as CuratedNews[],
-    [all, items]
-  );
+  const published = useMemo(() => {
+    const source = (all.length > 0 ? all.filter((n) => n.published) : items) as CuratedNews[];
+    const seen = new Set<string>();
+    return source.filter((item) => {
+      if (!item || !item.id) return false;
+      const k = String(item.id).trim();
+      if (seen.has(k)) return false;
+      seen.add(k);
+      return true;
+    });
+  }, [all, items]);
 
   /** Available years in archive */
   const availableYears = useMemo(() => {

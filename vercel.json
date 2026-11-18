@@ -2,12 +2,17 @@
   "trailingSlash": false,
   "functions": {
     "api/[...route].ts": {
-      "includeFiles": "{index.html,dist/index.html,api/_seoCatalog.json,public/robots.txt,public/sitemap.xml}"
+      "includeFiles": "{index.html,dist/index.html,api/_seoCatalog.json,src/data/newsArchive.json,firebase-applet-config.json,public/robots.txt,public/sitemap.xml}"
     }
   },
   "redirects": [
     {
       "source": "/contacto",
+      "destination": "/contato",
+      "statusCode": 301
+    },
+    {
+      "source": "/contact",
       "destination": "/contato",
       "statusCode": 301
     },
@@ -24,6 +29,121 @@
     {
       "source": "/index.html",
       "destination": "/",
+      "statusCode": 301
+    },
+    {
+      "source": "/home",
+      "destination": "/",
+      "statusCode": 301
+    },
+    {
+      "source": "/inicio",
+      "destination": "/",
+      "statusCode": 301
+    },
+    {
+      "source": "/livro",
+      "destination": "/livros",
+      "statusCode": 301
+    },
+    {
+      "source": "/livro/:id",
+      "destination": "/livros/:id",
+      "statusCode": 301
+    },
+    {
+      "source": "/noticia",
+      "destination": "/noticias",
+      "statusCode": 301
+    },
+    {
+      "source": "/noticia/:slug",
+      "destination": "/noticias/:slug",
+      "statusCode": 301
+    },
+    {
+      "source": "/news",
+      "destination": "/noticias",
+      "statusCode": 301
+    },
+    {
+      "source": "/news/:slug",
+      "destination": "/noticias/:slug",
+      "statusCode": 301
+    },
+    {
+      "source": "/anime",
+      "destination": "/animes",
+      "statusCode": 301
+    },
+    {
+      "source": "/anime/:id",
+      "destination": "/animes/:id",
+      "statusCode": 301
+    },
+    {
+      "source": "/manga",
+      "destination": "/animes",
+      "statusCode": 301
+    },
+    {
+      "source": "/mangas",
+      "destination": "/animes",
+      "statusCode": 301
+    },
+    {
+      "source": "/filme",
+      "destination": "/cinema",
+      "statusCode": 301
+    },
+    {
+      "source": "/filmes",
+      "destination": "/cinema",
+      "statusCode": 301
+    },
+    {
+      "source": "/filme/:id",
+      "destination": "/cinema/:id",
+      "statusCode": 301
+    },
+    {
+      "source": "/filmes/:id",
+      "destination": "/cinema/:id",
+      "statusCode": 301
+    },
+    {
+      "source": "/serie",
+      "destination": "/cinema",
+      "statusCode": 301
+    },
+    {
+      "source": "/series",
+      "destination": "/cinema",
+      "statusCode": 301
+    },
+    {
+      "source": "/serie/:id",
+      "destination": "/cinema/:id",
+      "statusCode": 301
+    },
+    {
+      "source": "/series/:id",
+      "destination": "/cinema/:id",
+      "statusCode": 301
+    },
+    {
+      "source": "/dorama",
+      "destination": "/cinema",
+      "statusCode": 301
+    },
+    {
+      "source": "/doramas",
+      "destination": "/cinema",
+      "statusCode": 301
+    },
+    {
+      "source": "/webtoon",
+      "destination": "/webtoons",
       "statusCode": 301
     },
     {
@@ -71,7 +191,7 @@
         {
           "type": "header",
           "key": "user-agent",
-          "value": ".*(Googlebot|Google-InspectionTool|AdsBot-Google|Mediapartners-Google|Storebot-Google|GoogleOther|Bingbot|BingPreview|msnbot|AdIdxBot|Slurp|DuckDuckBot|Applebot|OAI-SearchBot|ChatGPT-User|GPTBot|ClaudeBot|PerplexityBot|Yandex|facebookexternalhit|Twitterbot|LinkedInBot|WhatsApp|Slackbot|TelegramBot|Discordbot).*"
+          "value": ".*(Googlebot|googlebot|Google-InspectionTool|AdsBot-Google|Mediapartners-Google|Storebot-Google|GoogleOther|Bingbot|bingbot|BingPreview|bingpreview|msnbot|AdIdxBot|adidxbot|Slurp|slurp|DuckDuckBot|duckduckbot|Applebot|applebot|OAI-SearchBot|oai-searchbot|ChatGPT-User|chatgpt-user|GPTBot|gptbot|ClaudeBot|claudebot|PerplexityBot|perplexitybot|Yandex|yandex|facebookexternalhit|Twitterbot|twitterbot|LinkedInBot|linkedinbot|WhatsApp|whatsapp|Slackbot|slackbot|TelegramBot|telegrambot|Discordbot|discordbot).*"
         }
       ],
       "destination": "/api/[...route]?route=seo-prerender&path=/$1"

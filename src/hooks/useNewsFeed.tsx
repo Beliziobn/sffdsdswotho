@@ -6,6 +6,7 @@ import {
   getCachedNews,
   fetchTopicRssNews,
   upsertPermanentClientVault,
+  hasFreshLiveSyndicatedCache,
 } from "@/lib/newsSyndication";
 import { queryNewsArchive } from "@/lib/newsArchiveEngine";
 import { applyNewsEditorialOverrides, mergeCloudNewsIntoStore } from "@/lib/editorialStore";
@@ -40,31 +41,32 @@ export const useNewsFeed = (filters: NewsFilters) =>
   useInfiniteQuery({
     queryKey: ["news-feed", filters],
     initialPageParam: 0 as number,
-    staleTime: 1000 * 60 * 5,
+    staleTime: 1000 * 60 * 2,
     refetchOnWindowFocus: false,
     placeholderData: keepPreviousData,
     queryFn: async ({ pageParam = 0 }) => {
       const cachedSyndicated = (getCachedNews() as unknown as NewsItem[]) || [];
 
-      // Trigger background daily RSS refresh at most once every 10 minutes
+      // Trigger background daily RSS refresh at most once every 5 minutes
       const now = Date.now();
-      if (pageParam === 0 && now - lastFeedRssSyncTs > 10 * 60 * 1000) {
+      if (pageParam === 0 && now - lastFeedRssSyncTs > 5 * 60 * 1000) {
         lastFeedRssSyncTs = now;
         void syncDailyNews().catch(() => {});
       }
 
       const [topicLive, archiveItems, dbNews, cloudNews, freshSyndicated] = await Promise.all([
-        // 1. Optional topic live RSS with a fast 1.2s race timeout so it never stalls initial render
+        // 1. Live RSS feed from /api/news/feed (for specific topic or "all" on page 0)
         (async (): Promise<NewsItem[]> => {
-          if (filters.category && filters.category !== "all" && pageParam === 0) {
+          if (pageParam === 0) {
             try {
-              const normTopic = filters.category
+              const rawTopic = filters.category && filters.category !== "all" ? filters.category : "all";
+              const normTopic = rawTopic
                 .toLowerCase()
                 .normalize("NFD")
                 .replace(/[\u0300-\u036f]/g, "");
               return (await Promise.race([
-                fetchTopicRssNews(normTopic, 40),
-                new Promise<never[]>((resolve) => setTimeout(() => resolve([]), 1200)),
+                fetchTopicRssNews(normTopic, 45),
+                new Promise<never[]>((resolve) => setTimeout(() => resolve([]), 4500)),
               ])) as unknown as NewsItem[];
             } catch {}
           }
@@ -114,13 +116,15 @@ export const useNewsFeed = (filters: NewsFilters) =>
           }
         })(),
 
-        // 5. Syndicated news (return cached immediately or fast race if empty)
+        // 5. Syndicated news (only use cache immediately if it's a fresh live cache, otherwise await syncDailyNews)
         (async (): Promise<NewsItem[]> => {
-          if (cachedSyndicated.length > 0) return cachedSyndicated;
+          if (hasFreshLiveSyndicatedCache() && cachedSyndicated.length > 0) {
+            return cachedSyndicated;
+          }
           try {
             return (await Promise.race([
               syncDailyNews(),
-              new Promise<never[]>((resolve) => setTimeout(() => resolve([]), 1200)),
+              new Promise<never[]>((resolve) => setTimeout(() => resolve([]), 4500)),
             ])) as unknown as NewsItem[];
           } catch {
             return [];
@@ -130,8 +134,9 @@ export const useNewsFeed = (filters: NewsFilters) =>
 
       const syndicated = freshSyndicated.length > 0 ? freshSyndicated : cachedSyndicated;
 
-      // 6. Merge & Deduplicate (preserving the version with authentic cover & fullest original content)
+      // 6. Merge & Deduplicate by both key (slug/title) and id
       const byKey = new Map<string, NewsItem>();
+      const idToKey = new Map<string, string>();
 
       const combinedSourceList = [
         ...topicLive,
@@ -144,21 +149,25 @@ export const useNewsFeed = (filters: NewsFilters) =>
 
       for (const rawItem of combinedSourceList) {
         if (!rawItem || !(rawItem.title || "").trim()) continue;
-        const key = (rawItem.slug || rawItem.title || "").toLowerCase().trim();
-        if (!key) continue;
+        const rawSlugOrTitle = (rawItem.slug || rawItem.title || "").toLowerCase().trim();
+        if (!rawSlugOrTitle) continue;
+        const itemId = String(rawItem.id || rawSlugOrTitle).trim();
+        const key = idToKey.get(itemId) || rawSlugOrTitle;
 
         const existing = byKey.get(key);
         if (!existing) {
           byKey.set(key, rawItem);
+          idToKey.set(itemId, key);
         } else {
           const newHasRealCover = isAuthenticPublisherCover(rawItem.cover_url);
           const oldHasRealCover = isAuthenticPublisherCover(existing.cover_url);
           const newLen = (rawItem.content || "").length;
           const oldLen = (existing.content || "").length;
 
-          byKey.set(key, {
+          const mergedItem: NewsItem = {
             ...existing,
             ...rawItem,
+            id: existing.id || rawItem.id,
             cover_url: newHasRealCover
               ? rawItem.cover_url
               : oldHasRealCover
@@ -180,7 +189,9 @@ export const useNewsFeed = (filters: NewsFilters) =>
               (existing as any).author ||
               (rawItem as any).source_name ||
               (existing as any).source_name,
-          });
+          };
+          byKey.set(key, mergedItem);
+          idToKey.set(String(mergedItem.id), key);
         }
       }
 
@@ -195,8 +206,20 @@ export const useNewsFeed = (filters: NewsFilters) =>
         } catch {}
       }
 
-      // 4b. Apply Editorial Studio overrides & custom publications
-      all = filterExcludedItems(applyNewsEditorialOverrides(all));
+      // 4b. Apply Editorial Studio overrides & custom publications, then enforce strict unique IDs
+      const overridden = filterExcludedItems(applyNewsEditorialOverrides(all));
+      const seenFinalIds = new Set<string>();
+      const seenFinalSlugs = new Set<string>();
+      all = [];
+      for (const item of overridden) {
+        if (!item || !item.id) continue;
+        const idKey = String(item.id).trim();
+        const slugKey = String(item.slug || item.title || "").toLowerCase().trim();
+        if (seenFinalIds.has(idKey) || (slugKey && seenFinalSlugs.has(slugKey))) continue;
+        seenFinalIds.add(idKey);
+        if (slugKey) seenFinalSlugs.add(slugKey);
+        all.push(item);
+      }
 
       // 5. Apply Category Filter
       if (filters.category && filters.category !== "all") {

@@ -1611,6 +1611,47 @@ export const ANIME_MANGA_CONFIGS: Record<string, AnimeMangaHubConfig> = {
       },
     ],
   },
+  "slam-dunk": {
+    animeId: "slam-dunk",
+    mangadexId: "319df2e2-e6a6-4e3a-a31c-68539c140a84",
+    canonicalTitle: "Slam Dunk (Edição Completa — 31 Volumes / 276 Capítulos)",
+    japaneseTitle: "SLAM DUNK (スラムダンク)",
+    author: "Takehiko Inoue",
+    artist: "Takehiko Inoue",
+    publisher: "Shueisha",
+    serialization: "Weekly Shōnen Jump",
+    status: "Completo",
+    officialCover: "https://image.tmdb.org/t/p/w500/jabve6ukmlej2TQu2Q7DOm01DUk.jpg",
+    totalChaptersEstimate: 276,
+    defaultLanguage: "pt-br",
+    initialChapters: Array.from({ length: 276 }, (_, idx) => {
+      const chNum = idx + 1;
+      const code = 10000000 + chNum * 1000;
+      const arcLabel =
+        chNum <= 62
+          ? "Arco da Formação de Shohoku & Amistoso Ryonan"
+          : chNum <= 96
+          ? "Preliminares de Kanagawa: Shohoku vs Shoyo"
+          : chNum <= 134
+          ? "Finais de Kanagawa: Shohoku vs Kainan"
+          : chNum <= 185
+          ? "Decisão de Kanagawa: Shohoku vs Ryonan"
+          : chNum <= 222
+          ? "Treinamento dos 20.000 Arremessos & Estreia contra Toyotama"
+          : "Campeonato Nacional: A Batalha Histórica Shohoku vs Sannoh";
+      return {
+        id: `9-${code}-slam-dunk-chapter-${chNum}`,
+        number: chNum,
+        title: `Capítulo ${chNum} — ${arcLabel}`,
+        pagesCount: chNum === 1 ? 52 : chNum === 276 ? 34 : 22,
+        chapterUrl: `/chapters/9-${code}/slam-dunk-chapter-${chNum}`,
+        description: `Capítulo oficial ${chNum} do mangá Slam Dunk de Takehiko Inoue (${arcLabel}).`,
+        releaseDate: chNum <= 80 ? "1991" : chNum <= 170 ? "1993" : "1996",
+        isFree: true,
+        mangadexChapterId: "319df2e2-e6a6-4e3a-a31c-68539c140a84",
+      };
+    }),
+  },
 };
 
 // In-memory cache for chapters and pages to ensure lightning speed

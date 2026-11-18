@@ -65,16 +65,19 @@ export default async function handler(req: any, res: any) {
   let pathname = parsedUrl.pathname.replace(/\/+$/, '').toLowerCase();
 
   // If invoked via dynamic routing catch-all or vercel rewrites
-  const routeParam = req.query?.route || parsedUrl.searchParams.get('route');
-  if (
+  const rawRouteQuery = parsedUrl.searchParams.get('route') || req.query?.route;
+  const routeParamStr = Array.isArray(rawRouteQuery) ? rawRouteQuery.join('/') : String(rawRouteQuery || '');
+
+  if (routeParamStr.toLowerCase() === 'seo-prerender') {
+    pathname = '/api/seo-prerender';
+  } else if (
     pathname === '/api/[...route]' ||
     pathname === '/api' ||
     pathname === '' ||
     pathname.startsWith('/api/[')
   ) {
-    if (routeParam) {
-      const subpath = Array.isArray(routeParam) ? routeParam.join('/') : String(routeParam);
-      pathname = '/api/' + subpath.replace(/^\/+/, '').toLowerCase();
+    if (routeParamStr) {
+      pathname = '/api/' + routeParamStr.replace(/^\/+/, '').toLowerCase();
     }
   }
 
@@ -269,6 +272,9 @@ export default async function handler(req: any, res: any) {
       return;
 
     default:
+      if (!pathname.startsWith('/api/')) {
+        return handleSeoPrerenderRequest(req, res);
+      }
       res.statusCode = 404;
       res.setHeader('Content-Type', 'application/json');
       res.end(JSON.stringify({ error: `Rota API não encontrada: ${pathname}` }));

@@ -37,6 +37,7 @@ function toAbsoluteImageUrl(img, origin = BASE_URL) {
   if (!img || typeof img !== 'string') return `${origin}/og-image.jpg`;
   const trimmed = img.trim();
   if (!trimmed) return `${origin}/og-image.jpg`;
+  if (trimmed.startsWith('/covers/') || trimmed.startsWith('/assets/hero-')) return `${origin}/og-image.jpg`;
   if (/^https?:\/\//i.test(trimmed)) return trimmed;
   if (trimmed.startsWith('/')) return `${origin}${trimmed}`;
   return `${origin}/${trimmed}`;
@@ -87,9 +88,19 @@ async function bundleAndLoadTsCatalog() {
     import { CURRICULAR_BOOKS } from './src/data/curricularBooks';
     import { SCIENTIFIC_ARTICLES } from './src/data/scientificArticles';
     import { CINEMA_CATALOG } from './src/lib/cinema';
+    import { EXPANDED_CINEMA_CATALOG } from './src/lib/cinemaExpandedCatalog';
     import { ANIMES_DATA } from './src/lib/animes';
     import { BASE_CURATED_WEBTOONS } from './src/lib/webtoons';
     import { EXPANDED_WEBTOONS } from './src/data/expandedWebtoons';
+
+    const ALL_CINEMA = [...CINEMA_CATALOG];
+    const seenCinemaIds = new Set(ALL_CINEMA.map((c) => c.id));
+    for (const item of EXPANDED_CINEMA_CATALOG || []) {
+      if (item && item.id && !seenCinemaIds.has(item.id)) {
+        ALL_CINEMA.push(item);
+        seenCinemaIds.add(item.id);
+      }
+    }
 
     export const catalogBundle = {
       modernBooks: MODERN_BOOKS.map((b) => ({
@@ -139,7 +150,7 @@ async function bundleAndLoadTsCatalog() {
         institution: a.institution || '',
         kind: 'scientific',
       })),
-      cinema: CINEMA_CATALOG.map((c) => ({
+      cinema: ALL_CINEMA.map((c) => ({
         id: c.id,
         title: c.title,
         originalTitle: c.originalTitle || '',

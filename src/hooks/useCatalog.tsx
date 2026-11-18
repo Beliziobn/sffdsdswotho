@@ -13,7 +13,7 @@ import { isExcludedItem, filterExcludedItems } from "@/lib/excludedItems";
 import { fetchCloudBooks, fetchCloudChapters, fetchCloudNews, fetchCloudNewsBySlug } from "@/lib/cloudEditorialService";
 import { getAllOriginalPdfBooks, getOriginalPdfForBook } from "@/lib/originalPdfRegistry";
 import { expandNewsToDeepReport } from "@/lib/newsExpander";
-import { syncDailyNews, getCachedNews } from "@/lib/newsSyndication";
+import { syncDailyNews, getCachedNews, hasFreshLiveSyndicatedCache, fetchTopicRssNews } from "@/lib/newsSyndication";
 import { queryNewsArchive, fetchPermanentArticle } from "@/lib/newsArchiveEngine";
 
 export type Book = {
@@ -597,14 +597,24 @@ export const useNews = () =>
     queryFn: async () => {
       const cachedSyndicated = getCachedNews() as unknown as NewsItem[];
 
-      // Trigger background sync at most once every 10 minutes
+      // Trigger background sync at most once every 5 minutes
       const now = Date.now();
-      if (cachedSyndicated.length > 0 && now - lastUseNewsBackgroundSyncTs > 10 * 60 * 1000) {
+      if (hasFreshLiveSyndicatedCache() && now - lastUseNewsBackgroundSyncTs > 5 * 60 * 1000) {
         lastUseNewsBackgroundSyncTs = now;
         void syncDailyNews().catch(() => {});
       }
 
-      const [dbNews, cloudNews, archivedItems, freshSyndicated] = await Promise.all([
+      const [liveRss, dbNews, cloudNews, archivedItems, freshSyndicated] = await Promise.all([
+        (async (): Promise<NewsItem[]> => {
+          try {
+            return (await Promise.race([
+              fetchTopicRssNews("all", 36),
+              new Promise<never[]>((resolve) => setTimeout(() => resolve([]), 4500)),
+            ])) as unknown as NewsItem[];
+          } catch {
+            return [];
+          }
+        })(),
         (async (): Promise<NewsItem[]> => {
           try {
             const { data, error } = await supabase
@@ -631,11 +641,13 @@ export const useNews = () =>
           return [];
         })(),
         (async (): Promise<NewsItem[]> => {
-          if (cachedSyndicated.length > 0) return cachedSyndicated;
+          if (hasFreshLiveSyndicatedCache() && cachedSyndicated.length > 0) {
+            return cachedSyndicated;
+          }
           try {
             return (await Promise.race([
               syncDailyNews(),
-              new Promise<never[]>((resolve) => setTimeout(() => resolve([]), 1200)),
+              new Promise<never[]>((resolve) => setTimeout(() => resolve([]), 4500)),
             ])) as unknown as NewsItem[];
           } catch {
             return [];
@@ -644,24 +656,40 @@ export const useNews = () =>
       ]);
 
       const validDbNews = dbNews.filter(Boolean);
-      const seen = new Set<string>();
+      const seenKeys = new Set<string>();
+      const seenIds = new Set<string>();
       const combined: NewsItem[] = [];
 
-      for (const item of [...cloudNews, ...validDbNews, ...freshSyndicated, ...archivedItems]) {
+      const syndicatedList = freshSyndicated.length > 0 ? freshSyndicated : cachedSyndicated;
+
+      for (const item of [...liveRss, ...syndicatedList, ...cloudNews, ...validDbNews, ...archivedItems]) {
+        if (!item || !(item.title || "").trim()) continue;
         const key = (item.slug || item.title || "").toLowerCase().trim();
-        if (key && !seen.has(key) && (item.title || "").trim().length > 0) {
-          seen.add(key);
+        const idKey = String(item.id || key).trim();
+        if (key && !seenKeys.has(key) && !seenIds.has(idKey)) {
+          seenKeys.add(key);
+          seenIds.add(idKey);
           combined.push(item);
         }
       }
 
-      const overridden = applyNewsEditorialOverrides(combined);
-      overridden.sort((a, b) => {
+      const overridden = filterExcludedItems(applyNewsEditorialOverrides(combined));
+      const finalUnique: NewsItem[] = [];
+      const finalIds = new Set<string>();
+      for (const item of overridden) {
+        if (!item || !item.id) continue;
+        const idStr = String(item.id).trim();
+        if (finalIds.has(idStr)) continue;
+        finalIds.add(idStr);
+        finalUnique.push(item);
+      }
+
+      finalUnique.sort((a, b) => {
         const diff = new Date(b.published_at).getTime() - new Date(a.published_at).getTime();
         if (diff !== 0) return diff;
         return (a.id || "").localeCompare(b.id || "");
       });
-      return filterExcludedItems(overridden);
+      return finalUnique;
     },
   });
 

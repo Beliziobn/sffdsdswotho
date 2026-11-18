@@ -1,6 +1,7 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { ArrowRight } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
 import Navigation from "@/components/Navigation";
 import Hero from "@/components/Hero";
 import FeaturedBooks from "@/components/FeaturedBooks";
@@ -10,6 +11,7 @@ import NewsCard, { NewsCardSkeleton } from "@/components/NewsCard";
 import ContentSection from "@/components/ContentSection";
 import { Button } from "@/components/ui/button";
 import { useNews, type NewsItem } from "@/hooks/useCatalog";
+import { syncDailyNews } from "@/lib/newsSyndication";
 import { useContents, useTrending } from "@/hooks/useContents";
 import { useAuth } from "@/hooks/useAuth";
 import { useForYou, useContinueReading } from "@/hooks/useRecommendations";
@@ -18,6 +20,9 @@ import AnimeCard from "@/components/AnimeCard";
 import { CINEMA_CATALOG } from "@/lib/cinema";
 import CinemaCard from "@/components/cinema/CinemaCard";
 import { useTranslatedNewsItems } from "@/lib/geoLanguage";
+import heroNewsImg from "@/assets/hero-news.jpg";
+import heroReadingImg from "@/assets/hero-reading.jpg";
+import heroLibraryImg from "@/assets/hero-library.jpg";
 
 const FALLBACK_NEWS: NewsItem[] = [
   {
@@ -28,7 +33,7 @@ const FALLBACK_NEWS: NewsItem[] = [
       "Observações espectroscópicas recentes detalham assinaturas químicas em mundos distantes e abrem novas frentes para a astrobiologia.",
     content:
       "Observações espectroscópicas realizadas com instrumentos infravermelhos de alta sensibilidade ampliam a compreensão sobre atmosferas planetárias fora do Sistema Solar.",
-    cover_url: "/assets/hero-news.jpg",
+    cover_url: heroNewsImg,
     category: "Ciência",
     published: true,
     published_at: "2026-11-08T12:00:00.000Z",
@@ -41,7 +46,7 @@ const FALLBACK_NEWS: NewsItem[] = [
       "Especialistas, editoras e desenvolvedores discutem transparência algorítmica e remuneração justa no ecossistema digital.",
     content:
       "O avanço rápido de modelos generativos colocou a proteção de obras literárias, jornalísticas e audiovisuais no centro das agendas regulatórias internacionais.",
-    cover_url: "/assets/hero-reading.jpg",
+    cover_url: heroReadingImg,
     category: "Tecnologias",
     published: true,
     published_at: "2026-11-07T15:00:00.000Z",
@@ -54,7 +59,7 @@ const FALLBACK_NEWS: NewsItem[] = [
       "Novos aportes priorizam soluções em educação, saúde e produtividade digital desenvolvidas por equipes locais.",
     content:
       "Fundos de capital de risco e centros universitários intensificam parcerias para acelerar projetos de software e infraestrutura de dados no país.",
-    cover_url: "/assets/hero-library.jpg",
+    cover_url: heroLibraryImg,
     category: "Mercado",
     published: true,
     published_at: "2026-11-06T10:00:00.000Z",
@@ -62,7 +67,18 @@ const FALLBACK_NEWS: NewsItem[] = [
 ];
 
 const Index = () => {
+  const queryClient = useQueryClient();
   const { data: news = [], isLoading: newsLoading } = useNews();
+
+  useEffect(() => {
+    void syncDailyNews().then((fresh) => {
+      if (fresh && fresh.length > 0) {
+        void queryClient.invalidateQueries({ queryKey: ["news"] });
+        void queryClient.invalidateQueries({ queryKey: ["news-feed"] });
+      }
+    });
+  }, [queryClient]);
+
   const publishedNews = useMemo(() => news.filter((n) => n.published).slice(0, 3), [news]);
   const rawLatest = publishedNews.length > 0 ? publishedNews : FALLBACK_NEWS;
   const latest = useTranslatedNewsItems(rawLatest);

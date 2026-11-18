@@ -99,6 +99,24 @@ const DEFAULT_LANGUAGE_PRESETS: AvailableDubOption[] = [
     isOriginal: true,
   },
   {
+    id: "ko:0",
+    dubCode: "ko",
+    dubType: "0",
+    label: "Coreano (Áudio Original K-Drama)",
+    shortLabel: "🇰🇷 Coreano",
+    flag: "🇰🇷",
+    audioMode: "original",
+  },
+  {
+    id: "ja:0",
+    dubCode: "ja",
+    dubType: "0",
+    label: "Japonês (Áudio Original)",
+    shortLabel: "🇯🇵 Japonês",
+    flag: "🇯🇵",
+    audioMode: "original",
+  },
+  {
     id: "esla:0",
     dubCode: "esla",
     dubType: "0",
@@ -286,7 +304,7 @@ export const WorscoCinemaPlayer: React.FC<WorscoCinemaPlayerProps> = ({
         if (resolvedPtCues.length > 0) setPtCues(resolvedPtCues);
         if (resolvedEnCues.length > 0) setEnCues(resolvedEnCues);
 
-        if (!resolvedHasPtDub && audioMode === "dublado") {
+        if (!resolvedHasPtDub || audioMode === "legendado") {
           setShowSubtitles(true);
         }
 
@@ -318,11 +336,41 @@ export const WorscoCinemaPlayer: React.FC<WorscoCinemaPlayerProps> = ({
     internalPipelineStage,
   ]);
 
+  // Rank streams based on user's preferredQuality
+  const orderedCandidates = useMemo(() => {
+    if (allStreams.length === 0) return [];
+    let list = [...allStreams];
+
+    if (preferredQuality !== "auto") {
+      const matchingQuality = list.filter((s) => s.quality === preferredQuality);
+      const others = list.filter((s) => s.quality !== preferredQuality);
+      list = [...matchingQuality, ...others];
+    }
+
+    return list;
+  }, [allStreams, preferredQuality]);
+
+  const availableQualities = useMemo(() => {
+    const set = new Set<string>();
+    allStreams.forEach((s) => {
+      if (s.quality) set.add(s.quality);
+    });
+    return Array.from(set);
+  }, [allStreams]);
+
+  const currentStream = orderedCandidates[candidateIdx] || orderedCandidates[0] || null;
+
   // Non-blocking background subtitle loader so OpenSubtitles never delays video startup
   useEffect(() => {
     const targetImdb = resolvedImdbId || item.imdbId;
     if (!targetImdb) return;
-    const needsPt = ptCues.length === 0 && (audioMode === "legendado" || (!hasPtDub && audioMode === "dublado") || showSubtitles);
+    const isPlayingNonDub = Boolean(currentStream && currentStream.audioMode !== "dublado");
+    const needsPt =
+      ptCues.length === 0 &&
+      (audioMode === "legendado" ||
+        !hasPtDub ||
+        isPlayingNonDub ||
+        showSubtitles);
     const needsEn = enCues.length === 0 && audioMode === "original" && showSubtitles;
     if (!needsPt && !needsEn) return;
 
@@ -347,31 +395,7 @@ export const WorscoCinemaPlayer: React.FC<WorscoCinemaPlayerProps> = ({
     return () => {
       cancelled = true;
     };
-  }, [resolvedImdbId, item.imdbId, item.type, seasonNumber, episodeNumber, audioMode, hasPtDub, showSubtitles, ptCues.length, enCues.length]);
-
-  // Rank streams based on user's preferredQuality
-  const orderedCandidates = useMemo(() => {
-    if (allStreams.length === 0) return [];
-    let list = [...allStreams];
-
-    if (preferredQuality !== "auto") {
-      const matchingQuality = list.filter((s) => s.quality === preferredQuality);
-      const others = list.filter((s) => s.quality !== preferredQuality);
-      list = [...matchingQuality, ...others];
-    }
-
-    return list;
-  }, [allStreams, preferredQuality]);
-
-  const availableQualities = useMemo(() => {
-    const set = new Set<string>();
-    allStreams.forEach((s) => {
-      if (s.quality) set.add(s.quality);
-    });
-    return Array.from(set);
-  }, [allStreams]);
-
-  const currentStream = orderedCandidates[candidateIdx] || orderedCandidates[0] || null;
+  }, [resolvedImdbId, item.imdbId, item.type, seasonNumber, episodeNumber, audioMode, hasPtDub, showSubtitles, ptCues.length, enCues.length, currentStream]);
 
   // Attach MP4 (Direct CDN first!) or HLS.js to video element when currentStream changes
   useEffect(() => {
@@ -555,11 +579,20 @@ export const WorscoCinemaPlayer: React.FC<WorscoCinemaPlayerProps> = ({
 
   // Synchronize authentic subtitles with video currentTime
   useEffect(() => {
-    if (!showSubtitles) {
+    const isPlayingOriginalWhenWantingPt =
+      (audioMode === "dublado" || audioMode === "legendado") &&
+      currentStream?.audioMode !== "dublado";
+
+    if (!showSubtitles && !isPlayingOriginalWhenWantingPt) {
       setActiveCueText("");
       return;
     }
-    if (currentStream?.audioMode === "legendado" && selectedDubId.endsWith(":1")) {
+    // Only skip overlay if the stream is an Orion burned-in PT subtitle stream
+    if (
+      currentStream?.server === "orion" &&
+      currentStream?.audioMode === "legendado" &&
+      selectedDubId.endsWith(":1")
+    ) {
       setActiveCueText("");
       return;
     }
@@ -568,7 +601,8 @@ export const WorscoCinemaPlayer: React.FC<WorscoCinemaPlayerProps> = ({
       return;
     }
 
-    const activeCueList = audioMode === "original" ? enCues : ptCues;
+    const activeCueList =
+      audioMode === "original" && enCues.length > 0 && ptCues.length === 0 ? enCues : ptCues.length > 0 ? ptCues : enCues;
     const currentCue = activeCueList.find(
       (c) => currentTime >= c.start - 0.2 && currentTime <= c.end + 0.25
     );

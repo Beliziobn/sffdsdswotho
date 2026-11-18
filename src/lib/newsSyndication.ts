@@ -13,9 +13,9 @@ export interface SyndicatedNewsItem extends NewsItem {
   word_count?: number;
 }
 
-const STORAGE_KEY = "worscoi_syndicated_news_v18";
+const STORAGE_KEY = "worscoi_syndicated_news_v20";
 const PERMANENT_VAULT_KEY = "worscoi_permanent_news_vault_v3";
-const LAST_SYNC_KEY = "worscoi_news_last_sync_v18";
+const LAST_SYNC_KEY = "worscoi_news_last_sync_v20";
 
 let legacyCacheCleared = false;
 let memoryCachedNews: SyndicatedNewsItem[] | null = null;
@@ -25,13 +25,25 @@ function clearLegacyCache() {
   if (legacyCacheCleared) return;
   legacyCacheCleared = true;
   try {
-    for (let i = 1; i <= 17; i++) {
+    for (let i = 1; i <= 19; i++) {
       localStorage.removeItem(`worscoi_syndicated_news_v${i}`);
       localStorage.removeItem(`worscoi_news_last_sync_v${i}`);
     }
     localStorage.removeItem("worscoi_permanent_news_vault_v1");
     localStorage.removeItem("worscoi_permanent_news_vault_v2");
   } catch {}
+}
+
+export function hasFreshLiveSyndicatedCache(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    const lastSync = Number(localStorage.getItem(LAST_SYNC_KEY) || "0");
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (!stored || !lastSync) return false;
+    return Date.now() - lastSync < 5 * 60 * 1000;
+  } catch {
+    return false;
+  }
 }
 
 function toCompactStorageItem(item: SyndicatedNewsItem): SyndicatedNewsItem {
@@ -159,7 +171,7 @@ export async function syncAutomatedNews(force = false): Promise<SyndicatedNewsIt
   const lastSync = Number(localStorage.getItem(LAST_SYNC_KEY) || "0");
   const currentNews = getCachedNews();
 
-  if (!force && now - lastSync < 10 * 60 * 1000 && currentNews.length >= 12) {
+  if (!force && hasFreshLiveSyndicatedCache() && now - lastSync < 5 * 60 * 1000 && currentNews.length >= 12) {
     return currentNews;
   }
 
@@ -222,7 +234,8 @@ export async function syncDailyNews(force = false): Promise<SyndicatedNewsItem[]
 
 export async function fetchTopicRssNews(topic: string, limit = 40): Promise<SyndicatedNewsItem[]> {
   try {
-    const res = await fetch(`/api/news/feed?topic=${encodeURIComponent(topic)}&limit=${limit}`);
+    const minuteBucket = Math.floor(Date.now() / 60000);
+    const res = await fetch(`/api/news/feed?topic=${encodeURIComponent(topic)}&limit=${limit}&_t=${minuteBucket}`);
     const contentType = res.headers.get("content-type") || "";
     if (!res.ok || !contentType.includes("application/json")) return [];
     const data = await res.json();
