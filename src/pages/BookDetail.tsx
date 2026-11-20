@@ -11,7 +11,7 @@ import { useBook, useChapters, usePurchases } from "@/hooks/useCatalog";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { formatPrice } from "@/lib/format";
-import { getOriginalPdfForBook } from "@/lib/originalPdfRegistry";
+import { resolveOriginalPdfForBookOrRecord } from "@/lib/originalPdfRegistry";
 import { downloadRealBook } from "@/lib/mediaDownloaders";
 import { CommunityReviews } from "@/components/CommunityReviews";
 import ShareDialog from "@/components/ShareDialog";
@@ -99,7 +99,10 @@ const BookDetail = () => {
       : null
   );
 
-  const originalPdf = useMemo(() => (id ? getOriginalPdfForBook(id) : undefined), [id]);
+  const originalPdf = useMemo(
+    () => (id ? resolveOriginalPdfForBookOrRecord(id, book as any) : undefined),
+    [id, book]
+  );
 
   const filteredChapters = useMemo(() => {
     let list = chapters;

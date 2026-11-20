@@ -71,7 +71,7 @@ service cloud.firestore {
         data.published is bool &&
         (!('id' in data) || (data.id is string && data.id.size() <= 128)) &&
         (!('description' in data) || (data.description is string && data.description.size() <= 10000)) &&
-        (!('cover_url' in data) || (data.cover_url is string && data.cover_url.size() <= 1000)) &&
+        (!('cover_url' in data) || (data.cover_url is string && data.cover_url.size() <= 500000)) &&
         (!('price_cents' in data) || (data.price_cents is number && data.price_cents >= 0)) &&
         (!('currency' in data) || (data.currency is string && data.currency.size() <= 10)) &&
         (!('category' in data) || (data.category is string && data.category.size() <= 100)) &&
@@ -102,8 +102,8 @@ service cloud.firestore {
         data.id is string && data.id.size() >= 1 && data.id.size() <= 128 &&
         (!('title' in data) || (data.title is string && data.title.size() <= 300)) &&
         (!('synopsis' in data) || (data.synopsis is string && data.synopsis.size() <= 5000)) &&
-        (!('cover' in data) || (data.cover is string && data.cover.size() <= 1000)) &&
-        (!('banner' in data) || (data.banner is string && data.banner.size() <= 1000)) &&
+        (!('cover' in data) || (data.cover is string && data.cover.size() <= 500000)) &&
+        (!('banner' in data) || (data.banner is string && data.banner.size() <= 500000)) &&
         (!('trailerYoutubeId' in data) || (data.trailerYoutubeId is string && data.trailerYoutubeId.size() <= 100)) &&
         (!('updatedAt' in data) || (data.updatedAt is string && data.updatedAt.size() <= 100));
     }

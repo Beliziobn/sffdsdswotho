@@ -12,6 +12,7 @@ import {
 import { isExcludedItem, filterExcludedItems } from "@/lib/excludedItems";
 import { fetchCloudBooks, fetchCloudChapters, fetchCloudNews, fetchCloudNewsBySlug } from "@/lib/cloudEditorialService";
 import { getAllOriginalPdfBooks, getOriginalPdfForBook } from "@/lib/originalPdfRegistry";
+import { getCanonicalChaptersForOriginalPdf } from "@/lib/canonicalBookChapters";
 import { expandNewsToDeepReport } from "@/lib/newsExpander";
 import { syncDailyNews, getCachedNews, hasFreshLiveSyndicatedCache, fetchTopicRssNews } from "@/lib/newsSyndication";
 import { queryNewsArchive, fetchPermanentArticle } from "@/lib/newsArchiveEngine";
@@ -532,20 +533,11 @@ export const useChapters = (bookId?: string) =>
         if (chaps && chaps.length > 0) return chaps as Chapter[];
       }
 
-      // Check Original PDF Registry for default full digitized edition chapter
+      // Check Original PDF Registry for canonical multi-chapter edition
       try {
         const pdf = getOriginalPdfForBook(bookId);
         if (pdf) {
-          return [
-            {
-              id: `${pdf.id}-edicao-integral`,
-              book_id: pdf.id,
-              position: 1,
-              title: `Edição Digitalizada Oficial (${pdf.originalPagesCount} Páginas)`,
-              content: `### ${pdf.title}\n\n**Autor:** ${pdf.author} (${pdf.year > 0 ? pdf.year : `${Math.abs(pdf.year)} a.C.`})\n\n**Edição Canônica Preservada:** ${pdf.editionNotes}\n\n**Acervo Oficial:** ${pdf.sourceRepository}\n**Tamanho do Arquivo:** ${pdf.fileSizeFormatted} · **Total de Páginas Físicas:** ${pdf.originalPagesCount}\n\nEsta obra está disponível no formato fac-similar original de alta definição com todos os capítulos, ilustrações de época e diagramação original preservados. Utilize o leitor interativo de PDF para folhear as páginas, aplicar zoom e navegar pelo índice, ou utilize o botão de alternância para o modo de leitura rápida.`,
-              is_free_preview: true,
-            },
-          ] as Chapter[];
+          return getCanonicalChaptersForOriginalPdf(pdf) as Chapter[];
         }
       } catch {}
 

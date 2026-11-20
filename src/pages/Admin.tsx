@@ -60,7 +60,11 @@ import {
   slugifyEditorial,
 } from "@/lib/editorialStore";
 import { auth, signInWithGoogle } from "@/lib/firebase";
-import { syncLocalEditorialToCloud } from "@/lib/cloudEditorialService";
+import {
+  syncLocalEditorialToCloud,
+  publishBookToCloud,
+  publishPdfBinaryToCloud,
+} from "@/lib/cloudEditorialService";
 import {
   processUploadedPdfFile,
   savePdfBytesToIndexedDB,
@@ -895,17 +899,32 @@ const Admin = () => {
     }
   };
 
-  const handleCoverFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleCoverFileSelect = async (
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (typeof reader.result === "string") {
-        setEditBookCover(reader.result);
-        toast.success("Capa carregada do dispositivo.");
-      }
-    };
-    reader.readAsDataURL(file);
+    try {
+      const result = await compressImageFile(file, {
+        maxWidth: 640,
+        maxHeight: 960,
+        quality: 0.8,
+        maxBytes: 75 * 1024,
+      });
+      setEditBookCover(result.dataUrl);
+      toast.success(
+        `Capa otimizada (${result.width}x${result.height} · ${formatBytes(result.sizeBytes)}) pronta para publicação.`
+      );
+    } catch {
+      const reader = new FileReader();
+      reader.onload = () => {
+        if (typeof reader.result === "string") {
+          setEditBookCover(reader.result);
+          toast.success("Capa carregada do dispositivo.");
+        }
+      };
+      reader.readAsDataURL(file);
+    }
     e.target.value = "";
   };
 
@@ -915,89 +934,142 @@ const Admin = () => {
       toast.error("Informe o título e o autor da obra.");
       return;
     }
+
+    // Generate deterministic book ID once so IndexedDB, localStorage, server, and Firestore all share the exact same ID!
+    const targetBookId =
+      !isCreatingNewBook && selectedBookId
+        ? selectedBookId
+        : `book-editorial-${slugifyEditorial(editBookTitle)}-${Date.now().toString().slice(-4)}`;
+
     let pdfUrlToUse = editBookPdfUrl.trim();
     let originalPagesCount = 200;
     let fileSizeBytes = 2500000;
     let fileSizeFormatted = "PDF Completo";
     let editionNotes =
       "Edição digital em PDF publicada pela curadoria editorial da Wotho.";
+    let inlinePdfBase64: string | undefined;
 
-    if (uploadedPdfData) {
-      const generatedId = isCreatingNewBook
-        ? `book-editorial-${slugifyEditorial(editBookTitle)}-${Date.now().toString().slice(-4)}`
-        : selectedBookId || "";
-      const idbUri = await savePdfBytesToIndexedDB(
-        generatedId,
-        uploadedPdfData.arrayBuffer
-      );
-      pdfUrlToUse =
-        uploadedPdfData.inlineDataUrl || idbUri || editBookPdfUrl.trim();
-      originalPagesCount = uploadedPdfData.pagesCount;
-      fileSizeBytes = uploadedPdfData.fileSizeBytes;
-      fileSizeFormatted = uploadedPdfData.fileSizeFormatted;
-      editionNotes = `Edição integral em PDF (${uploadedPdfData.pagesCount} páginas · ${uploadedPdfData.fileSizeFormatted}) publicada pela curadoria editorial da Wotho.`;
-    }
+    setIsProcessingPdf(true);
+    try {
+      if (uploadedPdfData) {
+        setPdfProgressStep("Salvando PDF original no dispositivo...");
+        setPdfProgressPct(20);
+        const idbUri = await savePdfBytesToIndexedDB(
+          targetBookId,
+          uploadedPdfData.arrayBuffer
+        );
+        inlinePdfBase64 = uploadedPdfData.inlineDataUrl;
+        pdfUrlToUse =
+          idbUri ||
+          `/api/books/pdf-proxy?id=${encodeURIComponent(targetBookId)}` ||
+          editBookPdfUrl.trim();
+        originalPagesCount = uploadedPdfData.pagesCount;
+        fileSizeBytes = uploadedPdfData.fileSizeBytes;
+        fileSizeFormatted = uploadedPdfData.fileSizeFormatted;
+        editionNotes = `Edição integral em PDF (${uploadedPdfData.pagesCount} páginas · ${uploadedPdfData.fileSizeFormatted}) publicada pela curadoria editorial da Wotho.`;
+      }
 
-    const saved = saveBookPublication({
-      id: isCreatingNewBook ? undefined : selectedBookId || undefined,
-      title: editBookTitle,
-      author: editBookAuthor,
-      category: editBookCategory,
-      cover_url: editBookCover,
-      description: editBookDescription,
-      isNew: isCreatingNewBook,
-      pdf_url: pdfUrlToUse || undefined,
-      download_url: pdfUrlToUse || undefined,
-      original_pages_count: originalPagesCount,
-      file_size_formatted: fileSizeFormatted,
-      edition_notes: editionNotes,
-      source_repository: "Biblioteca Digital Luso-Brasileira",
-    });
-
-    if (pdfUrlToUse) {
-      saveCustomUploadedPdfEntry({
-        id: saved.id,
-        title: saved.title,
-        author: saved.author,
-        year: new Date().getFullYear(),
-        originalPagesCount,
-        fileSizeBytes,
-        fileSizeFormatted,
-        pdfUrl: pdfUrlToUse,
-        directDownloadUrl: pdfUrlToUse,
-        sourceRepository: "Biblioteca Digital Luso-Brasileira",
-        editionNotes,
-        isPublicDomain: false,
-        coverUrl:
-          saved.cover_url ||
-          (uploadedPdfData ? uploadedPdfData.coverDataUrl : "/placeholder.svg"),
-        category: saved.category,
-        description: saved.description,
+      const saved = saveBookPublication({
+        id: targetBookId,
+        title: editBookTitle,
+        author: editBookAuthor,
+        category: editBookCategory,
+        cover_url: editBookCover || uploadedPdfData?.coverDataUrl,
+        description: editBookDescription,
+        isNew: isCreatingNewBook,
+        pdf_url: pdfUrlToUse || undefined,
+        download_url: pdfUrlToUse
+          ? `/api/books/pdf-proxy?id=${encodeURIComponent(targetBookId)}&download=true`
+          : undefined,
+        original_pages_count: originalPagesCount,
+        file_size_formatted: fileSizeFormatted,
+        edition_notes: editionNotes,
+        source_repository: "Biblioteca Digital Luso-Brasileira",
+        skipAutoCloudPublish: true,
       });
 
-      if (uploadedPdfData?.extractedChapters) {
-        for (const ch of uploadedPdfData.extractedChapters) {
-          saveCustomBookChapter({
-            book_id: saved.id,
-            title: ch.title,
-            content: ch.content,
-            position: ch.position,
-          });
+      if (pdfUrlToUse) {
+        saveCustomUploadedPdfEntry({
+          id: saved.id,
+          title: saved.title,
+          author: saved.author,
+          year: new Date().getFullYear(),
+          originalPagesCount,
+          fileSizeBytes,
+          fileSizeFormatted,
+          pdfUrl: `idb://${saved.id}`,
+          directDownloadUrl: `/api/books/pdf-proxy?id=${encodeURIComponent(saved.id)}&download=true`,
+          sourceRepository: "Biblioteca Digital Luso-Brasileira",
+          editionNotes,
+          isPublicDomain: false,
+          coverUrl:
+            saved.cover_url ||
+            (uploadedPdfData ? uploadedPdfData.coverDataUrl : "/placeholder.svg"),
+          category: saved.category,
+          description: saved.description,
+        });
+
+        if (uploadedPdfData?.extractedChapters) {
+          setPdfProgressStep("Publicando capítulos extraídos para todos os leitores...");
+          setPdfProgressPct(45);
+          for (const ch of uploadedPdfData.extractedChapters) {
+            saveCustomBookChapter({
+              book_id: saved.id,
+              title: ch.title,
+              content: ch.content,
+              position: ch.position,
+            });
+          }
         }
       }
-    }
 
-    void queryClient.invalidateQueries({ queryKey: ["books"] });
-    void queryClient.invalidateQueries({ queryKey: ["book", saved.id] });
-    void queryClient.invalidateQueries({ queryKey: ["chapters", saved.id] });
-    setIsCreatingNewBook(false);
-    setSelectedBookId(saved.id);
-    setUploadedPdfData(null);
-    toast.success(
-      uploadedPdfData
-        ? `Livro em PDF "${saved.title}" publicado com ${uploadedPdfData.pagesCount} páginas.`
-        : "Obra atualizada na biblioteca."
-    );
+      setPdfProgressStep("Sincronizando obra na nuvem para todos os usuários...");
+      setPdfProgressPct(65);
+      const bookCloudOk = await publishBookToCloud({
+        ...saved,
+        ...(inlinePdfBase64 ? { pdf_base64: inlinePdfBase64 } : {}),
+        original_pages_count: originalPagesCount,
+        file_size_formatted: fileSizeFormatted,
+        edition_notes: editionNotes,
+        source_repository: "Biblioteca Digital Luso-Brasileira",
+      });
+
+      if (inlinePdfBase64) {
+        await publishPdfBinaryToCloud(
+          saved.id,
+          inlinePdfBase64,
+          (step, pct) => {
+            setPdfProgressStep(step);
+            setPdfProgressPct(65 + Math.round(pct * 0.33));
+          }
+        );
+      }
+
+      void queryClient.invalidateQueries({ queryKey: ["books"] });
+      void queryClient.invalidateQueries({ queryKey: ["book", saved.id] });
+      void queryClient.invalidateQueries({ queryKey: ["chapters", saved.id] });
+      setIsCreatingNewBook(false);
+      setSelectedBookId(saved.id);
+      const publishedPages = uploadedPdfData?.pagesCount;
+      const hadUpload = Boolean(uploadedPdfData);
+      setUploadedPdfData(null);
+
+      if (bookCloudOk) {
+        toast.success(
+          hadUpload
+            ? `Livro em PDF "${saved.title}" (${publishedPages} páginas) publicado para todos os usuários!`
+            : `Obra "${saved.title}" publicada e sincronizada para todos os usuários!`
+        );
+      } else {
+        toast.warning(
+          `Livro "${saved.title}" salvo neste dispositivo. Clique em "Sincronizar Nuvem" no topo para publicar globalmente.`
+        );
+      }
+    } finally {
+      setIsProcessingPdf(false);
+      setPdfProgressStep("");
+      setPdfProgressPct(0);
+    }
   };
 
   const handleAddChapterToBook = (e: React.FormEvent) => {

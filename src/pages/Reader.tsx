@@ -24,7 +24,7 @@ import { Button } from "@/components/ui/button";
 import { useBook, useChapters } from "@/hooks/useCatalog";
 import { toast } from "sonner";
 import {
-  getOriginalPdfForBook,
+  resolveOriginalPdfForBookOrRecord,
   getProxiedPdfUrl,
   getDownloadPdfUrl,
 } from "@/lib/originalPdfRegistry";
@@ -89,13 +89,26 @@ const Reader = () => {
   const { data: book, isLoading: isBookLoading } = useBook(id);
   const { data: chapters = [], isLoading: isChaptersLoading } = useChapters(id);
 
-  const originalPdf = useMemo(() => (id ? getOriginalPdfForBook(id) : undefined), [id]);
+  const originalPdf = useMemo(
+    () => (id ? resolveOriginalPdfForBookOrRecord(id, book as any) : undefined),
+    [id, book]
+  );
   const modeParam = searchParams.get("mode");
   const [readerView, setReaderView] = useState<"pdf" | "text">(() => {
     if (modeParam === "text") return "text";
     if (modeParam === "pdf") return "pdf";
-    return originalPdf ? "pdf" : "text";
+    return originalPdf || (id && id.startsWith("book-editorial-")) ? "pdf" : "text";
   });
+
+  useEffect(() => {
+    if (modeParam === "text") {
+      setReaderView("text");
+    } else if (modeParam === "pdf") {
+      setReaderView("pdf");
+    } else if (originalPdf) {
+      setReaderView("pdf");
+    }
+  }, [originalPdf, modeParam]);
   const [isPdfFullscreen, setIsPdfFullscreen] = useState(false);
   const [isDownloadingFallback, setIsDownloadingFallback] = useState(false);
 
@@ -645,6 +658,7 @@ const Reader = () => {
             cover={book?.cover_url || originalPdf.coverUrl}
             category={book?.category || originalPdf.category}
             description={book?.description || originalPdf.description}
+            chapters={chapters}
             title={originalPdf.title}
             author={originalPdf.author}
             pagesCount={originalPdf.originalPagesCount}

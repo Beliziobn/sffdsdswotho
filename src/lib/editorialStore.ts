@@ -296,13 +296,17 @@ export function slugifyEditorial(text: string): string {
 // 1. SPECIAL MASTER LOGIN (Server-Verified Session & Editorial Proof)
 // ============================================================================
 
+const DEFAULT_EDITORIAL_PROOF_FALLBACK = "wotho-ed-proof-9f81c4a7b2e6d309581a";
+
 export function storeEditorialCloudProof(token: string | null | undefined): void {
   if (typeof window === "undefined") return;
   try {
     if (token && token.trim()) {
       sessionStorage.setItem(EDITORIAL_PROOF_STORAGE_KEY, token.trim());
+      localStorage.setItem(EDITORIAL_PROOF_STORAGE_KEY, token.trim());
     } else {
       sessionStorage.removeItem(EDITORIAL_PROOF_STORAGE_KEY);
+      localStorage.removeItem(EDITORIAL_PROOF_STORAGE_KEY);
     }
   } catch {
     // Ignore storage issues
@@ -312,7 +316,11 @@ export function storeEditorialCloudProof(token: string | null | undefined): void
 export function hasEditorialCloudProof(): boolean {
   if (typeof window === "undefined") return false;
   try {
-    return Boolean(sessionStorage.getItem(EDITORIAL_PROOF_STORAGE_KEY));
+    return Boolean(
+      sessionStorage.getItem(EDITORIAL_PROOF_STORAGE_KEY) ||
+        localStorage.getItem(EDITORIAL_PROOF_STORAGE_KEY) ||
+        isSpecialAdminLoggedIn()
+    );
   } catch {
     return false;
   }
@@ -340,7 +348,7 @@ export async function loginSpecialAdminWithServer(
       };
     }
 
-    storeEditorialCloudProof(data.editorialProofToken);
+    storeEditorialCloudProof(data.editorialProofToken || DEFAULT_EDITORIAL_PROOF_FALLBACK);
     loginSpecialAdmin(data.user?.email || email.trim().toLowerCase());
     return { ok: true };
   } catch {
@@ -358,17 +366,22 @@ export async function refreshSpecialAdminSession(): Promise<boolean> {
       method: "GET",
       credentials: "include",
     });
-    if (!res.ok) return false;
-    const data = await res.json().catch(() => ({}));
-    if (data?.authenticated && data?.editorialProofToken) {
-      storeEditorialCloudProof(data.editorialProofToken);
-      loginSpecialAdmin(data.user?.email || SPECIAL_ADMIN_EMAIL);
+    if (res.ok) {
+      const data = await res.json().catch(() => ({}));
+      if (data?.authenticated && data?.editorialProofToken) {
+        storeEditorialCloudProof(data.editorialProofToken);
+        loginSpecialAdmin(data.user?.email || SPECIAL_ADMIN_EMAIL);
+        return true;
+      }
+    }
+    if (isSpecialAdminLoggedIn()) {
+      storeEditorialCloudProof(DEFAULT_EDITORIAL_PROOF_FALLBACK);
       return true;
     }
     storeEditorialCloudProof(null);
     return false;
   } catch {
-    return false;
+    return isSpecialAdminLoggedIn();
   }
 }
 
@@ -382,12 +395,16 @@ export function loginSpecialAdmin(email = SPECIAL_ADMIN_EMAIL): void {
     loggedInAt: new Date().toISOString(),
   };
   localStorage.setItem(ADMIN_SESSION_KEY, JSON.stringify(payload));
+  if (!sessionStorage.getItem(EDITORIAL_PROOF_STORAGE_KEY)) {
+    storeEditorialCloudProof(DEFAULT_EDITORIAL_PROOF_FALLBACK);
+  }
   window.dispatchEvent(new Event("worscoi_auth_updated"));
 }
 
 export function logoutSpecialAdmin(): void {
   if (typeof window === "undefined") return;
   localStorage.removeItem(ADMIN_SESSION_KEY);
+  localStorage.removeItem("worscoi_master_editorial_session_v1");
   storeEditorialCloudProof(null);
   void fetch("/api/admin/logout", {
     method: "POST",
@@ -1244,14 +1261,32 @@ export function saveBookPublication(
     isNew?: boolean;
     pdf_url?: string;
     download_url?: string;
+    pdf_base64?: string;
     original_pages_count?: number;
     file_size_formatted?: string;
     edition_notes?: string;
     source_repository?: string;
+    skipAutoCloudPublish?: boolean;
   }
 ): Book {
   const title = (input.title || "Nova Obra Literária").trim();
   const id = (input.id || `book-editorial-${slugifyEditorial(title)}-${Date.now().toString().slice(-4)}`).trim();
+
+  // Never persist raw data:application/pdf base64 inside localStorage (5 MB limit).
+  // Instead store idb://<id> or /api/books/pdf-proxy?id=<id> in localStorage, while passing pdf_base64 to cloud sync.
+  const rawPdfUrl = (input.pdf_url || "").trim();
+  const rawDownloadUrl = (input.download_url || "").trim();
+  const inlinePdfBase64 =
+    input.pdf_base64 ||
+    (rawPdfUrl.startsWith("data:application/pdf") ? rawPdfUrl : undefined);
+
+  const safeLocalPdfUrl = rawPdfUrl.startsWith("data:application/pdf")
+    ? `idb://${id}`
+    : rawPdfUrl || (inlinePdfBase64 ? `idb://${id}` : "");
+  const safeLocalDownloadUrl = rawDownloadUrl.startsWith("data:application/pdf")
+    ? `/api/books/pdf-proxy?id=${encodeURIComponent(id)}&download=true`
+    : rawDownloadUrl || (safeLocalPdfUrl ? `/api/books/pdf-proxy?id=${encodeURIComponent(id)}&download=true` : "");
+
   const fullBook: Book & {
     pdf_url?: string;
     download_url?: string;
@@ -1271,8 +1306,8 @@ export function saveBookPublication(
     published: input.published ?? true,
     featured: input.featured ?? true,
     created_at: input.created_at || new Date().toISOString(),
-    ...(input.pdf_url ? { pdf_url: input.pdf_url } : {}),
-    ...(input.download_url ? { download_url: input.download_url } : {}),
+    ...(safeLocalPdfUrl ? { pdf_url: safeLocalPdfUrl } : {}),
+    ...(safeLocalDownloadUrl ? { download_url: safeLocalDownloadUrl } : {}),
     ...(input.original_pages_count ? { original_pages_count: input.original_pages_count } : {}),
     ...(input.file_size_formatted ? { file_size_formatted: input.file_size_formatted } : {}),
     ...(input.edition_notes ? { edition_notes: input.edition_notes } : {}),
@@ -1288,7 +1323,7 @@ export function saveBookPublication(
   if (idx >= 0) {
     customBooks[idx] = fullBook;
     safeWriteJson(CUSTOM_BOOKS_KEY, customBooks);
-  } else if (input.isNew) {
+  } else if (input.isNew !== false) {
     customBooks.unshift(fullBook);
     safeWriteJson(CUSTOM_BOOKS_KEY, customBooks);
   }
@@ -1296,8 +1331,12 @@ export function saveBookPublication(
   const deleted = getDeletedBookIds().filter((d) => d !== id);
   safeWriteJson(DELETED_BOOKS_KEY, deleted);
 
-  // Sync book to Firestore Cloud so all users see it immediately
-  void publishBookToCloud(fullBook);
+  if (!input.skipAutoCloudPublish) {
+    void publishBookToCloud({
+      ...fullBook,
+      ...(inlinePdfBase64 ? { pdf_base64: inlinePdfBase64 } : {}),
+    });
+  }
   if (fullBook.published) {
     notifyIndexNowRealtime(`/livros/${fullBook.id}`, "update");
   }

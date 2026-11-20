@@ -1,4 +1,72 @@
+import fs from 'node:fs';
+import path from 'node:path';
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
+
+const UPLOADED_PDF_DIR = path.join('/tmp', 'wotho_uploaded_pdfs');
+const EDITORIAL_CLOUD_STORE_PATH = path.join('/tmp', 'wotho_editorial_cloud_store_v1.json');
+
+function getUploadedPdfBufferById(bookId) {
+  if (!bookId) return null;
+  try {
+    const safeId = String(bookId).replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 128);
+    const pdfPath = path.join(UPLOADED_PDF_DIR, `${safeId}.pdf`);
+    if (fs.existsSync(pdfPath)) {
+      const buf = fs.readFileSync(pdfPath);
+      if (buf.length > 100 && buf.subarray(0, 5).toString('ascii').startsWith('%PDF-')) {
+        return buf;
+      }
+    }
+  } catch {}
+  return null;
+}
+
+function getEditorialStoredBookAndChapters(bookId) {
+  if (!bookId) return { book: null, chapters: [] };
+  try {
+    if (fs.existsSync(EDITORIAL_CLOUD_STORE_PATH)) {
+      const parsed = JSON.parse(fs.readFileSync(EDITORIAL_CLOUD_STORE_PATH, 'utf8'));
+      const books = parsed?.books || {};
+      const chaptersMap = parsed?.chapters || {};
+      const safeId = String(bookId).replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 128);
+      const book = books[bookId] || books[safeId] || Object.values(books).find((b) => b && b.id === bookId) || null;
+      const chapters = Object.values(chaptersMap)
+        .filter((c) => c && c.book_id === bookId && Number(c.position) > 0)
+        .sort((a, b) => (Number(a.position) || 0) - (Number(b.position) || 0));
+
+      // Also check if chunks of PDF binary exist in chaptersMap under book_id === `pdfbin-${bookId}`
+      const binChunks = Object.values(chaptersMap)
+        .filter((c) => c && c.book_id === `pdfbin-${bookId}`)
+        .sort((a, b) => (Number(a.position) || 0) - (Number(b.position) || 0));
+      if (binChunks.length > 0) {
+        const joinedBase64 = binChunks.map((c) => String(c.content || '').trim()).join('');
+        if (joinedBase64) {
+          const buf = Buffer.from(joinedBase64, 'base64');
+          if (buf.length > 100 && buf.subarray(0, 5).toString('ascii').startsWith('%PDF-')) {
+            try {
+              if (!fs.existsSync(UPLOADED_PDF_DIR)) {
+                fs.mkdirSync(UPLOADED_PDF_DIR, { recursive: true });
+              }
+              fs.writeFileSync(path.join(UPLOADED_PDF_DIR, `${safeId}.pdf`), buf);
+            } catch {}
+            return { book, chapters, pdfBuffer: buf };
+          }
+        }
+      }
+
+      return { book, chapters, pdfBuffer: null };
+    }
+  } catch {}
+  return { book: null, chapters: [], pdfBuffer: null };
+}
+
+function sanitizePdfWinAnsiText(input) {
+  return String(input || '')
+    .replace(/[\u2018\u2019]/g, "'")
+    .replace(/[\u201C\u201D]/g, '"')
+    .replace(/[\u2013\u2014]/g, '-')
+    .replace(/\u2026/g, '...')
+    .replace(/[^\x0A\x0D\x20-\x7E\xA0-\xFF]/g, ' ');
+}
 
 async function synthesizeCleanBookPdf(meta) {
   const pdfDoc = await PDFDocument.create();
@@ -16,7 +84,7 @@ async function synthesizeCleanBookPdf(meta) {
     color: rgb(0.98, 0.97, 0.94),
   });
 
-  page.drawText('WOTHO — BIBLIOTECA DIGITAL', {
+  page.drawText('WOTHO - BIBLIOTECA DIGITAL', {
     x: 60,
     y: height - 90,
     size: 11,
@@ -24,15 +92,16 @@ async function synthesizeCleanBookPdf(meta) {
     color: rgb(0.55, 0.42, 0.15),
   });
 
-  page.drawText((meta.title || 'Livro Digital').slice(0, 65), {
+  const cleanTitle = sanitizePdfWinAnsiText(meta.title || 'Livro Digital').slice(0, 65);
+  page.drawText(cleanTitle, {
     x: 60,
     y: height - 160,
-    size: 24,
+    size: 22,
     font: serifBold,
     color: rgb(0.1, 0.1, 0.12),
   });
 
-  page.drawText(`Por ${meta.author || 'Acervo Wotho'}`, {
+  page.drawText(sanitizePdfWinAnsiText(`Por ${meta.author || 'Acervo Wotho'}`).slice(0, 75), {
     x: 60,
     y: height - 200,
     size: 15,
@@ -40,7 +109,7 @@ async function synthesizeCleanBookPdf(meta) {
     color: rgb(0.3, 0.3, 0.35),
   });
 
-  page.drawText(`Categoria: ${meta.category || 'Literatura'}`, {
+  page.drawText(sanitizePdfWinAnsiText(`Categoria: ${meta.category || 'Literatura'}`).slice(0, 75), {
     x: 60,
     y: height - 235,
     size: 12,
@@ -48,9 +117,8 @@ async function synthesizeCleanBookPdf(meta) {
     color: rgb(0.45, 0.45, 0.5),
   });
 
-  const desc = (meta.description || 'Edição digital integral disponibilizada pela plataforma Wotho.').replace(
-    /[^\x20-\x7E\xA0-\xFF]/g,
-    ' '
+  const desc = sanitizePdfWinAnsiText(
+    meta.description || 'Edicao digital integral disponibilizada pela plataforma Wotho.'
   );
   const words = desc.split(/\s+/);
   let line = '';
@@ -81,6 +149,92 @@ async function synthesizeCleanBookPdf(meta) {
     });
   }
 
+  // Render full chapters across subsequent pages if available
+  const chapters = Array.isArray(meta.chapters) ? meta.chapters : [];
+  for (const ch of chapters) {
+    let curPage = pdfDoc.addPage([595.28, 841.89]);
+    let curY = height - 70;
+
+    curPage.drawRectangle({
+      x: 0,
+      y: 0,
+      width,
+      height,
+      color: rgb(0.99, 0.985, 0.965),
+    });
+
+    const chTitle = sanitizePdfWinAnsiText(ch.title || `Capitulo ${ch.position || 1}`).slice(0, 75);
+    curPage.drawText(chTitle, {
+      x: 56,
+      y: curY,
+      size: 15,
+      font: serifBold,
+      color: rgb(0.12, 0.12, 0.15),
+    });
+    curY -= 32;
+
+    const paragraphs = sanitizePdfWinAnsiText(ch.content || '')
+      .replace(/^###\s+/gm, '')
+      .split(/\n+/);
+
+    for (const para of paragraphs) {
+      const trimmedPara = para.trim();
+      if (!trimmedPara) {
+        curY -= 10;
+        continue;
+      }
+      const pWords = trimmedPara.split(/\s+/);
+      let pLine = '';
+      for (const pw of pWords) {
+        if ((pLine + ' ' + pw).length > 78) {
+          if (curY < 65) {
+            curPage = pdfDoc.addPage([595.28, 841.89]);
+            curPage.drawRectangle({
+              x: 0,
+              y: 0,
+              width,
+              height,
+              color: rgb(0.99, 0.985, 0.965),
+            });
+            curY = height - 65;
+          }
+          curPage.drawText(pLine.trim(), {
+            x: 56,
+            y: curY,
+            size: 11.5,
+            font: serifRegular,
+            color: rgb(0.16, 0.16, 0.18),
+          });
+          pLine = pw;
+          curY -= 17;
+        } else {
+          pLine += (pLine ? ' ' : '') + pw;
+        }
+      }
+      if (pLine.trim()) {
+        if (curY < 65) {
+          curPage = pdfDoc.addPage([595.28, 841.89]);
+          curPage.drawRectangle({
+            x: 0,
+            y: 0,
+            width,
+            height,
+            color: rgb(0.99, 0.985, 0.965),
+          });
+          curY = height - 65;
+        }
+        curPage.drawText(pLine.trim(), {
+          x: 56,
+          y: curY,
+          size: 11.5,
+          font: serifRegular,
+          color: rgb(0.16, 0.16, 0.18),
+        });
+        curY -= 21;
+      }
+    }
+  }
+
   const bytes = await pdfDoc.save();
   return Buffer.from(bytes);
 }
@@ -99,14 +253,27 @@ export async function handlePdfProxyRequest(req, res) {
     }
 
     const urlObj = new URL(req.url || '', `http://${req.headers?.host || 'localhost:3000'}`);
-    const targetPdf = urlObj.searchParams.get('url') || '';
+    let bookId = (urlObj.searchParams.get('id') || '').trim();
+    const targetPdf = (urlObj.searchParams.get('url') || '').trim();
     const requestedFilename = urlObj.searchParams.get('filename') || '';
     const isDownload = urlObj.searchParams.get('download') === 'true';
 
-    const finalTitle = urlObj.searchParams.get('title') || 'Livro Digital';
-    const finalAuthor = urlObj.searchParams.get('author') || 'Acervo Wotho';
-    const finalCategory = urlObj.searchParams.get('category') || 'Literatura';
-    const finalDesc = urlObj.searchParams.get('description') || '';
+    // Extract bookId if targetPdf is idb://<id> or /api/books/pdf-proxy?id=<id>
+    if (!bookId && targetPdf.startsWith('idb://')) {
+      bookId = targetPdf.slice('idb://'.length).trim();
+    } else if (!bookId && targetPdf.includes('id=')) {
+      try {
+        const inner = new URL(targetPdf, 'http://localhost:3000');
+        bookId = (inner.searchParams.get('id') || '').trim();
+      } catch {}
+    }
+
+    const storedData = bookId ? getEditorialStoredBookAndChapters(bookId) : { book: null, chapters: [], pdfBuffer: null };
+
+    const finalTitle = urlObj.searchParams.get('title') || storedData.book?.title || 'Livro Digital';
+    const finalAuthor = urlObj.searchParams.get('author') || storedData.book?.author || 'Acervo Wotho';
+    const finalCategory = urlObj.searchParams.get('category') || storedData.book?.category || 'Literatura';
+    const finalDesc = urlObj.searchParams.get('description') || storedData.book?.description || '';
 
     let cleanUtf8Filename = (requestedFilename || `${finalTitle}-${finalAuthor}.pdf`).trim();
     if (!cleanUtf8Filename.toLowerCase().endsWith('.pdf')) {
@@ -123,7 +290,24 @@ export async function handlePdfProxyRequest(req, res) {
 
     let pdfBuffer = null;
 
-    if (targetPdf && targetPdf.startsWith('http')) {
+    // 1. Check uploaded PDF binary on server disk or editorial store chunks
+    if (bookId) {
+      pdfBuffer = getUploadedPdfBufferById(bookId) || storedData.pdfBuffer || null;
+    }
+
+    // 2. Check if targetPdf is an inline data:application/pdf;base64,... URL
+    if (!pdfBuffer && targetPdf.startsWith('data:application/pdf;base64,')) {
+      try {
+        const b64 = targetPdf.slice('data:application/pdf;base64,'.length);
+        const buf = Buffer.from(b64, 'base64');
+        if (buf.length > 100 && buf.subarray(0, 5).toString('ascii').startsWith('%PDF-')) {
+          pdfBuffer = buf;
+        }
+      } catch {}
+    }
+
+    // 3. Check external http(s) PDF URL
+    if (!pdfBuffer && targetPdf && targetPdf.startsWith('http')) {
       try {
         const upstreamRes = await fetch(targetPdf, {
           headers: {
@@ -132,25 +316,27 @@ export async function handlePdfProxyRequest(req, res) {
             Accept: 'application/pdf, application/octet-stream, */*',
           },
           redirect: 'follow',
-          signal: AbortSignal.timeout(7000),
+          signal: AbortSignal.timeout(9000),
         });
 
         if (upstreamRes.ok) {
           const arrayBuffer = await upstreamRes.arrayBuffer();
           const buffer = Buffer.from(arrayBuffer);
-          if (buffer.length > 2500 && buffer.subarray(0, 5).toString('ascii').startsWith('%PDF-')) {
+          if (buffer.length > 500 && buffer.subarray(0, 5).toString('ascii').startsWith('%PDF-')) {
             pdfBuffer = buffer;
           }
         }
       } catch {}
     }
 
+    // 4. Fallback: synthesize clean multi-page PDF from book metadata + chapters
     if (!pdfBuffer) {
       pdfBuffer = await synthesizeCleanBookPdf({
         title: finalTitle,
         author: finalAuthor,
         category: finalCategory,
         description: finalDesc,
+        chapters: storedData.chapters,
       });
     }
 
@@ -161,7 +347,7 @@ export async function handlePdfProxyRequest(req, res) {
       'Content-Disposition',
       `${isDownload ? 'attachment' : 'inline'}; filename="${cleanAsciiFilename}"; filename*=UTF-8''${encodeURIComponent(cleanUtf8Filename)}`
     );
-    res.setHeader('Cache-Control', 'public, max-age=604800, stale-while-revalidate=2592000');
+    res.setHeader('Cache-Control', bookId ? 'no-cache' : 'public, max-age=604800, stale-while-revalidate=2592000');
     res.end(pdfBuffer);
   } catch {
     res.statusCode = 500;

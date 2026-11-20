@@ -43,7 +43,7 @@ export const ANIME_TMDB_MAP: Record<string, number> = {
   "my-hero-academia": 65930,
   "death-note": 13916,
   "fullmetal-alchemist-brotherhood": 31911,
-  "sakamoto-days": 240411,
+  "sakamoto-days": 246953,
   "dr-stone": 86031,
   "mob-psycho-100": 67075,
   "shangri-la-frontier": 205908,
@@ -214,7 +214,7 @@ export interface BookChapterInput {
   content: string;
 }
 
-async function resolveBookChaptersForDownload(bookId: string): Promise<BookChapterInput[]> {
+export async function resolveBookChaptersForDownload(bookId: string): Promise<BookChapterInput[]> {
   try {
     const { getCustomBookChapters } = await import("./editorialStore");
     const localCustom = getCustomBookChapters(bookId);
@@ -268,6 +268,15 @@ async function resolveBookChaptersForDownload(bookId: string): Promise<BookChapt
   }
 
   try {
+    const pdf = getOriginalPdfForBook(bookId);
+    if (pdf) {
+      const { getCanonicalChaptersForOriginalPdf } = await import("./canonicalBookChapters");
+      const canonical = getCanonicalChaptersForOriginalPdf(pdf);
+      if (canonical.length > 0) return canonical;
+    }
+  } catch {}
+
+  try {
     const { fetchCloudChapters } = await import("./cloudEditorialService");
     const cloud = await fetchCloudChapters(bookId);
     if (cloud.length > 0) return cloud;
@@ -276,7 +285,7 @@ async function resolveBookChaptersForDownload(bookId: string): Promise<BookChapt
   return [];
 }
 
-async function buildFullBookPdfBytes(
+export async function buildFullBookPdfBytes(
   book: {
     id: string;
     title: string;
@@ -286,9 +295,9 @@ async function buildFullBookPdfBytes(
     cover_url?: string | null;
   },
   chapters: BookChapterInput[],
-  onProgress: (info: TrackedDownloadProgressInfo) => void
+  onProgress?: (info: TrackedDownloadProgressInfo) => void
 ): Promise<ArrayBuffer> {
-  onProgress({ progressPercent: 12, loadedBytes: 0, progressStage: "downloading" });
+  onProgress?.({ progressPercent: 12, loadedBytes: 0, progressStage: "downloading" });
 
   const pdfDoc = await PDFDocument.create();
   pdfDoc.setTitle(sanitizePdfWinAnsi(book.title));
@@ -533,7 +542,7 @@ async function buildFullBookPdfBytes(
     }
 
     const pct = 18 + Math.round(((i + 1) / totalChaps) * 70);
-    onProgress({
+    onProgress?.({
       progressPercent: pct,
       loadedBytes: Math.round((i + 1) * 18000),
       totalBytes: totalChaps * 18000,
@@ -554,7 +563,7 @@ async function buildFullBookPdfBytes(
     });
   }
 
-  onProgress({ progressPercent: 92, loadedBytes: totalPages * 12000, progressStage: "saving" });
+  onProgress?.({ progressPercent: 92, loadedBytes: totalPages * 12000, progressStage: "saving" });
   const bytes = await pdfDoc.save();
   return bytes.slice().buffer;
 }
@@ -581,8 +590,14 @@ export async function downloadRealBook(params: {
     `${originalPdf?.title || book.title}${originalPdf?.author || book.author ? ` - ${originalPdf?.author || book.author}` : ""}`
   );
 
-  // If book has an authentic physical/original PDF file, download that exact PDF
-  if (explicitSourceUrl) {
+  const isSynthesizedOrLocal =
+    !explicitSourceUrl ||
+    explicitSourceUrl.startsWith("synth://") ||
+    explicitSourceUrl.startsWith("idb://") ||
+    book.id.startsWith("book-editorial-");
+
+  // If book has an authentic external physical PDF file (and is not synth:// or idb://), download that exact PDF
+  if (explicitSourceUrl && !isSynthesizedOrLocal) {
     return executeTrackedDownload({
       itemId: String(book.id),
       type: originalPdf ? "pdf" : "book",
@@ -599,20 +614,44 @@ export async function downloadRealBook(params: {
     });
   }
 
-  // Otherwise compile all genuine chapters of the book into an authentic full-text PDF
+  // Compile or resolve binary PDF (IndexedDB -> Cloud -> Full Multi-Page Chapter Compilation)
   return executeTrackedDownload({
     itemId: String(book.id),
-    type: "book",
-    title: book.title,
-    author: book.author,
+    type: originalPdf ? "pdf" : "book",
+    title: originalPdf?.title || book.title,
+    author: originalPdf?.author || book.author,
     category: book.category,
     description: book.description,
-    cover: book.cover_url || undefined,
-    openHref: `/ler/${book.id}?mode=text`,
+    cover: book.cover_url || originalPdf?.coverUrl || undefined,
+    openHref: originalPdf ? `/ler/${book.id}?mode=pdf` : `/ler/${book.id}?mode=text`,
     fileName: `${baseFileName}.pdf`,
     mimeType: "application/pdf",
     customDownloader: async (onProgress) => {
       onProgress({ progressPercent: 8, loadedBytes: 0, progressStage: "connecting" });
+
+      if (explicitSourceUrl?.startsWith("idb://") || book.id.startsWith("book-editorial-")) {
+        const idbKey = explicitSourceUrl?.startsWith("idb://")
+          ? explicitSourceUrl.slice("idb://".length)
+          : book.id;
+        try {
+          const { getPdfBytesFromIndexedDB } = await import("./pdfUploadService");
+          const localBytes = await getPdfBytesFromIndexedDB(`idb://${idbKey}`);
+          if (localBytes && localBytes.byteLength > 100) {
+            onProgress({ progressPercent: 95, loadedBytes: localBytes.byteLength, progressStage: "saving" });
+            return { buffer: localBytes.slice().buffer, mimeType: "application/pdf" };
+          }
+        } catch {}
+
+        try {
+          const { fetchCloudPdfBinary } = await import("./cloudEditorialService");
+          const cloudBytes = await fetchCloudPdfBinary(idbKey);
+          if (cloudBytes && cloudBytes.byteLength > 100) {
+            onProgress({ progressPercent: 95, loadedBytes: cloudBytes.byteLength, progressStage: "saving" });
+            return { buffer: cloudBytes.slice().buffer, mimeType: "application/pdf" };
+          }
+        } catch {}
+      }
+
       let chapters = params.chapters && params.chapters.length > 0
         ? params.chapters
         : await resolveBookChaptersForDownload(book.id);
@@ -621,13 +660,28 @@ export async function downloadRealBook(params: {
         chapters = [
           {
             position: 1,
-            title: book.title,
-            content: book.description || "Edicao digital Wotho.",
+            title: originalPdf?.title || book.title,
+            content:
+              book.description ||
+              originalPdf?.description ||
+              originalPdf?.editionNotes ||
+              "Edicao digital integral Wotho.",
           },
         ];
       }
 
-      const buffer = await buildFullBookPdfBytes(book, chapters, onProgress);
+      const buffer = await buildFullBookPdfBytes(
+        {
+          id: book.id,
+          title: originalPdf?.title || book.title,
+          author: originalPdf?.author || book.author,
+          category: book.category || originalPdf?.category,
+          description: book.description || originalPdf?.description || originalPdf?.editionNotes,
+          cover_url: book.cover_url || originalPdf?.coverUrl,
+        },
+        chapters,
+        onProgress
+      );
       return {
         buffer,
         mimeType: "application/pdf",

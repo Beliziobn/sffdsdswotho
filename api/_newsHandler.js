@@ -889,67 +889,11 @@ export async function persistArticlesToFirestoreRest(articles) {
 
   if (unsynced.length === 0) return;
 
-  const batchSlice = unsynced.slice(0, 25);
-  const dbRoot = `projects/${fbConfig.projectId}/databases/${fbConfig.firestoreDatabaseId}/documents`;
-  const commitUrl = `https://firestore.googleapis.com/v1/${dbRoot}:commit?key=${encodeURIComponent(
-    fbConfig.apiKey
-  )}`;
-  const proofToken = (process.env.EDITORIAL_CLOUD_PROOF || 'wotho-ed-proof-9f81c4a7b2e6d309581a').trim();
-
-  const writes = [];
-  for (const item of batchSlice) {
+  // Mark items as tracked; syndicated news are persisted permanently via upsertNewsToPermanentArchive
+  for (const item of unsynced.slice(0, 25)) {
     const docId = sanitizeFirestoreDocId(item.slug || item.id);
-    syncedFirestoreIds.add(docId);
-    const nowIso = new Date().toISOString();
-
-    // 1. Atomic Editorial Proof write with server timestamp
-    writes.push({
-      update: {
-        name: `${dbRoot}/editorial_auth/${docId}`,
-        fields: {
-          token: { stringValue: proofToken },
-        },
-      },
-      updateTransforms: [
-        {
-          fieldPath: 'updatedAt',
-          setToServerValue: 'REQUEST_TIME',
-        },
-      ],
-    });
-
-    // 2. News document write
-    writes.push({
-      update: {
-        name: `${dbRoot}/news/${docId}`,
-        fields: {
-          id: { stringValue: String(item.id || docId).slice(0, 128) },
-          title: { stringValue: String(item.title || '').slice(0, 300) },
-          slug: { stringValue: String(item.slug || docId).slice(0, 150) },
-          excerpt: { stringValue: String(item.excerpt || '').slice(0, 2000) },
-          content: { stringValue: String(item.content || '').slice(0, 50000) },
-          cover_url: { stringValue: String(item.cover_url || '').slice(0, 500000) },
-          category: { stringValue: String(item.category || 'Cultura').slice(0, 100) },
-          published: { booleanValue: true },
-          published_at: { stringValue: String(item.published_at || nowIso).slice(0, 100) },
-          created_at: { stringValue: String(item.created_at || item.published_at || nowIso).slice(0, 100) },
-          updated_at: { stringValue: nowIso },
-          author: { stringValue: String(item.author || item.source_name || 'Redação Oficial').slice(0, 150) },
-          source_name: { stringValue: String(item.source_name || item.author || 'Redação Oficial').slice(0, 150) },
-          source_url: { stringValue: String(item.source_url || '').slice(0, 1000) },
-        },
-      },
-    });
+    if (docId) syncedFirestoreIds.add(docId);
   }
-
-  try {
-    await fetch(commitUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ writes }),
-      signal: AbortSignal.timeout(7000),
-    });
-  } catch {}
 }
 
 export function upsertNewsToPermanentArchive(newItems) {

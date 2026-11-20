@@ -99,7 +99,22 @@ export function saveCustomUploadedPdfEntry(entry: OriginalPdfBook): void {
   if (typeof window === "undefined") return;
   try {
     const map = getCustomUploadedPdfMap();
-    map[entry.id] = entry;
+    // Never write a giant data:application/pdf base64 string into localStorage (5 MB limit).
+    // Instead store idb://<id> or /api/books/pdf-proxy?id=<id> in localStorage, while actual PDF bytes live in IndexedDB + Cloud/Server.
+    const safePdfUrl =
+      entry.pdfUrl && entry.pdfUrl.startsWith("data:application/pdf")
+        ? `idb://${entry.id}`
+        : entry.pdfUrl || `idb://${entry.id}`;
+    const safeDownloadUrl =
+      entry.directDownloadUrl && entry.directDownloadUrl.startsWith("data:application/pdf")
+        ? `/api/books/pdf-proxy?id=${encodeURIComponent(entry.id)}&download=true`
+        : entry.directDownloadUrl || `/api/books/pdf-proxy?id=${encodeURIComponent(entry.id)}&download=true`;
+
+    map[entry.id] = {
+      ...entry,
+      pdfUrl: safePdfUrl,
+      directDownloadUrl: safeDownloadUrl,
+    };
     localStorage.setItem(CUSTOM_PDF_REGISTRY_KEY, JSON.stringify(map));
     window.dispatchEvent(new Event("worscoi_editorial_updated"));
   } catch {
@@ -125,6 +140,28 @@ export function formatBytes(bytes: number): string {
   if (mb >= 1) return `${mb.toFixed(1)} MB`;
   const kb = Math.max(1, Math.round(bytes / 1024));
   return `${kb} KB`;
+}
+
+export function arrayBufferToBase64(buffer: ArrayBuffer): string {
+  const bytes = new Uint8Array(buffer);
+  let binary = "";
+  const chunkSize = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+  }
+  return btoa(binary);
+}
+
+export function base64ToUint8Array(base64OrDataUrl: string): Uint8Array {
+  const rawBase64 = base64OrDataUrl.includes(",")
+    ? base64OrDataUrl.split(",")[1] || ""
+    : base64OrDataUrl;
+  const binary = atob(rawBase64.trim());
+  const out = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) {
+    out[i] = binary.charCodeAt(i);
+  }
+  return out;
 }
 
 export interface ExtractedPdfBookData {
@@ -153,17 +190,11 @@ export async function processUploadedPdfFile(
   const fileSizeBytes = file.size;
   const fileSizeFormatted = formatBytes(fileSizeBytes);
 
-  // If file is <= 700 KB, also create a base64 data URL so it can be persisted directly
+  // Convert PDF up to 4.5 MB to base64 data URL for cloud & server sync (never written raw to localStorage)
   let inlineDataUrl: string | undefined;
-  if (fileSizeBytes <= 700 * 1024) {
+  if (fileSizeBytes <= 4500 * 1024) {
     try {
-      const bytes = new Uint8Array(arrayBuffer.slice(0));
-      let binary = "";
-      const chunkSize = 0x8000;
-      for (let i = 0; i < bytes.length; i += chunkSize) {
-        binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
-      }
-      inlineDataUrl = `data:application/pdf;base64,${btoa(binary)}`;
+      inlineDataUrl = `data:application/pdf;base64,${arrayBufferToBase64(arrayBuffer)}`;
     } catch {}
   }
 
@@ -202,13 +233,13 @@ export async function processUploadedPdfFile(
     }
   } catch {}
 
-  // Render Page 1 as high-definition Cover Image
+  // Render Page 1 as optimized Cover Image (~35-65 KB so it syncs reliably in Firestore & localStorage)
   let coverDataUrl = "";
   try {
     onProgress?.("Gerando capa em alta definição a partir da 1ª página...", 40);
     const firstPage = await pdfDoc.getPage(1);
     const baseViewport = firstPage.getViewport({ scale: 1 });
-    const targetScale = Math.min(2.0, Math.max(1.0, 900 / Math.max(1, baseViewport.width)));
+    const targetScale = Math.min(1.6, Math.max(0.85, 560 / Math.max(1, baseViewport.width)));
     const viewport = firstPage.getViewport({ scale: targetScale });
 
     const canvas = document.createElement("canvas");
@@ -219,7 +250,7 @@ export async function processUploadedPdfFile(
       ctx.fillStyle = "#ffffff";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
       await firstPage.render({ canvasContext: ctx, viewport }).promise;
-      coverDataUrl = canvas.toDataURL("image/jpeg", 0.84);
+      coverDataUrl = canvas.toDataURL("image/jpeg", 0.78);
     }
   } catch {}
 

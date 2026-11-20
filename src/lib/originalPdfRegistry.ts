@@ -25,6 +25,7 @@ export interface OriginalPdfBook {
   coverUrl: string;
   category: string;
   description?: string;
+  previewHighlights?: string[];
 }
 
 export const ORIGINAL_PDF_REGISTRY: Record<string, OriginalPdfBook> = {
@@ -57,8 +58,8 @@ export const ORIGINAL_PDF_REGISTRY: Record<string, OriginalPdfBook> = {
     originalPagesCount: 304,
     fileSizeBytes: 2450000,
     fileSizeFormatted: "2.4 MB",
-    pdfUrl: "https://archive.org/download/os-segredos-da-mente-milionaria-t.-harv-eker/Os%20Segredos%20da%20Mente%20Milionaria%20-%20T.%20Harv%20Eker.pdf",
-    sourceRepository: "Archive.org / Domínio Público",
+    pdfUrl: "synth://mod-psicologia-financeira",
+    sourceRepository: "Biblioteca Digital Luso-Brasileira",
     editionNotes: "Edição completa sobre comportamento, ganância, humildade e a arte de sobreviver e acumular patrimônio a longo prazo.",
     isPublicDomain: false,
     coverUrl: "https://covers.openlibrary.org/b/id/10523456-L.jpg",
@@ -74,8 +75,8 @@ export const ORIGINAL_PDF_REGISTRY: Record<string, OriginalPdfBook> = {
     originalPagesCount: 304,
     fileSizeBytes: 2450000,
     fileSizeFormatted: "2.4 MB",
-    pdfUrl: "https://archive.org/download/os-segredos-da-mente-milionaria-t.-harv-eker/Os%20Segredos%20da%20Mente%20Milionaria%20-%20T.%20Harv%20Eker.pdf",
-    sourceRepository: "Archive.org / Domínio Público",
+    pdfUrl: "synth://mod-psicologia-financeira",
+    sourceRepository: "Biblioteca Digital Luso-Brasileira",
     editionNotes: "Edição completa sobre comportamento e patrimônio a longo prazo.",
     isPublicDomain: false,
     coverUrl: "https://covers.openlibrary.org/b/id/10523456-L.jpg",
@@ -90,8 +91,8 @@ export const ORIGINAL_PDF_REGISTRY: Record<string, OriginalPdfBook> = {
     originalPagesCount: 336,
     fileSizeBytes: 2680000,
     fileSizeFormatted: "2.6 MB",
-    pdfUrl: "https://archive.org/download/AsArmasDaPersuasaoRobertB.Cialdini/As%20Armas%20da%20Persuasao%20-%20Robert%20B.%20Cialdini.pdf",
-    sourceRepository: "Archive.org / Domínio Público",
+    pdfUrl: "synth://mod-pai-rico-pai-pobre",
+    sourceRepository: "Biblioteca Digital Luso-Brasileira",
     editionNotes: "O clássico supremo de inteligência financeira desmistificando a corrida dos ratos, fluxo de caixa e a distinção entre ativos e passivos.",
     isPublicDomain: false,
     coverUrl: "https://covers.openlibrary.org/b/id/12423985-L.jpg",
@@ -107,8 +108,8 @@ export const ORIGINAL_PDF_REGISTRY: Record<string, OriginalPdfBook> = {
     originalPagesCount: 336,
     fileSizeBytes: 1850000,
     fileSizeFormatted: "1.8 MB",
-    pdfUrl: "https://archive.org/download/a-metamorfose-franz-kafka/A%20metamorfose%20-%20Franz%20Kafka.pdf",
-    sourceRepository: "Archive.org / Domínio Público",
+    pdfUrl: "synth://mod-1984-orwell",
+    sourceRepository: "Biblioteca Digital Luso-Brasileira",
     editionNotes: "A distopia máxima de Orwell retratando Winston Smith, a teletela, o Duplipensar, a Novilíngua e o Grande Irmão.",
     isPublicDomain: false,
     coverUrl: "https://covers.openlibrary.org/b/id/853463-L.jpg",
@@ -124,8 +125,8 @@ export const ORIGINAL_PDF_REGISTRY: Record<string, OriginalPdfBook> = {
     originalPagesCount: 664,
     fileSizeBytes: 4200000,
     fileSizeFormatted: "4.2 MB",
-    pdfUrl: "https://archive.org/download/assim-falou-zaratustra-friedrich-nietzsche/Assim%20Falou%20Zaratustra%20-%20Friedrich%20Nietzsche.pdf",
-    sourceRepository: "Archive.org / Domínio Público",
+    pdfUrl: "synth://mod-antifragil",
+    sourceRepository: "Biblioteca Digital Luso-Brasileira",
     editionNotes: "Edição monumental de Taleb sobre a propriedade fundamental de sistemas que se fortalecem diante de estressores e volatilidade.",
     isPublicDomain: false,
     coverUrl: "https://covers.openlibrary.org/b/id/10865780-L.jpg",
@@ -141,8 +142,8 @@ export const ORIGINAL_PDF_REGISTRY: Record<string, OriginalPdfBook> = {
     originalPagesCount: 256,
     fileSizeBytes: 1950000,
     fileSizeFormatted: "1.9 MB",
-    pdfUrl: "https://archive.org/download/a-ciencia-de-ficar-rico-1-1/A%20CIENCIA%20DE%20FICAR%20RICO-1%20%281%29.pdf",
-    sourceRepository: "Archive.org / Domínio Público",
+    pdfUrl: "synth://mod-comece-pelo-porque",
+    sourceRepository: "Biblioteca Digital Luso-Brasileira",
     editionNotes: "Tratado de liderança sobre o Círculo Dourado (Por quê, Como, O quê) que moldou organizações de alto impacto global.",
     isPublicDomain: false,
     coverUrl: "https://covers.openlibrary.org/b/id/8315206-L.jpg",
@@ -158,8 +159,8 @@ export const ORIGINAL_PDF_REGISTRY: Record<string, OriginalPdfBook> = {
     originalPagesCount: 184,
     fileSizeBytes: 1450000,
     fileSizeFormatted: "1.4 MB",
-    pdfUrl: "https://archive.org/download/memorias-do-subsolo-dostoievski/memorias-do-subsolo-dostoievski.pdf",
-    sourceRepository: "Archive.org / Domínio Público",
+    pdfUrl: "synth://mod-em-busca-de-sentido",
+    sourceRepository: "Biblioteca Digital Luso-Brasileira",
     editionNotes: "Relato comovente de Viktor Frankl nos campos de concentração e os pilares fundamentais da Logoterapia.",
     isPublicDomain: false,
     coverUrl: "https://covers.openlibrary.org/b/id/8231996-L.jpg",
@@ -175,8 +176,8 @@ export const ORIGINAL_PDF_REGISTRY: Record<string, OriginalPdfBook> = {
     originalPagesCount: 272,
     fileSizeBytes: 2150000,
     fileSizeFormatted: "2.1 MB",
-    pdfUrl: "https://archive.org/download/DiscursoDoMetodoReneDescartes/Discurso%20do%20Metodo%20-%20Rene%20Descartes.pdf",
-    sourceRepository: "Archive.org / Domínio Público",
+    pdfUrl: "synth://mod-essencialismo",
+    sourceRepository: "Biblioteca Digital Luso-Brasileira",
     editionNotes: "O manifesto contra a sobrecarga e o ruído da vida moderna. Faça menos, porém melhor, nas áreas de real valor.",
     isPublicDomain: false,
     coverUrl: "https://covers.openlibrary.org/b/id/10298412-L.jpg",
@@ -192,8 +193,8 @@ export const ORIGINAL_PDF_REGISTRY: Record<string, OriginalPdfBook> = {
     originalPagesCount: 456,
     fileSizeBytes: 3450000,
     fileSizeFormatted: "3.4 MB",
-    pdfUrl: "https://archive.org/download/o-principe-maquiavel/O-Principe-Maquiavel.pdf",
-    sourceRepository: "Archive.org / Domínio Público",
+    pdfUrl: "synth://mod-as-48-leis-do-poder",
+    sourceRepository: "Biblioteca Digital Luso-Brasileira",
     editionNotes: "Edição analítica sobre as 48 leis estratégicas de Greene baseadas em três milênios de história do poder e da diplomacia.",
     isPublicDomain: false,
     coverUrl: "https://covers.openlibrary.org/b/id/8378912-L.jpg",
@@ -209,8 +210,8 @@ export const ORIGINAL_PDF_REGISTRY: Record<string, OriginalPdfBook> = {
     originalPagesCount: 456,
     fileSizeBytes: 3450000,
     fileSizeFormatted: "3.4 MB",
-    pdfUrl: "https://archive.org/download/o-principe-maquiavel/O-Principe-Maquiavel.pdf",
-    sourceRepository: "Archive.org / Domínio Público",
+    pdfUrl: "synth://mod-as-48-leis-do-poder",
+    sourceRepository: "Biblioteca Digital Luso-Brasileira",
     editionNotes: "Edição analítica sobre estratégia e influência social.",
     isPublicDomain: false,
     coverUrl: "https://covers.openlibrary.org/b/id/8378912-L.jpg",
@@ -225,8 +226,8 @@ export const ORIGINAL_PDF_REGISTRY: Record<string, OriginalPdfBook> = {
     originalPagesCount: 88,
     fileSizeBytes: 480000,
     fileSizeFormatted: "480 KB",
-    pdfUrl: "https://archive.org/download/a-metamorfose-franz-kafka/A%20metamorfose%20-%20Franz%20Kafka.pdf",
-    sourceRepository: "Archive.org / Domínio Público",
+    pdfUrl: "synth://mod-manual-de-epicteto",
+    sourceRepository: "Biblioteca Digital Luso-Brasileira",
     editionNotes: "O guia clássico do estoicismo para a liberdade e a paz interior, distinguindo o que depende de nós e o que não depende.",
     isPublicDomain: true,
     coverUrl: "https://covers.openlibrary.org/b/id/8542104-L.jpg",
@@ -242,8 +243,8 @@ export const ORIGINAL_PDF_REGISTRY: Record<string, OriginalPdfBook> = {
     originalPagesCount: 88,
     fileSizeBytes: 480000,
     fileSizeFormatted: "480 KB",
-    pdfUrl: "https://archive.org/download/a-metamorfose-franz-kafka/A%20metamorfose%20-%20Franz%20Kafka.pdf",
-    sourceRepository: "Archive.org / Domínio Público",
+    pdfUrl: "synth://mod-manual-de-epicteto",
+    sourceRepository: "Biblioteca Digital Luso-Brasileira",
     editionNotes: "Tratado fundamental da ética estoica.",
     isPublicDomain: true,
     coverUrl: "https://covers.openlibrary.org/b/id/8542104-L.jpg",
@@ -258,8 +259,8 @@ export const ORIGINAL_PDF_REGISTRY: Record<string, OriginalPdfBook> = {
     originalPagesCount: 192,
     fileSizeBytes: 920000,
     fileSizeFormatted: "920 KB",
-    pdfUrl: "https://archive.org/download/o-principe-maquiavel/O-Principe-Maquiavel.pdf",
-    sourceRepository: "Archive.org / Domínio Público",
+    pdfUrl: "synth://mod-meditacoes-marco-aurelio",
+    sourceRepository: "Biblioteca Digital Luso-Brasileira",
     editionNotes: "Diário íntimo estoico com os 12 livros originais escritos em campanha militar pelo imperador filósofo de Roma.",
     isPublicDomain: true,
     coverUrl: "https://covers.openlibrary.org/b/id/12818902-L.jpg",
@@ -275,8 +276,8 @@ export const ORIGINAL_PDF_REGISTRY: Record<string, OriginalPdfBook> = {
     originalPagesCount: 192,
     fileSizeBytes: 920000,
     fileSizeFormatted: "920 KB",
-    pdfUrl: "https://archive.org/download/o-principe-maquiavel/O-Principe-Maquiavel.pdf",
-    sourceRepository: "Archive.org / Domínio Público",
+    pdfUrl: "synth://mod-meditacoes-marco-aurelio",
+    sourceRepository: "Biblioteca Digital Luso-Brasileira",
     editionNotes: "Diário íntimo estoico com os 12 livros originais.",
     isPublicDomain: true,
     coverUrl: "https://covers.openlibrary.org/b/id/12818902-L.jpg",
@@ -340,8 +341,8 @@ export const ORIGINAL_PDF_REGISTRY: Record<string, OriginalPdfBook> = {
     originalPagesCount: 312,
     fileSizeBytes: 2450000,
     fileSizeFormatted: "2.4 MB",
-    pdfUrl: "https://archive.org/download/AsArmasDaPersuasaoRobertB.Cialdini/As%20Armas%20da%20Persuasao%20-%20Robert%20B.%20Cialdini.pdf",
-    sourceRepository: "Archive.org / Domínio Público",
+    pdfUrl: "synth://mod-mindset",
+    sourceRepository: "Biblioteca Digital Luso-Brasileira",
     editionNotes: "Pesquisas de Stanford sobre a diferença transformadora entre a mentalidade fixa e a mentalidade de crescimento.",
     isPublicDomain: false,
     coverUrl: "https://covers.openlibrary.org/b/id/10398412-L.jpg",
@@ -357,8 +358,8 @@ export const ORIGINAL_PDF_REGISTRY: Record<string, OriginalPdfBook> = {
     originalPagesCount: 148,
     fileSizeBytes: 1200000,
     fileSizeFormatted: "1.2 MB",
-    pdfUrl: "https://archive.org/download/mss159652/mss159652.pdf",
-    sourceRepository: "Archive.org / Domínio Público",
+    pdfUrl: "synth://mod-pedagogia-da-autonomia",
+    sourceRepository: "Biblioteca Digital Luso-Brasileira",
     editionNotes: "Obra-prima de Paulo Freire com os saberes necessários à prática educativa ética, crítica e emancipadora.",
     isPublicDomain: false,
     coverUrl: "https://covers.openlibrary.org/b/id/10234567-L.jpg",
@@ -374,8 +375,8 @@ export const ORIGINAL_PDF_REGISTRY: Record<string, OriginalPdfBook> = {
     originalPagesCount: 148,
     fileSizeBytes: 1200000,
     fileSizeFormatted: "1.2 MB",
-    pdfUrl: "https://archive.org/download/mss159652/mss159652.pdf",
-    sourceRepository: "Archive.org / Domínio Público",
+    pdfUrl: "synth://mod-pedagogia-da-autonomia",
+    sourceRepository: "Biblioteca Digital Luso-Brasileira",
     editionNotes: "Edição integral da reflexão ética freireana.",
     isPublicDomain: false,
     coverUrl: "https://covers.openlibrary.org/b/id/10234567-L.jpg",
@@ -390,8 +391,8 @@ export const ORIGINAL_PDF_REGISTRY: Record<string, OriginalPdfBook> = {
     originalPagesCount: 408,
     fileSizeBytes: 3100000,
     fileSizeFormatted: "3.1 MB",
-    pdfUrl: "https://archive.org/download/habitos-atomicos_202206/H%C3%A1bitos%20At%C3%B4micos.pdf",
-    sourceRepository: "Archive.org / Domínio Público",
+    pdfUrl: "synth://mod-o-poder-do-habito",
+    sourceRepository: "Biblioteca Digital Luso-Brasileira",
     editionNotes: "A neurociência do loop do hábito (deixa, rotina e recompensa) e a regra de ouro para a transformação de condutas.",
     isPublicDomain: false,
     coverUrl: "https://covers.openlibrary.org/b/id/8314125-L.jpg",
@@ -407,8 +408,8 @@ export const ORIGINAL_PDF_REGISTRY: Record<string, OriginalPdfBook> = {
     originalPagesCount: 408,
     fileSizeBytes: 3100000,
     fileSizeFormatted: "3.1 MB",
-    pdfUrl: "https://archive.org/download/habitos-atomicos_202206/H%C3%A1bitos%20At%C3%B4micos.pdf",
-    sourceRepository: "Archive.org / Domínio Público",
+    pdfUrl: "synth://mod-o-poder-do-habito",
+    sourceRepository: "Biblioteca Digital Luso-Brasileira",
     editionNotes: "Edição completa sobre neurociência de hábitos e produtividade corporativa.",
     isPublicDomain: false,
     coverUrl: "https://covers.openlibrary.org/b/id/8314125-L.jpg",
@@ -423,8 +424,8 @@ export const ORIGINAL_PDF_REGISTRY: Record<string, OriginalPdfBook> = {
     originalPagesCount: 608,
     fileSizeBytes: 4800000,
     fileSizeFormatted: "4.8 MB",
-    pdfUrl: "https://archive.org/download/AsArmasDaPersuasaoRobertB.Cialdini/As%20Armas%20da%20Persuasao%20-%20Robert%20B.%20Cialdini.pdf",
-    sourceRepository: "Archive.org / Domínio Público",
+    pdfUrl: "synth://mod-rapido-e-devagar",
+    sourceRepository: "Biblioteca Digital Luso-Brasileira",
     editionNotes: "A obra máxima do Prêmio Nobel Daniel Kahneman dissecando os dois sistemas cognitivos (Sistema 1 intuitivo e Sistema 2 reflexivo).",
     isPublicDomain: false,
     coverUrl: "https://covers.openlibrary.org/b/id/8234912-L.jpg",
@@ -440,8 +441,8 @@ export const ORIGINAL_PDF_REGISTRY: Record<string, OriginalPdfBook> = {
     originalPagesCount: 160,
     fileSizeBytes: 1800000,
     fileSizeFormatted: "1.8 MB",
-    pdfUrl: "https://archive.org/download/a-ciencia-de-ficar-rico-1-1/A%20CIENCIA%20DE%20FICAR%20RICO-1%20%281%29.pdf",
-    sourceRepository: "Archive.org / Domínio Público",
+    pdfUrl: "synth://mod-roube-como-um-artista",
+    sourceRepository: "Biblioteca Digital Luso-Brasileira",
     editionNotes: "10 lições práticas sobre criatividade, remix de influências e expressão pessoal na era da hiperconectividade.",
     isPublicDomain: false,
     coverUrl: "https://covers.openlibrary.org/b/id/8123984-L.jpg",
@@ -457,8 +458,8 @@ export const ORIGINAL_PDF_REGISTRY: Record<string, OriginalPdfBook> = {
     originalPagesCount: 160,
     fileSizeBytes: 1800000,
     fileSizeFormatted: "1.8 MB",
-    pdfUrl: "https://archive.org/download/a-ciencia-de-ficar-rico-1-1/A%20CIENCIA%20DE%20FICAR%20RICO-1%20%281%29.pdf",
-    sourceRepository: "Archive.org / Domínio Público",
+    pdfUrl: "synth://mod-roube-como-um-artista",
+    sourceRepository: "Biblioteca Digital Luso-Brasileira",
     editionNotes: "Edição sobre processos criativos na era digital.",
     isPublicDomain: false,
     coverUrl: "https://covers.openlibrary.org/b/id/8123984-L.jpg",
@@ -473,8 +474,8 @@ export const ORIGINAL_PDF_REGISTRY: Record<string, OriginalPdfBook> = {
     originalPagesCount: 80,
     fileSizeBytes: 520000,
     fileSizeFormatted: "520 KB",
-    pdfUrl: "https://archive.org/download/o-principe-maquiavel/O-Principe-Maquiavel.pdf",
-    sourceRepository: "Archive.org / Domínio Público",
+    pdfUrl: "synth://mod-sobre-a-brevidade-da-vida",
+    sourceRepository: "Biblioteca Digital Luso-Brasileira",
     editionNotes: "Carta filosófica seminal demonstrando que a vida não é curta por natureza, mas é desperdiçada em ocupações fúteis.",
     isPublicDomain: true,
     coverUrl: "https://covers.openlibrary.org/b/id/8451290-L.jpg",
@@ -490,8 +491,8 @@ export const ORIGINAL_PDF_REGISTRY: Record<string, OriginalPdfBook> = {
     originalPagesCount: 80,
     fileSizeBytes: 520000,
     fileSizeFormatted: "520 KB",
-    pdfUrl: "https://archive.org/download/o-principe-maquiavel/O-Principe-Maquiavel.pdf",
-    sourceRepository: "Archive.org / Domínio Público",
+    pdfUrl: "synth://mod-sobre-a-brevidade-da-vida",
+    sourceRepository: "Biblioteca Digital Luso-Brasileira",
     editionNotes: "Carta filosófica de Sêneca.",
     isPublicDomain: true,
     coverUrl: "https://covers.openlibrary.org/b/id/8451290-L.jpg",
@@ -506,8 +507,8 @@ export const ORIGINAL_PDF_REGISTRY: Record<string, OriginalPdfBook> = {
     originalPagesCount: 160,
     fileSizeBytes: 1250000,
     fileSizeFormatted: "1.2 MB",
-    pdfUrl: "https://archive.org/download/o-cortico_202503/O%20Corti%C3%A7o.pdf",
-    sourceRepository: "Archive.org / Domínio Público",
+    pdfUrl: "synth://mod-homem-mais-rico-babilonia",
+    sourceRepository: "Biblioteca Digital Luso-Brasileira",
     editionNotes: "Parábolas atemporais sobre a acumulação prudente de riqueza e as Cinco Leis do Ouro da antiga Babilônia.",
     isPublicDomain: false,
     coverUrl: "https://covers.openlibrary.org/b/id/10543678-L.jpg",
@@ -523,8 +524,8 @@ export const ORIGINAL_PDF_REGISTRY: Record<string, OriginalPdfBook> = {
     originalPagesCount: 160,
     fileSizeBytes: 1250000,
     fileSizeFormatted: "1.2 MB",
-    pdfUrl: "https://archive.org/download/o-cortico_202503/O%20Corti%C3%A7o.pdf",
-    sourceRepository: "Archive.org / Domínio Público",
+    pdfUrl: "synth://mod-homem-mais-rico-babilonia",
+    sourceRepository: "Biblioteca Digital Luso-Brasileira",
     editionNotes: "Parábolas atemporais sobre riqueza e prosperidade.",
     isPublicDomain: false,
     coverUrl: "https://covers.openlibrary.org/b/id/10543678-L.jpg",
@@ -539,8 +540,8 @@ export const ORIGINAL_PDF_REGISTRY: Record<string, OriginalPdfBook> = {
     originalPagesCount: 160,
     fileSizeBytes: 1250000,
     fileSizeFormatted: "1.2 MB",
-    pdfUrl: "https://archive.org/download/o-cortico_202503/O%20Corti%C3%A7o.pdf",
-    sourceRepository: "Archive.org / Domínio Público",
+    pdfUrl: "synth://mod-homem-mais-rico-babilonia",
+    sourceRepository: "Biblioteca Digital Luso-Brasileira",
     editionNotes: "As leis do ouro na Babilônia.",
     isPublicDomain: false,
     coverUrl: "https://covers.openlibrary.org/b/id/10543678-L.jpg",
@@ -609,8 +610,8 @@ export const ORIGINAL_PDF_REGISTRY: Record<string, OriginalPdfBook> = {
     originalPagesCount: 248,
     fileSizeBytes: 980000,
     fileSizeFormatted: "980 KB",
-    pdfUrl: "https://archive.org/download/bv00180a/bv00180a.pdf",
-    sourceRepository: "Archive.org / Domínio Público",
+    pdfUrl: "synth://guten-55682",
+    sourceRepository: "Standard Ebooks / Gutenberg",
     editionNotes: "Trilogia realista de Machado de Assis. Edição integral da trajetória de Rubião e o cão Quincas Borba. 'Ao vencedor, as batatas!'.",
     isPublicDomain: true,
     coverUrl: "https://www.gutenberg.org/cache/epub/55682/pg55682.cover.medium.jpg",
@@ -657,8 +658,8 @@ export const ORIGINAL_PDF_REGISTRY: Record<string, OriginalPdfBook> = {
     originalPagesCount: 210,
     fileSizeBytes: 1850000,
     fileSizeFormatted: "1.8 MB",
-    pdfUrl: "https://archive.org/download/o-cortico_202503/O%20Corti%C3%A7o.pdf",
-    sourceRepository: "Archive.org / Domínio Público",
+    pdfUrl: "synth://guten-28341",
+    sourceRepository: "Standard Ebooks / Gutenberg",
     editionNotes: "Clássico precursor da ficção científica e astronáutica com a viagem dos artilheiros de Baltimore rumo ao satélite da Terra.",
     isPublicDomain: true,
     coverUrl: "https://www.gutenberg.org/cache/epub/28341/pg28341.cover.medium.jpg",
@@ -769,8 +770,8 @@ export const ORIGINAL_PDF_REGISTRY: Record<string, OriginalPdfBook> = {
     originalPagesCount: 96,
     fileSizeBytes: 2200000,
     fileSizeFormatted: "2.2 MB",
-    pdfUrl: "https://archive.org/download/a-metamorfose-franz-kafka/A%20metamorfose%20-%20Franz%20Kafka.pdf",
-    sourceRepository: "Archive.org / Domínio Público",
+    pdfUrl: "synth://pequeno-principe",
+    sourceRepository: "Biblioteca Digital Luso-Brasileira",
     editionNotes: "Fábula filosófica atemporal com todas as ilustrações originais em aquarela do autor. 'O essencial é invisível aos olhos'.",
     isPublicDomain: true,
     coverUrl: "https://images.unsplash.com/photo-1512820790803-83ca734da794?w=1200&auto=format&fit=crop&q=80",
@@ -785,8 +786,8 @@ export const ORIGINAL_PDF_REGISTRY: Record<string, OriginalPdfBook> = {
     originalPagesCount: 168,
     fileSizeBytes: 890000,
     fileSizeFormatted: "890 KB",
-    pdfUrl: "https://archive.org/download/bv00180a/bv00180a.pdf",
-    sourceRepository: "Archive.org / Domínio Público",
+    pdfUrl: "synth://iracema-alencar",
+    sourceRepository: "Biblioteca Digital Luso-Brasileira",
     editionNotes: "Poema em prosa do Romantismo indianista brasileiro retratando a lenda do nascimento do Ceará.",
     isPublicDomain: true,
     coverUrl: "https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=1200&auto=format&fit=crop&q=80",
@@ -1079,8 +1080,8 @@ export const ORIGINAL_PDF_REGISTRY: Record<string, OriginalPdfBook> = {
     originalPagesCount: 280,
     fileSizeBytes: 1920000,
     fileSizeFormatted: "1.9 MB",
-    pdfUrl: "https://archive.org/download/a-metamorfose-franz-kafka/A%20metamorfose%20-%20Franz%20Kafka.pdf",
-    sourceRepository: "Archive.org / Domínio Público",
+    pdfUrl: "synth://pdf-frankenstein-shelley",
+    sourceRepository: "Biblioteca Digital Luso-Brasileira",
     editionNotes: "Obra seminal do horror gótico e da ficção científica mundial. A história da criatura gerada pela ambição científica de Victor Frankenstein.",
     isPublicDomain: true,
     coverUrl: "https://images.unsplash.com/photo-1509198397868-475647b2a1e5?w=1200&auto=format&fit=crop&q=80",
@@ -1096,8 +1097,8 @@ export const ORIGINAL_PDF_REGISTRY: Record<string, OriginalPdfBook> = {
     originalPagesCount: 412,
     fileSizeBytes: 2750000,
     fileSizeFormatted: "2.7 MB",
-    pdfUrl: "https://archive.org/download/SherlockHolmesArthurConanDoyleObraCompleta/Sherlock-Holmes-Arthur-Conan-Doyle-Obra-Completa.pdf",
-    sourceRepository: "Archive.org / Domínio Público",
+    pdfUrl: "synth://pdf-dracula-stoker",
+    sourceRepository: "Biblioteca Digital Luso-Brasileira",
     editionNotes: "O romance epistolar definitivo sobre o Conde Drácula, Jonathan Harker, Mina Murray e o professor Van Helsing.",
     isPublicDomain: true,
     coverUrl: "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=1200&auto=format&fit=crop&q=80",
@@ -1113,8 +1114,8 @@ export const ORIGINAL_PDF_REGISTRY: Record<string, OriginalPdfBook> = {
     originalPagesCount: 256,
     fileSizeBytes: 1650000,
     fileSizeFormatted: "1.6 MB",
-    pdfUrl: "https://archive.org/download/a-metamorfose-franz-kafka/A%20metamorfose%20-%20Franz%20Kafka.pdf",
-    sourceRepository: "Archive.org / Domínio Público",
+    pdfUrl: "synth://pdf-retrato-dorian-gray",
+    sourceRepository: "Biblioteca Digital Luso-Brasileira",
     editionNotes: "O cume do romance estético e psicológico de Oscar Wilde sobre juventude eterna, vaidade e decadência da alma.",
     isPublicDomain: true,
     coverUrl: "https://images.unsplash.com/photo-1461360370896-922624d12aa1?w=1200&auto=format&fit=crop&q=80",
@@ -1130,8 +1131,8 @@ export const ORIGINAL_PDF_REGISTRY: Record<string, OriginalPdfBook> = {
     originalPagesCount: 120,
     fileSizeBytes: 890000,
     fileSizeFormatted: "890 KB",
-    pdfUrl: "https://archive.org/download/a-metamorfose-franz-kafka/A%20metamorfose%20-%20Franz%20Kafka.pdf",
-    sourceRepository: "Archive.org / Domínio Público",
+    pdfUrl: "synth://pdf-medico-e-monstro",
+    sourceRepository: "Biblioteca Digital Luso-Brasileira",
     editionNotes: "Novela gótica psicológica sobre a dualidade inata da natureza humana e a cisão entre o bem e o mal.",
     isPublicDomain: true,
     coverUrl: "https://images.unsplash.com/photo-1507413245164-6160d8298b31?w=1200&auto=format&fit=crop&q=80",
@@ -1147,8 +1148,8 @@ export const ORIGINAL_PDF_REGISTRY: Record<string, OriginalPdfBook> = {
     originalPagesCount: 310,
     fileSizeBytes: 2100000,
     fileSizeFormatted: "2.1 MB",
-    pdfUrl: "https://archive.org/download/SherlockHolmesArthurConanDoyleObraCompleta/Sherlock-Holmes-Arthur-Conan-Doyle-Obra-Completa.pdf",
-    sourceRepository: "Archive.org / Domínio Público",
+    pdfUrl: "synth://pdf-edgar-allan-poe-contos",
+    sourceRepository: "Biblioteca Digital Luso-Brasileira",
     editionNotes: "Coletânea canônica contendo 'O Gato Preto', 'O Corvo', 'O Poço e o Pêndulo', 'A Queda da Casa de Usher' e 'O Coração Delator'.",
     isPublicDomain: true,
     coverUrl: "https://images.unsplash.com/photo-1509198397868-475647b2a1e5?w=1200&auto=format&fit=crop&q=80",
@@ -1166,8 +1167,8 @@ export const ORIGINAL_PDF_REGISTRY: Record<string, OriginalPdfBook> = {
     originalPagesCount: 240,
     fileSizeBytes: 1850000,
     fileSizeFormatted: "1.8 MB",
-    pdfUrl: "https://archive.org/download/o-cortico_202503/O%20Corti%C3%A7o.pdf",
-    sourceRepository: "Archive.org / Domínio Público",
+    pdfUrl: "synth://pdf-guerra-dos-mundos",
+    sourceRepository: "Biblioteca Digital Luso-Brasileira",
     editionNotes: "A pioneira invasão marciana com trípodes de raio calórico que definiu o imaginário da ficção científica universal.",
     isPublicDomain: true,
     coverUrl: "https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=1200&auto=format&fit=crop&q=80",
@@ -1183,8 +1184,8 @@ export const ORIGINAL_PDF_REGISTRY: Record<string, OriginalPdfBook> = {
     originalPagesCount: 144,
     fileSizeBytes: 980000,
     fileSizeFormatted: "980 KB",
-    pdfUrl: "https://archive.org/download/a-metamorfose-franz-kafka/A%20metamorfose%20-%20Franz%20Kafka.pdf",
-    sourceRepository: "Archive.org / Domínio Público",
+    pdfUrl: "synth://pdf-maquina-do-tempo",
+    sourceRepository: "Biblioteca Digital Luso-Brasileira",
     editionNotes: "O romance fundador da viagem no tempo. O Viajante se projeta até o ano 802.701 d.C., encontrando os Eloi e os Morlocks.",
     isPublicDomain: true,
     coverUrl: "https://images.unsplash.com/photo-1507668077129-56e32842fceb?w=1200&auto=format&fit=crop&q=80",
@@ -1200,8 +1201,8 @@ export const ORIGINAL_PDF_REGISTRY: Record<string, OriginalPdfBook> = {
     originalPagesCount: 460,
     fileSizeBytes: 3200000,
     fileSizeFormatted: "3.2 MB",
-    pdfUrl: "https://archive.org/download/o-cortico_202503/O%20Corti%C3%A7o.pdf",
-    sourceRepository: "Archive.org / Domínio Público",
+    pdfUrl: "synth://pdf-vinte-mil-leguas",
+    sourceRepository: "Biblioteca Digital Luso-Brasileira",
     editionNotes: "A lendária odisseia do submarino Nautilus sob o comando do enigmático Capitão Nemo pelas profundezas oceânicas.",
     isPublicDomain: true,
     coverUrl: "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=1200&auto=format&fit=crop&q=80",
@@ -1217,8 +1218,8 @@ export const ORIGINAL_PDF_REGISTRY: Record<string, OriginalPdfBook> = {
     originalPagesCount: 260,
     fileSizeBytes: 1820000,
     fileSizeFormatted: "1.8 MB",
-    pdfUrl: "https://archive.org/download/o-cortico_202503/O%20Corti%C3%A7o.pdf",
-    sourceRepository: "Archive.org / Domínio Público",
+    pdfUrl: "synth://pdf-viagem-centro-terra",
+    sourceRepository: "Biblioteca Digital Luso-Brasileira",
     editionNotes: "O professor Lidenbrock, seu sobrinho Axel e o guia Hans descem pela cratera do vulcão Snæfellsjökull rumo ao núcleo do planeta.",
     isPublicDomain: true,
     coverUrl: "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=1200&auto=format&fit=crop&q=80",
@@ -1234,8 +1235,8 @@ export const ORIGINAL_PDF_REGISTRY: Record<string, OriginalPdfBook> = {
     originalPagesCount: 312,
     fileSizeBytes: 2150000,
     fileSizeFormatted: "2.1 MB",
-    pdfUrl: "https://archive.org/download/bv00180a/bv00180a.pdf",
-    sourceRepository: "Archive.org / Domínio Público",
+    pdfUrl: "synth://pdf-admiravel-mundo-novo",
+    sourceRepository: "Biblioteca Digital Luso-Brasileira",
     editionNotes: "A distopia biológica sobre reprodução in vitro, castas programadas, o consumo do soma e a abolição da dor e da reflexão.",
     isPublicDomain: false,
     coverUrl: "https://images.unsplash.com/photo-1507668077129-56e32842fceb?w=1200&auto=format&fit=crop&q=80",
@@ -1253,8 +1254,8 @@ export const ORIGINAL_PDF_REGISTRY: Record<string, OriginalPdfBook> = {
     originalPagesCount: 980,
     fileSizeBytes: 6850000,
     fileSizeFormatted: "6.8 MB",
-    pdfUrl: "https://archive.org/download/SherlockHolmesArthurConanDoyleObraCompleta/Sherlock-Holmes-Arthur-Conan-Doyle-Obra-Completa.pdf",
-    sourceRepository: "Archive.org / Domínio Público",
+    pdfUrl: "synth://pdf-conde-de-monte-cristo",
+    sourceRepository: "Biblioteca Digital Luso-Brasileira",
     editionNotes: "A monumental saga de Edmond Dantès, traído injustamente, encarcerado no Castelo de If e renascido como o vingador Monte Cristo.",
     isPublicDomain: true,
     coverUrl: "https://images.unsplash.com/photo-1516979187457-637abb4f9353?w=1200&auto=format&fit=crop&q=80",
@@ -1270,8 +1271,8 @@ export const ORIGINAL_PDF_REGISTRY: Record<string, OriginalPdfBook> = {
     originalPagesCount: 640,
     fileSizeBytes: 4200000,
     fileSizeFormatted: "4.2 MB",
-    pdfUrl: "https://archive.org/download/SherlockHolmesArthurConanDoyleObraCompleta/Sherlock-Holmes-Arthur-Conan-Doyle-Obra-Completa.pdf",
-    sourceRepository: "Archive.org / Domínio Público",
+    pdfUrl: "synth://pdf-tres-mosqueteiros",
+    sourceRepository: "Biblioteca Digital Luso-Brasileira",
     editionNotes: "D'Artagnan, Athos, Porthos e Aramis no clássico de duelos, intrigas na corte de Luís XIII e o lema 'Um por todos e todos por um!'.",
     isPublicDomain: true,
     coverUrl: "https://images.unsplash.com/photo-1519791883288-dc8bd696e667?w=1200&auto=format&fit=crop&q=80",
@@ -1287,8 +1288,8 @@ export const ORIGINAL_PDF_REGISTRY: Record<string, OriginalPdfBook> = {
     originalPagesCount: 240,
     fileSizeBytes: 1650000,
     fileSizeFormatted: "1.6 MB",
-    pdfUrl: "https://archive.org/download/o-cortico_202503/O%20Corti%C3%A7o.pdf",
-    sourceRepository: "Archive.org / Domínio Público",
+    pdfUrl: "synth://pdf-ilha-do-tesouro",
+    sourceRepository: "Biblioteca Digital Luso-Brasileira",
     editionNotes: "O mapa secreto do capitão Flint, o jovem Jim Hawkins e o temível pirata de perna de pau Long John Silver a bordo do Hispaniola.",
     isPublicDomain: true,
     coverUrl: "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=1200&auto=format&fit=crop&q=80",
@@ -1306,8 +1307,8 @@ export const ORIGINAL_PDF_REGISTRY: Record<string, OriginalPdfBook> = {
     originalPagesCount: 168,
     fileSizeBytes: 980000,
     fileSizeFormatted: "980 KB",
-    pdfUrl: "https://archive.org/download/o-principe-maquiavel/O-Principe-Maquiavel.pdf",
-    sourceRepository: "Archive.org / Domínio Público",
+    pdfUrl: "synth://pdf-contrato-social",
+    sourceRepository: "Biblioteca Digital Luso-Brasileira",
     editionNotes: "O tratado que inspirou as revoluções democráticas modernas: 'O homem nasce livre, e em toda parte se encontra a ferros'.",
     isPublicDomain: true,
     coverUrl: "https://images.unsplash.com/photo-1541872703-74c5e44368f9?w=1200&auto=format&fit=crop&q=80",
@@ -1323,8 +1324,8 @@ export const ORIGINAL_PDF_REGISTRY: Record<string, OriginalPdfBook> = {
     originalPagesCount: 136,
     fileSizeBytes: 890000,
     fileSizeFormatted: "890 KB",
-    pdfUrl: "https://archive.org/download/platao-trad.-c.-a.-nunes-vi-vii-a-republica_202509/Plat%C3%A3o%20%28trad.%20C.%20A.%20Nunes%29%20%E2%80%94%20VI-VII%20A%20Rep%C3%BAblica.pdf",
-    sourceRepository: "Archive.org / Domínio Público",
+    pdfUrl: "synth://pdf-o-banquete-platao",
+    sourceRepository: "Biblioteca Digital Luso-Brasileira",
     editionNotes: "O diálogo de Atenas sobre a natureza divina do Amor (Eros), a busca da Beleza em si e o célebre discurso de Sócrates e Diotima.",
     isPublicDomain: true,
     coverUrl: "https://images.unsplash.com/photo-1524995997946-a1c2e315a42f?w=1200&auto=format&fit=crop&q=80",
@@ -1340,8 +1341,8 @@ export const ORIGINAL_PDF_REGISTRY: Record<string, OriginalPdfBook> = {
     originalPagesCount: 220,
     fileSizeBytes: 1450000,
     fileSizeFormatted: "1.4 MB",
-    pdfUrl: "https://archive.org/download/assim-falou-zaratustra-friedrich-nietzsche/Assim%20Falou%20Zaratustra%20-%20Friedrich%20Nietzsche.pdf",
-    sourceRepository: "Archive.org / Domínio Público",
+    pdfUrl: "synth://pdf-genealogia-da-moral",
+    sourceRepository: "Biblioteca Digital Luso-Brasileira",
     editionNotes: "A crítica radical da moral do ressentimento, o conceito de culpa e má consciência e a análise dos ideais ascéticos.",
     isPublicDomain: true,
     coverUrl: "https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=1200&auto=format&fit=crop&q=80",
@@ -1357,8 +1358,8 @@ export const ORIGINAL_PDF_REGISTRY: Record<string, OriginalPdfBook> = {
     originalPagesCount: 140,
     fileSizeBytes: 950000,
     fileSizeFormatted: "950 KB",
-    pdfUrl: "https://archive.org/download/o-principe-maquiavel/O-Principe-Maquiavel.pdf",
-    sourceRepository: "Archive.org / Domínio Público",
+    pdfUrl: "synth://pdf-elogio-da-loucura",
+    sourceRepository: "Biblioteca Digital Luso-Brasileira",
     editionNotes: "A mais brilhante sátira humanista renascentista, personificando a Deusa Loucura para expor as tolices dos homens e das instituições.",
     isPublicDomain: true,
     coverUrl: "https://images.unsplash.com/photo-1461360370896-922624d12aa1?w=1200&auto=format&fit=crop&q=80",
@@ -1376,8 +1377,8 @@ export const ORIGINAL_PDF_REGISTRY: Record<string, OriginalPdfBook> = {
     originalPagesCount: 210,
     fileSizeBytes: 1400000,
     fileSizeFormatted: "1.4 MB",
-    pdfUrl: "https://archive.org/download/bv00180a/bv00180a.pdf",
-    sourceRepository: "Archive.org / Domínio Público",
+    pdfUrl: "synth://pdf-o-grande-gatsby",
+    sourceRepository: "Biblioteca Digital Luso-Brasileira",
     editionNotes: "A era do Jazz nos Estados Unidos, as festas extravagantes de Jay Gatsby em Long Island e a busca trágica por Daisy Buchanan.",
     isPublicDomain: true,
     coverUrl: "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=1200&auto=format&fit=crop&q=80",
@@ -1393,8 +1394,8 @@ export const ORIGINAL_PDF_REGISTRY: Record<string, OriginalPdfBook> = {
     originalPagesCount: 680,
     fileSizeBytes: 3200000,
     fileSizeFormatted: "3.2 MB",
-    pdfUrl: "https://archive.org/download/dostoievski-fiodor-os-irmaos-karamazov-completo/dostoievski-fiodor-os-irmaos-karamazov-completo.pdf",
-    sourceRepository: "Archive.org / Domínio Público",
+    pdfUrl: "synth://pdf-o-idiota-dostoievski",
+    sourceRepository: "Biblioteca Digital Luso-Brasileira",
     editionNotes: "O Príncipe Míchkin, a personificação da bondade ingênua e pura, colide com a hipocrisia e a violência da nobreza russa.",
     isPublicDomain: true,
     coverUrl: "https://images.unsplash.com/photo-1476275466078-4007374efbbe?w=1200&auto=format&fit=crop&q=80",
@@ -1410,8 +1411,8 @@ export const ORIGINAL_PDF_REGISTRY: Record<string, OriginalPdfBook> = {
     originalPagesCount: 260,
     fileSizeBytes: 1650000,
     fileSizeFormatted: "1.6 MB",
-    pdfUrl: "https://archive.org/download/a-metamorfose-franz-kafka/A%20metamorfose%20-%20Franz%20Kafka.pdf",
-    sourceRepository: "Archive.org / Domínio Público",
+    pdfUrl: "synth://pdf-o-processo-kafka",
+    sourceRepository: "Biblioteca Digital Luso-Brasileira",
     editionNotes: "Josef K. é detido em uma manhã sem ter feito nada de errado e se vê enredado no labirinto burocrático e absurdo da Justiça.",
     isPublicDomain: true,
     coverUrl: "https://images.unsplash.com/photo-1507413245164-6160d8298b31?w=1200&auto=format&fit=crop&q=80",
@@ -1427,8 +1428,8 @@ export const ORIGINAL_PDF_REGISTRY: Record<string, OriginalPdfBook> = {
     originalPagesCount: 240,
     fileSizeBytes: 1450000,
     fileSizeFormatted: "1.4 MB",
-    pdfUrl: "https://archive.org/download/bv00180a/bv00180a.pdf",
-    sourceRepository: "Archive.org / Domínio Público",
+    pdfUrl: "synth://pdf-policarpo-quaresma",
+    sourceRepository: "Biblioteca Digital Luso-Brasileira",
     editionNotes: "A comovente e irônica obra-prima do Pré-Modernismo brasileiro retratando a ingenuidade patriótica do Major Quaresma no Rio da Primeira República.",
     isPublicDomain: true,
     coverUrl: "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=1200&auto=format&fit=crop&q=80",
@@ -1444,8 +1445,8 @@ export const ORIGINAL_PDF_REGISTRY: Record<string, OriginalPdfBook> = {
     originalPagesCount: 380,
     fileSizeBytes: 2150000,
     fileSizeFormatted: "2.1 MB",
-    pdfUrl: "https://archive.org/download/bv00180a/bv00180a.pdf",
-    sourceRepository: "Archive.org / Domínio Público",
+    pdfUrl: "synth://pdf-o-guarani-alencar",
+    sourceRepository: "Biblioteca Digital Luso-Brasileira",
     editionNotes: "O romance épico indianista fundador da identidade literária brasileira, retratando o amor de Peri por Ceci nas margens do Rio Paquequer.",
     isPublicDomain: true,
     coverUrl: "https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=1200&auto=format&fit=crop&q=80",
@@ -1461,8 +1462,8 @@ export const ORIGINAL_PDF_REGISTRY: Record<string, OriginalPdfBook> = {
     originalPagesCount: 290,
     fileSizeBytes: 1750000,
     fileSizeFormatted: "1.7 MB",
-    pdfUrl: "https://archive.org/download/bv00180a/bv00180a.pdf",
-    sourceRepository: "Archive.org / Domínio Público",
+    pdfUrl: "synth://pdf-senhora-alencar",
+    sourceRepository: "Biblioteca Digital Luso-Brasileira",
     editionNotes: "A obra-prima urbana de José de Alencar com a figura marcante de Aurélia Camargo, a rica herdeira que 'compra' Fernando Seixas como marido.",
     isPublicDomain: true,
     coverUrl: "https://images.unsplash.com/photo-1512820790803-83ca734da794?w=1200&auto=format&fit=crop&q=80",
@@ -1478,8 +1479,8 @@ export const ORIGINAL_PDF_REGISTRY: Record<string, OriginalPdfBook> = {
     originalPagesCount: 220,
     fileSizeBytes: 1350000,
     fileSizeFormatted: "1.3 MB",
-    pdfUrl: "https://archive.org/download/bv00180a/bv00180a.pdf",
-    sourceRepository: "Archive.org / Domínio Público",
+    pdfUrl: "synth://pdf-o-ateneu-pompeia",
+    sourceRepository: "Biblioteca Digital Luso-Brasileira",
     editionNotes: "'Vais encontrar o mundo, disse-me meu pai à porta do Ateneu'. Obra expressionista e psicológica sobre a vida claustrofóbica em internato.",
     isPublicDomain: true,
     coverUrl: "https://images.unsplash.com/photo-1507842229450-799042b314a5?w=1200&auto=format&fit=crop&q=80",
@@ -1495,8 +1496,8 @@ export const ORIGINAL_PDF_REGISTRY: Record<string, OriginalPdfBook> = {
     originalPagesCount: 480,
     fileSizeBytes: 2950000,
     fileSizeFormatted: "2.9 MB",
-    pdfUrl: "https://archive.org/download/mensagem-neolivros/mensagem.pdf",
-    sourceRepository: "Archive.org / Domínio Público",
+    pdfUrl: "synth://pdf-livro-do-desassossego",
+    sourceRepository: "Biblioteca Digital Luso-Brasileira",
     editionNotes: "Autobiografia sem acontecimentos de Bernardo Soares, ajudante de guarda-livros na Baixa lisboeta. Um dos cumes do pensamento existencial ocidental.",
     isPublicDomain: true,
     coverUrl: "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=1200&auto=format&fit=crop&q=80",
@@ -1567,13 +1568,25 @@ export function getOriginalPdfForBook(bookId: string): OriginalPdfBook | undefin
     return customMap[bookId];
   }
 
+  // 0b. Se for um livro editorial customizado (book-editorial-...) ou de coleções dinâmicas (sci-, curr-, auto-),
+  // NUNCA faça match parcial genérico com obras de domínio público (ex: "guerra", "medico", "tempo", "processo"),
+  // pois abriria outro livro completamente diferente!
+  if (
+    bookId.startsWith("book-editorial-") ||
+    bookId.startsWith("sci-") ||
+    bookId.startsWith("curr-") ||
+    bookId.startsWith("auto-")
+  ) {
+    return undefined;
+  }
+
   // 1. Busca direta por ID exato
   if (ORIGINAL_PDF_REGISTRY[bookId]) {
     return ORIGINAL_PDF_REGISTRY[bookId];
   }
 
   // 2. Normalização de slugs e variações com prefixos comuns
-  const clean = bookId.toLowerCase().replace(/^(guten-|mod-|pdf-|auto-)/, "");
+  const clean = bookId.toLowerCase().replace(/^(guten-|mod-|pdf-)/, "");
 
   // Mapeamento explícito de IDs conhecidos
   const directMap: Record<string, string> = {
@@ -1609,104 +1622,60 @@ export function getOriginalPdfForBook(bookId: string): OriginalPdfBook | undefin
     "homem-mais-rico": "mod-homem-mais-rico-babilonia",
     "homem-mais-rico-babilonia": "mod-homem-mais-rico-babilonia",
     "o-homem-mais-rico-da-babilonia": "mod-homem-mais-rico-babilonia",
+    "armas-da-persuasao": "as-armas-da-persuasao-cialdini",
+    "as-armas-da-persuasao": "as-armas-da-persuasao-cialdini",
     "55752": "guten-55752",
     "54829": "guten-54829",
     "3333": "guten-3333",
     "55682": "guten-55682",
     "40409": "guten-40409",
     "28341": "guten-28341",
-    "casmurro": "guten-55752",
-    "bras-cubas": "guten-54829",
-    "lusiadas": "guten-3333",
+    "dom-casmurro": "guten-55752",
+    "memorias-postumas-de-bras-cubas": "guten-54829",
+    "os-lusiadas": "guten-3333",
     "quincas-borba": "guten-55682",
     "frankenstein": "pdf-frankenstein-shelley",
+    "frankenstein-shelley": "pdf-frankenstein-shelley",
     "dracula": "pdf-dracula-stoker",
-    "dorian-gray": "pdf-retrato-dorian-gray",
+    "dracula-stoker": "pdf-dracula-stoker",
+    "retrato-dorian-gray": "pdf-retrato-dorian-gray",
     "medico-e-monstro": "pdf-medico-e-monstro",
-    "poe": "pdf-edgar-allan-poe-contos",
+    "edgar-allan-poe-contos": "pdf-edgar-allan-poe-contos",
     "guerra-dos-mundos": "pdf-guerra-dos-mundos",
     "maquina-do-tempo": "pdf-maquina-do-tempo",
     "vinte-mil-leguas": "pdf-vinte-mil-leguas",
     "viagem-centro-terra": "pdf-viagem-centro-terra",
     "admiravel-mundo-novo": "pdf-admiravel-mundo-novo",
-    "monte-cristo": "pdf-conde-de-monte-cristo",
+    "conde-de-monte-cristo": "pdf-conde-de-monte-cristo",
     "tres-mosqueteiros": "pdf-tres-mosqueteiros",
     "ilha-do-tesouro": "pdf-ilha-do-tesouro",
     "contrato-social": "pdf-contrato-social",
-    "banquete": "pdf-o-banquete-platao",
+    "o-banquete-platao": "pdf-o-banquete-platao",
     "genealogia-da-moral": "pdf-genealogia-da-moral",
     "elogio-da-loucura": "pdf-elogio-da-loucura",
-    "gatsby": "pdf-o-grande-gatsby",
-    "idiota": "pdf-o-idiota-dostoievski",
-    "processo": "pdf-o-processo-kafka",
-    "policarpo": "pdf-policarpo-quaresma",
-    "guarani": "pdf-o-guarani-alencar",
-    "senhora": "pdf-senhora-alencar",
-    "ateneu": "pdf-o-ateneu-pompeia",
-    "desassossego": "pdf-livro-do-desassossego",
+    "o-grande-gatsby": "pdf-o-grande-gatsby",
+    "o-idiota-dostoievski": "pdf-o-idiota-dostoievski",
+    "o-processo-kafka": "pdf-o-processo-kafka",
+    "policarpo-quaresma": "pdf-policarpo-quaresma",
+    "o-guarani-alencar": "pdf-o-guarani-alencar",
+    "senhora-alencar": "pdf-senhora-alencar",
+    "o-ateneu-pompeia": "pdf-o-ateneu-pompeia",
+    "livro-do-desassossego": "pdf-livro-do-desassossego",
+    "crime-e-castigo": "crime-e-castigo-dostoievski",
+    "pdf-crime-e-castigo": "crime-e-castigo-dostoievski",
+    "irmaos-karamazov": "os-irmaos-karamazov-dostoievski",
+    "pdf-irmaos-karamazov": "os-irmaos-karamazov-dostoievski",
+    "sherlock-holmes-estudio-escarlate": "sherlock-holmes-obra-completa",
+    "pdf-sherlock-holmes-estudio-escarlate": "sherlock-holmes-obra-completa",
+    "a-republica-platao": "a-republica-platao",
+    "pdf-a-republica-platao": "a-republica-platao",
   };
 
   if (directMap[clean] && ORIGINAL_PDF_REGISTRY[directMap[clean]]) {
     return ORIGINAL_PDF_REGISTRY[directMap[clean]];
   }
-
-  // 3. Busca iterativa por inclusão
-  for (const [key, item] of Object.entries(ORIGINAL_PDF_REGISTRY)) {
-    if (
-      key.includes(clean) ||
-      item.id.includes(clean) ||
-      (clean.includes("casmurro") && item.id.includes("55752")) ||
-      (clean.includes("bras-cubas") && item.id.includes("54829")) ||
-      (clean.includes("lusiadas") && item.id.includes("3333")) ||
-      (clean.includes("cortico") && key.includes("cortico")) ||
-      (clean.includes("guerra") && key.includes("guerra")) ||
-      (clean.includes("principe") && key.includes("principe")) ||
-      (clean.includes("metamorfose") && key.includes("metamorfose")) ||
-      (clean.includes("comedia") && key.includes("comedia")) ||
-      (clean.includes("sherlock") && item.id.includes("sherlock")) ||
-      (clean.includes("karamazov") && item.id.includes("karamazov")) ||
-      (clean.includes("crime") && clean.includes("castigo") && item.id.includes("crime-e-castigo")) ||
-      (clean.includes("subsolo") && item.id.includes("subsolo")) ||
-      (clean.includes("amaro") && item.id.includes("amaro")) ||
-      (clean.includes("maias") && item.id.includes("maias")) ||
-      (clean.includes("zaratustra") && item.id.includes("zaratustra")) ||
-      ((clean.includes("descartes") || clean.includes("metodo")) && item.id.includes("descartes")) ||
-      ((clean.includes("elementos") || clean.includes("euclides")) && item.id.includes("euclides")) ||
-      ((clean.includes("principia") || clean.includes("newton")) && item.id.includes("newton")) ||
-      (clean.includes("ficar-rico") && item.id.includes("wattles")) ||
-      (clean.includes("milionaria") && item.id.includes("mente-milionaria")) ||
-      (clean.includes("persuasao") && item.id.includes("cialdini")) ||
-      ((clean.includes("shakespeare") || clean.includes("hamlet") || clean.includes("romeu")) && item.id.includes("shakespeare")) ||
-      (clean.includes("ines-pereira") && item.id.includes("ines-pereira")) ||
-      (clean.includes("mensagem") && item.id.includes("mensagem")) ||
-      (clean.includes("cartomante") && item.id.includes("cartomante")) ||
-      (clean.includes("frankenstein") && item.id.includes("frankenstein")) ||
-      (clean.includes("dracula") && item.id.includes("dracula")) ||
-      (clean.includes("dorian") && item.id.includes("dorian")) ||
-      ((clean.includes("medico") || clean.includes("monstro") || clean.includes("jekyll")) && item.id.includes("medico")) ||
-      (clean.includes("poe") && item.id.includes("poe")) ||
-      ((clean.includes("maquina") || clean.includes("tempo")) && item.id.includes("maquina")) ||
-      (clean.includes("vinte-mil") && item.id.includes("vinte-mil")) ||
-      ((clean.includes("viagem") && clean.includes("terra")) && item.id.includes("centro-terra")) ||
-      (clean.includes("admiravel") && item.id.includes("admiravel")) ||
-      ((clean.includes("conde") || clean.includes("monte-cristo")) && item.id.includes("monte-cristo")) ||
-      (clean.includes("mosqueteiros") && item.id.includes("mosqueteiros")) ||
-      ((clean.includes("ilha") || clean.includes("tesouro")) && item.id.includes("tesouro")) ||
-      (clean.includes("contrato") && item.id.includes("contrato")) ||
-      (clean.includes("banquete") && item.id.includes("banquete")) ||
-      (clean.includes("genealogia") && item.id.includes("genealogia")) ||
-      (clean.includes("loucura") && item.id.includes("loucura")) ||
-      (clean.includes("gatsby") && item.id.includes("gatsby")) ||
-      (clean.includes("idiota") && item.id.includes("idiota")) ||
-      (clean.includes("processo") && item.id.includes("processo")) ||
-      (clean.includes("policarpo") && item.id.includes("policarpo")) ||
-      (clean.includes("guarani") && item.id.includes("guarani")) ||
-      (clean.includes("senhora") && item.id.includes("senhora")) ||
-      (clean.includes("ateneu") && item.id.includes("ateneu")) ||
-      (clean.includes("desassossego") && item.id.includes("desassossego"))
-    ) {
-      return item;
-    }
+  if (ORIGINAL_PDF_REGISTRY[clean]) {
+    return ORIGINAL_PDF_REGISTRY[clean];
   }
 
   return undefined;
@@ -1720,6 +1689,85 @@ export function hasOriginalPdf(bookId?: string | null): boolean {
 }
 
 /**
+ * Resolve o OriginalPdfBook tanto a partir do registro local/público quanto a partir do objeto `book` vindo da nuvem ou do catálogo.
+ * Isso garante que todo livro (PDF enviado pelo Admin, artigo científico, livro curricular, clássico ou bestseller)
+ * abra sempre o SEU PRÓPRIO conteúdo original em PDF!
+ */
+export function resolveOriginalPdfForBookOrRecord(
+  bookId: string,
+  bookRecord?: {
+    id?: string;
+    title?: string;
+    author?: string;
+    description?: string;
+    cover_url?: string;
+    category?: string;
+    pdf_url?: string;
+    download_url?: string;
+    original_pages_count?: number;
+    file_size_formatted?: string;
+    edition_notes?: string;
+    source_repository?: string;
+    has_cloud_pdf_binary?: boolean;
+  } | null
+): OriginalPdfBook | undefined {
+  const fromRegistry = getOriginalPdfForBook(bookId);
+  if (fromRegistry) return fromRegistry;
+
+  if (!bookRecord) return undefined;
+  const id = bookRecord.id || bookId;
+  const isUploadedOrExplicitPdf = Boolean(
+    bookRecord.pdf_url ||
+      bookRecord.download_url ||
+      bookRecord.has_cloud_pdf_binary ||
+      bookRecord.original_pages_count ||
+      id.startsWith("book-editorial-")
+  );
+  const isCatalogWork = Boolean(
+    bookRecord.title &&
+      (id.startsWith("sci-") ||
+        id.startsWith("curr-") ||
+        id.startsWith("auto-") ||
+        id.startsWith("mod-") ||
+        id.startsWith("guten-"))
+  );
+
+  if (!isUploadedOrExplicitPdf && !isCatalogWork) return undefined;
+
+  const pdfUrl =
+    bookRecord.pdf_url ||
+    bookRecord.download_url ||
+    (id.startsWith("book-editorial-")
+      ? `/api/books/pdf-proxy?id=${encodeURIComponent(id)}`
+      : `synth://${id}`);
+  const directDownloadUrl =
+    bookRecord.download_url ||
+    (id.startsWith("book-editorial-")
+      ? `/api/books/pdf-proxy?id=${encodeURIComponent(id)}&download=true`
+      : `synth://${id}`);
+
+  return {
+    id,
+    title: bookRecord.title || "Livro em PDF",
+    author: bookRecord.author || "Acervo Editorial Wotho",
+    year: new Date().getFullYear(),
+    originalPagesCount: Number(bookRecord.original_pages_count) || 24,
+    fileSizeBytes: 1500000,
+    fileSizeFormatted: bookRecord.file_size_formatted || "PDF Completo",
+    pdfUrl,
+    directDownloadUrl,
+    sourceRepository: (bookRecord.source_repository as any) || "Biblioteca Digital Luso-Brasileira",
+    editionNotes:
+      bookRecord.edition_notes ||
+      `Edição digital integral em PDF (${bookRecord.file_size_formatted || "PDF Original"}) de "${bookRecord.title || "Obra"}" publicada no acervo Wotho.`,
+    isPublicDomain: false,
+    coverUrl: bookRecord.cover_url || "/placeholder.svg",
+    category: bookRecord.category || "Literatura",
+    description: bookRecord.description || "",
+  };
+}
+
+/**
  * Gera URL de streaming de PDF via proxy de alta velocidade no servidor local
  */
 export function getProxiedPdfUrl(targetPdfUrl?: string, filename?: string, bookId?: string): string {
@@ -1727,8 +1775,12 @@ export function getProxiedPdfUrl(targetPdfUrl?: string, filename?: string, bookI
     targetPdfUrl &&
     (targetPdfUrl.startsWith("data:") ||
       targetPdfUrl.startsWith("blob:") ||
-      targetPdfUrl.startsWith("idb://"))
+      targetPdfUrl.startsWith("idb://") ||
+      targetPdfUrl.startsWith("synth://"))
   ) {
+    return targetPdfUrl;
+  }
+  if (targetPdfUrl && targetPdfUrl.startsWith("/api/books/pdf-proxy")) {
     return targetPdfUrl;
   }
   const cleanName = filename || "livro-original.pdf";
@@ -1747,15 +1799,26 @@ export function getDownloadPdfUrl(targetPdfUrl?: string, filename?: string, book
     targetPdfUrl &&
     (targetPdfUrl.startsWith("data:") ||
       targetPdfUrl.startsWith("blob:") ||
-      targetPdfUrl.startsWith("idb://"))
+      targetPdfUrl.startsWith("synth://"))
   ) {
     return targetPdfUrl;
   }
+  if (targetPdfUrl && targetPdfUrl.startsWith("/api/books/pdf-proxy")) {
+    return targetPdfUrl.includes("download=true")
+      ? targetPdfUrl
+      : `${targetPdfUrl}${targetPdfUrl.includes("?") ? "&" : "?"}download=true`;
+  }
   const cleanName = filename || "livro-original.pdf";
   const params = new URLSearchParams();
-  if (targetPdfUrl) params.set("url", targetPdfUrl);
+  if (targetPdfUrl && !targetPdfUrl.startsWith("idb://")) {
+    params.set("url", targetPdfUrl);
+  }
   if (filename) params.set("filename", cleanName);
   params.set("download", "true");
-  if (bookId) params.set("id", bookId);
+  if (bookId) {
+    params.set("id", bookId);
+  } else if (targetPdfUrl && targetPdfUrl.startsWith("idb://")) {
+    params.set("id", targetPdfUrl.slice("idb://".length));
+  }
   return `/api/books/pdf-proxy?${params.toString()}`;
 }

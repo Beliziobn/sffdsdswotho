@@ -29,6 +29,7 @@ import {
   handleAdminLoginRequest,
   handleAdminSessionRequest,
   handleAdminLogoutRequest,
+  handleEditorialCloudSyncRequest,
 } from './_adminHandler.js';
 import {
   handleGeoLocateRequest,
@@ -250,13 +251,15 @@ export default async function handler(req: any, res: any) {
       return;
     }
 
-    // Admin Authentication
+    // Admin Authentication & Editorial Cloud Sync
     case '/api/admin/login':
       return handleAdminLoginRequest(req, res);
     case '/api/admin/session':
       return handleAdminSessionRequest(req, res);
     case '/api/admin/logout':
       return handleAdminLogoutRequest(req, res);
+    case '/api/editorial/sync':
+      return handleEditorialCloudSyncRequest(req, res);
 
     // Geolocation & Auto-Translation
     case '/api/geo':

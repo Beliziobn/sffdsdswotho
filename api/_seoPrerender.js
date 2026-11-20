@@ -152,6 +152,11 @@ const STATIC_PAGE_META = {
     h1: 'Wotho — Livros Digitais, Notícias Globais, Streaming e Webtoons',
     schemaType: 'CollectionPage',
     breadcrumbName: 'Início',
+    bodyParagraphs: [
+      'A Wotho é uma plataforma editorial e cultural em língua portuguesa dedicada à leitura integral de livros digitais diretamente no navegador, cobertura jornalística global verificada, guias preparatórios para o ENEM, artigos científicos comentados e curadoria de cinema, animes e webtoons. Todo o acervo público está disponível gratuitamente e sem bloqueio de login obrigatório.',
+      'Nosso compromisso editorial prioriza profundidade textual, originalidade crítica e acessibilidade universal. Cada obra do catálogo literário e científico conta com ficha catalográfica completa, contextualização histórica, análise temática, resumo estruturado por capítulos e leitor HTML5/PDF nativo otimizado para estudo acadêmico e formação leitora.',
+      'Na editoria de jornalismo global, a redação da Wotho acompanha diariamente os desdobramentos em ciência, tecnologia, inteligência artificial, segurança cibernética, macroeconomia, geopolítica e cultura, apresentando reportagens contextualizadas com dados verificados e fontes primárias.',
+    ],
   },
   '/livros': {
     title: 'Biblioteca de Livros Digitais no Navegador — Wotho',
@@ -160,6 +165,10 @@ const STATIC_PAGE_META = {
     h1: 'Biblioteca de Livros Digitais, ENEM & Artigos Científicos',
     schemaType: 'CollectionPage',
     breadcrumbName: 'Livros',
+    bodyParagraphs: [
+      'A Biblioteca Digital da Wotho reúne clássicos consagrados da literatura brasileira e universal em domínio público, tratados de filosofia e estratégia, apostilas preparatórias completas para o Exame Nacional do Ensino Médio (ENEM) e sínteses de artigos científicos revisados por pares.',
+      'Todas as obras podem ser lidas integralmente no navegador por meio do leitor digital HTML5 e visualizador de PDF original, acompanhadas de análise crítica, contexto histórico, estudo de personagens e repertório sociocultural aplicável a exames e pesquisas acadêmicas.',
+    ],
   },
   '/noticias': {
     title: 'Notícias Globais em Tempo Real — Wotho',
@@ -168,6 +177,10 @@ const STATIC_PAGE_META = {
     h1: 'Portal de Notícias Globais em Tempo Real',
     schemaType: 'CollectionPage',
     breadcrumbName: 'Notícias',
+    bodyParagraphs: [
+      'O Portal de Notícias Globais da Wotho oferece cobertura jornalística diária, análises aprofundadas e reportagens especiais sobre tecnologia, ciência, economia, geopolítica, esportes e cultura internacional.',
+      'Nossa equipe editorial prioriza a verificação rigorosa de fatos, a contextualização histórica e a clareza analítica para leitores de língua portuguesa que buscam informação confiável e livre de sensacionalismo.',
+    ],
   },
   '/cinema': {
     title: 'Cinema & Séries em Streaming HD — Wotho',
@@ -176,6 +189,10 @@ const STATIC_PAGE_META = {
     h1: 'Cinema & Séries em Streaming HD',
     schemaType: 'CollectionPage',
     breadcrumbName: 'Cinema & Séries',
+    bodyParagraphs: [
+      'A seção de Cinema & Séries da Wotho apresenta curadoria audiovisual com fichas técnicas completas, sinopses detalhadas, análises de direção e roteiro, elenco principal, ano de lançamento e classificação indicativa.',
+      'Explore clássicos do cinema mundial, documentários históricos e produções contemporâneas organizadas por gênero e relevância cultural.',
+    ],
   },
   '/animes': {
     title: 'Animes e Mangás em Streaming — Wotho',
@@ -184,6 +201,9 @@ const STATIC_PAGE_META = {
     h1: 'Portal de Animes & Mangás',
     schemaType: 'CollectionPage',
     breadcrumbName: 'Animes',
+    bodyParagraphs: [
+      'O Portal de Animes & Mangás da Wotho reúne informações catalográficas completas sobre as principais séries da animação japonesa, incluindo estúdios de produção, ano de estreia, guia de episódios, sinopses detalhadas e integração com capítulos de mangá.',
+    ],
   },
   '/webtoons': {
     title: 'Webtoons & Quadrinhos em Leitura Vertical — Wotho',
@@ -192,6 +212,9 @@ const STATIC_PAGE_META = {
     h1: 'Webtoons & Quadrinhos em Leitura Vertical',
     schemaType: 'CollectionPage',
     breadcrumbName: 'Webtoons',
+    bodyParagraphs: [
+      'O catálogo de Webtoons da Wotho disponibiliza narrativas gráficas e quadrinhos digitais formatados para leitura vertical contínua no computador e em dispositivos móveis, com fichas de autoria, gêneros literários e índice de capítulos.',
+    ],
   },
   '/sobre': {
     title: 'Sobre a Wotho — Plataforma de Cultura, Streaming e Leitura',
@@ -200,6 +223,11 @@ const STATIC_PAGE_META = {
     h1: 'Sobre a Wotho',
     schemaType: 'AboutPage',
     breadcrumbName: 'Sobre',
+    bodyParagraphs: [
+      'A Wotho nasceu com a missão de democratizar o acesso à leitura literária, ao conhecimento científico, à preparação educacional para o ENEM e ao jornalismo internacional em língua portuguesa.',
+      'Reunimos em um único ecossistema editorial uma biblioteca digital de obras clássicas e acadêmicas, um portal de notícias com cobertura analítica diária e guias culturais de cinema, animes e quadrinhos digitais.',
+      'Todo o conteúdo informativo e literário público pode ser consultado gratuitamente, respeitando os direitos autorais, a Lei Geral de Proteção de Dados (LGPD), o Regulamento Geral sobre a Proteção de Dados (RGPD) e os padrões internacionais de qualidade editorial.',
+    ],
   },
   '/contato': {
     title: 'Contato e Atendimento — Wotho',
@@ -208,6 +236,10 @@ const STATIC_PAGE_META = {
     h1: 'Contato e Atendimento',
     schemaType: 'ContactPage',
     breadcrumbName: 'Contato',
+    bodyParagraphs: [
+      'A equipe editorial e de suporte técnico da Wotho está à disposição para atender leitores, autores, pesquisadores, instituições de ensino e parceiros comerciais.',
+      'Canais oficiais de atendimento: envie sua mensagem pelo formulário de contato em nossa página ou diretamente pelo e-mail institucional contato@wotho.vercel.app. Nosso horário de atendimento é de segunda a sexta-feira, das 9h às 18h (horário de Brasília), com prazo médio de resposta de até 24 horas úteis.',
+    ],
   },
   '/mapa-do-site': {
     title: 'Mapa do Site (Sitemap) — Wotho',
@@ -216,22 +248,37 @@ const STATIC_PAGE_META = {
     h1: 'Mapa do Site — Índice Completo Wotho',
     schemaType: 'CollectionPage',
     breadcrumbName: 'Mapa do Site',
+    bodyParagraphs: [
+      'Consulte abaixo o índice estruturado completo de todas as seções institucionais, páginas legais (Política de Privacidade e Termos de Uso), obras literárias, guias do ENEM, artigos científicos, reportagens jornalísticas e catálogos culturais da Wotho.',
+    ],
   },
   '/termos': {
-    title: 'Termos de Uso — Wotho',
+    title: 'Termos e Condições de Uso — Wotho',
     description:
-      'Condições gerais de navegação, leitura digital e uso dos serviços da plataforma Wotho.',
-    h1: 'Termos de Uso da Wotho',
+      'Condições gerais de navegação, direitos autorais, política de acesso público gratuito e regras de uso da plataforma Wotho.',
+    h1: 'Termos e Condições de Uso da Wotho',
     schemaType: 'WebPage',
     breadcrumbName: 'Termos de Uso',
+    bodyParagraphs: [
+      'Estes Termos e Condições de Uso regulam o acesso e a utilização da plataforma Wotho (https://wotho.vercel.app/). Ao navegar em nosso portal, o utilizador concorda integralmente com as normas editoriais, legais e de segurança aqui estabelecidas.',
+      'Acesso Público e Gratuito: O catálogo editorial, literário, jornalístico e educacional da Wotho é disponibilizado de forma aberta e gratuita para consulta e leitura diretamente no navegador, sem exigência de cadastro ou login obrigatório.',
+      'Propriedade Intelectual e Direitos Autorais: O acervo literário da Wotho compreende obras em domínio público nos termos da Lei nº 9.610/1998, conteúdos educacionais originais preparatórios para o ENEM, resenhas críticas autorais e artigos científicos sob licenças abertas. Eventuais solicitações de revisão de direitos autorais (DMCA) são atendidas prioritariamente pelo e-mail contato@wotho.vercel.app.',
+      'Conformidade Publicitária (Google AdSense): Para manter a gratuidade da plataforma, a Wotho exibe anúncios geridos pelo Google AdSense em conformidade com as Better Ads Standards. É estritamente proibido gerar cliques artificiais, utilizar robôs de tráfego ou manipular impressões publicitárias.',
+    ],
   },
   '/privacidade': {
-    title: 'Política de Privacidade — Wotho',
+    title: 'Política de Privacidade e Cookies — Wotho',
     description:
-      'Diretrizes de proteção de dados, conformidade LGPD e privacidade dos usuários da Wotho.',
-    h1: 'Política de Privacidade',
+      'Diretrizes de proteção de dados (LGPD e RGPD), uso de cookies do Google AdSense (DoubleClick DART) e direitos de privacidade dos utilizadores da Wotho.',
+    h1: 'Política de Privacidade e Cookies',
     schemaType: 'WebPage',
-    breadcrumbName: 'Privacidade',
+    breadcrumbName: 'Política de Privacidade',
+    bodyParagraphs: [
+      'A Wotho (https://wotho.vercel.app/) preza pela transparência, segurança e proteção dos dados pessoais de todos os seus leitores e visitantes, atuando em estrita conformidade com a Lei Geral de Proteção de Dados Pessoais do Brasil (LGPD — Lei nº 13.709/2018), o Regulamento Geral sobre a Proteção de Dados da União Europeia (RGPD — Regulamento UE 2016/679) e as Políticas do Programa Google AdSense.',
+      'Publicidade Google AdSense e Cookie DoubleClick DART: O Google, como fornecedor terceirizado, utiliza cookies para exibir anúncios na Wotho. Com o cookie DART e identificadores equivalentes, o Google e os seus parceiros podem exibir anúncios personalizados com base nas visitas realizadas pelo utilizador à Wotho e a outros sites na Internet.',
+      'Como Desativar Cookies de Publicidade Personalizada (Opt-Out): Os utilizadores podem desativar o uso do cookie DART e a personalização de anúncios a qualquer momento acedendo às Configurações de Anúncios do Google (https://adssettings.google.com), à página de políticas de publicidade do Google (https://policies.google.com/technologies/ads) ou ao portal YourAdChoices (https://www.aboutads.info/choices/).',
+      'Direitos do Titular e Contato do Encarregado (DPO): O utilizador tem direito de solicitar confirmação de tratamento, acesso, correção, anonimização ou eliminação de dados pessoais, bem como revogar o consentimento de cookies a qualquer momento. Para exercer seus direitos, entre em contato pelo e-mail contato@wotho.vercel.app.',
+    ],
   },
 };
 
@@ -443,6 +490,7 @@ export function resolveRouteSeo(rawPathname, customOrigin = DEFAULT_ORIGIN) {
       ogImage: `${origin}/og-image.jpg`,
       ogImageAlt: meta.title,
       h1: meta.h1,
+      bodyParagraphs: meta.bodyParagraphs || [meta.description],
       links,
       jsonLd: [pageJsonLd, buildBreadcrumbJsonLd(breadcrumbItems, origin)],
     };
@@ -982,92 +1030,127 @@ export function resolveRouteSeo(rawPathname, customOrigin = DEFAULT_ORIGIN) {
 
 function renderSemanticBotShell(seo, origin = DEFAULT_ORIGIN) {
   const navLinks = [
-    { href: '/', label: 'Início' },
-    { href: '/livros', label: 'Livros Digitais' },
-    { href: '/noticias', label: 'Notícias Globais' },
-    { href: '/cinema', label: 'Cinema & Séries' },
-    { href: '/animes', label: 'Animes & Mangás' },
+    { href: '/livros', label: 'Livros' },
     { href: '/webtoons', label: 'Webtoons' },
-    { href: '/sobre', label: 'Sobre a Wotho' },
-    { href: '/contato', label: 'Contato' },
-    { href: '/mapa-do-site', label: 'Mapa do Site' },
+    { href: '/animes', label: 'Animes' },
+    { href: '/cinema', label: 'Cinema' },
+    { href: '/noticias', label: 'Notícias' },
   ];
+
+  const paragraphs = Array.isArray(seo.bodyParagraphs) && seo.bodyParagraphs.length > 0
+    ? seo.bodyParagraphs
+    : [seo.bodyText || seo.description];
+
+  const paragraphsHtml = paragraphs
+    .filter(Boolean)
+    .map((p) => `<p style="margin:0 0 16px 0;color:#d4d4d8;font-size:15px;">${escapeHtml(p)}</p>`)
+    .join('\n        ');
 
   const linksHtml = (seo.links || [])
     .slice(0, 150)
     .map(
       (item) =>
-        `<li style="margin:6px 0;"><a href="${escapeHtml(item.href)}">${escapeHtml(item.label)}</a></li>`
+        `<li style="margin:6px 0;"><a href="${escapeHtml(item.href)}" style="color:#ffffff;text-decoration:underline;">${escapeHtml(item.label)}</a></li>`
     )
     .join('\n          ');
 
   const coverHtml = seo.coverImage
-    ? `<figure style="margin:16px 0;"><img src="${escapeHtml(seo.coverImage)}" alt="${escapeHtml(
+    ? `<figure style="margin:20px 0;"><img src="${escapeHtml(seo.coverImage)}" alt="${escapeHtml(
         seo.ogImageAlt || seo.h1 || seo.title
-      )}" width="320" style="max-width:100%;height:auto;border-radius:8px;" /><figcaption style="font-size:12px;color:#52525b;margin-top:6px;">${escapeHtml(
+      )}" width="320" style="max-width:100%;height:auto;border-radius:12px;" /><figcaption style="font-size:12px;color:#a1a1aa;margin-top:6px;">${escapeHtml(
         seo.ogImageAlt || seo.h1 || seo.title
       )} — Wotho</figcaption></figure>`
     : '';
 
   const factsHtml =
     Array.isArray(seo.facts) && seo.facts.length > 0
-      ? `<section aria-label="Ficha Técnica e Fatos Verificados" data-snippet="true" style="margin:16px 0;padding:14px 18px;border:1px solid #e4e4e7;border-radius:8px;">
-        <h2 style="font-size:16px;margin:0 0 10px 0;">Dados Verificados</h2>
+      ? `<section aria-label="Ficha Técnica e Fatos Verificados" data-snippet="true" style="margin:20px 0;padding:18px 22px;border:1px solid rgba(255,255,255,0.1);border-radius:12px;background:rgba(255,255,255,0.02);">
+        <h2 style="font-size:16px;color:#ffffff;margin:0 0 10px 0;">Dados Verificados</h2>
         <dl style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px 16px;margin:0;">
           ${seo.facts
             .map(
               (f) =>
-                `<div><dt style="font-size:12px;color:#52525b;font-weight:600;">${escapeHtml(
+                `<div><dt style="font-size:12px;color:#a1a1aa;font-weight:600;">${escapeHtml(
                   f.label
-                )}</dt><dd style="margin:2px 0 0 0;font-size:14px;">${escapeHtml(f.value)}</dd></div>`
+                )}</dt><dd style="margin:2px 0 0 0;font-size:14px;color:#fafafa;">${escapeHtml(f.value)}</dd></div>`
             )
             .join('\n          ')}
         </dl>
       </section>`
       : '';
 
-  return `<div id="wotho-ssr-seo" style="max-width:960px;margin:0 auto;padding:24px;font-family:'DM Sans',system-ui,sans-serif;line-height:1.6;">
-  <header data-nosnippet style="border-bottom:1px solid #e4e4e7;padding-bottom:16px;margin-bottom:24px;">
-    <a href="/" style="font-weight:600;font-size:20px;text-decoration:none;color:inherit;">Wotho</a>
-    <nav aria-label="Navegação Principal" style="margin-top:12px;display:flex;flex-wrap:wrap;gap:14px;">
-      ${navLinks.map((n) => `<a href="${escapeHtml(n.href)}">${escapeHtml(n.label)}</a>`).join('\n      ')}
-    </nav>
+  return `<div id="wotho-ssr-seo" style="min-height:100vh;width:100%;background:#09090b;color:#fafafa;font-family:'DM Sans',system-ui,sans-serif;line-height:1.7;margin:0;padding:0;overflow-x:hidden;">
+  <header data-nosnippet style="position:fixed;top:0;left:0;right:0;z-index:100;padding:20px 24px;">
+    <div style="max-width:1280px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:24px;">
+      <a href="/" style="display:flex;align-items:center;gap:6px;text-decoration:none;color:#ffffff;">
+        <img src="/favicon.svg" alt="Wotho" width="32" height="32" style="width:32px;height:32px;object-fit:contain;filter:brightness(0) invert(1);" />
+        <span style="font-size:16px;font-weight:400;letter-spacing:0.025em;color:#ffffff;">otho</span>
+      </a>
+      <nav aria-label="Navegação Principal" style="display:flex;flex-wrap:wrap;align-items:center;gap:28px;">
+        ${navLinks.map((n) => `<a href="${escapeHtml(n.href)}" style="font-size:11px;text-transform:uppercase;letter-spacing:0.08em;color:#ffffff;text-decoration:none;">${escapeHtml(n.label)}</a>`).join('\n        ')}
+      </nav>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <a href="/perfil" style="height:32px;padding:0 18px;border-radius:9999px;font-size:11px;text-transform:uppercase;letter-spacing:0.08em;color:#ffffff;text-decoration:none;border:1px solid rgba(255,255,255,0.3);background:rgba(255,255,255,0.1);display:inline-flex;align-items:center;">
+          Meu Perfil
+        </a>
+      </div>
+    </div>
   </header>
   <main>
-    <article>
-      <h1>${escapeHtml(clampHeading(seo.h1 || seo.title, 150))}</h1>
-      ${seo.subtitle ? `<p><strong>${escapeHtml(seo.subtitle)}</strong></p>` : ''}
-      <section data-snippet="true" aria-label="Síntese Principal">
-        <p>${escapeHtml(seo.bodyText || seo.description)}</p>
+    <section style="position:relative;height:100vh;min-height:620px;width:100%;overflow:hidden;background:#09090b;">
+      <img
+        src="/og-image.jpg"
+        alt="Biblioteca digital Wotho com estantes de livros"
+        width="1920"
+        height="1080"
+        style="width:100%;height:100%;object-fit:cover;display:block;"
+      />
+      <div style="position:absolute;inset:0;background:linear-gradient(to top, rgba(0,0,0,0.78), rgba(0,0,0,0.42), rgba(0,0,0,0.25));"></div>
+      <div style="position:absolute;bottom:56px;left:24px;right:24px;max-width:1280px;margin:0 auto;z-index:10;">
+        <span style="display:block;font-size:11px;text-transform:uppercase;letter-spacing:0.2em;color:rgba(255,255,255,0.75);margin-bottom:8px;">
+          ${escapeHtml(seo.subtitle || 'Plataforma Editorial & Streaming')}
+        </span>
+        <h1 id="wotho-boot-heading" style="font-size:28px;font-weight:300;line-height:1.35;letter-spacing:-0.01em;color:#ffffff;max-width:672px;margin:0;">
+          ${escapeHtml(clampHeading(seo.h1 || seo.title, 150))}
+        </h1>
+      </div>
+      <div style="position:absolute;bottom:32px;left:24px;right:24px;max-width:1280px;margin:0 auto;z-index:10;display:flex;gap:8px;">
+        <div style="flex:1;height:2px;background:#ffffff;"></div>
+        <div style="flex:1;height:2px;background:rgba(255,255,255,0.3);"></div>
+        <div style="flex:1;height:2px;background:rgba(255,255,255,0.3);"></div>
+      </div>
+    </section>
+    <article style="max-width:1120px;margin:0 auto;padding:56px 24px;">
+      <section data-snippet="true" aria-label="Conteúdo Editorial Principal">
+        ${paragraphsHtml}
       </section>
       ${factsHtml}
       ${coverHtml}
+      ${
+        linksHtml
+          ? `<section aria-label="Catálogo e Links Relacionados" style="margin-top:32px;">
+          <h2 style="font-size:20px;font-weight:400;color:#ffffff;">Explorar na Wotho</h2>
+          <ul style="color:#d4d4d8;">
+            ${linksHtml}
+          </ul>
+        </section>`
+          : ''
+      }
     </article>
-    ${
-      linksHtml
-        ? `<section aria-label="Catálogo e Links Relacionados" style="margin-top:32px;">
-        <h2>Explorar na Wotho</h2>
-        <ul>
-          ${linksHtml}
-        </ul>
-      </section>`
-        : ''
-    }
   </main>
-  <footer data-nosnippet style="border-top:1px solid #e4e4e7;margin-top:40px;padding-top:16px;font-size:13px;">
-    <p>&copy; 2026 Wotho — Livros Digitais, Notícias Globais, Streaming e Webtoons.</p>
-    <nav aria-label="Links Institucionais" style="display:flex;flex-wrap:wrap;gap:12px;">
-      <a href="/sobre">Sobre</a>
-      <a href="/contato">Contato</a>
-      <a href="/termos">Termos de Uso</a>
-      <a href="/privacidade">Privacidade</a>
-      <a href="/mapa-do-site">Mapa do Site</a>
-      <a href="/sitemap.xml">Sitemap XML</a>
-      <a href="/sitemap-index.xml">Sitemap Index</a>
-      <a href="/news-sitemap.xml">Google News Sitemap</a>
-      <a href="/rss.xml">RSS Feed</a>
-      <a href="${escapeHtml(origin)}/llms.txt">LLMs Index</a>
-    </nav>
+  <footer data-nosnippet style="border-top:1px solid rgba(255,255,255,0.12);padding:40px 24px;font-size:12px;color:rgba(250,250,250,0.6);">
+    <div style="max-width:1120px;margin:0 auto;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:16px;">
+      <p style="margin:0;">&copy; 2026 Wotho — Livros Digitais, Notícias Globais, Streaming e Webtoons. Todos os direitos reservados.</p>
+      <nav aria-label="Links Institucionais e Legais" style="display:flex;flex-wrap:wrap;gap:14px;">
+        <a href="/sobre" style="color:rgba(250,250,250,0.75);text-decoration:none;">Sobre a Wotho</a>
+        <a href="/contato" style="color:rgba(250,250,250,0.75);text-decoration:none;">Contato</a>
+        <a href="/privacidade" style="color:rgba(250,250,250,0.75);text-decoration:none;">Política de Privacidade</a>
+        <a href="/termos" style="color:rgba(250,250,250,0.75);text-decoration:none;">Termos de Uso</a>
+        <a href="/mapa-do-site" style="color:rgba(250,250,250,0.75);text-decoration:none;">Mapa do Site</a>
+        <a href="/sitemap.xml" style="color:rgba(250,250,250,0.75);text-decoration:none;">Sitemap XML</a>
+        <a href="/rss.xml" style="color:rgba(250,250,250,0.75);text-decoration:none;">RSS Feed</a>
+      </nav>
+    </div>
   </footer>
 </div>`;
 }
@@ -1214,25 +1297,15 @@ export function injectSeoIntoHtml(html, rawPathname, options = {}) {
     );
   }
 
-  // 7. For search engine bots & social link previewers, replace the loading spinner with rich semantic HTML5;
-  //    for standard HTML shell requests, ensure the visible <h1> inside <body> matches the route heading (<= 150 chars).
+  // 7. Always inject rich semantic HTML5 into #root so crawlers, AdSense auditors, and non-JS clients
+  //    immediately receive complete paragraphs of editorial content and legal navigation links.
   const safeH1 = clampHeading(seo.h1 || seo.title, 150);
-  if (isBot) {
-    const botBody = renderSemanticBotShell({ ...seo, h1: safeH1 }, origin);
-    const ssrMarkerMatch = /<!--WOTHO_SSR_START-->[\s\S]*?<!--WOTHO_SSR_END-->/i;
-    const bootShellMatch = /<div\s+id="wotho-boot-shell"[\s\S]*?<\/div>\s*(?=<\/div>\s*<noscript>)/i;
-    if (ssrMarkerMatch.test(out)) {
-      out = out.replace(ssrMarkerMatch, `\n      ${botBody}\n    `);
-    } else if (bootShellMatch.test(out)) {
-      out = out.replace(bootShellMatch, `${botBody}\n    `);
-    } else {
-      out = out.replace(/<div id="root">[\s\S]*?<\/div>/i, `<div id="root">\n      ${botBody}\n    </div>`);
-    }
-  } else if (/<h1\s+id="wotho-boot-heading"[^>]*>[\s\S]*?<\/h1>/i.test(out)) {
-    out = out.replace(
-      /(<h1\s+id="wotho-boot-heading"[^>]*>)[\s\S]*?(<\/h1>)/i,
-      `$1${escapeHtml(safeH1)}$2`
-    );
+  const botBody = renderSemanticBotShell({ ...seo, h1: safeH1 }, origin);
+  const ssrMarkerMatch = /<!--WOTHO_SSR_START-->[\s\S]*?<!--WOTHO_SSR_END-->/i;
+  if (ssrMarkerMatch.test(out)) {
+    out = out.replace(ssrMarkerMatch, `<!--WOTHO_SSR_START-->\n      ${botBody}\n    <!--WOTHO_SSR_END-->`);
+  } else {
+    out = out.replace(/<div id="root">[\s\S]*?<\/div>/i, `<div id="root">\n      ${botBody}\n    </div>`);
   }
 
   return { html: out, seo };

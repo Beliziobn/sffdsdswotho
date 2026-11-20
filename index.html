@@ -5,10 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="referrer" content="strict-origin-when-cross-origin" />
 
-    <!-- Google AdSense Verification Meta -->
+    <!-- Google AdSense Verification Meta & Script -->
     <meta name="google-adsense-account" content="ca-pub-8089523516720577" />
+    <script
+      async
+      src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8089523516720577"
+      crossorigin="anonymous"
+    ></script>
 
-    <!-- Google AdSense & Google Tag Manager (skipped for search crawlers like Googlebot/InspectionTool to prevent blocked doubleclick.net & analytics XHR errors in Search Console) -->
+    <!-- Google Tag Manager -->
     <script>
       window.dataLayer = window.dataLayer || [];
       function gtag(){dataLayer.push(arguments);}
@@ -19,13 +24,6 @@
         if (isSearchBot) return;
         window.addEventListener('load', function () {
           try {
-            var ads = document.createElement('script');
-            ads.async = true;
-            ads.crossOrigin = 'anonymous';
-            ads.src = 'https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8089523516720577';
-            ads.onerror = function () {};
-            document.head.appendChild(ads);
-
             var gtm = document.createElement('script');
             gtm.async = true;
             gtm.src = 'https://www.googletagmanager.com/gtm.js?id=GTM-W9XSHXQS';
@@ -132,9 +130,8 @@
           "@type": "WebApplication",
           "@id": "https://wotho.vercel.app/#webapp",
           "name": "Wotho",
-          "applicationCategory": "EntertainmentApplication, LifestyleApplication",
+          "applicationCategory": "EntertainmentApplication, EducationalApplication",
           "operatingSystem": "All",
-          "browserRequirements": "Requires JavaScript and modern HTML5 browser",
           "description": "Plataforma Wotho de livros digitais no navegador, portal de notícias globais, webtoons em scroll vertical e streaming de cinema e animes.",
           "url": "https://wotho.vercel.app/",
           "inLanguage": "pt-BR",
@@ -191,6 +188,18 @@
               "position": 7,
               "name": "Contato",
               "url": "https://wotho.vercel.app/contato"
+            },
+            {
+              "@type": "SiteNavigationElement",
+              "position": 8,
+              "name": "Política de Privacidade",
+              "url": "https://wotho.vercel.app/privacidade"
+            },
+            {
+              "@type": "SiteNavigationElement",
+              "position": 9,
+              "name": "Termos de Uso",
+              "url": "https://wotho.vercel.app/termos"
             }
           ]
         }
@@ -205,64 +214,153 @@
     <!-- End Google Tag Manager (noscript) -->
 
     <div id="root"><!--WOTHO_SSR_START-->
-      <div
-        id="wotho-boot-shell"
-        style="min-height:100vh;width:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;box-sizing:border-box;background:#09090b;color:#fafafa;font-family:'DM Sans',system-ui,-apple-system,sans-serif;text-align:center;"
-      >
-        <div style="display:flex;flex-direction:column;align-items:center;gap:16px;max-width:420px;">
-          <img
-            src="/favicon.svg"
-            alt="Wotho"
-            width="44"
-            height="44"
-            style="width:44px;height:44px;object-fit:contain;opacity:0.95;"
-          />
-          <h1
-            id="wotho-boot-heading"
-            style="margin:0;font-size:15px;font-weight:400;line-height:1.4;letter-spacing:-0.01em;color:#fafafa;"
-          >
-            Wotho — Livros Digitais, Notícias Globais, Streaming e Webtoons
-          </h1>
-          <div
-            id="wotho-boot-loader"
-            style="width:120px;height:2px;background:rgba(255,255,255,0.14);border-radius:999px;overflow:hidden;position:relative;"
-          >
-            <div
-              style="position:absolute;inset:0;width:45%;background:#6366f1;border-radius:999px;animation:wothoBootSlide 1.15s ease-in-out infinite;"
-            ></div>
-          </div>
-          <p
-            id="wotho-boot-status"
-            style="margin:0;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;color:rgba(250,250,250,0.65);"
-          >
-            Carregando Wotho…
-          </p>
-          <div id="wotho-boot-offline" style="display:none;flex-direction:column;align-items:center;gap:12px;margin-top:4px;">
-            <p style="margin:0;font-size:13px;line-height:1.5;color:rgba(250,250,250,0.72);">
-              Não foi possível carregar a plataforma. Verifique sua conexão com a internet e tente novamente.
-            </p>
-            <button
-              type="button"
-              onclick="window.location.reload()"
-              style="padding:9px 22px;border-radius:999px;border:1px solid rgba(255,255,255,0.22);background:rgba(255,255,255,0.08);color:#fff;font-size:12px;letter-spacing:0.08em;text-transform:uppercase;cursor:pointer;font-family:inherit;"
-            >
-              Tentar novamente
-            </button>
-          </div>
-        </div>
+      <div id="wotho-boot-skeleton" style="min-height:100vh;width:100%;background:#faf9f6;color:#18181b;font-family:'DM Sans',system-ui,-apple-system,sans-serif;margin:0;padding:0;box-sizing:border-box;">
         <style>
-          @keyframes wothoBootSlide {
-            0% { transform: translateX(-110%); }
-            100% { transform: translateX(240%); }
+          @keyframes wothoSkeletonPulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.45; }
+          }
+          .wotho-sk {
+            background: #e4e4e7;
+            border-radius: 8px;
+            animation: wothoSkeletonPulse 1.6s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+          }
+          @media (prefers-color-scheme: dark) {
+            #wotho-boot-skeleton { background: #09090b !important; color: #fafafa !important; }
+            .wotho-sk { background: #27272a !important; }
+            .wotho-sk-card { background: #121215 !important; border-color: #27272a !important; }
+            .wotho-sk-nav { border-color: #27272a !important; }
           }
         </style>
+
+        <!-- Top Navigation Bar Skeleton -->
+        <div class="wotho-sk-nav" style="height:80px;border-bottom:1px solid #e4e4e7;padding:0 24px;display:flex;align-items:center;justify-content:space-between;max-width:1280px;margin:0 auto;">
+          <div class="wotho-sk" style="height:24px;width:112px;"></div>
+          <div style="display:flex;align-items:center;gap:24px;">
+            <div class="wotho-sk" style="height:14px;width:64px;"></div>
+            <div class="wotho-sk" style="height:14px;width:64px;"></div>
+            <div class="wotho-sk" style="height:14px;width:64px;"></div>
+            <div class="wotho-sk" style="height:14px;width:64px;"></div>
+            <div class="wotho-sk" style="height:14px;width:64px;"></div>
+          </div>
+          <div style="display:flex;align-items:center;gap:12px;">
+            <div class="wotho-sk" style="height:32px;width:48px;border-radius:9999px;"></div>
+            <div class="wotho-sk" style="height:32px;width:96px;border-radius:9999px;"></div>
+          </div>
+        </div>
+
+        <!-- Page Content Skeleton -->
+        <div style="max-width:1280px;margin:0 auto;padding:40px 24px 64px 24px;">
+          <!-- Hero Banner Content Skeleton -->
+          <div class="wotho-sk-card" style="border:1px solid #e4e4e7;border-radius:16px;padding:40px 32px;margin-bottom:40px;background:#ffffff;">
+            <div class="wotho-sk" style="height:14px;width:120px;margin-bottom:16px;"></div>
+            <div class="wotho-sk" style="height:42px;width:72%;max-width:560px;margin-bottom:16px;"></div>
+            <div class="wotho-sk" style="height:16px;width:58%;max-width:460px;margin-bottom:24px;"></div>
+            <div style="display:flex;gap:12px;">
+              <div class="wotho-sk" style="height:40px;width:144px;border-radius:9999px;"></div>
+              <div class="wotho-sk" style="height:40px;width:112px;border-radius:9999px;"></div>
+            </div>
+          </div>
+
+          <!-- Filter Pills Skeleton -->
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:32px;overflow:hidden;">
+            <div class="wotho-sk" style="height:32px;width:96px;border-radius:9999px;flex-shrink:0;"></div>
+            <div class="wotho-sk" style="height:32px;width:96px;border-radius:9999px;flex-shrink:0;"></div>
+            <div class="wotho-sk" style="height:32px;width:96px;border-radius:9999px;flex-shrink:0;"></div>
+            <div class="wotho-sk" style="height:32px;width:96px;border-radius:9999px;flex-shrink:0;"></div>
+            <div class="wotho-sk" style="height:32px;width:96px;border-radius:9999px;flex-shrink:0;"></div>
+            <div class="wotho-sk" style="height:32px;width:96px;border-radius:9999px;flex-shrink:0;"></div>
+          </div>
+
+          <!-- Content Cards Grid Skeleton (8 cards) -->
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:24px;">
+            <div class="wotho-sk-card" style="border:1px solid #e4e4e7;border-radius:12px;overflow:hidden;background:#ffffff;">
+              <div class="wotho-sk" style="height:192px;width:100%;border-radius:0;"></div>
+              <div style="padding:20px;">
+                <div class="wotho-sk" style="height:20px;width:75%;margin-bottom:10px;"></div>
+                <div class="wotho-sk" style="height:14px;width:50%;margin-bottom:18px;"></div>
+                <div style="display:flex;gap:6px;margin-bottom:20px;">
+                  <div class="wotho-sk" style="height:16px;width:60px;"></div>
+                  <div class="wotho-sk" style="height:16px;width:76px;"></div>
+                </div>
+                <div style="display:flex;justify-content:space-between;align-items:center;padding-top:12px;border-top:1px solid #f4f4f5;">
+                  <div class="wotho-sk" style="height:22px;width:72px;"></div>
+                  <div class="wotho-sk" style="height:28px;width:92px;border-radius:9999px;"></div>
+                </div>
+              </div>
+            </div>
+            <div class="wotho-sk-card" style="border:1px solid #e4e4e7;border-radius:12px;overflow:hidden;background:#ffffff;">
+              <div class="wotho-sk" style="height:192px;width:100%;border-radius:0;"></div>
+              <div style="padding:20px;">
+                <div class="wotho-sk" style="height:20px;width:80%;margin-bottom:10px;"></div>
+                <div class="wotho-sk" style="height:14px;width:45%;margin-bottom:18px;"></div>
+                <div style="display:flex;gap:6px;margin-bottom:20px;">
+                  <div class="wotho-sk" style="height:16px;width:64px;"></div>
+                  <div class="wotho-sk" style="height:16px;width:72px;"></div>
+                </div>
+                <div style="display:flex;justify-content:space-between;align-items:center;padding-top:12px;border-top:1px solid #f4f4f5;">
+                  <div class="wotho-sk" style="height:22px;width:72px;"></div>
+                  <div class="wotho-sk" style="height:28px;width:92px;border-radius:9999px;"></div>
+                </div>
+              </div>
+            </div>
+            <div class="wotho-sk-card" style="border:1px solid #e4e4e7;border-radius:12px;overflow:hidden;background:#ffffff;">
+              <div class="wotho-sk" style="height:192px;width:100%;border-radius:0;"></div>
+              <div style="padding:20px;">
+                <div class="wotho-sk" style="height:20px;width:70%;margin-bottom:10px;"></div>
+                <div class="wotho-sk" style="height:14px;width:55%;margin-bottom:18px;"></div>
+                <div style="display:flex;gap:6px;margin-bottom:20px;">
+                  <div class="wotho-sk" style="height:16px;width:58px;"></div>
+                  <div class="wotho-sk" style="height:16px;width:80px;"></div>
+                </div>
+                <div style="display:flex;justify-content:space-between;align-items:center;padding-top:12px;border-top:1px solid #f4f4f5;">
+                  <div class="wotho-sk" style="height:22px;width:72px;"></div>
+                  <div class="wotho-sk" style="height:28px;width:92px;border-radius:9999px;"></div>
+                </div>
+              </div>
+            </div>
+            <div class="wotho-sk-card" style="border:1px solid #e4e4e7;border-radius:12px;overflow:hidden;background:#ffffff;">
+              <div class="wotho-sk" style="height:192px;width:100%;border-radius:0;"></div>
+              <div style="padding:20px;">
+                <div class="wotho-sk" style="height:20px;width:76%;margin-bottom:10px;"></div>
+                <div class="wotho-sk" style="height:14px;width:48%;margin-bottom:18px;"></div>
+                <div style="display:flex;gap:6px;margin-bottom:20px;">
+                  <div class="wotho-sk" style="height:16px;width:62px;"></div>
+                  <div class="wotho-sk" style="height:16px;width:74px;"></div>
+                </div>
+                <div style="display:flex;justify-content:space-between;align-items:center;padding-top:12px;border-top:1px solid #f4f4f5;">
+                  <div class="wotho-sk" style="height:22px;width:72px;"></div>
+                  <div class="wotho-sk" style="height:28px;width:92px;border-radius:9999px;"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Screen-reader & crawler semantic content (hidden from visual flash so users only see the content skeleton) -->
+        <div style="position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;">
+          <h1 id="wotho-boot-heading">Wotho — Livros Digitais, Notícias Globais, Streaming e Webtoons</h1>
+          <p>A Wotho é uma plataforma editorial e cultural em língua portuguesa dedicada à leitura integral de livros digitais diretamente no navegador, cobertura jornalística global verificada, guias preparatórios para o ENEM, artigos científicos comentados e curadoria de cinema, animes e webtoons.</p>
+          <nav aria-label="Links Institucionais e Legais">
+            <a href="/livros">Livros Digitais &amp; ENEM</a>
+            <a href="/noticias">Notícias Globais</a>
+            <a href="/cinema">Cinema &amp; Séries</a>
+            <a href="/animes">Animes &amp; Mangás</a>
+            <a href="/webtoons">Webtoons</a>
+            <a href="/sobre">Sobre a Wotho</a>
+            <a href="/contato">Contato</a>
+            <a href="/privacidade">Política de Privacidade</a>
+            <a href="/termos">Termos de Uso</a>
+            <a href="/mapa-do-site">Mapa do Site</a>
+          </nav>
+        </div>
       </div><!--WOTHO_SSR_END-->
     </div>
     <noscript>
-      <main style="max-width:760px;margin:48px auto;padding:24px;font-family:'DM Sans',sans-serif;color:#18181b;line-height:1.6;">
-        <h2>Wotho — Livros Digitais, Notícias Globais, Streaming e Webtoons</h2>
-        <p>Plataforma digital dedicada à leitura de livros completos no navegador, jornalismo global em tempo real, streaming de cinema e animes em HD e webtoons em leitura vertical.</p>
-        <nav aria-label="Seções Principais" style="display:flex;flex-wrap:wrap;gap:14px;margin:20px 0;">
+      <div style="max-width:1040px;margin:0 auto;padding:24px;font-family:'DM Sans',sans-serif;color:#18181b;line-height:1.6;border-top:1px solid #e4e4e7;">
+        <p><strong>Navegação Institucional e Legal da Wotho:</strong></p>
+        <nav aria-label="Seções Principais e Legais" style="display:flex;flex-wrap:wrap;gap:14px;margin:12px 0;">
+          <a href="/">Início</a>
           <a href="/livros">Livros Digitais &amp; ENEM</a>
           <a href="/noticias">Notícias Globais</a>
           <a href="/cinema">Cinema &amp; Séries</a>
@@ -270,11 +368,12 @@
           <a href="/webtoons">Webtoons</a>
           <a href="/sobre">Sobre a Wotho</a>
           <a href="/contato">Contato</a>
+          <a href="/privacidade">Política de Privacidade</a>
+          <a href="/termos">Termos de Uso</a>
           <a href="/mapa-do-site">Mapa do Site</a>
           <a href="/sitemap.xml">Sitemap XML</a>
         </nav>
-        <p>Ative o JavaScript no seu navegador para acessar todos os recursos interativos da Wotho.</p>
-      </main>
+      </div>
     </noscript>
     <script type="module" src="/src/main.tsx"></script>
   </body>

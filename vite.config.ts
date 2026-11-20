@@ -36,6 +36,7 @@ import {
   handleAdminLoginRequest,
   handleAdminSessionRequest,
   handleAdminLogoutRequest,
+  handleEditorialCloudSyncRequest,
 } from './api/_adminHandler.js';
 import {
   handleNewsFeedRequest,
@@ -1392,6 +1393,9 @@ function adminAuthPlugin(): Plugin {
       });
       server.middlewares.use('/api/admin/logout', async (req, res) => {
         await handleAdminLogoutRequest(req, res);
+      });
+      server.middlewares.use('/api/editorial/sync', async (req, res) => {
+        await handleEditorialCloudSyncRequest(req, res);
       });
     },
   };

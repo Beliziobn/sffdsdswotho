@@ -21,8 +21,14 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-import { getPdfBytesFromIndexedDB } from "@/lib/pdfUploadService";
+import { getPdfBytesFromIndexedDB, savePdfBytesToIndexedDB } from "@/lib/pdfUploadService";
+import { fetchCloudPdfBinary } from "@/lib/cloudEditorialService";
 import { executeTrackedDownload } from "@/lib/downloadsStore";
+import {
+  buildFullBookPdfBytes,
+  resolveBookChaptersForDownload,
+  type BookChapterInput,
+} from "@/lib/mediaDownloaders";
 import { toast } from "sonner";
 import { PdfPageSkeleton } from "@/components/skeletons/AppSkeletons";
 
@@ -45,6 +51,7 @@ interface OriginalPdfViewerProps {
   category?: string;
   description?: string;
   pdfBytes?: Uint8Array;
+  chapters?: BookChapterInput[];
   title: string;
   author: string;
   pagesCount?: number;
@@ -65,6 +72,7 @@ export const OriginalPdfViewer: React.FC<OriginalPdfViewerProps> = ({
   category,
   description,
   pdfBytes,
+  chapters,
   title,
   author,
   pagesCount,
@@ -79,6 +87,7 @@ export const OriginalPdfViewer: React.FC<OriginalPdfViewerProps> = ({
   const singleCanvasRef = useRef<HTMLCanvasElement>(null);
   const continuousContainerRef = useRef<HTMLDivElement>(null);
   const renderTaskRef = useRef<any>(null);
+  const loadedPdfBytesRef = useRef<Uint8Array | null>(null);
 
   const [pdfDoc, setPdfDoc] = useState<any>(null);
   const [numPages, setNumPages] = useState<number>(pagesCount || 0);
@@ -96,27 +105,94 @@ export const OriginalPdfViewer: React.FC<OriginalPdfViewerProps> = ({
 
   const [isDownloading, setIsDownloading] = useState<boolean>(false);
 
+  const synthesizeClientBookPdfBytes = useCallback(async (): Promise<Uint8Array | null> => {
+    try {
+      let resolvedChaps: BookChapterInput[] =
+        chapters && chapters.length > 0 ? chapters : [];
+      if (resolvedChaps.length === 0 && itemId) {
+        resolvedChaps = await resolveBookChaptersForDownload(itemId);
+      }
+      if (!resolvedChaps || resolvedChaps.length === 0) {
+        resolvedChaps = [
+          {
+            position: 1,
+            title: title || "Edição Integral",
+            content:
+              description ||
+              editionNotes ||
+              `Edição digital completa de ${title} (${author}).`,
+          },
+        ];
+      }
+      const buf = await buildFullBookPdfBytes(
+        {
+          id: itemId || "obra-wotho",
+          title,
+          author,
+          category,
+          description: description || editionNotes,
+          cover_url: cover,
+        },
+        resolvedChaps,
+        (info) => {
+          if (info.progressPercent) {
+            setLoadingProgress(Math.min(94, Math.max(25, info.progressPercent)));
+          }
+        }
+      );
+      return new Uint8Array(buf);
+    } catch (e) {
+      console.error("Falha ao compilar PDF completo no cliente:", e);
+      return null;
+    }
+  }, [chapters, itemId, title, author, category, description, editionNotes, cover]);
+
   const handleTrackedPdfDownload = async () => {
     if (isDownloading) return;
     setIsDownloading(true);
     try {
+      const safeId =
+        itemId ||
+        title
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, "-")
+          .replace(/^-|-$/g, "");
+
       await executeTrackedDownload({
-        itemId:
-          itemId ||
-          title
-            .toLowerCase()
-            .replace(/[^a-z0-9]+/g, "-")
-            .replace(/^-|-$/g, ""),
+        itemId: safeId,
         type: "pdf",
         title,
         author,
         category,
         description,
         cover,
-        sourceUrl: originalPdfUrl || downloadUrl || pdfUrl,
+        sourceUrl:
+          loadedPdfBytesRef.current
+            ? undefined
+            : originalPdfUrl || downloadUrl || pdfUrl,
         openHref: itemId ? `/ler/${itemId}?mode=pdf` : undefined,
         fileName: `${title}-${author}.pdf`,
+        mimeType: "application/pdf",
         expectedFileSizeFormatted: fileSizeFormatted,
+        customDownloader: async (onProgress) => {
+          onProgress({ progressPercent: 20, loadedBytes: 0, progressStage: "downloading" });
+          if (loadedPdfBytesRef.current && loadedPdfBytesRef.current.byteLength > 100) {
+            const bytes = loadedPdfBytesRef.current.slice();
+            onProgress({
+              progressPercent: 95,
+              loadedBytes: bytes.byteLength,
+              totalBytes: bytes.byteLength,
+              progressStage: "saving",
+            });
+            return { buffer: bytes.buffer, mimeType: "application/pdf" };
+          }
+          const synthesized = await synthesizeClientBookPdfBytes();
+          if (synthesized && synthesized.byteLength > 100) {
+            const copy = synthesized.slice();
+            return { buffer: copy.buffer, mimeType: "application/pdf" };
+          }
+          throw new Error("PDF indisponível para download.");
+        },
       });
       toast.success("Download concluído! Disponível em Meu Perfil → Downloads.");
     } catch {
@@ -130,53 +206,127 @@ export const OriginalPdfViewer: React.FC<OriginalPdfViewerProps> = ({
   const loadPdf = useCallback(async () => {
     setIsLoading(true);
     setErrorMessage(null);
-    setLoadingProgress(10);
+    setLoadingProgress(12);
 
     try {
       const targetRef =
-        pdfUrl.startsWith("idb://")
+        pdfUrl.startsWith("idb://") || pdfUrl.startsWith("synth://")
           ? pdfUrl
-          : originalPdfUrl?.startsWith("idb://")
+          : originalPdfUrl?.startsWith("idb://") || originalPdfUrl?.startsWith("synth://")
           ? originalPdfUrl
           : pdfUrl;
 
-      let loadingTask: any;
+      let resolvedDataBytes: Uint8Array | null = null;
+
+      // 1. Direct pdfBytes prop
       if (pdfBytes && pdfBytes.byteLength > 0) {
-        loadingTask = pdfjsLib.getDocument({
-          data: pdfBytes.slice(),
-          cMapUrl: "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/cmaps/",
-          cMapPacked: true,
-        });
-      } else if (targetRef.startsWith("idb://")) {
-        const idbBytes = await getPdfBytesFromIndexedDB(targetRef);
-        if (!idbBytes) {
-          throw new Error("Arquivo PDF local não encontrado no dispositivo.");
+        resolvedDataBytes = pdfBytes.slice();
+      }
+
+      // 2. Local IndexedDB (check both targetRef and itemId)
+      if (!resolvedDataBytes && !targetRef.startsWith("synth://")) {
+        const idbKeyToTry = targetRef.startsWith("idb://")
+          ? targetRef
+          : itemId
+          ? `idb://${itemId}`
+          : "";
+        if (idbKeyToTry) {
+          const idbBytes = await getPdfBytesFromIndexedDB(idbKeyToTry);
+          if (idbBytes && idbBytes.byteLength > 100) {
+            resolvedDataBytes = idbBytes;
+          }
         }
-        loadingTask = pdfjsLib.getDocument({
-          data: idbBytes,
-          cMapUrl: "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/cmaps/",
-          cMapPacked: true,
-        });
-      } else if (targetRef.startsWith("data:application/pdf;base64,")) {
+      }
+
+      // 3. Inline base64 data URL
+      if (!resolvedDataBytes && targetRef.startsWith("data:application/pdf;base64,")) {
         const b64 = targetRef.replace(/^data:application\/pdf;base64,/, "");
         const binaryStr = atob(b64);
         const bytes = new Uint8Array(binaryStr.length);
         for (let i = 0; i < binaryStr.length; i++) {
           bytes[i] = binaryStr.charCodeAt(i);
         }
-        loadingTask = pdfjsLib.getDocument({
-          data: bytes,
-          cMapUrl: "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/cmaps/",
-          cMapPacked: true,
-        });
-      } else {
-        loadingTask = pdfjsLib.getDocument({
-          url: pdfUrl,
-          cMapUrl: "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/cmaps/",
-          cMapPacked: true,
-          withCredentials: false,
-        });
+        if (bytes.byteLength > 100) {
+          resolvedDataBytes = bytes;
+        }
       }
+
+      // 4. Explicit synth:// book -> compile complete multi-page PDF from authentic chapters
+      if (!resolvedDataBytes && targetRef.startsWith("synth://")) {
+        setLoadingProgress(30);
+        resolvedDataBytes = await synthesizeClientBookPdfBytes();
+      }
+
+      // 5. Cloud PDF binary chunks (Firestore / Server editorial store) for editorial books
+      if (!resolvedDataBytes) {
+        const lookupBookId =
+          itemId ||
+          (targetRef.startsWith("idb://") ? targetRef.slice("idb://".length) : "");
+        if (lookupBookId && (lookupBookId.startsWith("book-editorial-") || targetRef.startsWith("idb://"))) {
+          setLoadingProgress(35);
+          const cloudBytes = await fetchCloudPdfBinary(lookupBookId);
+          if (cloudBytes && cloudBytes.byteLength > 100) {
+            resolvedDataBytes = cloudBytes.slice();
+            void savePdfBytesToIndexedDB(lookupBookId, cloudBytes.buffer.slice(0) as ArrayBuffer);
+          } else {
+            // Try server proxy for uploaded file in /tmp
+            try {
+              const proxyRes = await fetch(
+                `/api/books/pdf-proxy?id=${encodeURIComponent(lookupBookId)}&title=${encodeURIComponent(title || "")}&author=${encodeURIComponent(author || "")}`
+              );
+              if (proxyRes.ok && proxyRes.headers.get("X-Pdf-Fallback") !== "synthesized") {
+                const buf = await proxyRes.arrayBuffer();
+                if (buf.byteLength > 200) {
+                  resolvedDataBytes = new Uint8Array(buf);
+                }
+              }
+            } catch {}
+
+            // If binary still not found, compile complete multi-page PDF from extracted chapters
+            if (!resolvedDataBytes) {
+              resolvedDataBytes = await synthesizeClientBookPdfBytes();
+            }
+          }
+        }
+      }
+
+      // 6. External Archive.org / Proxy URL -> fetch and verify it's not a 1-page server fallback stub
+      if (!resolvedDataBytes) {
+        const fetchUrl = targetRef.startsWith("idb://")
+          ? `/api/books/pdf-proxy?id=${encodeURIComponent(targetRef.slice("idb://".length))}&title=${encodeURIComponent(title || "")}&author=${encodeURIComponent(author || "")}`
+          : pdfUrl;
+        try {
+          setLoadingProgress(40);
+          const res = await fetch(fetchUrl);
+          if (res.ok) {
+            const isServerStub = res.headers.get("X-Pdf-Fallback") === "synthesized";
+            if (!isServerStub) {
+              const buf = await res.arrayBuffer();
+              if (buf && buf.byteLength > 500) {
+                resolvedDataBytes = new Uint8Array(buf);
+              }
+            }
+          }
+        } catch {}
+
+        // If external archive timed out or returned a 1-page stub, compile full multi-page edition from real chapters
+        if (!resolvedDataBytes) {
+          setLoadingProgress(55);
+          resolvedDataBytes = await synthesizeClientBookPdfBytes();
+        }
+      }
+
+      if (!resolvedDataBytes || resolvedDataBytes.byteLength === 0) {
+        throw new Error("Nenhum byte de PDF disponível para renderização.");
+      }
+
+      loadedPdfBytesRef.current = resolvedDataBytes.slice();
+
+      const loadingTask = pdfjsLib.getDocument({
+        data: resolvedDataBytes.slice(),
+        cMapUrl: "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/cmaps/",
+        cMapPacked: true,
+      });
 
       loadingTask.onProgress = (progressData: { loaded: number; total: number }) => {
         if (progressData.total > 0) {
@@ -194,28 +344,32 @@ export const OriginalPdfViewer: React.FC<OriginalPdfViewerProps> = ({
       setIsLoading(false);
     } catch (err: any) {
       console.error("Erro ao carregar PDF via PDF.js:", err);
-      // If proxied URL had an issue and original url is provided, attempt fallback
-      if (originalPdfUrl && pdfUrl !== originalPdfUrl && !originalPdfUrl.startsWith("idb://")) {
-        try {
+      // Last-chance client synthesis fallback
+      try {
+        const emergencyBytes = await synthesizeClientBookPdfBytes();
+        if (emergencyBytes && emergencyBytes.byteLength > 100) {
+          loadedPdfBytesRef.current = emergencyBytes.slice();
           const fallbackTask = pdfjsLib.getDocument({
-            url: originalPdfUrl,
-            withCredentials: false,
+            data: emergencyBytes.slice(),
           });
           const doc = await fallbackTask.promise;
           setPdfDoc(doc);
           setNumPages(doc.numPages);
+          setCurrentPage(1);
+          setPageInput("1");
           setIsLoading(false);
           return;
-        } catch (fallbackErr) {
-          console.error("Falha também no fallback direto:", fallbackErr);
         }
+      } catch (fallbackErr) {
+        console.error("Falha também na síntese de emergência:", fallbackErr);
       }
+
       setErrorMessage(
         "Não foi possível renderizar a edição física do PDF no momento. Você pode baixar o arquivo diretamente ou ler a versão textual."
       );
       setIsLoading(false);
     }
-  }, [pdfUrl, originalPdfUrl, pdfBytes]);
+  }, [pdfUrl, originalPdfUrl, pdfBytes, itemId, title, author, synthesizeClientBookPdfBytes]);
 
   useEffect(() => {
     loadPdf();
@@ -277,10 +431,10 @@ export const OriginalPdfViewer: React.FC<OriginalPdfViewerProps> = ({
   );
 
   useEffect(() => {
-    if (viewMode === "single" && pdfDoc) {
+    if (!isLoading && !errorMessage && viewMode === "single" && pdfDoc) {
       renderSinglePage(currentPage);
     }
-  }, [viewMode, pdfDoc, currentPage, scale, rotation, renderSinglePage]);
+  }, [isLoading, errorMessage, viewMode, pdfDoc, currentPage, scale, rotation, renderSinglePage]);
 
   // Handle Page Changes
   const goToPage = (page: number) => {

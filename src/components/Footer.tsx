@@ -96,7 +96,7 @@ const Footer = () => {
 
           <div>
             <h4 className="text-sm font-medium mb-4">Fale conosco</h4>
-            <div className="flex flex-col gap-2 mb-8">
+            <div className="flex flex-col gap-2">
               <Link
                 to="/contato"
                 className="text-background/70 hover:text-background smooth-hover text-xs font-light flex items-center gap-2"
@@ -113,21 +113,25 @@ const Footer = () => {
               </a>
               <p className="text-background/70 text-xs font-light">Seg - Sex: 9h - 18h</p>
             </div>
-
-            <h4 className="text-sm font-medium mb-4">Institucional</h4>
-            <div className="flex items-center gap-4 text-xs font-light">
-              <Link to="/sobre" className="text-background/70 hover:text-background smooth-hover" aria-label="Sobre a Wotho">
-                Sobre a Wotho
-              </Link>
-              <Link to="/mapa-do-site" className="text-background/70 hover:text-background smooth-hover" aria-label="Mapa do site">
-                Mapa do Site
-              </Link>
-            </div>
           </div>
         </div>
 
-        <div className="border-t border-background/20 pt-8 mt-12 text-center text-background/50 text-xs font-light">
+        <div className="border-t border-background/20 pt-8 mt-12 flex flex-col sm:flex-row items-center justify-between gap-4 text-center sm:text-left text-background/50 text-xs font-light">
           <p>&copy; 2026 Wotho. Todos os direitos reservados.</p>
+          <div className="flex flex-wrap items-center justify-center gap-4">
+            <Link to="/privacidade" className="hover:text-background smooth-hover">
+              Política de Privacidade
+            </Link>
+            <Link to="/termos" className="hover:text-background smooth-hover">
+              Termos de Uso
+            </Link>
+            <Link to="/sobre" className="hover:text-background smooth-hover">
+              Sobre a Wotho
+            </Link>
+            <Link to="/contato" className="hover:text-background smooth-hover">
+              Contato
+            </Link>
+          </div>
         </div>
       </div>
     </footer>
