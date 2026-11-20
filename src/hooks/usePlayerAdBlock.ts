@@ -1,7 +1,5 @@
 import { useEffect, useState } from "react";
 
-export const SMARTLINK_AD_URL = "https://araplhn.org/4/108a678f2f2826fb9f27c55aefc61780";
-
 /**
  * Regra de bloqueio de redirecionamento e popups durante a reprodução do player.
  * Intercepta window.open, eventos da Navigation API (navegação externa forçada por iframes),
@@ -48,7 +46,7 @@ export function usePlayerAdBlock(active: boolean = true) {
       nav.addEventListener("navigate", handleNavigate);
     }
 
-    // 3. Impede popunders / roubo de foco após clique no iframe (exceto quando o usuário clicou no Smartlink oficial)
+    // 3. Impede popunders / roubo de foco após clique no iframe
     const handleBlur = () => {
       if (Date.now() - lastAllowedExternalClickAt < 3000) return;
       setTimeout(() => {
@@ -69,7 +67,7 @@ export function usePlayerAdBlock(active: boolean = true) {
       }
     };
 
-    // 5. Bloqueia cliques em links ocultos injetados dinamicamente fora do domínio, permitindo o Smartlink oficial
+    // 5. Bloqueia cliques em links ocultos injetados dinamicamente fora do domínio
     const handleGlobalClick = (e: MouseEvent) => {
       const target = (e.target as HTMLElement | null)?.closest?.("a");
       if (!target) return;
@@ -78,8 +76,6 @@ export function usePlayerAdBlock(active: boolean = true) {
       try {
         const parsed = new URL(href, window.location.origin);
         const isAllowedExternal =
-          target.hasAttribute("data-smartlink") ||
-          parsed.hostname.includes("araplhn.org") ||
           parsed.hostname.includes("imdb.com") ||
           parsed.hostname.includes("themoviedb.org") ||
           parsed.hostname.includes("archive.org");

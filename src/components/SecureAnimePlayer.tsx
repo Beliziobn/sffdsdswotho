@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import Hls from "hls.js";
-import { usePlayerAdBlock, SMARTLINK_AD_URL } from "@/hooks/usePlayerAdBlock";
+import { usePlayerAdBlock } from "@/hooks/usePlayerAdBlock";
 import {
   Play,
   Pause,
@@ -16,7 +16,6 @@ import {
   Check,
   ChevronDown,
   Captions,
-  ExternalLink,
 } from "lucide-react";
 import { AnimeEpisode, AnimeSeason } from "@/lib/animes";
 import { toast } from "sonner";
@@ -1218,19 +1217,6 @@ export const SecureAnimePlayer: React.FC<SecureAnimePlayerProps> = ({
           >
             {useEmbedFallback ? "Player Nativo HD" : "Servidor Alternativo"}
           </button>
-
-          <a
-            href={SMARTLINK_AD_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            data-smartlink="true"
-            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/40 text-amber-400 hover:text-amber-300 text-[11px] font-semibold transition-colors whitespace-nowrap shrink-0"
-            title="Abrir Servidor Extra / Bônus em nova aba (Patrocinado)"
-          >
-            <ExternalLink className="h-3 w-3 shrink-0" />
-            <span>Servidor Extra</span>
-            <span className="text-[10px] font-normal opacity-80">(Patrocinado)</span>
-          </a>
 
           <div ref={audioMenuRef} className="relative shrink-0">
             <button
