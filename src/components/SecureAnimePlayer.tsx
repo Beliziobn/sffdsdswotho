@@ -188,7 +188,8 @@ export const SecureAnimePlayer: React.FC<SecureAnimePlayerProps> = ({
   const [orionStreams, setOrionStreams] = useState<ResolvedOrionStream[]>([]);
   const [ptbrEmbedUrls, setPtbrEmbedUrls] = useState<string[]>([]);
   const [candidateIdx, setCandidateIdx] = useState(0);
-  const [isResolvingOrion, setIsResolvingOrion] = useState(false);
+  const [isResolvingOrion, setIsResolvingOrion] = useState(true);
+  const [resolvedRequestKey, setResolvedRequestKey] = useState<string>("");
   const [useEmbedFallback, setUseEmbedFallback] = useState(false);
   const [isAudioMenuOpen, setIsAudioMenuOpen] = useState(false);
   const [subtitleTrack, setSubtitleTrack] = useState<"pt-br" | "en" | "off">("pt-br");
@@ -555,6 +556,16 @@ export const SecureAnimePlayer: React.FC<SecureAnimePlayerProps> = ({
 
   const effectiveTmdbSeason = tmdbTarget.season;
   const effectiveTmdbEpisode = tmdbTarget.episode;
+  const currentResolveKey = `${episode.id}:${selectedDubId}`;
+  const shouldWaitForOrion =
+    isSteelBallRun ||
+    isMovieEpisode ||
+    !isCatalogDubExplicit ||
+    selectedDubId !== "ptbr:0";
+  const isWaitingForResolution =
+    Boolean(tmdbTarget.tmdbId) &&
+    shouldWaitForOrion &&
+    (isResolvingOrion || resolvedRequestKey !== currentResolveKey);
 
   // Resolve multi-language streams from unified backend (/api/cinema/resolve)
   useEffect(() => {
@@ -567,19 +578,12 @@ export const SecureAnimePlayer: React.FC<SecureAnimePlayerProps> = ({
     const tmdbId = tmdbTarget.tmdbId;
     if (!tmdbId) {
       setIsResolvingOrion(false);
+      setResolvedRequestKey(currentResolveKey);
       return;
     }
 
     const [dubCode, dubType] = selectedDubId.split(":");
-    const shouldWaitForOrion =
-      isSteelBallRun ||
-      isMovieEpisode ||
-      !isCatalogDubExplicit ||
-      selectedDubId !== "ptbr:0";
-
-    if (shouldWaitForOrion) {
-      setIsResolvingOrion(true);
-    }
+    setIsResolvingOrion(true);
 
     const audioModeParam =
       dubCode.startsWith("pt") && dubType === "0"
@@ -588,23 +592,37 @@ export const SecureAnimePlayer: React.FC<SecureAnimePlayerProps> = ({
         ? "legendado"
         : "original";
 
-    const params = new URLSearchParams({
-      tmdbId: String(tmdbId),
-      type: tmdbTarget.mediaType,
-      season: String(effectiveTmdbSeason),
-      episode: String(effectiveTmdbEpisode),
-      title: tmdbTarget.title,
-      year: String(tmdbTarget.year),
-      audioMode: audioModeParam,
-      dubCode,
-      dubType,
-      ...(tmdbTarget.imdbId ? { imdbId: tmdbTarget.imdbId } : {}),
-    });
+    const runResolve = async (attempt: number) => {
+      const params = new URLSearchParams({
+        tmdbId: String(tmdbId),
+        type: tmdbTarget.mediaType,
+        season: String(effectiveTmdbSeason),
+        episode: String(effectiveTmdbEpisode),
+        title: tmdbTarget.title,
+        year: String(tmdbTarget.year),
+        audioMode: audioModeParam,
+        dubCode,
+        dubType,
+        ...(tmdbTarget.imdbId ? { imdbId: tmdbTarget.imdbId } : {}),
+        ...(attempt > 1 ? { t: String(Date.now()) } : {}),
+      });
 
-    fetch(`/api/cinema/resolve?${params.toString()}`)
-      .then((r) => r.json())
-      .then((data) => {
+      const resp = await fetch(`/api/cinema/resolve?${params.toString()}`);
+      if (!resp.ok) throw new Error(`Resolve HTTP ${resp.status}`);
+      return resp.json();
+    };
+
+    const resolveWithRetry = async () => {
+      try {
+        let data = await runResolve(1);
         if (cancelled) return;
+        if ((!Array.isArray(data?.streams) || data.streams.length === 0) && tmdbTarget.mediaType === "tv") {
+          await new Promise((r) => setTimeout(r, 850));
+          if (cancelled) return;
+          data = await runResolve(2).catch(() => data);
+        }
+        if (cancelled) return;
+
         if (Array.isArray(data?.streams)) {
           setOrionStreams(data.streams);
           if (data.streams.length > 0) {
@@ -624,7 +642,6 @@ export const SecureAnimePlayer: React.FC<SecureAnimePlayerProps> = ({
         if (Array.isArray(data?.subtitles?.enCues) && data.subtitles.enCues.length > 0) {
           setEnCues(data.subtitles.enCues);
         }
-        // If ptCues weren't cached yet, fetch them directly from /api/cinema/vtt
         const resolvedImdbId = data?.imdbId || tmdbTarget.imdbId;
         if (
           resolvedImdbId &&
@@ -647,17 +664,24 @@ export const SecureAnimePlayer: React.FC<SecureAnimePlayerProps> = ({
             })
             .catch(() => {});
         }
-        setIsResolvingOrion(false);
-      })
-      .catch(() => {
-        if (!cancelled) setIsResolvingOrion(false);
-      });
+      } catch {
+        // Allow graceful fallback if all retries fail
+      } finally {
+        if (!cancelled) {
+          setIsResolvingOrion(false);
+          setResolvedRequestKey(currentResolveKey);
+        }
+      }
+    };
+
+    void resolveWithRetry();
 
     return () => {
       cancelled = true;
     };
   }, [
     episode.id,
+    currentResolveKey,
     tmdbTarget,
     isSteelBallRun,
     isMovieEpisode,
@@ -835,20 +859,15 @@ export const SecureAnimePlayer: React.FC<SecureAnimePlayerProps> = ({
       return;
     }
 
-    const shouldWaitForOrion =
-      isSteelBallRun ||
-      isMovieEpisode ||
-      !isCatalogDubExplicit ||
-      selectedDubId !== "ptbr:0";
-
-    if (isResolvingOrion && shouldWaitForOrion) {
+    if (isWaitingForResolution) {
       setIsBuffering(true);
       return;
     }
 
     const videoEl = videoRef.current;
     if (!videoEl || !activeRawUrl) {
-      if (!isResolvingOrion && candidateStreams.length === 0) {
+      if (!isWaitingForResolution && candidateStreams.length === 0) {
+        setIsBuffering(false);
         setUseEmbedFallback(true);
       }
       return;
@@ -1091,7 +1110,7 @@ export const SecureAnimePlayer: React.FC<SecureAnimePlayerProps> = ({
     candidateStreams.length,
     episode.id,
     season.id,
-    isResolvingOrion,
+    isWaitingForResolution,
     isCatalogDubExplicit,
     isSteelBallRun,
     isMovieEpisode,
@@ -1153,14 +1172,16 @@ export const SecureAnimePlayer: React.FC<SecureAnimePlayerProps> = ({
     handleSeekRelative(85);
   };
 
+  const safePtbrEmbed = ptbrEmbedUrls.find((u) => u && !u.includes("embedyplayer.xyz"));
+
   const anivideoIframeUrl =
     episode.anivideoEmbedUrl && episode.anivideoEmbedUrl.startsWith("https://archive.org/embed/")
       ? episode.anivideoEmbedUrl
-      : ptbrEmbedUrls[0] ||
+      : safePtbrEmbed ||
         (tmdbTarget.tmdbId
           ? tmdbTarget.mediaType === "movie"
-            ? `https://embedyplayer.xyz/embed/${tmdbTarget.tmdbId}`
-            : `https://embedyplayer.xyz/embed/${tmdbTarget.tmdbId}/${effectiveTmdbSeason}/${effectiveTmdbEpisode}`
+            ? `https://vidlink.pro/movie/${tmdbTarget.tmdbId}`
+            : `https://vidlink.pro/tv/${tmdbTarget.tmdbId}/${effectiveTmdbSeason}/${effectiveTmdbEpisode}`
           : `https://playerflix.ink/`);
 
   const toggleFullscreen = () => {

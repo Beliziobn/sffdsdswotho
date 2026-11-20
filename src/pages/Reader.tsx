@@ -30,6 +30,7 @@ import {
 } from "@/lib/originalPdfRegistry";
 import OriginalPdfViewer from "@/components/books/OriginalPdfViewer";
 import { downloadRealBook } from "@/lib/mediaDownloaders";
+import { notifyDownloadError, notifyDownloadSuccess } from "@/lib/downloadNotifications";
 import { isExcludedItem } from "@/lib/excludedItems";
 import { BookReaderSkeleton } from "@/components/skeletons/AppSkeletons";
 
@@ -116,7 +117,7 @@ const Reader = () => {
     if (!book || isDownloadingFallback) return;
     setIsDownloadingFallback(true);
     try {
-      await downloadRealBook({
+      const entry = await downloadRealBook({
         book: {
           id: String(book.id),
           title: book.title || "Livro Digital",
@@ -129,9 +130,9 @@ const Reader = () => {
         },
         chapters,
       });
-      toast.success("Download concluído! Disponível em Meu Perfil → Downloads.");
-    } catch {
-      toast.error("Não foi possível transferir o PDF no momento.");
+      notifyDownloadSuccess(entry);
+    } catch (err) {
+      notifyDownloadError(err, "Não foi possível transferir o PDF no momento.");
     } finally {
       setIsDownloadingFallback(false);
     }

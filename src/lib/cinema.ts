@@ -161,8 +161,8 @@ export function getCinemaStreamUrl(
 
   if (audioMode === "dublado" && (dubLang === "ptbr" || dubLang === "pt")) {
     return item.type === "filme"
-      ? `https://embedyplayer.xyz/embed/${tmdbId}`
-      : `https://embedyplayer.xyz/embed/${tmdbId}/${season}/${episode}`;
+      ? `https://playerflix.ink/filme/${tmdbId}`
+      : `https://playerflix.ink/serie/${tmdbId}/${season}/${episode}`;
   }
 
   if (item.type === "filme") {

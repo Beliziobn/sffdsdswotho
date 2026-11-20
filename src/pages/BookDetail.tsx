@@ -13,6 +13,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { formatPrice } from "@/lib/format";
 import { resolveOriginalPdfForBookOrRecord } from "@/lib/originalPdfRegistry";
 import { downloadRealBook } from "@/lib/mediaDownloaders";
+import { notifyDownloadError, notifyDownloadSuccess } from "@/lib/downloadNotifications";
 import { CommunityReviews } from "@/components/CommunityReviews";
 import ShareDialog from "@/components/ShareDialog";
 import { ContentDetailSkeleton } from "@/components/skeletons/AppSkeletons";
@@ -37,7 +38,7 @@ const BookDetail = () => {
     if (!book || isDownloadingPdf) return;
     setIsDownloadingPdf(true);
     try {
-      await downloadRealBook({
+      const entry = await downloadRealBook({
         book: {
           id: String(book.id),
           title: book.title,
@@ -50,9 +51,9 @@ const BookDetail = () => {
         },
         chapters,
       });
-      toast.success("Download concluído! Acesse e abra quando quiser em Meu Perfil → Downloads.");
-    } catch {
-      toast.error("Não foi possível baixar o arquivo PDF no momento.");
+      notifyDownloadSuccess(entry);
+    } catch (err) {
+      notifyDownloadError(err, "Não foi possível baixar o arquivo PDF no momento.");
     } finally {
       setIsDownloadingPdf(false);
     }

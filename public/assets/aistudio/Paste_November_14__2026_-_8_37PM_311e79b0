@@ -1,0 +1,982 @@
+Como Engenheiro Sênior de Front-end e Arquitetura de UI/UX, fiz uma auditoria completa nas duas telas atuais do seu sistema (Catálogo e Sala de Exibição). Você já tem uma base escura interessante, mas ela sofre exatamente dos problemas que você pontuou: **ruído cromático, peso estrutural desbalanceado e sobrecarga/subcarga espacial**.
+
+### 1. Diagnóstico Técnico (O que estava errado)
+1. **Ruído de Cor (O "Amarelo Alerta"):** O tom amarelo/laranja (`#F59E0B`) usado nos botões, tags, barra de progresso e estrelas compete diretamente com a arte dos filmes. Na filosofia de design espacial (inspirada no *visionOS* e *tvOS* da Apple), a interface deve ser **neutra, translúcida e silenciosa**, deixando 100% do protagonismo cromático para a fotografia da obra.
+2. **Desequilíbrio Espacial (Subcarga na Tela do Player):** Abaixo do vídeo de *Your Name*, o bloco de "Sinopse Oficial" tem apenas 3 linhas e gera um enorme vazio morto (subcarga) ao lado do pôster vertical gigante, quebrando o ritmo de leitura.
+3. **Poluição nos Controles e Cards:** 
+   - No player: 5 botões de idiomas espalhados no topo criam poluição visual. Isso deve ser um *Segmented Pill* ou seletor elegante em vidro fosco.
+   - No catálogo: Abaixo de cada pôster há 3 linhas de texto (Tipo, Ano, Estrela amarela, Título, Gêneros). Multiplicado por 30 filmes, gera fadiga cognitiva imediata.
+
+---
+
+### 2. A Nova Arquitetura ("Spatial Cinema UI")
+Projetei uma solução completa e integrada em **Python utilizando FastAPI** (o padrão ouro atual da indústria Python para alta performance web), servindo uma **Single-Page Application reativa** com Tailwind CSS customizado e transições dinâmicas suaves:
+- **Ambient Glow Dinâmico:** A luz de fundo da página respira suavemente com as cores da obra em exibição, sem pesar na GPU.
+- **Bento Grid Equilibrado:** Na tela do filme, eliminamos o buraco vazio unificando Sinopse, Especificações Técnicas (Dolby Vision/Atmos) e **Navegação por Capítulos/Cenas** em cartões de vidro fosco (*Glassmorphism* real com `backdrop-filter` e bordas sub-pixel `rgba(255,255,255,0.08)`).
+- **Modo Cinema (Focus Mode):** Um novo elemento funcional que escurece 95% do entorno da tela com um clique, focado puramente na imersão.
+- **Command Spotlight (`⌘K`):** Busca limpa integrada ao cabeçalho flutuante sem duplicar barras de filtros.
+- **Tipografia Unificada:** Adeus à mistura de fontes serifadas pesadas com sans-serif. Tudo usa a escala tipográfica *Inter / SF Pro Display* com *tracking* negativo nos títulos.
+
+---
+
+### 3. Código Completo em Python (`app.py`)
+
+Para rodar imediatamente em sua máquina, instale o FastAPI e o servidor Uvicorn:
+```bash
+pip install fastapi uvicorn
+python app.py
+```
+Acesse `http://127.0.0.1:8000` no navegador. O código já integra as **duas telas** (Catálogo + Player), filtros em tempo real, troca de filmes, Modo Cinema e seletor de áudio sem poluição.
+
+```python
+import uvicorn
+from fastapi import FastAPI
+from fastapi.responses import HTMLResponse, JSONResponse
+
+app = FastAPI(title="Lumina Spatial Cinema Engine", version="2.0.0")
+
+# ==============================================================================
+# CAMADA DE DADOS ESTRUTURADOS (Backend Python Clean Data)
+# ==============================================================================
+CATALOG_DB = [
+    {
+        "id": "dune-2",
+        "type": "FILME",
+        "featured": True,
+        "title": "Duna: Parte Dois",
+        "original_title": "Dune: Part Two",
+        "year": 2024,
+        "duration": "2h 46m",
+        "rating": "8.8",
+        "age": "14",
+        "quality": ["4K", "Dolby Vision", "Dolby Atmos"],
+        "genres": ["Ficção Científica", "Aventura", "Drama"],
+        "director": "Denis Villeneuve",
+        "cast": ["Timothée Chalamet", "Zendaya", "Rebecca Ferguson", "Javier Bardem"],
+        "ambient_color": "rgba(217, 119, 6, 0.16)",
+        "backdrop": "https://images.unsplash.com/photo-1547234935-80c7145ec969?auto=format&fit=crop&w=1920&q=85",
+        "poster": "https://images.unsplash.com/photo-1509316975850-ff9c5deb0cd9?auto=format&fit=crop&w=600&q=80",
+        "synopsis": "Paul Atreides se une a Chani e aos Fremen em uma jornada espiritual e marcial em busca de vingança contra os conspiradores que destruíram sua família. Diante de uma escolha entre o amor de sua vida e o destino do universo, ele luta para evitar um futuro terrível que só ele pode prever.",
+        "progress": 0,
+        "chapters": [
+            {"time": "00:00", "title": "O Deserto de Arrakis"},
+            {"time": "34:15", "title": "Entre os Fremen"},
+            {"time": "01:18:40", "title": "O Domador de Vermes"},
+            {"time": "02:05:10", "title": "A Guerra Santa"}
+        ]
+    },
+    {
+        "id": "your-name",
+        "type": "FILME",
+        "featured": False,
+        "title": "Your Name.",
+        "original_title": "君の名は。 (Kimi no Na wa)",
+        "year": 2016,
+        "duration": "1h 46m",
+        "rating": "8.5",
+        "age": "10",
+        "quality": ["4K HDR", "Lossless Audio"],
+        "genres": ["Animação", "Drama", "Fantasia"],
+        "director": "Makoto Shinkai",
+        "cast": ["Ryunosuke Kamiki", "Mone Kamishiraishi", "Ryo Narita", "Aoi Yuki"],
+        "ambient_color": "rgba(56, 189, 248, 0.18)",
+        "backdrop": "https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=1920&q=85",
+        "poster": "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=600&q=80",
+        "synopsis": "Mitsuha vive em uma pacata cidade montanhosa do interior do Japão e sonha com a vida agitada de Tóquio. Taki é um estudante da metrópole com uma rotina intensa. Misteriosamente, os dois começam a trocar de corpo através de seus sonhos, tecendo um laço capaz de desafiar o próprio tempo.",
+        "progress": 64,
+        "chapters": [
+            {"time": "00:00", "title": "Sonhos Cruzados"},
+            {"time": "24:10", "title": "Regras no Diário"},
+            {"time": "52:30", "title": "O Cometa Tiamat"},
+            {"time": "01:16:00", "title": "Kataware-doki (Crepúsculo)"}
+        ]
+    },
+    {
+        "id": "interstellar",
+        "type": "FILME",
+        "featured": False,
+        "title": "Interestelar",
+        "original_title": "Interstellar",
+        "year": 2014,
+        "duration": "2h 49m",
+        "rating": "8.7",
+        "age": "10",
+        "quality": ["IMAX 4K", "HDR10+"],
+        "genres": ["Ficção Científica", "Drama"],
+        "director": "Christopher Nolan",
+        "cast": ["Matthew McConaughey", "Anne Hathaway", "Jessica Chastain"],
+        "ambient_color": "rgba(99, 102, 241, 0.16)",
+        "backdrop": "https://images.unsplash.com/photo-1446776811953-b23d57bd21aa?auto=format&fit=crop&w=1920&q=85",
+        "poster": "https://images.unsplash.com/photo-1462331940025-496dfbfc7564?auto=format&fit=crop&w=600&q=80",
+        "synopsis": "Com os recursos naturais da Terra chegando ao fim, uma equipe de exploradores assume a missão mais importante da história humana: viajar além da nossa galáxia através de um buraco de minhoca para descobrir se a humanidade tem futuro entre as estrelas.",
+        "progress": 32,
+        "chapters": [
+            {"time": "00:00", "title": "Poeira e Gravidade"},
+            {"time": "42:00", "title": "Atravessando Gargantua"},
+            {"time": "01:15:20", "title": "O Planeta de Miller"},
+            {"time": "02:18:00", "title": "O Tesseract"}
+        ]
+    },
+    {
+        "id": "oppenheimer",
+        "type": "FILME",
+        "featured": False,
+        "title": "Oppenheimer",
+        "original_title": "Oppenheimer",
+        "year": 2023,
+        "duration": "3h 00m",
+        "rating": "8.4",
+        "age": "16",
+        "quality": ["4K", "Dolby Vision"],
+        "genres": ["Drama", "Histórico"],
+        "director": "Christopher Nolan",
+        "cast": ["Cillian Murphy", "Emily Blunt", "Robert Downey Jr."],
+        "ambient_color": "rgba(239, 68, 68, 0.14)",
+        "backdrop": "https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=1920&q=85",
+        "poster": "https://images.unsplash.com/photo-1508614589041-895b88991e3e?auto=format&fit=crop&w=600&q=80",
+        "synopsis": "A trajetória do físico teórico J. Robert Oppenheimer e seu papel como diretor do Laboratório de Los Alamos durante o Projeto Manhattan, liderando a criação da primeira arma nuclear que alterou irreversivelmente o curso do século XX.",
+        "progress": 0,
+        "chapters": [
+            {"time": "00:00", "title": "Fissão & Fusão"},
+            {"time": "48:00", "title": "Los Alamos"},
+            {"time": "01:55:10", "title": "Teste Trinity"},
+            {"time": "02:30:00", "title": "Reação em Cadeia"}
+        ]
+    },
+    {
+        "id": "blade-runner",
+        "type": "FILME",
+        "featured": False,
+        "title": "Blade Runner 2049",
+        "original_title": "Blade Runner 2049",
+        "year": 2017,
+        "duration": "2h 44m",
+        "rating": "8.0",
+        "age": "14",
+        "quality": ["4K HDR", "Dolby Atmos"],
+        "genres": ["Ficção Científica", "Suspense"],
+        "director": "Denis Villeneuve",
+        "cast": ["Ryan Gosling", "Harrison Ford", "Ana de Armas"],
+        "ambient_color": "rgba(20, 184, 166, 0.16)",
+        "backdrop": "https://images.unsplash.com/photo-1515630278258-407f66498911?auto=format&fit=crop&w=1920&q=85",
+        "poster": "https://images.unsplash.com/photo-1555680202-c86f0e12f086?auto=format&fit=crop&w=600&q=80",
+        "synopsis": "Trinta anos após os eventos do primeiro filme, um novo blade runner, o Oficial K da Polícia de Los Angeles, desenterra um segredo há muito enterrado que tem o potencial de mergulhar o que resta da sociedade no caos absoluto.",
+        "progress": 88,
+        "chapters": [
+            {"time": "00:00", "title": "Califórnia Sintética"},
+            {"time": "39:20", "title": "Memórias Implantadas"},
+            {"time": "01:40:00", "title": "Ruínas de Las Vegas"},
+            {"time": "02:22:15", "title": "Lágrimas na Neve"}
+        ]
+    },
+    {
+        "id": "spirited-away",
+        "type": "FILME",
+        "featured": False,
+        "title": "A Viagem de Chihiro",
+        "original_title": "千と千尋の神隠し",
+        "year": 2001,
+        "duration": "2h 05m",
+        "rating": "8.6",
+        "age": "L",
+        "quality": ["4K Remaster", "PCM 5.1"],
+        "genres": ["Animação", "Fantasia", "Aventura"],
+        "director": "Hayao Miyazaki",
+        "cast": ["Rumi Hiiragi", "Miyu Irino", "Mari Natsuki"],
+        "ambient_color": "rgba(168, 85, 247, 0.15)",
+        "backdrop": "https://images.unsplash.com/photo-1528164344705-475426879c0d?auto=format&fit=crop&w=1920&q=85",
+        "poster": "https://images.unsplash.com/photo-1493976040374-85c8e12f0c0e?auto=format&fit=crop&w=600&q=80",
+        "synopsis": "Durante a mudança de sua família para o subúrbio, Chihiro, uma garota de 10 anos, atravessa um túnel misterioso e entra em um mundo governado por deuses, espíritos e feiticeiros, onde humanos são transformados em feras.",
+        "progress": 18,
+        "chapters": [
+            {"time": "00:00", "title": "O Túnel Esquecido"},
+            {"time": "28:40", "title": "Casa de Banhos Aburaya"},
+            {"time": "01:12:00", "title": "O Trem sobre o Mar"},
+            {"time": "01:50:10", "title": "O Verdadeiro Nome"}
+        ]
+    },
+    {
+        "id": "chernobyl",
+        "type": "SÉRIE",
+        "featured": False,
+        "title": "Chernobyl",
+        "original_title": "Chernobyl (Minissérie)",
+        "year": 2019,
+        "duration": "5 Episódios",
+        "rating": "9.3",
+        "age": "16",
+        "quality": ["4K HDR", "5.1 Surround"],
+        "genres": ["Drama", "Histórico", "Suspense"],
+        "director": "Johan Renck",
+        "cast": ["Jared Harris", "Stellan Skarsgård", "Emily Watson"],
+        "ambient_color": "rgba(52, 211, 153, 0.12)",
+        "backdrop": "https://images.unsplash.com/photo-1509198397868-475647b2a1e5?auto=format&fit=crop&w=1920&q=85",
+        "poster": "https://images.unsplash.com/photo-1516549655169-df83a0774514?auto=format&fit=crop&w=600&q=80",
+        "synopsis": "Em abril de 1986, uma explosão na usina nuclear de Chernobyl na União Soviética torna-se uma das piores catástrofes provocadas pelo homem na história, revelando os sacrifícios feitos para salvar a Europa de um desastre inimaginável.",
+        "progress": 0,
+        "chapters": [
+            {"time": "00:00", "title": "1:23:45"},
+            {"time": "18:30", "title": "Núcleo Exposto"},
+            {"time": "39:00", "title": "Evacuação de Pripyat"},
+            {"time": "54:20", "title": "O Custo das Mentiras"}
+        ]
+    },
+    {
+        "id": "arcane",
+        "type": "SÉRIE",
+        "featured": False,
+        "title": "Arcane",
+        "original_title": "Arcane",
+        "year": 2021,
+        "duration": "2 Temporadas",
+        "rating": "9.0",
+        "age": "14",
+        "quality": ["4K Dolby Vision", "Atmos"],
+        "genres": ["Animação", "Ação", "Ficção Científica"],
+        "director": "Pascal Charrue",
+        "cast": ["Hailee Steinfeld", "Ella Purnell", "Kevin Alejandro"],
+        "ambient_color": "rgba(236, 72, 153, 0.15)",
+        "backdrop": "https://images.unsplash.com/photo-1534796636912-3b95b3ab5986?auto=format&fit=crop&w=1920&q=85",
+        "poster": "https://images.unsplash.com/photo-1579546929518-9e396f3cc809?auto=format&fit=crop&w=600&q=80",
+        "synopsis": "Em meio ao conflito crescente entre a cidade rica e utópica de Piltover e o submundo oprimido de Zaun, duas irmãs lutam em lados opostos de uma guerra movida por tecnologias mágicas e convicções irreconciliáveis.",
+        "progress": 0,
+        "chapters": [
+            {"time": "00:00", "title": "Piltover & Zaun"},
+            {"time": "14:15", "title": "Cristais Hextech"},
+            {"time": "27:50", "title": "A Queda de Vander"},
+            {"time": "38:00", "title": "Jinx"}
+        ]
+    }
+]
+
+
+@app.get("/api/catalog")
+async def get_catalog():
+    return JSONResponse(content=CATALOG_DB)
+
+
+# ==============================================================================
+# FRONTEND ESPACIAL INTEGRADO (Design System Apple-Inspired / Zero Noise)
+# ==============================================================================
+HTML_TEMPLATE = """
+<!DOCTYPE html>
+<html lang="pt-BR" class="dark antialiased">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lumina — Spatial Cinema Interface</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --glass-bg: rgba(24, 24, 27, 0.58);
+            --glass-border: rgba(255, 255, 255, 0.08);
+            --glass-highlight: rgba(255, 255, 255, 0.14);
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background-color: #060608;
+            color: #F4F4F5;
+            overflow-x: hidden;
+            selection-background-color: rgba(255,255,255,0.2);
+        }
+
+        /* Vidro Fosco Espacial (Apple visionOS / tvOS Aesthetics) */
+        .spatial-glass {
+            background: var(--glass-bg);
+            backdrop-filter: blur(28px) saturate(160%);
+            -webkit-backdrop-filter: blur(28px) saturate(160%);
+            border: 1px solid var(--glass-border);
+        }
+
+        .spatial-pill {
+            background: rgba(255, 255, 255, 0.06);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .spatial-pill:hover {
+            background: rgba(255, 255, 255, 0.12);
+            border-color: rgba(255, 255, 255, 0.18);
+        }
+
+        /* Ambient Glow Dinâmico sem poluição */
+        #ambient-stage {
+            transition: background 1.1s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.6s ease;
+        }
+
+        /* Transições suaves de Cards */
+        .poster-card {
+            transition: transform 0.45s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .poster-card:hover {
+            transform: translateY(-6px) scale(1.015);
+            box-shadow: 0 24px 48px -12px rgba(0, 0, 0, 0.85), 0 0 0 1px rgba(255, 255, 255, 0.16);
+        }
+
+        /* Modo Cinema (Focus Mode) */
+        body.cinema-mode .dim-on-cinema {
+            opacity: 0.06 !important;
+            pointer-events: none;
+            filter: blur(4px);
+        }
+        .dim-on-cinema {
+            transition: opacity 0.6s cubic-bezier(0.16, 1, 0.3, 1), filter 0.6s ease;
+        }
+
+        /* Scrollbar Invisível mas Funcional */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 9999px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.24); }
+    </style>
+</head>
+<body class="min-h-screen relative selection:bg-white/20 selection:text-white">
+
+    <!-- Luz Ambiente Dinâmica no Topo -->
+    <div id="ambient-stage" class="fixed inset-x-0 top-0 h-[78vh] pointer-events-none z-0"
+         style="background: radial-gradient(ellipse 80% 55% at 50% -10%, rgba(56, 189, 248, 0.16), transparent 75%);">
+    </div>
+
+    <!-- =================================================================== -->
+    <!-- BARRA DE NAVEGAÇÃO FLUTUANTE UNIFICADA (Zero Ruído)                 -->
+    <!-- =================================================================== -->
+    <header class="fixed top-5 inset-x-0 z-50 flex justify-center px-4 dim-on-cinema">
+        <nav class="spatial-glass rounded-full px-3 py-2 flex items-center gap-2 md:gap-6 shadow-2xl max-w-4xl w-full justify-between">
+            <!-- Marca & Botão Voltar Dinâmico -->
+            <div class="flex items-center gap-2">
+                <button onclick="switchView('catalog')" class="flex items-center gap-2.5 px-3 py-1.5 rounded-full hover:bg-white/10 transition group">
+                    <span class="w-2.5 h-2.5 rounded-full bg-white shadow-[0_0_12px_rgba(255,255,255,0.9)]"></span>
+                    <span class="font-semibold tracking-tight text-sm text-white">Lumina</span>
+                </button>
+                <button id="nav-back-btn" onclick="switchView('catalog')" class="hidden items-center gap-1.5 text-xs font-medium text-zinc-300 hover:text-white bg-white/5 hover:bg-white/10 px-3 py-1.5 rounded-full border border-white/5 transition">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+                    Catálogo
+                </button>
+            </div>
+
+            <!-- Segmented Control de Categorias (Apenas no Catálogo) -->
+            <div id="nav-segments" class="hidden md:flex items-center bg-black/30 p-1 rounded-full border border-white/5 text-xs font-medium">
+                <button onclick="setCategory('ALL')" data-cat="ALL" class="cat-tab px-3.5 py-1 rounded-full bg-white text-black transition">Explorar</button>
+                <button onclick="setCategory('FILME')" data-cat="FILME" class="cat-tab px-3.5 py-1 rounded-full text-zinc-400 hover:text-white transition">Filmes</button>
+                <button onclick="setCategory('SÉRIE')" data-cat="SÉRIE" class="cat-tab px-3.5 py-1 rounded-full text-zinc-400 hover:text-white transition">Séries</button>
+                <button onclick="setCategory('SAVED')" data-cat="SAVED" class="cat-tab px-3.5 py-1 rounded-full text-zinc-400 hover:text-white transition">Minha Lista <span id="saved-count" class="ml-1 opacity-60">0</span></button>
+            </div>
+
+            <!-- Busca Spotlight Compacta -->
+            <div class="flex items-center gap-2">
+                <div class="relative flex items-center">
+                    <svg class="w-3.5 h-3.5 text-zinc-400 absolute left-3 pointer-events-none" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35m1.85-5.15a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                    </svg>
+                    <input id="search-input" type="text" placeholder="Buscar obra, diretor..."
+                           oninput="handleSearch(this.value)"
+                           class="bg-white/[0.05] hover:bg-white/[0.08] focus:bg-white/[0.1] text-xs text-white placeholder-zinc-500 pl-8 pr-8 py-1.5 rounded-full border border-white/10 focus:outline-none focus:border-white/25 w-40 sm:w-52 transition-all">
+                    <span class="hidden sm:inline-block absolute right-2.5 text-[10px] text-zinc-500 font-mono">/</span>
+                </div>
+            </div>
+        </nav>
+    </header>
+
+    <!-- =================================================================== -->
+    <!-- TELA 1: CATÁLOGO DE CINEMA (Reconstrução da Imagem 2)               -->
+    <!-- =================================================================== -->
+    <main id="view-catalog" class="relative z-10 pb-24 transition-opacity duration-500">
+
+        <!-- HERO BANNER CINEMATOGRÁFICO (Respirável e Limpo) -->
+        <section id="hero-section" class="relative w-full min-h-[76vh] flex items-end pt-32 pb-14 px-6 md:px-14 overflow-hidden">
+            <div class="absolute inset-0 z-0">
+                <img id="hero-backdrop" src="" alt="Destaque" class="w-full h-full object-cover object-center scale-105 opacity-55 transition-all duration-1000">
+                <div class="absolute inset-0 bg-gradient-to-t from-[#060608] via-[#060608]/65 to-transparent"></div>
+                <div class="absolute inset-0 bg-gradient-to-r from-[#060608]/90 via-[#060608]/40 to-transparent"></div>
+            </div>
+
+            <div class="relative z-10 max-w-7xl mx-auto w-full">
+                <div class="max-w-2xl space-y-5">
+                    <!-- Metadados Silenciosos (Sem amarelo berrante) -->
+                    <div id="hero-meta" class="flex flex-wrap items-center gap-2.5 text-xs font-medium text-zinc-300 tracking-wide"></div>
+
+                    <h1 id="hero-title" class="text-4xl sm:text-6xl font-semibold tracking-tight text-white leading-[1.06]"></h1>
+
+                    <p id="hero-synopsis" class="text-sm sm:text-base text-zinc-300/90 leading-relaxed line-clamp-3 font-normal max-w-xl"></p>
+
+                    <!-- CTAs Inspirados na Apple TV+ -->
+                    <div class="pt-2 flex flex-wrap items-center gap-3">
+                        <button id="hero-play-btn" class="bg-white hover:bg-zinc-200 text-black font-semibold text-sm px-6 py-3 rounded-full flex items-center gap-2.5 shadow-[0_8px_30px_rgba(255,255,255,0.18)] transition active:scale-95">
+                            <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                            Assistir Filme
+                        </button>
+                        <button id="hero-save-btn" class="spatial-pill text-white font-medium text-sm px-5 py-3 rounded-full flex items-center gap-2">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+                            <span>Minha Lista</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <div class="max-w-7xl mx-auto px-6 md:px-14 space-y-14 mt-4">
+
+            <!-- TRILHO: CONTINUAR ASSISTINDO (Cards Horizontais 16:9 com Progresso Fino) -->
+            <section id="continue-section" class="space-y-4">
+                <div class="flex items-center justify-between">
+                    <h2 class="text-base font-medium tracking-tight text-zinc-200">Continuar Assistindo</h2>
+                    <span class="text-xs text-zinc-500">Sincronizado na sessão</span>
+                </div>
+                <div id="continue-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5"></div>
+            </section>
+
+            <!-- FILTROS DE GÊNERO MINIMALISTAS (Uma única linha sem poluição) -->
+            <section class="space-y-6">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/[0.06] pb-4">
+                    <div>
+                        <h2 class="text-xl font-semibold tracking-tight text-white">Acervo Curado</h2>
+                        <p id="catalog-counter" class="text-xs text-zinc-500 mt-0.5"></p>
+                    </div>
+                    <div id="genre-pills" class="flex items-center gap-1.5 overflow-x-auto pb-1"></div>
+                </div>
+
+                <!-- GRADE DE PÔSTERES LIMPA (Menos texto embaixo, mais arte) -->
+                <div id="catalog-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-x-6 gap-y-10"></div>
+            </section>
+        </div>
+    </main>
+
+    <!-- =================================================================== -->
+    <!-- TELA 2: SALA DE EXIBIÇÃO / PLAYER (Reconstrução da Imagem 1)        -->
+    <!-- =================================================================== -->
+    <main id="view-player" class="hidden relative z-10 pt-28 pb-24 px-4 sm:px-8 md:px-14 max-w-6xl mx-auto space-y-8">
+
+        <!-- CABEÇALHO DO FILME (Hierarquia Clara e Ações Discretas) -->
+        <section class="flex flex-col md:flex-row md:items-end justify-between gap-6 dim-on-cinema">
+            <div class="space-y-2.5">
+                <div id="player-badges" class="flex flex-wrap items-center gap-2 text-xs font-medium text-zinc-400"></div>
+                <h1 id="player-title" class="text-3xl sm:text-5xl font-semibold tracking-tight text-white"></h1>
+                <p id="player-original-title" class="text-xs text-zinc-500 tracking-wide"></p>
+            </div>
+
+            <!-- Barra de Ações Unificada (Sem botões laranjas berrantes) -->
+            <div class="flex flex-wrap items-center gap-2.5">
+                <button onclick="toggleCinemaMode()" id="cinema-toggle-btn" class="spatial-pill text-xs font-medium text-zinc-200 px-4 py-2.5 rounded-full flex items-center gap-2" title="Apagar luzes da interface">
+                    <svg class="w-4 h-4 text-zinc-300" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/>
+                    </svg>
+                    <span>Modo Cinema</span>
+                </button>
+                <button id="player-save-btn" class="spatial-pill text-xs font-medium text-zinc-200 px-4 py-2.5 rounded-full flex items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"/>
+                    </svg>
+                    <span>Lista</span>
+                </button>
+                <button onclick="showToast('Download 4K HDR iniciado em segundo plano.')" class="bg-white hover:bg-zinc-200 text-black text-xs font-semibold px-4 py-2.5 rounded-full flex items-center gap-2 transition active:scale-95">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5m0 0l5-5m-5 5V4"/>
+                    </svg>
+                    <span>Transferir</span>
+                </button>
+            </div>
+        </section>
+
+        <!-- VIEWPORT DE VÍDEO ESPACIAL (Substitui as 5 abas poluídas por um Popover Limpo) -->
+        <section class="relative rounded-3xl overflow-hidden border border-white/10 shadow-[0_30px_90px_rgba(0,0,0,0.85)] bg-black aspect-video group select-none">
+
+            <!-- Imagem da Cena -->
+            <img id="player-screen-img" src="" alt="Cena" class="w-full h-full object-cover opacity-85 group-hover:scale-[1.01] transition-transform duration-700">
+            <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/40"></div>
+
+            <!-- Topo do Player: Status de Stream + Seletor de Idioma Unificado -->
+            <div class="absolute top-4 inset-x-5 flex items-center justify-between z-20 opacity-95 group-hover:opacity-100 transition-opacity">
+                <div class="spatial-glass px-3 py-1.5 rounded-full flex items-center gap-2 text-[11px] text-zinc-200 font-medium">
+                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                    <span id="stream-indicator">Português (Brasil) · 4K HDR</span>
+                </div>
+
+                <div class="flex items-center gap-2 relative">
+                    <!-- Botão Sair do Modo Cinema quando ativo -->
+                    <button id="exit-cinema-floating" onclick="toggleCinemaMode()" class="hidden spatial-glass px-3 py-1.5 rounded-full text-[11px] text-white hover:bg-white/20 transition">
+                        Restaurar Luzes
+                    </button>
+
+                    <!-- Seletor Único de Áudio & Legenda (Substitui os 5 botões soltos) -->
+                    <button onclick="toggleAudioMenu()" class="spatial-glass hover:bg-white/15 px-3.5 py-1.5 rounded-full flex items-center gap-2 text-xs font-medium text-white transition">
+                        <svg class="w-3.5 h-3.5 text-zinc-300" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129"/>
+                        </svg>
+                        <span id="current-audio-label">Áudio & Legendas</span>
+                    </button>
+
+                    <!-- Popover Glassmorphism de Idiomas -->
+                    <div id="audio-popover" class="hidden absolute right-0 top-11 w-60 spatial-glass rounded-2xl p-2 shadow-2xl z-30 space-y-1 text-xs">
+                        <div class="px-2.5 py-1 text-[10px] uppercase tracking-wider text-zinc-400 font-semibold">Faixa de Áudio</div>
+                        <button onclick="selectAudio('Português (Dublado)', 'PT-BR')" class="w-full text-left px-3 py-2 rounded-xl hover:bg-white/10 text-white flex justify-between items-center">
+                            <span>Português (Dublado)</span><span class="text-[10px] text-zinc-400">Dolby 5.1</span>
+                        </button>
+                        <button onclick="selectAudio('Áudio Original + Leg. PT', 'ORIG')" class="w-full text-left px-3 py-2 rounded-xl hover:bg-white/10 text-zinc-300 flex justify-between items-center">
+                            <span>Original (Legendado PT)</span><span class="text-[10px] text-zinc-400">Atmos</span>
+                        </button>
+                        <button onclick="selectAudio('Inglês (CC)', 'EN')" class="w-full text-left px-3 py-2 rounded-xl hover:bg-white/10 text-zinc-300 flex justify-between items-center">
+                            <span>Inglês Internacional</span><span class="text-[10px] text-zinc-400">Lossless</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Botão Play Central Translúcido (Apple Style, sem círculo laranja sólido) -->
+            <button onclick="togglePlayState()" class="absolute inset-0 m-auto w-20 h-20 rounded-full spatial-glass hover:scale-105 active:scale-95 flex items-center justify-center transition duration-300 shadow-2xl z-10 group/btn">
+                <svg id="center-play-icon" class="w-8 h-8 text-white translate-x-0.5 fill-current" viewBox="0 0 24 24">
+                    <path d="M8 5v14l11-7z"/>
+                </svg>
+            </button>
+
+            <!-- Legenda Cinematográfica Limpa -->
+            <div id="subtitle-preview" class="absolute bottom-20 inset-x-0 text-center pointer-events-none px-6">
+                <span class="bg-black/45 backdrop-blur-md px-4 py-1.5 rounded-lg text-sm sm:text-base text-white/95 font-normal tracking-wide shadow">
+                    Era quase como se estivéssemos vendo um sonho...
+                </span>
+            </div>
+
+            <!-- Barra Inferior de Controles Flutuante -->
+            <div class="absolute bottom-4 inset-x-5 z-20 space-y-2.5">
+                <!-- Scrubber Ultra-Fino Alabaster -->
+                <div class="group/scrub cursor-pointer py-1" onclick="scrubTimeline(event)">
+                    <div class="w-full h-1 group-hover/scrub:h-1.5 bg-white/20 rounded-full overflow-hidden transition-all">
+                        <div id="scrubber-fill" class="h-full bg-white rounded-full relative transition-all duration-300" style="width: 38%;"></div>
+                    </div>
+                </div>
+
+                <div class="flex items-center justify-between text-xs text-zinc-300">
+                    <div class="flex items-center gap-4">
+                        <button onclick="togglePlayState()" class="hover:text-white transition">
+                            <span id="bottom-play-label" class="font-medium text-white">Reproduzir</span>
+                        </button>
+                        <span id="timecode-display" class="font-mono text-[11px] text-zinc-400">00:38:14 / 01:46:35</span>
+                    </div>
+                    <div class="flex items-center gap-3 text-[11px] text-zinc-400">
+                        <span class="px-2 py-0.5 rounded bg-white/10 text-zinc-200 font-medium">1.0x</span>
+                        <button onclick="toggleFullscreen()" class="hover:text-white transition" title="Tela Cheia">Tela Cheia ⛶</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- =============================================================== -->
+        <!-- BENTO GRID ARQUITETURAL (Elimina o buraco vazio da tela antiga) -->
+        <!-- =============================================================== -->
+        <section class="grid grid-cols-1 lg:grid-cols-12 gap-5 dim-on-cinema">
+
+            <!-- Coluna 1 (7 cols): Sinopse + Navegação Rápida por Capítulos -->
+            <div class="lg:col-span-7 spatial-glass rounded-3xl p-6 sm:p-8 flex flex-col justify-between space-y-6">
+                <div class="space-y-3">
+                    <div class="flex items-center justify-between">
+                        <span class="text-[11px] font-semibold uppercase tracking-widest text-zinc-500">Sinopse Curada</span>
+                        <div id="player-genres" class="flex gap-1.5"></div>
+                    </div>
+                    <p id="player-synopsis" class="text-zinc-200 text-sm sm:text-[15px] leading-relaxed font-normal"></p>
+                </div>
+
+                <!-- NOVO ELEMENTO FUNCIONAL: Seletor de Cenas / Capítulos (Preenche o espaço com utilidade real) -->
+                <div class="pt-4 border-t border-white/[0.07] space-y-3">
+                    <div class="flex items-center justify-between">
+                        <span class="text-[11px] font-semibold uppercase tracking-widest text-zinc-500">Cenas & Capítulos</span>
+                        <span class="text-[11px] text-zinc-500">Salto instantâneo</span>
+                    </div>
+                    <div id="chapters-grid" class="grid grid-cols-2 sm:grid-cols-4 gap-2.5"></div>
+                </div>
+            </div>
+
+            <!-- Coluna 2 (5 cols): Ficha Técnica + Pôster Compacto Integrado -->
+            <div class="lg:col-span-5 spatial-glass rounded-3xl p-6 sm:p-8 flex flex-col sm:flex-row gap-6 items-start">
+                <img id="player-mini-poster" src="" alt="Pôster" class="w-28 sm:w-32 aspect-[2/3] object-cover rounded-2xl border border-white/10 shadow-xl shrink-0">
+                <div class="space-y-4 text-xs w-full">
+                    <div>
+                        <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-semibold block">Direção</span>
+                        <span id="spec-director" class="text-sm text-white font-medium mt-0.5 block"></span>
+                    </div>
+                    <div>
+                        <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-semibold block">Elenco Principal</span>
+                        <div id="spec-cast" class="flex flex-wrap gap-1.5 mt-1.5"></div>
+                    </div>
+                    <div class="pt-2 border-t border-white/[0.07] flex items-center justify-between">
+                        <div>
+                            <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-semibold block">Masterização</span>
+                            <span id="spec-quality" class="text-zinc-200 font-medium mt-0.5 block"></span>
+                        </div>
+                        <div class="text-right">
+                            <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-semibold block">Avaliação</span>
+                            <span id="spec-rating" class="text-white font-semibold text-sm mt-0.5 block"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- RECOMENDAÇÕES HARMONIZADAS -->
+        <section class="pt-6 space-y-5 dim-on-cinema">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h3 class="text-lg font-semibold tracking-tight text-white">Obras Relacionadas</h3>
+                    <p class="text-xs text-zinc-500">Curadoria baseada em fotografia, direção e atmosfera</p>
+                </div>
+                <button onclick="switchView('catalog')" class="text-xs text-zinc-400 hover:text-white transition">Ver catálogo completo →</button>
+            </div>
+            <div id="related-grid" class="grid grid-cols-2 sm:grid-cols-4 gap-5"></div>
+        </section>
+    </main>
+
+    <!-- Notificação Discreta (Toast) -->
+    <div id="toast" class="fixed bottom-6 right-6 z-50 translate-y-20 opacity-0 transition-all duration-300 pointer-events-none">
+        <div class="spatial-glass px-4 py-3 rounded-2xl shadow-2xl text-xs font-medium text-white flex items-center gap-2.5">
+            <span class="w-2 h-2 rounded-full bg-white"></span>
+            <span id="toast-msg"></span>
+        </div>
+    </div>
+
+    <!-- =================================================================== -->
+    <!-- ENGINE REATIVA FRONT-END (Zero Dependências Pesadas)                -->
+    <!-- =================================================================== -->
+    <script>
+        let catalog = [];
+        let activeCategory = 'ALL';
+        let activeGenre = 'Todos';
+        let searchQuery = '';
+        let savedIds = new Set(['your-name']);
+        let currentMovie = null;
+        let isPlaying = false;
+
+        async function boot() {
+            const res = await fetch('/api/catalog');
+            catalog = await res.json();
+            updateSavedBadge();
+            renderHero(catalog[0]);
+            renderContinueWatching();
+            renderGenrePills();
+            renderCatalogGrid();
+
+            // Atalho "/" para focar na busca como apps profissionais
+            document.addEventListener('keydown', (e) => {
+                if (e.key === '/' && document.activeElement.tagName !== 'INPUT') {
+                    e.preventDefault();
+                    document.getElementById('search-input').focus();
+                }
+            });
+        }
+
+        function setAmbientGlow(rgbaColor) {
+            document.getElementById('ambient-stage').style.background =
+                `radial-gradient(ellipse 80% 55% at 50% -8%, ${rgbaColor}, transparent 75%)`;
+        }
+
+        function renderHero(movie) {
+            setAmbientGlow(movie.ambient_color);
+            document.getElementById('hero-backdrop').src = movie.backdrop;
+            document.getElementById('hero-title').textContent = movie.title;
+            document.getElementById('hero-synopsis').textContent = movie.synopsis;
+
+            const badges = [
+                `<span class="px-2 py-0.5 rounded bg-white/15 text-white font-semibold text-[10px] tracking-wider uppercase">Destaque</span>`,
+                `<span>${movie.year}</span>`,
+                `<span>·</span>`,
+                `<span>${movie.duration}</span>`,
+                `<span>·</span>`,
+                `<span class="text-white font-semibold">★ ${movie.rating}</span>`,
+                ...movie.quality.map(q => `<span class="px-2 py-0.5 rounded border border-white/15 text-[10px] text-zinc-200">${q}</span>`)
+            ];
+            document.getElementById('hero-meta').innerHTML = badges.join('');
+
+            document.getElementById('hero-play-btn').onclick = () => openPlayer(movie.id);
+            const saveBtn = document.getElementById('hero-save-btn');
+            saveBtn.onclick = () => toggleSave(movie.id);
+            saveBtn.querySelector('span').textContent = savedIds.has(movie.id) ? 'Na Minha Lista ✓' : 'Minha Lista';
+        }
+
+        function renderContinueWatching() {
+            const watching = catalog.filter(m => m.progress > 0);
+            const container = document.getElementById('continue-grid');
+            container.innerHTML = watching.map(m => `
+                <div onclick="openPlayer('${m.id}')" class="group cursor-pointer spatial-glass rounded-2xl overflow-hidden poster-card">
+                    <div class="relative aspect-video overflow-hidden">
+                        <img src="${m.backdrop}" alt="${m.title}" class="w-full h-full object-cover group-hover:scale-105 transition duration-500">
+                        <div class="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-transparent"></div>
+                        <div class="absolute bottom-3 inset-x-4 flex items-end justify-between">
+                            <div>
+                                <span class="text-[10px] uppercase tracking-wider text-zinc-400 block">${m.duration}</span>
+                                <h3 class="text-sm font-semibold text-white">${m.title}</h3>
+                            </div>
+                            <span class="w-8 h-8 rounded-full bg-white/90 text-black flex items-center justify-center shadow">
+                                <svg class="w-3.5 h-3.5 fill-current translate-x-[1px]" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                            </span>
+                        </div>
+                        <div class="absolute bottom-0 inset-x-0 h-[3px] bg-white/15">
+                            <div class="h-full bg-white" style="width:${m.progress}%"></div>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function renderGenrePills() {
+            const genres = ['Todos', ...new Set(catalog.flatMap(m => m.genres))];
+            const container = document.getElementById('genre-pills');
+            container.innerHTML = genres.map(g => {
+                const active = g === activeGenre;
+                return `<button onclick="setGenre('${g}')" class="px-3.5 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition ${
+                    active ? 'bg-white text-black' : 'bg-white/[0.04] text-zinc-400 hover:text-white hover:bg-white/[0.09]'
+                }">${g}</button>`;
+            }).join('');
+        }
+
+        function renderCatalogGrid() {
+            const filtered = catalog.filter(m => {
+                if (activeCategory === 'SAVED' && !savedIds.has(m.id)) return false;
+                if (activeCategory !== 'ALL' && activeCategory !== 'SAVED' && m.type !== activeCategory) return false;
+                if (activeGenre !== 'Todos' && !m.genres.includes(activeGenre)) return false;
+                if (searchQuery) {
+                    const q = searchQuery.toLowerCase();
+                    return m.title.toLowerCase().includes(q) || m.director.toLowerCase().includes(q);
+                }
+                return true;
+            });
+
+            document.getElementById('catalog-counter').textContent =
+                `Exibindo ${filtered.length} ${filtered.length === 1 ? 'obra masterizada' : 'obras masterizadas'}`;
+
+            const grid = document.getElementById('catalog-grid');
+            grid.innerHTML = filtered.map(m => `
+                <article onclick="openPlayer('${m.id}')" class="group cursor-pointer space-y-2.5">
+                    <div class="relative aspect-[2/3] rounded-2xl overflow-hidden bg-zinc-900 border border-white/[0.08] poster-card">
+                        <img src="${m.poster}" alt="${m.title}" loading="lazy" class="w-full h-full object-cover">
+                        <div class="absolute inset-0 bg-gradient-to-t from-black/75 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end p-4">
+                            <span class="text-xs font-medium text-white bg-white/15 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/15">
+                                Reproduzir em 4K
+                            </span>
+                        </div>
+                        <div class="absolute top-3 right-3 px-2 py-0.5 rounded-full bg-black/55 backdrop-blur-md text-[11px] font-medium text-white border border-white/10">
+                            ★ ${m.rating}
+                        </div>
+                    </div>
+                    <!-- Metadados Silenciosos: Apenas 2 linhas limpas -->
+                    <div class="px-0.5">
+                        <h3 class="text-sm font-medium text-zinc-100 group-hover:text-white truncate">${m.title}</h3>
+                        <p class="text-xs text-zinc-500 truncate">${m.year} · ${m.genres[0]}</p>
+                    </div>
+                </article>
+            `).join('');
+        }
+
+        function openPlayer(movieId) {
+            const movie = catalog.find(m => m.id === movieId);
+            if (!movie) return;
+            currentMovie = movie;
+            isPlaying = false;
+
+            setAmbientGlow(movie.ambient_color);
+            document.getElementById('view-catalog').classList.add('hidden');
+            document.getElementById('view-player').classList.remove('hidden');
+            document.getElementById('nav-segments').classList.add('md:hidden');
+            document.getElementById('nav-back-btn').classList.remove('hidden');
+            document.getElementById('nav-back-btn').classList.add('flex');
+
+            // Preencher Dados do Player
+            document.getElementById('player-title').textContent = movie.title;
+            document.getElementById('player-original-title').textContent = `Título original: ${movie.original_title}`;
+            document.getElementById('player-screen-img').src = movie.backdrop;
+            document.getElementById('player-synopsis').textContent = movie.synopsis;
+            document.getElementById('player-mini-poster').src = movie.poster;
+            document.getElementById('spec-director').textContent = movie.director;
+            document.getElementById('spec-quality').textContent = movie.quality.join(' · ');
+            document.getElementById('spec-rating').textContent = `★ ${movie.rating} / 10`;
+
+            document.getElementById('player-badges').innerHTML = [
+                `<span class="text-zinc-200 font-semibold">${movie.type}</span>`,
+                `<span>·</span><span>${movie.year}</span>`,
+                `<span>·</span><span>${movie.duration}</span>`,
+                `<span>·</span><span class="px-1.5 py-0.5 rounded border border-white/15 text-[10px] text-zinc-300">${movie.age}</span>`,
+                ...movie.quality.map(q => `<span class="px-2 py-0.5 rounded bg-white/[0.07] text-zinc-200 text-[10px]">${q}</span>`)
+            ].join('');
+
+            document.getElementById('player-genres').innerHTML = movie.genres.map(g =>
+                `<span class="px-2.5 py-0.5 rounded-full bg-white/[0.06] border border-white/10 text-[11px] text-zinc-300">${g}</span>`
+            ).join('');
+
+            document.getElementById('spec-cast').innerHTML = movie.cast.map(actor =>
+                `<span class="px-2.5 py-1 rounded-lg bg-white/[0.05] text-zinc-300 text-[11px]">${actor}</span>`
+            ).join('');
+
+            // Capítulos Interativos
+            document.getElementById('chapters-grid').innerHTML = movie.chapters.map((ch, idx) => `
+                <button onclick="jumpToChapter('${ch.time}', '${ch.title}', ${(idx + 1) * 22})"
+                        class="text-left p-3 rounded-2xl bg-white/[0.03] hover:bg-white/[0.08] border border-white/[0.06] transition group">
+                    <span class="font-mono text-[10px] text-zinc-500 group-hover:text-zinc-300 block">${ch.time}</span>
+                    <span class="text-xs font-medium text-zinc-200 line-clamp-1 mt-0.5">${ch.title}</span>
+                </button>
+            `).join('');
+
+            // Botão Salvar na tela do Player
+            const pSaveBtn = document.getElementById('player-save-btn');
+            pSaveBtn.onclick = () => toggleSave(movie.id);
+            pSaveBtn.querySelector('span').textContent = savedIds.has(movie.id) ? 'Salvo ✓' : 'Lista';
+
+            // Obras Relacionadas
+            const related = catalog.filter(m => m.id !== movie.id).slice(0, 4);
+            document.getElementById('related-grid').innerHTML = related.map(r => `
+                <div onclick="openPlayer('${r.id}')" class="group cursor-pointer space-y-2">
+                    <div class="aspect-[2/3] rounded-2xl overflow-hidden border border-white/10 poster-card">
+                        <img src="${r.poster}" alt="${r.title}" class="w-full h-full object-cover">
+                    </div>
+                    <div>
+                        <h4 class="text-xs sm:text-sm font-medium text-zinc-200 group-hover:text-white truncate">${r.title}</h4>
+                        <p class="text-[11px] text-zinc-500">${r.year} · ★ ${r.rating}</p>
+                    </div>
+                </div>
+            `).join('');
+
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function switchView(view) {
+            document.body.classList.remove('cinema-mode');
+            document.getElementById('exit-cinema-floating').classList.add('hidden');
+            if (view === 'catalog') {
+                document.getElementById('view-player').classList.add('hidden');
+                document.getElementById('view-catalog').classList.remove('hidden');
+                document.getElementById('nav-segments').classList.remove('md:hidden');
+                document.getElementById('nav-back-btn').classList.add('hidden');
+                setAmbientGlow(catalog[0].ambient_color);
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            }
+        }
+
+        function setCategory(cat) {
+            activeCategory = cat;
+            switchView('catalog');
+            document.querySelectorAll('.cat-tab').forEach(btn => {
+                const isSelected = btn.dataset.cat === cat;
+                btn.className = `cat-tab px-3.5 py-1 rounded-full transition ${
+                    isSelected ? 'bg-white text-black font-semibold' : 'text-zinc-400 hover:text-white'
+                }`;
+            });
+            renderCatalogGrid();
+        }
+
+        function setGenre(genre) {
+            activeGenre = genre;
+            renderGenrePills();
+            renderCatalogGrid();
+        }
+
+        function handleSearch(val) {
+            searchQuery = val.trim();
+            if (!document.getElementById('view-player').classList.contains('hidden') && searchQuery.length > 0) {
+                switchView('catalog');
+            }
+            renderCatalogGrid();
+        }
+
+        function toggleSave(id) {
+            if (savedIds.has(id)) {
+                savedIds.delete(id);
+                showToast('Removido da sua lista.');
+            } else {
+                savedIds.add(id);
+                showToast('Adicionado à Minha Lista.');
+            }
+            updateSavedBadge();
+            renderHero(catalog[0]);
+            if (currentMovie && currentMovie.id === id) {
+                document.getElementById('player-save-btn').querySelector('span').textContent =
+                    savedIds.has(id) ? 'Salvo ✓' : 'Lista';
+            }
+            if (activeCategory === 'SAVED') renderCatalogGrid();
+        }
+
+        function updateSavedBadge() {
+            document.getElementById('saved-count').textContent = savedIds.size;
+        }
+
+        function toggleAudioMenu() {
+            document.getElementById('audio-popover').classList.toggle('hidden');
+        }
+
+        function selectAudio(label, code) {
+            document.getElementById('stream-indicator').textContent = `${label} · 4K HDR`;
+            document.getElementById('audio-popover').classList.add('hidden');
+            showToast(`Faixa alterada para ${label}`);
+        }
+
+        function togglePlayState() {
+            isPlaying = !isPlaying;
+            document.getElementById('bottom-play-label').textContent = isPlaying ? 'Pausar' : 'Reproduzir';
+            document.getElementById('center-play-icon').innerHTML = isPlaying
+                ? '<path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>'
+                : '<path d="M8 5v14l11-7z"/>';
+        }
+
+        function jumpToChapter(time, title, pct) {
+            document.getElementById('scrubber-fill').style.width = `${pct}%`;
+            document.getElementById('timecode-display').textContent = `${time}:00 / ${currentMovie.duration}`;
+            showToast(`Cena: ${title}`);
+        }
+
+        function scrubTimeline(e) {
+            const rect = e.currentTarget.getBoundingClientRect();
+            const pct = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
+            document.getElementById('scrubber-fill').style.width = `${pct}%`;
+        }
+
+        function toggleCinemaMode() {
+            const active = document.body.classList.toggle('cinema-mode');
+            document.getElementById('exit-cinema-floating').classList.toggle('hidden', !active);
+            showToast(active ? 'Modo Cinema ativado' : 'Luzes restauradas');
+        }
+
+        function toggleFullscreen() {
+            const playerBox = document.querySelector('#view-player section:nth-of-type(2)');
+            if (!document.fullscreenElement) {
+                playerBox.requestFullscreen?.();
+            } else {
+                document.exitFullscreen?.();
+            }
+        }
+
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            document.getElementById('toast-msg').textContent = msg;
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            clearTimeout(window._toastTimer);
+            window._toastTimer = setTimeout(() => {
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 2600);
+        }
+
+        boot();
+    </script>
+</body>
+</html>
+"""
+
+
+@app.get("/", response_class=HTMLResponse)
+async def serve_interface():
+    return HTMLResponse(content=HTML_TEMPLATE)
+
+
+if __name__ == "__main__":
+    print("🎬 Lumina Spatial Cinema rodando em: http://127.0.0.1:8000")
+    uvicorn.run(app, host="127.0.0.1", port=8000)
+```
+
+---
+
+### 4. O que mudou na prática (Decisões de Engenharia Sênior)
+
+| Problema na Tela Antiga | Solução Aplicada na Nova Composição |
+| :--- | :--- |
+| **Excesso de Amarelo/Laranja (`#F59E0B`)** | Substituído por **Alabaster White (`#FFFFFF`)** para ações primárias e **Vidro Translúcido (`backdrop-blur-2xl`)** para ações secundárias. As cores vêm da iluminação ambiente dinâmica do filme. |
+| **5 Botões de Idioma espalhados no topo do Player** | Condensados em um único **Popover Glassmorphism de Áudio & Legendas** dentro da moldura do player, mantendo o indicador de stream discreto à esquerda. |
+| **Buraco vazio abaixo da Sinopse (Subcarga)** | Criado um **Bento Grid 7/5 colunas** que integra a Sinopse com um **Seletor Interativo de Cenas/Capítulos** à esquerda, e alinha o mini-pôster ao lado da Ficha Técnica à direita. |
+| **Poluição de textos abaixo dos Pôsteres** | Reduzido de 3 linhas coloridas para **2 linhas neutras** (Título em branco suave + Ano e Gênero principal em cinza zinco), colocando a nota em uma pílula translúcida no canto superior da arte. |
+| **Falta de Imersão durante a reprodução** | Adicionado o **Modo Cinema**, que escurece e desfoca 94% de toda a interface periférica ao redor do vídeo sem precisar forçar tela cheia. |

@@ -11,6 +11,7 @@ import { useTrackInteraction } from "@/hooks/useContents";
 import { useCheckout } from "@/hooks/useCheckout";
 import { useOwnsContent } from "@/hooks/usePurchases";
 import { downloadRealBook } from "@/lib/mediaDownloaders";
+import { notifyDownloadError, notifyDownloadSuccess } from "@/lib/downloadNotifications";
 
 const tapProps = { whileHover: { scale: 1.03 }, whileTap: { scale: 0.96 } };
 
@@ -89,7 +90,7 @@ const ActionButtons = ({ item, readHref, readLabel = "Ler agora" }: ActionButton
               }
               setIsDownloading(true);
               try {
-                await downloadRealBook({
+                const entry = await downloadRealBook({
                   book: {
                     id: String(item.id),
                     title: item.title,
@@ -99,9 +100,9 @@ const ActionButtons = ({ item, readHref, readLabel = "Ler agora" }: ActionButton
                     cover_url: item.cover,
                   },
                 });
-                toast.success("Download concluído! Disponível em Meu Perfil → Downloads.");
-              } catch {
-                toast.error("Não foi possível transferir o ficheiro.");
+                notifyDownloadSuccess(entry);
+              } catch (err) {
+                notifyDownloadError(err, "Não foi possível transferir o ficheiro.");
               } finally {
                 setIsDownloading(false);
               }

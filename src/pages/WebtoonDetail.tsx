@@ -13,6 +13,7 @@ import { CommunityReviews } from "@/components/CommunityReviews";
 import ShareDialog from "@/components/ShareDialog";
 import { ContentDetailSkeleton } from "@/components/skeletons/AppSkeletons";
 import { downloadRealWebtoonEpisode } from "@/lib/mediaDownloaders";
+import { notifyDownloadError, notifyDownloadSuccess } from "@/lib/downloadNotifications";
 import { toast } from "sonner";
 import { CANONICAL_BASE_URL, buildBreadcrumbSchema, usePageSeo } from "@/lib/seo";
 
@@ -175,7 +176,7 @@ const WebtoonDetail = () => {
     try {
       const savedLang =
         (localStorage.getItem("worscoi_webtoon_language") as "pt" | "en" | "ko") || "pt";
-      await downloadRealWebtoonEpisode({
+      const entry = await downloadRealWebtoonEpisode({
         webtoonId: String(item.id),
         webtoonTitle: item.title,
         author: item.author,
@@ -191,15 +192,15 @@ const WebtoonDetail = () => {
         },
         language: savedLang,
       });
-      toast.success("Capítulo baixado! Acesse e abra em Meu Perfil → Downloads.", {
-        id: toastId,
+      notifyDownloadSuccess(entry, {
+        toastId,
+        message: "Capítulo baixado",
       });
     } catch (err) {
-      toast.error(
-        err instanceof Error
-          ? err.message
-          : "Não foi possível baixar este capítulo agora.",
-        { id: toastId }
+      notifyDownloadError(
+        err,
+        "Não foi possível baixar este capítulo agora.",
+        toastId
       );
     } finally {
       setDownloadingEpId(null);

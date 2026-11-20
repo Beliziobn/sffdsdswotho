@@ -19,9 +19,13 @@ const K_LATEST_DATE = 'e95416ad739e5814b3027';
 const K_IMDB_ID = 'f35a814265e871c4933a725f';
 
 const resolveCache = new Map();
+const resolveInFlight = new Map();
 const tmdbDetailsCache = new Map();
+const tmdbEpRuntimeCache = new Map();
 const subtitleVttCache = new Map();
-const andromedaTokenCache = new Map();
+const mp4DurationCache = new Map();
+let andromedaQueueTail = Promise.resolve();
+let lastAndromedaRequestAt = 0;
 
 const LANGUAGE_METADATA = {
   'ptbr:0': { label: 'Português (Dublado PT-BR)', shortLabel: '🇧🇷 Dublado PT-BR', flag: '🇧🇷', audioMode: 'dublado' },
@@ -189,78 +193,90 @@ async function discoverVidstuckPayloadKey() {
   }
 }
 
-async function fetchAndromedaToken(commonHeaders, tmdbId, mediaType, serverKey, season, episode) {
-  const tokenCacheKey = `${tmdbId}:${mediaType}:${serverKey}:${season || '1'}:${episode || '1'}`;
-  const cachedTok = andromedaTokenCache.get(tokenCacheKey);
-  if (cachedTok && cachedTok.expiresAt > Date.now()) {
-    return { token: cachedTok.token, ts: cachedTok.ts };
-  }
-
-  const abcdPayload = {
-    id: String(tmdbId),
-    media_type: mediaType,
-    path: serverKey,
+async function enqueueAndromedaCall(fn) {
+  const run = async () => {
+    const elapsed = Date.now() - lastAndromedaRequestAt;
+    if (elapsed < 160) {
+      await sleep(160 - elapsed);
+    }
+    lastAndromedaRequestAt = Date.now();
+    return fn();
   };
-  if (mediaType === 'tv') {
-    abcdPayload.season = Number(season || '1');
-    abcdPayload.episode = Number(episode || '1');
-  }
+  const next = andromedaQueueTail.then(run, run);
+  andromedaQueueTail = next.catch(() => {});
+  return next;
+}
 
-  for (let attempt = 0; attempt < 2; attempt++) {
-    try {
-      const encrypted = encryptVidstuckPayload(abcdPayload);
-      const tokenBody = {
-        [K_TMDB_ID]: String(tmdbId),
-        [K_MEDIA_TYPE]: mediaType,
-        [K_SERVER]: serverKey,
-        [activePayloadKey]: encrypted,
-        meow: encrypted,
-      };
-      if (mediaType === 'tv') {
-        tokenBody[K_SEASON] = Number(season || '1');
-        tokenBody[K_EPISODE] = Number(episode || '1');
-      }
+async function fetchAndromedaToken(commonHeaders, tmdbId, mediaType, serverKey, season, episode) {
+  const promise = (async () => {
+    const abcdPayload = {
+      id: String(tmdbId),
+      media_type: mediaType,
+      path: serverKey,
+    };
+    if (mediaType === 'tv') {
+      abcdPayload.season = Number(season || '1');
+      abcdPayload.episode = Number(episode || '1');
+    }
 
-      const tokRes = await fetchWithTimeout(
-        'https://vidstuck.cc/backend/andromeda',
-        {
-          method: 'POST',
-          headers: {
-            ...commonHeaders,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(tokenBody),
-        },
-        5500
-      );
+    const backoffs = [450, 950, 1650];
 
-      if (tokRes.status === 400 && attempt === 0) {
-        await discoverVidstuckPayloadKey();
-        continue;
-      }
-      if (tokRes.status === 429 && attempt === 0) {
-        await sleep(350);
-        continue;
-      }
-      if (!tokRes.ok) return null;
+    for (let attempt = 0; attempt < 4; attempt++) {
+      try {
+        const encrypted = encryptVidstuckPayload(abcdPayload);
+        const tokenBody = {
+          [K_TMDB_ID]: String(tmdbId),
+          [K_MEDIA_TYPE]: mediaType,
+          [K_SERVER]: serverKey,
+          [activePayloadKey]: encrypted,
+          meow: encrypted,
+        };
+        if (mediaType === 'tv') {
+          tokenBody[K_SEASON] = Number(season || '1');
+          tokenBody[K_EPISODE] = Number(episode || '1');
+        }
 
-      const text = await tokRes.text();
-      if (!text.startsWith('{')) return null;
-      const tok = JSON.parse(text);
-      if (!tok?.token || !tok?.ts) return null;
-      andromedaTokenCache.set(tokenCacheKey, {
-        token: tok.token,
-        ts: tok.ts,
-        expiresAt: Date.now() + 45000,
-      });
-      return { token: tok.token, ts: tok.ts };
-    } catch {
-      if (attempt === 0) {
-        await sleep(200);
+        const tokRes = await enqueueAndromedaCall(() =>
+          fetchWithTimeout(
+            'https://vidstuck.cc/backend/andromeda',
+            {
+              method: 'POST',
+              headers: {
+                ...commonHeaders,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify(tokenBody),
+            },
+            6000
+          )
+        );
+
+        if (tokRes.status === 400 && attempt === 0) {
+          await discoverVidstuckPayloadKey();
+          continue;
+        }
+        if (tokRes.status === 429 && attempt < backoffs.length) {
+          const jitter = Math.floor(Math.random() * 200);
+          await sleep(backoffs[attempt] + jitter);
+          continue;
+        }
+        if (!tokRes.ok) return null;
+
+        const text = await tokRes.text();
+        if (!text.startsWith('{')) return null;
+        const tok = JSON.parse(text);
+        if (!tok?.token || !tok?.ts) return null;
+        return { token: tok.token, ts: tok.ts };
+      } catch {
+        if (attempt < 2) {
+          await sleep(250 * (attempt + 1));
+        }
       }
     }
-  }
-  return null;
+    return null;
+  })();
+
+  return promise;
 }
 
 async function queryOrionVariant(params) {
@@ -496,10 +512,10 @@ async function resolveWatchPlayEmbed({ embedUrl, wantedAudioMode, idSuffix }) {
         langCode,
         quality: '1080p FHD',
         url: streamUrl,
-        requiresProxy: false,
+        requiresProxy: true,
         proxyUrl: isMp4
-          ? `/api/cinema/mp4-proxy?url=${encodeURIComponent(streamUrl)}`
-          : `/api/cinema/hls-proxy?url=${encodeURIComponent(streamUrl)}`,
+          ? `/api/cinema/mp4-proxy?url=${encodeURIComponent(streamUrl)}&ref=wp2`
+          : `/api/cinema/hls-proxy?url=${encodeURIComponent(streamUrl)}&ref=wp2`,
       },
     ];
   } catch {
@@ -730,15 +746,11 @@ async function resolvePlayerFlixStreams({ tmdbId, type, season, episode, wantedA
         type === 'tv'
           ? `https://playerflix.ink/serie/${tmdbId}/${season || '1'}/${episode || '1'}`
           : `https://playerflix.ink/filme/${tmdbId}`;
-      const embedyUrl =
+      const vidlinkEmbed =
         type === 'tv'
-          ? `https://embedyplayer.xyz/embed/${tmdbId}/${season || '1'}/${episode || '1'}`
-          : `https://embedyplayer.xyz/embed/${tmdbId}`;
-      ptbrEmbedUrls.push(embedyUrl, pageEmbed);
-    }
-    const sf = matchingOptions.find((o) => String(o?.embed || '').includes('superflixapi'));
-    if (sf?.embed) {
-      ptbrEmbedUrls.push(sf.embed);
+          ? `https://vidlink.pro/tv/${tmdbId}/${season || '1'}/${episode || '1'}`
+          : `https://vidlink.pro/movie/${tmdbId}`;
+      ptbrEmbedUrls.push(pageEmbed, vidlinkEmbed);
     }
   }
 
@@ -818,6 +830,166 @@ async function resolvePlayerFlixStreams({ tmdbId, type, season, episode, wantedA
   };
 }
 
+function parseMvhdDurationSec(buf) {
+  const idx = buf.indexOf(Buffer.from('mvhd'));
+  if (idx === -1 || idx + 24 >= buf.length) return null;
+  const version = buf[idx + 4];
+  if (version === 0 && idx + 24 <= buf.length) {
+    const ts = buf.readUInt32BE(idx + 16);
+    const dur = buf.readUInt32BE(idx + 20);
+    return ts ? dur / ts : null;
+  } else if (version === 1 && idx + 36 <= buf.length) {
+    const ts = buf.readUInt32BE(idx + 24);
+    const dur = Number(buf.readBigUInt64BE(idx + 28));
+    return ts ? dur / ts : null;
+  }
+  return null;
+}
+
+async function fetchMp4DurationSec(url) {
+  if (!url || !url.startsWith('http')) return null;
+  const baseKey = url.split('?')[0];
+  const cached = mp4DurationCache.get(baseKey);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.durationSec;
+  }
+  try {
+    const r = await fetchWithTimeout(
+      url,
+      {
+        headers: {
+          'User-Agent': BROWSER_UA,
+          Range: 'bytes=0-65535',
+        },
+      },
+      2200
+    );
+    if (!r.ok && r.status !== 206) return null;
+    const buf1 = Buffer.from(await r.arrayBuffer());
+    let dur = parseMvhdDurationSec(buf1);
+    if (!dur) {
+      const cr = r.headers.get('content-range') || '';
+      const total = cr.includes('/') ? parseInt(cr.split('/')[1], 10) : 0;
+      if (total > 65536) {
+        const start = Math.max(0, total - 131072);
+        const r2 = await fetchWithTimeout(
+          url,
+          {
+            headers: {
+              'User-Agent': BROWSER_UA,
+              Range: `bytes=${start}-${total - 1}`,
+            },
+          },
+          2200
+        );
+        if (r2.ok || r2.status === 206) {
+          dur = parseMvhdDurationSec(Buffer.from(await r2.arrayBuffer()));
+        }
+      }
+    }
+    if (dur && Number.isFinite(dur) && dur > 0) {
+      mp4DurationCache.set(baseKey, {
+        durationSec: dur,
+        expiresAt: Date.now() + 1000 * 60 * 60 * 6,
+      });
+      return dur;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+async function getExpectedRuntimeMinutes(tmdbId, type, season, episode, detailsData) {
+  if (type === 'movie') {
+    const r = Number(detailsData?.runtime || 0);
+    if (r > 0) return r;
+  }
+  const cacheKey = `${type}:${tmdbId}:${season || 1}:${episode || 1}`;
+  const cached = tmdbEpRuntimeCache.get(cacheKey);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.runtime;
+  }
+  const TMDB_READ_KEY = '15d2ea6d0dc1d476efbca3eba2b9bbfb';
+  try {
+    const endpoint =
+      type === 'tv'
+        ? `https://api.themoviedb.org/3/tv/${tmdbId}/season/${season || 1}/episode/${episode || 1}?api_key=${TMDB_READ_KEY}`
+        : `https://api.themoviedb.org/3/movie/${tmdbId}?api_key=${TMDB_READ_KEY}`;
+    const res = await fetchWithTimeout(endpoint, { headers: { Accept: 'application/json' } }, 2200);
+    if (res.ok) {
+      const json = await res.json();
+      const rt = Number(json?.runtime || 0);
+      if (rt > 0) {
+        tmdbEpRuntimeCache.set(cacheKey, { runtime: rt, expiresAt: Date.now() + 1000 * 60 * 60 * 12 });
+        return rt;
+      }
+    }
+  } catch {}
+  const epRt = Array.isArray(detailsData?.episode_run_time)
+    ? Number(detailsData.episode_run_time[0] || 0)
+    : 0;
+  return epRt > 0 ? epRt : null;
+}
+
+async function isOrionBtStreamValid({
+  decryptedUrl,
+  tmdbId,
+  type,
+  season,
+  episode,
+  detailsData,
+  commonHeaders,
+  metaParams,
+  origOption,
+}) {
+  if (!decryptedUrl || !decryptedUrl.includes('/bt/')) return true;
+
+  const [mp4DurSec, expectedMin] = await Promise.all([
+    fetchMp4DurationSec(decryptedUrl),
+    getExpectedRuntimeMinutes(tmdbId, type, season, episode, detailsData),
+  ]);
+
+  if (!mp4DurSec) return true;
+  const mp4Min = mp4DurSec / 60;
+
+  if (expectedMin && expectedMin > 0) {
+    const diffMin = Math.abs(mp4Min - expectedMin);
+    const allowedSlackMin = Math.max(2.0, expectedMin * 0.035);
+    if (diffMin > allowedSlackMin) {
+      return false;
+    }
+  }
+
+  // Cross-check against Orion's official original audio track when available for sub-minute accuracy
+  if (origOption?.lanCode) {
+    const origRes = await queryOrionVariant({
+      commonHeaders,
+      tmdbId,
+      mediaType: type,
+      title: metaParams.title,
+      year: metaParams.year,
+      date: metaParams.date,
+      latestDate: metaParams.latestDate,
+      imdbId: metaParams.imdbId,
+      season,
+      episode,
+      dubCode: origOption.lanCode,
+      dubType: String(origOption.type ?? 0),
+    }).catch(() => null);
+    const origEnc = origRes?.links?.[0]?.link;
+    const origUrl = origEnc ? decryptVidstuckLink(origEnc) : null;
+    if (origUrl && !origUrl.includes('/bt/')) {
+      const origDurSec = await fetchMp4DurationSec(origUrl);
+      if (origDurSec && Math.abs(mp4DurSec - origDurSec) > 120) {
+        return false;
+      }
+    }
+  }
+
+  return true;
+}
+
 export async function resolveVidstuckStreams(params) {
   const refererUrl =
     params.type === 'tv'
@@ -831,11 +1003,11 @@ export async function resolveVidstuckStreams(params) {
     Accept: 'application/json',
   };
 
-  let canonicalTitle = (params.title || '').trim();
-  let canonicalYear = (params.year || '2024').trim();
+  let canonicalTitle = String(params.title || '').trim();
+  let canonicalYear = String(params.year || '2024').trim();
   let canonicalDate = canonicalYear ? `${canonicalYear}-01-01` : '2024-01-01';
   let canonicalLatestDate = canonicalDate;
-  let canonicalImdbId = (params.imdbId || '').trim();
+  let canonicalImdbId = String(params.imdbId || '').trim();
 
   const detailsCacheKey = `${params.type}:${params.tmdbId}`;
   let detailsData = tmdbDetailsCache.get(detailsCacheKey)?.data;
@@ -1037,6 +1209,9 @@ export async function resolveVidstuckStreams(params) {
 
   let origOption = null;
 
+  const metaWithLatest = { ...metaParams, latestDate: safeLatestDate };
+  const orionCandidateStreams = [];
+
   if (initialOrion) {
     const dubs = initialOrion.dubs || [];
     const seenDubKeys = new Set();
@@ -1055,26 +1230,35 @@ export async function resolveVidstuckStreams(params) {
       dubs.find((d) => /original/i.test(d.lanName) && d.type === 0) ||
       dubs.find((d) => (d.lanCode === 'en' || d.lanCode === 'ja' || d.lanCode === 'ko') && d.type === 0);
 
-    hasPtDub =
-      hasPtbrDub ||
-      hasPtStdDub ||
-      playerFlixResult.streams.some((s) => s.audioMode === 'dublado') ||
-      Boolean(playerFlixResult.hasPtOptionsInPlayerFlix);
-    hasPtSub = Boolean(ptSubOption) || playerFlixResult.streams.some((s) => s.audioMode === 'legendado');
-
     const matchedReqOption = availableDubs.find(
       (d) => d.dubCode === reqDubCode.toLowerCase() && d.dubType === String(reqDubType)
     );
 
     if (matchedReqOption) {
-      appendOrionLinksAsStreams(
-        streams,
-        initialOrion.links,
-        matchedReqOption.audioMode,
-        matchedReqOption.dubCode,
-        matchedReqOption.label,
-        metaParams
-      );
+      const firstOrionDecrypted = initialOrion.links[0]?.link
+        ? decryptVidstuckLink(initialOrion.links[0].link)
+        : null;
+      const btOk = await isOrionBtStreamValid({
+        decryptedUrl: firstOrionDecrypted,
+        tmdbId: params.tmdbId,
+        type: params.type,
+        season: params.season,
+        episode: params.episode,
+        detailsData,
+        commonHeaders,
+        metaParams: metaWithLatest,
+        origOption,
+      });
+      if (btOk) {
+        appendOrionLinksAsStreams(
+          orionCandidateStreams,
+          initialOrion.links,
+          matchedReqOption.audioMode,
+          matchedReqOption.dubCode,
+          matchedReqOption.label,
+          metaParams
+        );
+      }
     } else if (reqDubCode === 'ptbr' && !hasPtbrDub && hasPtStdDub) {
       const ptDubRes = await queryOrionVariant({
         commonHeaders,
@@ -1091,14 +1275,28 @@ export async function resolveVidstuckStreams(params) {
         dubType: '0',
       });
       if (ptDubRes && ptDubRes.links.length > 0) {
-        appendOrionLinksAsStreams(
-          streams,
-          ptDubRes.links,
-          'dublado',
-          'pt',
-          'Português (Dublado)',
-          metaParams
-        );
+        const firstDec = ptDubRes.links[0]?.link ? decryptVidstuckLink(ptDubRes.links[0].link) : null;
+        const btOk = await isOrionBtStreamValid({
+          decryptedUrl: firstDec,
+          tmdbId: params.tmdbId,
+          type: params.type,
+          season: params.season,
+          episode: params.episode,
+          detailsData,
+          commonHeaders,
+          metaParams: metaWithLatest,
+          origOption,
+        });
+        if (btOk) {
+          appendOrionLinksAsStreams(
+            orionCandidateStreams,
+            ptDubRes.links,
+            'dublado',
+            'pt',
+            'Português (Dublado)',
+            metaParams
+          );
+        }
       }
     } else if ((reqDubCode === 'pt' || reqDubCode === 'ptbr') && reqDubType === '1' && ptSubOption && ptSubOption.lanCode !== reqDubCode) {
       const ptSubRes = await queryOrionVariant({
@@ -1117,7 +1315,7 @@ export async function resolveVidstuckStreams(params) {
       });
       if (ptSubRes && ptSubRes.links.length > 0) {
         appendOrionLinksAsStreams(
-          streams,
+          orionCandidateStreams,
           ptSubRes.links,
           'legendado',
           ptSubOption.lanCode,
@@ -1126,20 +1324,35 @@ export async function resolveVidstuckStreams(params) {
         );
       }
     }
+
+    const orionPtDubValid =
+      (hasPtbrDub || hasPtStdDub) &&
+      (!isWantingPtDub || orionCandidateStreams.some((s) => s.audioMode === 'dublado'));
+    hasPtDub =
+      orionPtDubValid ||
+      playerFlixResult.streams.some((s) => s.audioMode === 'dublado') ||
+      Boolean(playerFlixResult.hasPtOptionsInPlayerFlix);
+    hasPtSub = Boolean(ptSubOption) || playerFlixResult.streams.some((s) => s.audioMode === 'legendado');
   } else {
     hasPtDub = playerFlixResult.streams.some((s) => s.audioMode === 'dublado');
     hasPtSub = playerFlixResult.streams.some((s) => s.audioMode === 'legendado');
   }
 
-  // Append Brazilian PT-BR / Legendado routes (WatchPlay, Embedplayer2, Blogger, Native)
-  if (playerFlixResult.streams.length > 0) {
-    const existingUrls = new Set(streams.map((s) => s.url));
-    for (const pfStream of playerFlixResult.streams) {
-      if (!existingUrls.has(pfStream.url)) {
-        existingUrls.add(pfStream.url);
-        streams.push(pfStream);
-      }
-    }
+  // Prioritize TMDB-verified PlayerFlix routes (WatchPlay, EmbedPlayer2, Blogger) FIRST when wanting PT-BR
+  // so Orion /bt/ third-party scraped files never supersede exact TMDB-matched PT-BR streams.
+  const existingUrls = new Set();
+  const pushUnique = (s) => {
+    if (!s?.url || existingUrls.has(s.url)) return;
+    existingUrls.add(s.url);
+    streams.push(s);
+  };
+
+  if (isWantingPtDub || isWantingPtSub) {
+    playerFlixResult.streams.forEach(pushUnique);
+    orionCandidateStreams.forEach(pushUnique);
+  } else {
+    orionCandidateStreams.forEach(pushUnique);
+    playerFlixResult.streams.forEach(pushUnique);
   }
 
   // Ensure ptbr:0 is listed in availableDubs whenever any PT-BR route found dublado audio
@@ -1181,23 +1394,65 @@ export async function resolveVidstuckStreams(params) {
   };
   availableDubs.sort((a, b) => langPriority(a) - langPriority(b));
 
+  // If Orion's PT-BR /bt/ link was rejected due to duration mismatch, fetch authentic original audio link instead
+  if (streams.length === 0 && origOption?.lanCode) {
+    const origRes = await queryOrionVariant({
+      commonHeaders,
+      tmdbId: params.tmdbId,
+      mediaType: params.type,
+      title: canonicalTitle,
+      year: canonicalYear,
+      date: canonicalDate,
+      latestDate: safeLatestDate,
+      imdbId: canonicalImdbId,
+      season: params.season,
+      episode: params.episode,
+      dubCode: origOption.lanCode,
+      dubType: String(origOption.type ?? 0),
+    }).catch(() => null);
+    if (origRes && origRes.links.length > 0) {
+      appendOrionLinksAsStreams(
+        streams,
+        origRes.links,
+        reqDubType === '1' ? 'legendado' : 'original',
+        origOption.lanCode,
+        `${origOption.lanName || 'Áudio Original'} (Legenda PT-BR)`,
+        metaParams
+      );
+    }
+  }
+
   // Only fall back to non-PT Orion default links or English HLS servers if NO matching PT stream was found.
   // Tag fallback streams honestly with their actual audioMode so the player never hides missing PT-BR dubs.
   if (streams.length === 0 && initialOrion && initialOrion.links.length > 0) {
-    const actualLang = origOption?.lanCode || 'en';
-    const actualMode = reqDubType === '1' ? 'legendado' : 'original';
-    const actualLabel =
-      actualMode === 'legendado'
-        ? 'Português (Legendado)'
-        : `${origOption?.lanName || 'Áudio Original'} (Sem Dublagem PT-BR)`;
-    appendOrionLinksAsStreams(
-      streams,
-      initialOrion.links,
-      actualMode,
-      actualLang,
-      actualLabel,
-      metaParams
-    );
+    const firstDec = initialOrion.links[0]?.link ? decryptVidstuckLink(initialOrion.links[0].link) : null;
+    const btOk = await isOrionBtStreamValid({
+      decryptedUrl: firstDec,
+      tmdbId: params.tmdbId,
+      type: params.type,
+      season: params.season,
+      episode: params.episode,
+      detailsData,
+      commonHeaders,
+      metaParams: metaWithLatest,
+      origOption,
+    });
+    if (btOk) {
+      const actualLang = origOption?.lanCode || 'en';
+      const actualMode = reqDubType === '1' ? 'legendado' : 'original';
+      const actualLabel =
+        actualMode === 'legendado'
+          ? 'Português (Legendado)'
+          : `${origOption?.lanName || 'Áudio Original'} (Sem Dublagem PT-BR)`;
+      appendOrionLinksAsStreams(
+        streams,
+        initialOrion.links,
+        actualMode,
+        actualLang,
+        actualLabel,
+        metaParams
+      );
+    }
   }
 
   if (streams.length === 0) {
@@ -1415,81 +1670,101 @@ export async function handleCinemaResolveRequest(req, res) {
       return;
     }
 
-    const { streams, availableDubs, resolvedImdbId, hasPtDub, hasPtSub, ptbrEmbedUrls } =
-      await resolveVidstuckStreams({
-        tmdbId,
-        imdbId,
-        type,
-        title,
-        year,
-        season,
-        episode,
-        preferredAudioMode,
-        dubCode,
-        dubType,
-        preferredServer,
-      });
+    let payloadPromise = !forceBust ? resolveInFlight.get(cacheKey) : undefined;
+    if (!payloadPromise) {
+      payloadPromise = (async () => {
+        const { streams, availableDubs, resolvedImdbId, hasPtDub, hasPtSub, ptbrEmbedUrls } =
+          await resolveVidstuckStreams({
+            tmdbId,
+            imdbId,
+            type,
+            title,
+            year,
+            season,
+            episode,
+            preferredAudioMode,
+            dubCode,
+            dubType,
+            preferredServer,
+          });
 
-    const effectiveImdbId = resolvedImdbId || imdbId;
-    const cleanImdb = (effectiveImdbId || '').replace(/^tt/i, '');
+        const effectiveImdbId = resolvedImdbId || imdbId;
+        const cleanImdb = (effectiveImdbId || '').replace(/^tt/i, '');
 
-    // Check if subtitles are already warm in memory cache, or fetch PT-BR subtitles with a fast 3.2s race
-    let cachedPt =
-      subtitleVttCache.get(`${cleanImdb}:pob:${type}:${season || 0}:${episode || 0}`) ||
-      subtitleVttCache.get(`${cleanImdb}:por:${type}:${season || 0}:${episode || 0}`);
-    const cachedEn = subtitleVttCache.get(`${cleanImdb}:eng:${type}:${season || 0}:${episode || 0}`);
+        // Check if subtitles are already warm in memory cache, or fetch PT-BR subtitles with a fast 3.2s race
+        let cachedPt =
+          subtitleVttCache.get(`${cleanImdb}:pob:${type}:${season || 0}:${episode || 0}`) ||
+          subtitleVttCache.get(`${cleanImdb}:por:${type}:${season || 0}:${episode || 0}`);
+        const cachedEn = subtitleVttCache.get(`${cleanImdb}:eng:${type}:${season || 0}:${episode || 0}`);
 
-    if (cleanImdb && !cachedPt) {
-      cachedPt = await Promise.race([
-        fetchOpenSubtitlesTrack({ imdbId: effectiveImdbId, lang3: 'pob', type, season, episode }).then(
-          (resTrack) =>
-            resTrack ||
-            fetchOpenSubtitlesTrack({ imdbId: effectiveImdbId, lang3: 'por', type, season, episode })
-        ),
-        new Promise((resolve) => setTimeout(() => resolve(null), 3200)),
-      ]).catch(() => null);
+        if (cleanImdb && !cachedPt) {
+          cachedPt = await Promise.race([
+            fetchOpenSubtitlesTrack({ imdbId: effectiveImdbId, lang3: 'pob', type, season, episode }).then(
+              (resTrack) =>
+                resTrack ||
+                fetchOpenSubtitlesTrack({ imdbId: effectiveImdbId, lang3: 'por', type, season, episode })
+            ),
+            new Promise((resolve) => setTimeout(() => resolve(null), 3200)),
+          ]).catch(() => null);
+        }
+
+        const ptCues = cachedPt?.cues || [];
+        const enCues = cachedEn?.cues || [];
+        const finalHasPtSub = Boolean(hasPtSub || ptCues.length > 0);
+
+        if (cleanImdb && !cachedEn) {
+          fetchOpenSubtitlesTrack({ imdbId: effectiveImdbId, lang3: 'eng', type, season, episode }).catch(() => {});
+        }
+
+        const resultPayload = {
+          tmdbId,
+          imdbId: effectiveImdbId,
+          type,
+          season: type === 'tv' ? Number(season) : undefined,
+          episode: type === 'tv' ? Number(episode) : undefined,
+          hasPtDub,
+          hasPtSub: finalHasPtSub,
+          availableDubs,
+          ptbrEmbedUrls: ptbrEmbedUrls || [],
+          streams,
+          subtitles: {
+            ptCues,
+            enCues,
+            pt: {
+              vttUrl: `/api/cinema/vtt?imdbId=${encodeURIComponent(effectiveImdbId)}&lang=pob&type=${type}&season=${season}&episode=${episode}`,
+              cueCount: ptCues.length,
+              cues: ptCues,
+            },
+            en: {
+              vttUrl: `/api/cinema/vtt?imdbId=${encodeURIComponent(effectiveImdbId)}&lang=eng&type=${type}&season=${season}&episode=${episode}`,
+              cueCount: enCues.length,
+              cues: enCues,
+            },
+          },
+        };
+
+        if (streams.length > 0) {
+          resolveCache.set(cacheKey, {
+            expiresAt: Date.now() + 1000 * 60 * 30,
+            payload: resultPayload,
+          });
+        }
+
+        return resultPayload;
+      })();
+
+      if (!forceBust) {
+        resolveInFlight.set(cacheKey, payloadPromise);
+      }
     }
 
-    const ptCues = cachedPt?.cues || [];
-    const enCues = cachedEn?.cues || [];
-    const finalHasPtSub = Boolean(hasPtSub || ptCues.length > 0);
-
-    if (cleanImdb && !cachedEn) {
-      fetchOpenSubtitlesTrack({ imdbId: effectiveImdbId, lang3: 'eng', type, season, episode }).catch(() => {});
-    }
-
-    const payload = {
-      tmdbId,
-      imdbId: effectiveImdbId,
-      type,
-      season: type === 'tv' ? Number(season) : undefined,
-      episode: type === 'tv' ? Number(episode) : undefined,
-      hasPtDub,
-      hasPtSub: finalHasPtSub,
-      availableDubs,
-      ptbrEmbedUrls: ptbrEmbedUrls || [],
-      streams,
-      subtitles: {
-        ptCues,
-        enCues,
-        pt: {
-          vttUrl: `/api/cinema/vtt?imdbId=${encodeURIComponent(effectiveImdbId)}&lang=pob&type=${type}&season=${season}&episode=${episode}`,
-          cueCount: ptCues.length,
-          cues: ptCues,
-        },
-        en: {
-          vttUrl: `/api/cinema/vtt?imdbId=${encodeURIComponent(effectiveImdbId)}&lang=eng&type=${type}&season=${season}&episode=${episode}`,
-          cueCount: enCues.length,
-          cues: enCues,
-        },
-      },
-    };
-
-    if (streams.length > 0) {
-      resolveCache.set(cacheKey, {
-        expiresAt: Date.now() + 1000 * 60 * 30,
-        payload,
-      });
+    let payload;
+    try {
+      payload = await payloadPromise;
+    } finally {
+      if (resolveInFlight.get(cacheKey) === payloadPromise) {
+        resolveInFlight.delete(cacheKey);
+      }
     }
 
     res.statusCode = 200;
@@ -1555,11 +1830,19 @@ export async function handleCinemaMp4ProxyRequest(req, res) {
       return;
     }
 
+    const mp4RefHint = (urlObj.searchParams.get('ref') || '').trim().toLowerCase();
     const headers = {
       'User-Agent':
         'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
       Accept: '*/*',
     };
+    if (mp4RefHint === 'wp2' || targetUrl.includes('hclod.qzz.io') || targetUrl.includes('watchplay')) {
+      headers.Referer = 'https://v2.watchplay.shop/';
+      headers.Origin = 'https://v2.watchplay.shop';
+    } else if (mp4RefHint === 'ep2' || targetUrl.includes('embedplayer2.xyz') || targetUrl.includes('embedvip.xyz')) {
+      headers.Referer = 'https://embedplayer2.xyz/';
+      headers.Origin = 'https://embedplayer2.xyz';
+    }
 
     const isVercel = Boolean(process.env.VERCEL);
     const incomingRange = req.headers?.range ? String(req.headers.range) : '';
@@ -1716,9 +1999,13 @@ export async function handleCinemaHlsProxyRequest(req, res) {
       ) {
         referer = 'https://embedplayer2.xyz/';
         origin = 'https://embedplayer2.xyz';
-      } else if (cand.includes('hclod.qzz.io') || cand.includes('watchplay')) {
-        referer = 'https://v1.watchplay.shop/';
-        origin = 'https://v1.watchplay.shop';
+      } else if (
+        refHint === 'wp2' ||
+        cand.includes('hclod.qzz.io') ||
+        cand.includes('watchplay')
+      ) {
+        referer = 'https://v2.watchplay.shop/';
+        origin = 'https://v2.watchplay.shop';
       }
       return {
         'User-Agent': BROWSER_UA,
@@ -1758,6 +2045,10 @@ export async function handleCinemaHlsProxyRequest(req, res) {
       refHint === 'ep2' ||
       targetUrl.includes('embedplayer2.xyz') ||
       targetUrl.includes('embedvip.xyz');
+    const isWp2Flow =
+      refHint === 'wp2' ||
+      targetUrl.includes('hclod.qzz.io') ||
+      targetUrl.includes('watchplay');
     const isEmbedPlayerPlaylist =
       targetUrl.includes('embedplayer2.xyz/cdn/hls/') ||
       targetUrl.includes('embedplayer2.xyz/hls/');
@@ -1775,13 +2066,13 @@ export async function handleCinemaHlsProxyRequest(req, res) {
 
     const proxyExtraSuffix = `${
       preferLang ? `&preferLang=${encodeURIComponent(preferLang)}` : ''
-    }${isEp2Flow ? '&ref=ep2' : ''}`;
+    }${isEp2Flow ? '&ref=ep2' : ''}${isWp2Flow ? '&ref=wp2' : ''}`;
 
     const canDirectBypassCdn = (resolvedUrl) => {
       if (resolvedUrl.includes('.m3u8') || resolvedUrl.includes('embedplayer2.xyz/hls/')) {
         return false;
       }
-      if (resolvedUrl.includes('maximaimg.online') || resolvedUrl.includes('hclod.qzz.io')) {
+      if (resolvedUrl.includes('maximaimg.online')) {
         return true;
       }
       return false;

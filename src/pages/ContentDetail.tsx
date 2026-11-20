@@ -13,6 +13,7 @@ import { useSimilar, useBecauseYouRead } from "@/hooks/useRecommendations";
 import { formatPrice } from "@/lib/format";
 import { getOriginalPdfForBook } from "@/lib/originalPdfRegistry";
 import { downloadRealBook } from "@/lib/mediaDownloaders";
+import { notifyDownloadError, notifyDownloadSuccess } from "@/lib/downloadNotifications";
 import { CommunityReviews } from "@/components/CommunityReviews";
 import { ContentDetailSkeleton } from "@/components/skeletons/AppSkeletons";
 import { CANONICAL_BASE_URL, buildBreadcrumbSchema, usePageSeo } from "@/lib/seo";
@@ -109,7 +110,7 @@ const ContentDetail = () => {
     setIsDownloading(true);
     track(item.id, "download");
     try {
-      await downloadRealBook({
+      const entry = await downloadRealBook({
         book: {
           id: String(item.id),
           title: item.title,
@@ -119,9 +120,9 @@ const ContentDetail = () => {
           cover_url: item.cover,
         },
       });
-      toast.success("Download concluído! Disponível em Meu Perfil → Downloads.");
-    } catch {
-      toast.error("Não foi possível transferir o arquivo no momento.");
+      notifyDownloadSuccess(entry);
+    } catch (err) {
+      notifyDownloadError(err, "Não foi possível transferir o arquivo no momento.");
     } finally {
       setIsDownloading(false);
     }

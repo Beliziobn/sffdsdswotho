@@ -51,6 +51,7 @@ interface OriginalPdfViewerProps {
   category?: string;
   description?: string;
   pdfBytes?: Uint8Array;
+  pdfBlob?: Blob;
   chapters?: BookChapterInput[];
   title: string;
   author: string;
@@ -72,6 +73,7 @@ export const OriginalPdfViewer: React.FC<OriginalPdfViewerProps> = ({
   category,
   description,
   pdfBytes,
+  pdfBlob,
   chapters,
   title,
   author,
@@ -218,9 +220,11 @@ export const OriginalPdfViewer: React.FC<OriginalPdfViewerProps> = ({
 
       let resolvedDataBytes: Uint8Array | null = null;
 
-      // 1. Direct pdfBytes prop
+      // 1. Direct pdfBytes or pdfBlob prop
       if (pdfBytes && pdfBytes.byteLength > 0) {
         resolvedDataBytes = pdfBytes.slice();
+      } else if (pdfBlob && pdfBlob.size > 0) {
+        resolvedDataBytes = new Uint8Array(await pdfBlob.arrayBuffer());
       }
 
       // 2. Local IndexedDB (check both targetRef and itemId)
@@ -369,7 +373,7 @@ export const OriginalPdfViewer: React.FC<OriginalPdfViewerProps> = ({
       );
       setIsLoading(false);
     }
-  }, [pdfUrl, originalPdfUrl, pdfBytes, itemId, title, author, synthesizeClientBookPdfBytes]);
+  }, [pdfUrl, originalPdfUrl, pdfBytes, pdfBlob, itemId, title, author, synthesizeClientBookPdfBytes]);
 
   useEffect(() => {
     loadPdf();

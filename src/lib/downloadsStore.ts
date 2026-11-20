@@ -23,6 +23,54 @@ export type DownloadMediaType =
 
 export type DownloadStatus = "completed" | "in_progress" | "failed";
 
+export type DownloadFolderKind =
+  | "serie"
+  | "anime"
+  | "filme"
+  | "manga"
+  | "webtoon"
+  | "livro";
+
+export interface DownloadFolderMetadata {
+  folderKey: string;
+  folderTitle: string;
+  folderKind: DownloadFolderKind;
+  kindLabel: string;
+  seasonNumber: number | null;
+  episodeNumber: number | null;
+  episodeTitle?: string;
+  languageLabel?: string;
+}
+
+export interface DownloadSeasonGroup {
+  seasonNumber: number;
+  label: string;
+  entries: UserDownloadEntry[];
+  totalBytes: number;
+  completedCount: number;
+  offlineCount: number;
+}
+
+export interface DownloadFolderGroup {
+  folderKey: string;
+  folderTitle: string;
+  folderKind: DownloadFolderKind;
+  kindLabel: string;
+  cover?: string;
+  author?: string;
+  openHref?: string;
+  entries: UserDownloadEntry[];
+  seasons: DownloadSeasonGroup[];
+  looseEntries: UserDownloadEntry[];
+  latestDownloadedAt: string;
+  totalBytes: number;
+  totalBytesFormatted: string;
+  completedCount: number;
+  inProgressCount: number;
+  failedCount: number;
+  offlineCount: number;
+}
+
 export interface UserDownloadEntry {
   id: string;
   userId: string;
@@ -42,6 +90,14 @@ export interface UserDownloadEntry {
   downloadedAt: string;
   lastOpenedAt?: string;
   openCount?: number;
+  // Local folder/hierarchy metadata (derived automatically on cloud sync)
+  seriesId?: string;
+  seriesTitle?: string;
+  mediaKind?: DownloadFolderKind;
+  seasonNumber?: number;
+  episodeNumber?: number;
+  episodeTitle?: string;
+  folderKey?: string;
   // Client-side transfer progress metadata (not persisted to Firestore)
   progressPercent?: number;
   loadedBytes?: number;
@@ -79,6 +135,12 @@ export interface TrackedDownloadOptions {
   fileName?: string;
   mimeType?: string;
   expectedFileSizeFormatted?: string;
+  seriesId?: string;
+  seriesTitle?: string;
+  mediaKind?: DownloadFolderKind;
+  seasonNumber?: number;
+  episodeNumber?: number;
+  episodeTitle?: string;
   customDownloader?: (
     onProgress: (info: TrackedDownloadProgressInfo) => void
   ) => Promise<CustomDownloadResult>;
@@ -89,9 +151,60 @@ const DOWNLOAD_IDB_NAME = "wotho_downloaded_files_db";
 const DOWNLOAD_IDB_STORE = "files";
 
 interface StoredFileRecord {
-  bytes: ArrayBuffer;
+  blob?: Blob;
+  bytes?: ArrayBuffer;
   mimeType: string;
   cachedAt: string;
+}
+
+const MAX_IDB_CACHE_BYTES = 1024 * 1024 * 1024; // 1 GB Blob cache limit in IndexedDB
+const MAX_HOT_CACHE_ENTRIES = 10;
+const MAX_HOT_CACHE_BYTES = 650 * 1024 * 1024;
+
+interface HotMediaEntry {
+  blob: Blob;
+  mimeType: string;
+  sizeBytes: number;
+}
+
+const hotMediaCache = new Map<string, HotMediaEntry>();
+let downloadsDbPromise: Promise<IDBDatabase> | null = null;
+
+function rememberHotMedia(downloadId: string, blob: Blob, mimeType: string): void {
+  if (!downloadId || !blob || blob.size <= 0) return;
+  if (blob.size > MAX_HOT_CACHE_BYTES) return;
+
+  if (hotMediaCache.has(downloadId)) {
+    hotMediaCache.delete(downloadId);
+  }
+  hotMediaCache.set(downloadId, { blob, mimeType, sizeBytes: blob.size });
+
+  let totalBytes = 0;
+  for (const item of hotMediaCache.values()) {
+    totalBytes += item.sizeBytes;
+  }
+
+  while (
+    hotMediaCache.size > MAX_HOT_CACHE_ENTRIES ||
+    (totalBytes > MAX_HOT_CACHE_BYTES && hotMediaCache.size > 1)
+  ) {
+    const oldestKey = hotMediaCache.keys().next().value as string | undefined;
+    if (!oldestKey) break;
+    const evicted = hotMediaCache.get(oldestKey);
+    hotMediaCache.delete(oldestKey);
+    if (evicted) totalBytes -= evicted.sizeBytes;
+  }
+}
+
+export function getHotCachedDownloadMedia(
+  downloadId: string
+): { blob: Blob; mimeType: string } | null {
+  const hit = hotMediaCache.get(downloadId);
+  if (!hit || hit.blob.size <= 0) return null;
+  // Refresh LRU order
+  hotMediaCache.delete(downloadId);
+  hotMediaCache.set(downloadId, hit);
+  return { blob: hit.blob, mimeType: hit.mimeType };
 }
 
 const liveProgressMap = new Map<
@@ -164,9 +277,283 @@ export function formatDownloadBytes(bytes?: number): string {
   return `${mb.toFixed(1)} MB`;
 }
 
+function normalizeFolderSlug(raw: string): string {
+  return String(raw || "obra")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 90) || "obra";
+}
+
+function extractLanguageBadge(entry: Pick<UserDownloadEntry, "category" | "fileName" | "itemId">): string | undefined {
+  const catParts = String(entry.category || "")
+    .split("·")
+    .map((p) => p.trim())
+    .filter(Boolean);
+  if (catParts.length > 1) {
+    return catParts[catParts.length - 1];
+  }
+  const fileMatch = String(entry.fileName || "").match(/\((DUB PT-BR|LEG PT-BR|PT-BR|PT|EN|JA|KO)\)/i);
+  if (fileMatch) return fileMatch[1].toUpperCase();
+  if (/-en$/i.test(entry.itemId || "")) return "EN";
+  if (/-pt$/i.test(entry.itemId || "")) return "PT-BR";
+  return undefined;
+}
+
+export function resolveDownloadFolderMetadata(
+  entry: Pick<
+    UserDownloadEntry,
+    | "itemId"
+    | "type"
+    | "title"
+    | "category"
+    | "fileName"
+    | "seriesId"
+    | "seriesTitle"
+    | "mediaKind"
+    | "seasonNumber"
+    | "episodeNumber"
+    | "episodeTitle"
+  >
+): DownloadFolderMetadata {
+  const rawTitle = String(entry.title || "Obra Wotho").trim();
+  const rawCategory = String(entry.category || "").trim();
+  const rawItemId = String(entry.itemId || "").trim();
+
+  let folderKind: DownloadFolderKind = entry.mediaKind || "livro";
+  if (!entry.mediaKind) {
+    if (entry.type === "anime") {
+      folderKind = "anime";
+    } else if (entry.type === "manga") {
+      folderKind = "manga";
+    } else if (entry.type === "webtoon") {
+      folderKind = "webtoon";
+    } else if (entry.type === "cinema") {
+      const looksLikeSerie =
+        /^s[eé]rie\b/i.test(rawCategory) ||
+        /-s\d+e\d+-(?:pt|en)$/i.test(rawItemId) ||
+        /[—-]\s*T\d{1,3}E\d{1,4}\b/i.test(rawTitle);
+      folderKind = looksLikeSerie ? "serie" : "filme";
+    } else {
+      folderKind = "livro";
+    }
+  }
+
+  let seasonNumber: number | null =
+    typeof entry.seasonNumber === "number" && Number.isFinite(entry.seasonNumber)
+      ? entry.seasonNumber
+      : null;
+  let episodeNumber: number | null =
+    typeof entry.episodeNumber === "number" && Number.isFinite(entry.episodeNumber)
+      ? entry.episodeNumber
+      : null;
+  let episodeTitle: string | undefined = entry.episodeTitle;
+
+  if (folderKind === "serie" || folderKind === "anime") {
+    if (seasonNumber === null || episodeNumber === null) {
+      const itemSeMatch = rawItemId.match(/-s(\d+)e(\d+)(?:-|$)/i);
+      if (itemSeMatch) {
+        if (seasonNumber === null) seasonNumber = parseInt(itemSeMatch[1], 10);
+        if (episodeNumber === null) episodeNumber = parseInt(itemSeMatch[2], 10);
+      }
+    }
+    if (seasonNumber === null || episodeNumber === null) {
+      const titleSeMatch =
+        rawTitle.match(/[—-]\s*T(\d{1,3})\s*[:.]?\s*(?:E|Ep\.?)(\d{1,4})/i) ||
+        rawTitle.match(/\bT(\d{1,3})E(\d{1,4})\b/i);
+      if (titleSeMatch) {
+        if (seasonNumber === null) seasonNumber = parseInt(titleSeMatch[1], 10);
+        if (episodeNumber === null) episodeNumber = parseInt(titleSeMatch[2], 10);
+      }
+    }
+    if (seasonNumber === null) seasonNumber = 1;
+    if (episodeNumber === null) episodeNumber = 1;
+  } else if (folderKind === "manga" || folderKind === "webtoon") {
+    if (episodeNumber === null) {
+      const chapMatch =
+        rawItemId.match(/-(?:cap|ep)-(\d+)(?:-|$)/i) ||
+        rawTitle.match(/[—-]\s*(?:Cap\.?|Ep\.?)\s*(\d+)/i);
+      if (chapMatch) {
+        episodeNumber = parseInt(chapMatch[1], 10);
+      }
+    }
+  }
+
+  let folderTitle = (entry.seriesTitle || "").trim();
+  if (!folderTitle) {
+    if (folderKind === "serie" || folderKind === "anime") {
+      folderTitle = rawTitle
+        .replace(/\s*[—-]\s*T\d{1,3}\s*[:.]?\s*(?:E|Ep\.?)\d{1,4}.*$/i, "")
+        .trim();
+    } else if (folderKind === "filme") {
+      folderTitle = rawTitle
+        .replace(/\s*\(\d{4}\)\s*$/, "")
+        .replace(/\s*\((?:PT-BR|PT|EN)\)\s*$/i, "")
+        .trim();
+    } else if (folderKind === "manga" || folderKind === "webtoon") {
+      folderTitle = rawTitle
+        .replace(/\s*[—-]\s*(?:Cap\.?|Ep\.?)\s*\d+.*$/i, "")
+        .trim();
+    } else {
+      folderTitle = rawTitle;
+    }
+  }
+  if (!folderTitle) folderTitle = rawTitle;
+
+  if (!episodeTitle && (folderKind === "serie" || folderKind === "anime")) {
+    const epTitleMatch = rawTitle.match(
+      /[—-]\s*T\d{1,3}\s*[:.]?\s*(?:E|Ep\.?)\d{1,4}\s*\(([^)]+)\)\s*$/i
+    );
+    if (epTitleMatch?.[1]) {
+      episodeTitle = epTitleMatch[1].trim();
+    }
+  }
+
+  const kindLabelMap: Record<DownloadFolderKind, string> = {
+    serie: "Série",
+    anime: "Anime",
+    filme: "Filme",
+    manga: "Mangá",
+    webtoon: "Webtoon",
+    livro: entry.type === "pdf" ? "PDF Original" : entry.type === "article" ? "Artigo" : "Livro",
+  };
+
+  // Same name + same media type => exact same folder
+  const folderKey = `${folderKind}--${normalizeFolderSlug(folderTitle)}`;
+
+  return {
+    folderKey,
+    folderTitle,
+    folderKind,
+    kindLabel: kindLabelMap[folderKind],
+    seasonNumber,
+    episodeNumber,
+    episodeTitle,
+    languageLabel: extractLanguageBadge(entry),
+  };
+}
+
+export function groupDownloadsIntoFolders(
+  entries: UserDownloadEntry[],
+  cachedIds: Set<string> = new Set()
+): DownloadFolderGroup[] {
+  const folderMap = new Map<
+    string,
+    {
+      meta: DownloadFolderMetadata;
+      entries: UserDownloadEntry[];
+    }
+  >();
+
+  for (const entry of entries) {
+    const meta = resolveDownloadFolderMetadata(entry);
+    const existing = folderMap.get(meta.folderKey);
+    if (existing) {
+      existing.entries.push(entry);
+    } else {
+      folderMap.set(meta.folderKey, { meta, entries: [entry] });
+    }
+  }
+
+  const folders: DownloadFolderGroup[] = [];
+
+  for (const [folderKey, bucket] of folderMap.entries()) {
+    const { meta, entries: folderEntries } = bucket;
+    const sortedByDate = [...folderEntries].sort(
+      (a, b) => new Date(b.downloadedAt).getTime() - new Date(a.downloadedAt).getTime()
+    );
+    const representative = sortedByDate.find((e) => e.cover) || sortedByDate[0];
+
+    const hasSeasons = meta.folderKind === "serie" || meta.folderKind === "anime";
+    const seasonsMap = new Map<number, UserDownloadEntry[]>();
+    const looseEntries: UserDownloadEntry[] = [];
+
+    if (hasSeasons) {
+      for (const e of folderEntries) {
+        const eMeta = resolveDownloadFolderMetadata(e);
+        const sNum = eMeta.seasonNumber ?? 1;
+        const list = seasonsMap.get(sNum) || [];
+        list.push(e);
+        seasonsMap.set(sNum, list);
+      }
+    } else {
+      looseEntries.push(...folderEntries);
+      looseEntries.sort((a, b) => {
+        const ma = resolveDownloadFolderMetadata(a);
+        const mb = resolveDownloadFolderMetadata(b);
+        if (ma.episodeNumber !== null && mb.episodeNumber !== null && ma.episodeNumber !== mb.episodeNumber) {
+          return ma.episodeNumber - mb.episodeNumber;
+        }
+        return new Date(b.downloadedAt).getTime() - new Date(a.downloadedAt).getTime();
+      });
+    }
+
+    const seasons: DownloadSeasonGroup[] = Array.from(seasonsMap.entries())
+      .sort(([a], [b]) => a - b)
+      .map(([seasonNumber, seasonEntries]) => {
+        const sortedEps = [...seasonEntries].sort((a, b) => {
+          const ma = resolveDownloadFolderMetadata(a);
+          const mb = resolveDownloadFolderMetadata(b);
+          const ea = ma.episodeNumber ?? 0;
+          const eb = mb.episodeNumber ?? 0;
+          if (ea !== eb) return ea - eb;
+          return new Date(b.downloadedAt).getTime() - new Date(a.downloadedAt).getTime();
+        });
+        const totalBytes = sortedEps.reduce(
+          (acc, e) => acc + (e.status === "completed" ? e.fileSizeBytes || 0 : 0),
+          0
+        );
+        return {
+          seasonNumber,
+          label: `Temporada ${seasonNumber}`,
+          entries: sortedEps,
+          totalBytes,
+          completedCount: sortedEps.filter((e) => e.status === "completed").length,
+          offlineCount: sortedEps.filter((e) => cachedIds.has(e.id)).length,
+        };
+      });
+
+    const totalBytes = folderEntries.reduce(
+      (acc, e) => acc + (e.status === "completed" ? e.fileSizeBytes || 0 : 0),
+      0
+    );
+
+    folders.push({
+      folderKey,
+      folderTitle: meta.folderTitle,
+      folderKind: meta.folderKind,
+      kindLabel: meta.kindLabel,
+      cover: representative?.cover,
+      author: representative?.author,
+      openHref: representative?.openHref,
+      entries: hasSeasons ? seasons.flatMap((s) => s.entries) : looseEntries,
+      seasons,
+      looseEntries,
+      latestDownloadedAt: sortedByDate[0]?.downloadedAt || new Date().toISOString(),
+      totalBytes,
+      totalBytesFormatted: totalBytes > 0 ? formatDownloadBytes(totalBytes) : "—",
+      completedCount: folderEntries.filter((e) => e.status === "completed").length,
+      inProgressCount: folderEntries.filter((e) => e.status === "in_progress").length,
+      failedCount: folderEntries.filter((e) => e.status === "failed").length,
+      offlineCount: folderEntries.filter((e) => cachedIds.has(e.id)).length,
+    });
+  }
+
+  return folders.sort((a, b) => {
+    if (a.inProgressCount > 0 && b.inProgressCount === 0) return -1;
+    if (b.inProgressCount > 0 && a.inProgressCount === 0) return 1;
+    return new Date(b.latestDownloadedAt).getTime() - new Date(a.latestDownloadedAt).getTime();
+  });
+}
+
 function openDownloadsIdb(): Promise<IDBDatabase> {
-  return new Promise((resolve, reject) => {
+  if (downloadsDbPromise) return downloadsDbPromise;
+
+  downloadsDbPromise = new Promise<IDBDatabase>((resolve, reject) => {
     if (typeof indexedDB === "undefined") {
+      downloadsDbPromise = null;
       reject(new Error("IndexedDB indisponível"));
       return;
     }
@@ -177,20 +564,39 @@ function openDownloadsIdb(): Promise<IDBDatabase> {
         database.createObjectStore(DOWNLOAD_IDB_STORE);
       }
     };
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error);
+    req.onsuccess = () => {
+      const database = req.result;
+      database.onclose = () => {
+        downloadsDbPromise = null;
+      };
+      database.onversionchange = () => {
+        try {
+          database.close();
+        } catch {}
+        downloadsDbPromise = null;
+      };
+      resolve(database);
+    };
+    req.onerror = () => {
+      downloadsDbPromise = null;
+      reject(req.error);
+    };
   });
+
+  return downloadsDbPromise;
 }
 
-export async function saveDownloadedFileToIdb(
+export async function saveDownloadedBlobToIdb(
   downloadId: string,
-  bytes: ArrayBuffer,
+  blob: Blob,
   mimeType = "application/pdf"
-): Promise<void> {
+): Promise<boolean> {
+  if (!blob || blob.size <= 0 || blob.size > MAX_IDB_CACHE_BYTES) return false;
+  rememberHotMedia(downloadId, blob, mimeType);
   try {
     const database = await openDownloadsIdb();
     const record: StoredFileRecord = {
-      bytes,
+      blob,
       mimeType,
       cachedAt: new Date().toISOString(),
     };
@@ -200,35 +606,94 @@ export async function saveDownloadedFileToIdb(
       tx.oncomplete = () => resolve();
       tx.onerror = () => reject(tx.error);
     });
+    return true;
   } catch {
-    // Ignore IDB quota/availability errors
+    return false;
+  }
+}
+
+export async function saveDownloadedFileToIdb(
+  downloadId: string,
+  bytes: ArrayBuffer,
+  mimeType = "application/pdf"
+): Promise<void> {
+  const blob = new Blob([bytes], { type: mimeType });
+  await saveDownloadedBlobToIdb(downloadId, blob, mimeType);
+}
+
+export async function getDownloadedBlobFromIdb(
+  downloadId: string
+): Promise<{ blob: Blob; mimeType: string } | null> {
+  const hot = getHotCachedDownloadMedia(downloadId);
+  if (hot) return hot;
+
+  try {
+    const database = await openDownloadsIdb();
+    const result = await new Promise<StoredFileRecord | ArrayBuffer | Blob | undefined>(
+      (resolve, reject) => {
+        const tx = database.transaction(DOWNLOAD_IDB_STORE, "readonly");
+        const req = tx.objectStore(DOWNLOAD_IDB_STORE).get(downloadId);
+        req.onsuccess = () =>
+          resolve(req.result as StoredFileRecord | ArrayBuffer | Blob | undefined);
+        req.onerror = () => reject(req.error);
+      }
+    );
+    if (!result) return null;
+
+    if (result instanceof Blob) {
+      const mimeType = result.type || "application/pdf";
+      rememberHotMedia(downloadId, result, mimeType);
+      return { blob: result, mimeType };
+    }
+    if (result instanceof ArrayBuffer) {
+      const mimeType = "application/pdf";
+      const blob = new Blob([result], { type: mimeType });
+      rememberHotMedia(downloadId, blob, mimeType);
+      return { blob, mimeType };
+    }
+    if (result.blob instanceof Blob) {
+      const mimeType = result.mimeType || result.blob.type || "application/pdf";
+      rememberHotMedia(downloadId, result.blob, mimeType);
+      return { blob: result.blob, mimeType };
+    }
+    if (result.bytes) {
+      const mimeType = result.mimeType || "application/pdf";
+      const blob = new Blob([result.bytes], { type: mimeType });
+      rememberHotMedia(downloadId, blob, mimeType);
+      return { blob, mimeType };
+    }
+    return null;
+  } catch {
+    return null;
   }
 }
 
 export async function getDownloadedFileFromIdb(
   downloadId: string
 ): Promise<{ bytes: Uint8Array; mimeType: string } | null> {
-  try {
-    const database = await openDownloadsIdb();
-    const result = await new Promise<StoredFileRecord | ArrayBuffer | undefined>((resolve, reject) => {
-      const tx = database.transaction(DOWNLOAD_IDB_STORE, "readonly");
-      const req = tx.objectStore(DOWNLOAD_IDB_STORE).get(downloadId);
-      req.onsuccess = () => resolve(req.result as StoredFileRecord | ArrayBuffer | undefined);
-      req.onerror = () => reject(req.error);
-    });
-    if (!result) return null;
-    if (result instanceof ArrayBuffer) {
-      return { bytes: new Uint8Array(result), mimeType: "application/pdf" };
+  const cached = await getDownloadedBlobFromIdb(downloadId);
+  if (!cached) return null;
+  const buf = await cached.blob.arrayBuffer();
+  return {
+    bytes: new Uint8Array(buf),
+    mimeType: cached.mimeType,
+  };
+}
+
+export function preloadDownloadIntoMemory(downloadId: string): void {
+  if (!downloadId || hotMediaCache.has(downloadId)) return;
+  void getDownloadedBlobFromIdb(downloadId);
+}
+
+export function prewarmDownloadFolder(entries: UserDownloadEntry[], limit = 2): void {
+  let count = 0;
+  for (const entry of entries) {
+    if (entry.status !== "completed") continue;
+    if (!hotMediaCache.has(entry.id)) {
+      void getDownloadedBlobFromIdb(entry.id);
     }
-    if (result.bytes) {
-      return {
-        bytes: new Uint8Array(result.bytes),
-        mimeType: result.mimeType || "application/pdf",
-      };
-    }
-    return null;
-  } catch {
-    return null;
+    count++;
+    if (count >= limit) break;
   }
 }
 
@@ -241,13 +706,16 @@ export async function getAllCachedDownloadIds(): Promise<Set<string>> {
       req.onsuccess = () => resolve(req.result || []);
       req.onerror = () => reject(req.error);
     });
-    return new Set(keys.map((k) => String(k)));
+    const set = new Set(keys.map((k) => String(k)));
+    for (const k of hotMediaCache.keys()) set.add(k);
+    return set;
   } catch {
-    return new Set();
+    return new Set(hotMediaCache.keys());
   }
 }
 
 async function deleteDownloadedFileFromIdb(downloadId: string): Promise<void> {
+  hotMediaCache.delete(downloadId);
   try {
     const database = await openDownloadsIdb();
     await new Promise<void>((resolve, reject) => {
@@ -262,6 +730,7 @@ async function deleteDownloadedFileFromIdb(downloadId: string): Promise<void> {
 }
 
 async function clearAllDownloadedFilesFromIdb(): Promise<void> {
+  hotMediaCache.clear();
   try {
     const database = await openDownloadsIdb();
     await new Promise<void>((resolve, reject) => {
@@ -696,6 +1165,20 @@ export async function executeTrackedDownload(
     progressStage: "connecting",
   });
 
+  const preResolvedMeta = resolveDownloadFolderMetadata({
+    itemId: String(options.itemId).slice(0, 128),
+    type: mediaType,
+    title: (options.title || "Obra Wotho").slice(0, 300),
+    category: (options.category || "").slice(0, 100) || undefined,
+    fileName,
+    seriesId: options.seriesId,
+    seriesTitle: options.seriesTitle,
+    mediaKind: options.mediaKind,
+    seasonNumber: options.seasonNumber,
+    episodeNumber: options.episodeNumber,
+    episodeTitle: options.episodeTitle,
+  });
+
   const pendingEntry: UserDownloadEntry = {
     id: downloadId,
     userId: uid,
@@ -717,6 +1200,13 @@ export async function executeTrackedDownload(
     downloadedAt: new Date().toISOString(),
     lastOpenedAt: prev?.lastOpenedAt,
     openCount: prev?.openCount || 0,
+    seriesId: options.seriesId || prev?.seriesId,
+    seriesTitle: preResolvedMeta.folderTitle,
+    mediaKind: preResolvedMeta.folderKind,
+    seasonNumber: preResolvedMeta.seasonNumber ?? undefined,
+    episodeNumber: preResolvedMeta.episodeNumber ?? undefined,
+    episodeTitle: preResolvedMeta.episodeTitle,
+    folderKey: preResolvedMeta.folderKey,
     progressPercent: 8,
     loadedBytes: 0,
     progressStage: "connecting",
@@ -784,26 +1274,19 @@ export async function executeTrackedDownload(
     });
     emitDownloadsUpdated();
 
-    // Cache files up to 180MB in IndexedDB for instant offline playback; larger movies go straight to device storage without hitting browser IDB/RAM caps
-    const MAX_IDB_CACHE_BYTES = 180 * 1024 * 1024;
-    if (totalByteLength > 0 && totalByteLength <= MAX_IDB_CACHE_BYTES) {
-      let idbBuffer: ArrayBuffer | null = resolvedResult.buffer || null;
-      if (!idbBuffer && resolvedResult.chunks?.length) {
-        const merged = new Uint8Array(totalByteLength);
-        let offset = 0;
-        for (const chunk of resolvedResult.chunks) {
-          merged.set(chunk, offset);
-          offset += chunk.byteLength;
-        }
-        idbBuffer = merged.buffer;
-      }
-      if (idbBuffer) {
-        await saveDownloadedFileToIdb(downloadId, idbBuffer, mimeType);
-      }
-    }
-
     if (resolvedResult.directHttpUrl) {
       triggerDirectHttpDownload(resolvedResult.directHttpUrl, fileName);
+      if (totalByteLength > 0 && totalByteLength <= MAX_IDB_CACHE_BYTES) {
+        const blobParts: BlobPart[] = resolvedResult.chunks?.length
+          ? resolvedResult.chunks.map((c) => c as unknown as BlobPart)
+          : resolvedResult.buffer
+          ? [resolvedResult.buffer]
+          : [];
+        if (blobParts.length > 0) {
+          const blob = new Blob(blobParts, { type: mimeType });
+          await saveDownloadedBlobToIdb(downloadId, blob, mimeType);
+        }
+      }
     } else {
       const blobParts: BlobPart[] = resolvedResult.chunks?.length
         ? resolvedResult.chunks.map((c) => c as unknown as BlobPart)
@@ -812,6 +1295,9 @@ export async function executeTrackedDownload(
         : [];
       const blob = new Blob(blobParts, { type: mimeType });
       triggerBrowserFileDownload(blob, fileName);
+      if (blob.size > 0 && blob.size <= MAX_IDB_CACHE_BYTES) {
+        await saveDownloadedBlobToIdb(downloadId, blob, mimeType);
+      }
     }
 
     liveProgressMap.delete(downloadId);
@@ -855,12 +1341,66 @@ export async function executeTrackedDownload(
   }
 }
 
-export async function getOrFetchDownloadBytes(
+export interface FastDownloadMediaResult {
+  blob: Blob | null;
+  streamUrl?: string;
+  isHlsStream?: boolean;
+  mimeType: string;
+  fromCache: boolean;
+}
+
+export async function getOrFetchDownloadMedia(
   entry: UserDownloadEntry
-): Promise<{ bytes: Uint8Array; mimeType: string }> {
-  const cached = await getDownloadedFileFromIdb(entry.id);
-  if (cached && cached.bytes.byteLength > 0) {
-    return cached;
+): Promise<FastDownloadMediaResult> {
+  const cached = await getDownloadedBlobFromIdb(entry.id);
+  if (cached && cached.blob.size > 0) {
+    return {
+      blob: cached.blob,
+      mimeType: cached.mimeType,
+      fromCache: true,
+    };
+  }
+
+  // If video is not yet in local IDB, stream directly instead of re-downloading the entire file upfront
+  const src = entry.downloadUrl || "";
+  const isVideoEntry =
+    Boolean(entry.mimeType?.startsWith("video/")) ||
+    /\.(mp4|webm|ts|mkv|m4v)(\?|$)/i.test(entry.fileName || "");
+  const isHlsSource =
+    /\.m3u8(\?|$)/i.test(src) ||
+    src.includes("/api/cinema/hls-proxy") ||
+    src.includes("/backend/servers/atlas/edge");
+
+  if (
+    isVideoEntry &&
+    src &&
+    !src.startsWith("idb://") &&
+    !src.startsWith("blob:") &&
+    !src.startsWith("data:")
+  ) {
+    if (isHlsSource) {
+      const hlsStreamUrl = src.startsWith("/")
+        ? src
+        : `/api/cinema/hls-proxy?url=${encodeURIComponent(src)}`;
+      return {
+        blob: null,
+        streamUrl: hlsStreamUrl,
+        isHlsStream: true,
+        mimeType: "application/vnd.apple.mpegurl",
+        fromCache: false,
+      };
+    }
+
+    const directStreamUrl = src.startsWith("/")
+      ? src
+      : `/api/cinema/mp4-proxy?url=${encodeURIComponent(src)}`;
+    return {
+      blob: null,
+      streamUrl: directStreamUrl,
+      isHlsStream: false,
+      mimeType: entry.mimeType || "video/mp4",
+      fromCache: false,
+    };
   }
 
   const resolved = await resolveDownloadBytes({
@@ -873,26 +1413,43 @@ export async function getOrFetchDownloadBytes(
     mimeType: entry.mimeType,
   });
 
-  let finalBytes: Uint8Array;
-  if (resolved.buffer) {
-    finalBytes = new Uint8Array(resolved.buffer);
-  } else if (resolved.chunks?.length) {
-    const total = resolved.totalBytes ?? resolved.chunks.reduce((s, c) => s + c.byteLength, 0);
-    finalBytes = new Uint8Array(total);
-    let offset = 0;
-    for (const c of resolved.chunks) {
-      finalBytes.set(c, offset);
-      offset += c.byteLength;
-    }
-  } else {
+  const blobParts: BlobPart[] = resolved.chunks?.length
+    ? resolved.chunks.map((c) => c as unknown as BlobPart)
+    : resolved.buffer
+    ? [resolved.buffer]
+    : [];
+
+  if (blobParts.length === 0) {
     throw new Error("Arquivo indisponível offline.");
   }
 
-  if (finalBytes.byteLength <= 180 * 1024 * 1024) {
-    await saveDownloadedFileToIdb(entry.id, finalBytes.slice().buffer, resolved.mimeType);
+  const blob = new Blob(blobParts, { type: resolved.mimeType });
+  rememberHotMedia(entry.id, blob, resolved.mimeType);
+  if (blob.size <= MAX_IDB_CACHE_BYTES) {
+    void saveDownloadedBlobToIdb(entry.id, blob, resolved.mimeType);
   }
-  emitDownloadsUpdated();
-  return { bytes: finalBytes, mimeType: resolved.mimeType };
+  return {
+    blob,
+    mimeType: resolved.mimeType,
+    fromCache: false,
+  };
+}
+
+export async function getOrFetchDownloadBytes(
+  entry: UserDownloadEntry
+): Promise<{ bytes: Uint8Array; mimeType: string }> {
+  const media = await getOrFetchDownloadMedia(entry);
+  if (media.blob) {
+    const buf = await media.blob.arrayBuffer();
+    return { bytes: new Uint8Array(buf), mimeType: media.mimeType };
+  }
+  if (media.streamUrl) {
+    const res = await fetch(media.streamUrl);
+    if (!res.ok) throw new Error("Arquivo indisponível offline.");
+    const buf = await res.arrayBuffer();
+    return { bytes: new Uint8Array(buf), mimeType: media.mimeType };
+  }
+  throw new Error("Arquivo indisponível offline.");
 }
 
 export function markDownloadOpened(downloadId: string): UserDownloadEntry | null {

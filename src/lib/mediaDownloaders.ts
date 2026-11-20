@@ -43,14 +43,15 @@ export const ANIME_TMDB_MAP: Record<string, number> = {
   "my-hero-academia": 65930,
   "death-note": 13916,
   "fullmetal-alchemist-brotherhood": 31911,
-  "sakamoto-days": 246953,
+  "sakamoto-days": 207332,
   "dr-stone": 86031,
   "mob-psycho-100": 67075,
-  "shangri-la-frontier": 205908,
-  mashle: 205366,
+  "shangri-la-frontier": 205050,
+  mashle: 204832,
   "wind-breaker": 223500,
   jigokuraku: 117465,
   "classroom-of-the-elite": 72517,
+  "slam-dunk": 42573,
 };
 
 function sanitizePdfWinAnsi(raw: string): string {
@@ -1121,16 +1122,20 @@ async function decryptAes128Segment(
 
 export async function downloadHlsStreamAsBinary(
   hlsUrl: string,
-  onProgress: (info: TrackedDownloadProgressInfo) => void
+  onProgress: (info: TrackedDownloadProgressInfo) => void,
+  explicitProxyUrl?: string
 ): Promise<{
   chunks: Uint8Array[];
   totalBytes: number;
   mimeType: string;
   ext: ".mp4" | ".ts";
 }> {
-  const initialProxy = hlsUrl.startsWith("/api/cinema/hls-proxy")
-    ? hlsUrl
-    : `/api/cinema/hls-proxy?url=${encodeURIComponent(hlsUrl)}`;
+  const initialProxy =
+    explicitProxyUrl && explicitProxyUrl.startsWith("/api/cinema/hls-proxy")
+      ? explicitProxyUrl
+      : hlsUrl.startsWith("/api/cinema/hls-proxy")
+      ? hlsUrl
+      : `/api/cinema/hls-proxy?url=${encodeURIComponent(hlsUrl)}`;
 
   const playlistRes = await fetchWithRetry(initialProxy, undefined, 3, 20000);
   let playlistText = await playlistRes.text();
@@ -1405,6 +1410,7 @@ export async function fetchMp4ChunksWithResume(
 
 interface VideoStreamCandidate {
   url: string;
+  proxyUrl?: string;
   type: "mp4" | "hls";
   quality?: string;
   audioMode?: string;
@@ -1484,7 +1490,7 @@ async function downloadFirstWorkingVideoCandidate(
           };
         } catch (mp4Err) {
           if (mp4Err instanceof Error && mp4Err.message === "STREAM_IS_HLS") {
-            const hlsResult = await downloadHlsStreamAsBinary(cand.url, onProgress);
+            const hlsResult = await downloadHlsStreamAsBinary(cand.url, onProgress, cand.proxyUrl);
             return {
               chunks: hlsResult.chunks,
               totalBytes: hlsResult.totalBytes,
@@ -1496,7 +1502,7 @@ async function downloadFirstWorkingVideoCandidate(
           throw mp4Err;
         }
       } else {
-        const hlsResult = await downloadHlsStreamAsBinary(cand.url, onProgress);
+        const hlsResult = await downloadHlsStreamAsBinary(cand.url, onProgress, cand.proxyUrl);
         return {
           chunks: hlsResult.chunks,
           totalBytes: hlsResult.totalBytes,
@@ -1605,6 +1611,7 @@ export async function downloadRealCinemaVideo(params: {
         ...deduped.filter((s) => s.type !== "mp4"),
       ].map((s) => ({
         url: s.url,
+        proxyUrl: s.proxyUrl,
         type: s.type === "hls" ? "hls" : "mp4",
         quality: s.quality,
         audioMode: s.audioMode,
@@ -1650,9 +1657,22 @@ export async function downloadRealAnimeEpisode(params: {
       : dubCode.toUpperCase();
 
   const isSteelBallRun = anime.id === "steel-ball-run";
-  const tmdbId = ANIME_TMDB_MAP[anime.id] || anime.tmdbId;
-  const effectiveTmdbSeason = isSteelBallRun ? 6 : season.seasonNumber || 1;
-  const effectiveTmdbEpisode = isSteelBallRun
+  const isMovieEp = Boolean(episode.tmdbMovieId);
+  const tmdbId = episode.tmdbMovieId || ANIME_TMDB_MAP[anime.id] || anime.tmdbId;
+  const effectiveMediaType: "movie" | "tv" = isMovieEp ? "movie" : "tv";
+  const effectiveTmdbSeason = isMovieEp || anime.id === "slam-dunk" ? 1 : isSteelBallRun ? 6 : season.seasonNumber || 1;
+  const effectiveTmdbEpisode = isMovieEp
+    ? 1
+    : anime.id === "slam-dunk"
+    ? episode.globalEpisodeNumber ||
+      (season.seasonNumber === 1
+        ? episode.number
+        : season.seasonNumber === 2
+        ? 20 + episode.number
+        : season.seasonNumber === 3
+        ? 49 + episode.number
+        : 84 + episode.number)
+    : isSteelBallRun
     ? (season.seasonNumber || 1) === 1
       ? 1
       : (episode.number || 1) + 1
@@ -1687,7 +1707,7 @@ export async function downloadRealAnimeEpisode(params: {
         catalogDubUrl;
 
       const isCatalogDubExplicit =
-        !isSteelBallRun && /-dublado|-dub\b|op-cn|dublado|-pt\.mp4/i.test(catalogDubUrl);
+        !isSteelBallRun && !isMovieEp && anime.id !== "slam-dunk" && /-dublado|-dub\b|op-cn|dublado|-pt\.mp4/i.test(catalogDubUrl);
 
       const audioModeParam =
         dubCode.startsWith("pt") && dubType === "0"
@@ -1699,14 +1719,22 @@ export async function downloadRealAnimeEpisode(params: {
       let orionStreams: any[] = [];
       let atlasStreams: any[] = [];
       if (tmdbId) {
+        const resolveTitle = isMovieEp
+          ? episode.title.includes("THE FIRST SLAM DUNK")
+            ? "The First Slam Dunk"
+            : "Slam Dunk"
+          : isSteelBallRun
+          ? "JoJo's Bizarre Adventure"
+          : anime.title;
         const [orionRes, atlasRes] = await Promise.all([
           fetchCinemaResolveCached({
             tmdbId,
-            type: "tv",
+            imdbId: episode.imdbId || anime.imdbId,
+            type: effectiveMediaType,
             season: effectiveTmdbSeason,
             episode: effectiveTmdbEpisode,
-            title: isSteelBallRun ? "JoJo's Bizarre Adventure" : anime.title,
-            year: isSteelBallRun ? 2012 : season.year || 2024,
+            title: resolveTitle,
+            year: isSteelBallRun ? 2012 : episode.tmdbMovieId === 783675 ? 2022 : season.year || 2024,
             audioMode: audioModeParam,
             dubCode,
             dubType,
@@ -1714,11 +1742,12 @@ export async function downloadRealAnimeEpisode(params: {
           }).catch(() => null),
           fetchCinemaResolveCached({
             tmdbId,
-            type: "tv",
+            imdbId: episode.imdbId || anime.imdbId,
+            type: effectiveMediaType,
             season: effectiveTmdbSeason,
             episode: effectiveTmdbEpisode,
-            title: isSteelBallRun ? "JoJo's Bizarre Adventure" : anime.title,
-            year: isSteelBallRun ? 2012 : season.year || 2024,
+            title: resolveTitle,
+            year: isSteelBallRun ? 2012 : episode.tmdbMovieId === 783675 ? 2022 : season.year || 2024,
             audioMode: audioModeParam,
             server: "atlas",
           }).catch(() => null),
@@ -1728,12 +1757,18 @@ export async function downloadRealAnimeEpisode(params: {
       }
 
       const candidates: VideoStreamCandidate[] = [];
-      const addCand = (url?: string, typeHint?: "mp4" | "hls", quality?: string, mode?: string) => {
+      const addCand = (
+        url?: string,
+        typeHint?: "mp4" | "hls",
+        quality?: string,
+        mode?: string,
+        proxyUrl?: string
+      ) => {
         if (!url || !url.startsWith("http") || url.includes("videohls.php")) return;
         if (candidates.some((c) => c.url === url)) return;
         const detectedType: "mp4" | "hls" =
           typeHint || (/\.m3u8(\?|$)/i.test(url) ? "hls" : "mp4");
-        candidates.push({ url, type: detectedType, quality, audioMode: mode || audioModeParam });
+        candidates.push({ url, proxyUrl, type: detectedType, quality, audioMode: mode || audioModeParam });
       };
 
       // Prioritize exact match based on user audio choice
@@ -1742,10 +1777,10 @@ export async function downloadRealAnimeEpisode(params: {
       }
 
       for (const s of orionStreams.filter((x) => x.type === "mp4")) {
-        addCand(s.url, "mp4", s.quality, s.audioMode);
+        addCand(s.url, "mp4", s.quality, s.audioMode, s.proxyUrl);
       }
       for (const s of orionStreams.filter((x) => x.type !== "mp4")) {
-        addCand(s.url, "hls", s.quality, s.audioMode);
+        addCand(s.url, "hls", s.quality, s.audioMode, s.proxyUrl);
       }
 
       if (dubType === "1" || dubCode === "ja") {
@@ -1757,7 +1792,7 @@ export async function downloadRealAnimeEpisode(params: {
       }
 
       for (const s of atlasStreams) {
-        addCand(s.url, s.type === "hls" ? "hls" : "mp4", s.quality, s.audioMode);
+        addCand(s.url, s.type === "hls" ? "hls" : "mp4", s.quality, s.audioMode, s.proxyUrl);
       }
 
       if (candidates.length === 0) {
@@ -1768,11 +1803,12 @@ export async function downloadRealAnimeEpisode(params: {
         candidates,
         {
           tmdbId,
-          type: "tv",
+          imdbId: episode.imdbId || anime.imdbId,
+          type: effectiveMediaType,
           season: effectiveTmdbSeason,
           episode: effectiveTmdbEpisode,
           title: isSteelBallRun ? "JoJo's Bizarre Adventure" : anime.title,
-          year: isSteelBallRun ? 2012 : season.year || 2024,
+          year: isSteelBallRun ? 2012 : episode.tmdbMovieId === 783675 ? 2022 : season.year || 2024,
           audioMode: audioModeParam,
         },
         baseFileName,

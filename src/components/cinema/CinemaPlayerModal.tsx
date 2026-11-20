@@ -11,17 +11,7 @@ import {
   getCinemaProgressMap,
 } from "@/lib/cinema";
 import { WorscoCinemaPlayer } from "@/components/cinema/WorscoCinemaPlayer";
-import {
-  Play,
-  X,
-  Layers,
-  Star,
-  ExternalLink,
-  Clock,
-  Film,
-  Tv,
-  Shield,
-} from "lucide-react";
+import { Play, X, Clock, ExternalLink } from "lucide-react";
 
 interface CinemaPlayerModalProps {
   item: CinemaItem | null;
@@ -39,7 +29,7 @@ export const CinemaPlayerModal = ({
   isOpen,
   onClose,
 }: CinemaPlayerModalProps) => {
-  const { blockedCount } = usePlayerAdBlock(isOpen);
+  usePlayerAdBlock(isOpen);
   const [selectedLanguage, setSelectedLanguage] = useState<CinemaLanguage>(() =>
     getCinemaLanguagePreference()
   );
@@ -50,7 +40,6 @@ export const CinemaPlayerModal = ({
     initialEpisodeNumber || 1
   );
 
-  // Sync language preference across components
   useEffect(() => {
     const handleLangUpdate = (e: Event) => {
       const detail = (e as CustomEvent<CinemaLanguage>).detail;
@@ -70,7 +59,6 @@ export const CinemaPlayerModal = ({
     setCinemaLanguagePreference(lang);
   };
 
-  // Sync initial episode & season when item changes
   useEffect(() => {
     if (!item) return;
 
@@ -91,7 +79,7 @@ export const CinemaPlayerModal = ({
         setActiveEpisodeNumber(1);
       }
     }
-  }, [item?.id, initialSeasonNumber, initialEpisodeNumber, isOpen]);
+  }, [item, initialSeasonNumber, initialEpisodeNumber, isOpen]);
 
   if (!item) return null;
 
@@ -107,67 +95,51 @@ export const CinemaPlayerModal = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-5xl w-[96vw] bg-[#07090e] border border-white/10 p-0 overflow-hidden text-zinc-100 shadow-2xl rounded-xl">
-        {/* Header Bar */}
-        <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 bg-zinc-950/90 border-b border-white/10 backdrop-blur-md">
-          <div className="flex items-center gap-3 overflow-hidden min-w-0">
-            <span className="p-1 rounded bg-amber-500/10 text-amber-400 border border-amber-500/30 shrink-0">
-              {item.type === "filme" ? (
-                <Film className="w-3.5 h-3.5" />
-              ) : (
-                <Tv className="w-3.5 h-3.5" />
-              )}
-            </span>
-            <div className="truncate">
-              <div className="flex items-center gap-2">
-                <h3 className="text-sm font-semibold text-white truncate">{displayTitle}</h3>
-                {item.type === "serie" && activeEpisode && (
-                  <span className="text-xs text-amber-400 font-mono shrink-0">
-                    · T{activeSeasonNumber}:E{activeEpisodeNumber}
-                  </span>
-                )}
-              </div>
-              <div className="flex items-center gap-2 text-[11px] text-zinc-400">
-                <span>{item.year}</span>
-                <span>·</span>
-                <span className="flex items-center gap-0.5 text-amber-400">
-                  <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
-                  {item.rating.toFixed(1)}
+      <DialogContent className="max-w-5xl w-[96vw] bg-[#060608] border border-white/10 p-0 overflow-hidden text-zinc-100 shadow-2xl rounded-3xl">
+        {/* Clean Spatial Header */}
+        <div className="flex items-center justify-between gap-4 px-5 py-3.5 bg-zinc-950/90 border-b border-white/[0.08] backdrop-blur-2xl">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <h3 className="text-sm font-semibold text-white truncate tracking-tight">
+                {displayTitle}
+              </h3>
+              {item.type === "serie" && activeEpisode && (
+                <span className="text-xs text-zinc-400 font-mono tabular-nums shrink-0">
+                  · T{activeSeasonNumber}:E{activeEpisodeNumber}
                 </span>
-                <span>·</span>
-                <a
-                  href={`https://www.imdb.com/title/${item.imdbId}/`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="font-mono text-zinc-300 hover:text-amber-400 transition inline-flex items-center gap-1"
-                  title="Ver no IMDb Oficial"
-                >
-                  IMDb: {item.imdbId}
-                  <ExternalLink className="w-2.5 h-2.5 opacity-70" />
-                </a>
-              </div>
+              )}
+            </div>
+            <div className="flex items-center gap-2 text-[11px] text-zinc-400 tabular-nums mt-0.5">
+              <span>{item.year}</span>
+              <span aria-hidden="true">·</span>
+              <span className="text-white font-medium">★ {item.rating.toFixed(1)}</span>
+              <span aria-hidden="true">·</span>
+              <span>{item.quality}</span>
+              <span aria-hidden="true">·</span>
+              <a
+                href={`https://www.imdb.com/title/${item.imdbId}/`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-mono text-zinc-400 hover:text-white transition inline-flex items-center gap-1"
+                title="Ver no IMDb Oficial"
+              >
+                IMDb: {item.imdbId}
+                <ExternalLink className="w-2.5 h-2.5 opacity-70" />
+              </a>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 shrink-0">
-            <span className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-medium bg-emerald-500/15 border border-emerald-500/40 text-emerald-300">
-              <Shield className="w-3.5 h-3.5" />
-              <span>
-                Anti-Redirecionamento {blockedCount > 0 ? `(${blockedCount})` : "Ativo"}
-              </span>
-            </span>
-
-            <button
-              onClick={onClose}
-              className="p-1.5 rounded-md hover:bg-white/10 text-zinc-400 hover:text-white transition cursor-pointer"
-              aria-label="Fechar player"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="p-2 rounded-full bg-white/[0.06] hover:bg-white/[0.14] text-zinc-300 hover:text-white transition cursor-pointer shrink-0"
+            aria-label="Fechar player"
+          >
+            <X className="w-4 h-4" />
+          </button>
         </div>
 
-        {/* Unified Worsco Cinema Player */}
+        {/* Unified Player */}
         <div className="p-2 sm:p-4 bg-black">
           <WorscoCinemaPlayer
             item={item}
@@ -185,18 +157,17 @@ export const CinemaPlayerModal = ({
         </div>
 
         {/* Bottom Details & Episode Selector */}
-        <div className="p-4 sm:p-5 bg-zinc-950/80 border-t border-white/10 max-h-[38vh] overflow-y-auto space-y-4">
-          {/* Episode Info if Series */}
+        <div className="p-5 bg-zinc-950/90 border-t border-white/[0.08] max-h-[38vh] overflow-y-auto space-y-4">
           {item.type === "serie" && activeEpisode && (
-            <div className="pb-3 border-b border-white/5">
+            <div className="pb-3 border-b border-white/[0.07]">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                 <div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-mono text-amber-400 font-semibold">
-                      Temporada {activeSeasonNumber} · Episódio {activeEpisodeNumber}
+                  <div className="flex items-center gap-2 text-xs">
+                    <span className="font-mono tabular-nums text-zinc-400">
+                      T{activeSeasonNumber} · Ep. {activeEpisodeNumber}
                     </span>
-                    <span className="text-zinc-600">·</span>
-                    <h4 className="text-sm font-semibold text-white">{activeEpisode.title}</h4>
+                    <span aria-hidden="true" className="text-zinc-600">·</span>
+                    <h4 className="text-sm font-medium text-white">{activeEpisode.title}</h4>
                   </div>
                   {activeEpisode.synopsis && (
                     <p className="text-xs text-zinc-400 mt-1 line-clamp-2 leading-relaxed">
@@ -205,40 +176,37 @@ export const CinemaPlayerModal = ({
                   )}
                 </div>
 
-                <div className="flex items-center gap-3 shrink-0 text-xs text-zinc-400 font-mono">
-                  <span className="flex items-center gap-1">
-                    <Clock className="w-3 h-3 text-zinc-500" />
-                    {activeEpisode.duration}
-                  </span>
+                <div className="flex items-center gap-1.5 shrink-0 text-xs text-zinc-400 font-mono tabular-nums">
+                  <Clock className="w-3 h-3 text-zinc-500" />
+                  <span>{activeEpisode.duration}</span>
                 </div>
               </div>
             </div>
           )}
 
-          {/* Series Season Tabs & Episodes Grid */}
           {item.type === "serie" && seasons.length > 0 && (
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-zinc-300 flex items-center gap-1.5 uppercase tracking-wider font-mono">
-                  <Layers className="w-3.5 h-3.5 text-amber-400" />
-                  Temporadas & Episódios ({episodes.length} episódios)
+                <span className="text-xs font-medium text-zinc-300">
+                  Temporadas & Episódios ({episodes.length})
                 </span>
 
                 {seasons.length > 1 && (
-                  <div className="flex items-center gap-1.5 overflow-x-auto">
+                  <div className="inline-flex items-center gap-1 p-1 rounded-full bg-white/[0.04] border border-white/[0.08] overflow-x-auto">
                     {seasons.map((s) => (
                       <button
                         key={s.seasonNumber}
+                        type="button"
                         onClick={() => {
                           setActiveSeasonNumber(s.seasonNumber);
                           if (s.episodes.length > 0) {
                             setActiveEpisodeNumber(s.episodes[0].episodeNumber);
                           }
                         }}
-                        className={`px-2.5 py-1 text-xs font-medium rounded transition cursor-pointer shrink-0 ${
+                        className={`px-2.5 py-1 text-xs font-medium rounded-full transition cursor-pointer shrink-0 ${
                           activeSeasonNumber === s.seasonNumber
-                            ? "bg-amber-500 text-black font-semibold"
-                            : "bg-white/5 hover:bg-white/10 text-zinc-400 border border-white/5"
+                            ? "bg-white text-black font-semibold"
+                            : "text-zinc-400 hover:text-white"
                         }`}
                       >
                         T{s.seasonNumber}
@@ -248,57 +216,55 @@ export const CinemaPlayerModal = ({
                 )}
               </div>
 
-              {/* Episodes List */}
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
                 {episodes.map((ep) => {
                   const isCurrent = activeEpisodeNumber === ep.episodeNumber;
                   return (
-                    <div
+                    <button
                       key={ep.episodeNumber}
+                      type="button"
                       onClick={() => setActiveEpisodeNumber(ep.episodeNumber)}
-                      className={`group flex items-center gap-3 p-2.5 rounded-lg border transition cursor-pointer ${
+                      className={`group text-left flex items-center gap-3 p-2.5 rounded-2xl border transition cursor-pointer ${
                         isCurrent
-                          ? "bg-amber-500/15 border-amber-500/50 text-white"
-                          : "bg-black/30 border-white/5 hover:bg-white/5 hover:border-white/10 text-zinc-300"
+                          ? "bg-white/[0.1] border-white/25 text-white"
+                          : "bg-white/[0.02] border-white/[0.06] hover:bg-white/[0.06] hover:border-white/15 text-zinc-300"
                       }`}
                     >
-                      <div className="relative w-10 h-10 rounded bg-zinc-800 shrink-0 overflow-hidden border border-white/10 flex items-center justify-center">
+                      <div className="relative w-10 h-10 rounded-xl bg-zinc-900 shrink-0 overflow-hidden border border-white/10 flex items-center justify-center">
                         {ep.thumbnail ? (
                           <img
                             src={ep.thumbnail}
                             alt={ep.title}
+                            referrerPolicy="no-referrer"
                             className="w-full h-full object-cover"
                           />
                         ) : null}
-                        <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                        <div className="absolute inset-0 bg-black/45 flex items-center justify-center">
                           <Play
                             className={`w-3.5 h-3.5 ${
-                              isCurrent ? "fill-amber-400 text-amber-400" : "text-white opacity-80"
+                              isCurrent ? "fill-white text-white" : "text-white/80"
                             }`}
                           />
                         </div>
                       </div>
 
                       <div className="min-w-0 flex-1">
-                        <div className="text-[11px] font-mono text-amber-400/90 truncate">
+                        <div className="text-[11px] font-mono tabular-nums text-zinc-400 truncate">
                           Ep. {ep.episodeNumber} · {ep.duration}
                         </div>
-                        <div className="text-xs font-medium text-white truncate group-hover:text-amber-300 transition">
+                        <div className="text-xs font-medium text-white truncate">
                           {ep.title}
                         </div>
                       </div>
-                    </div>
+                    </button>
                   );
                 })}
               </div>
             </div>
           )}
 
-          {/* Movie Synopsis */}
           {item.type === "filme" && (
-            <p className="text-xs text-zinc-300 font-light leading-relaxed">
-              {item.synopsis}
-            </p>
+            <p className="text-xs text-zinc-300 leading-relaxed">{item.synopsis}</p>
           )}
         </div>
       </DialogContent>

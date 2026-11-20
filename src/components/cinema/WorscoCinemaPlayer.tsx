@@ -215,6 +215,10 @@ export const WorscoCinemaPlayer: React.FC<WorscoCinemaPlayerProps> = ({
   // Reset pipeline to primary when movie or episode changes
   useEffect(() => {
     setInternalPipelineStage("orion");
+    setAllStreams([]);
+    setPtbrEmbedUrls([]);
+    setPtCues([]);
+    setEnCues([]);
     savedTimeRef.current = 0;
   }, [item.id, seasonNumber, episodeNumber]);
 
@@ -239,6 +243,12 @@ export const WorscoCinemaPlayer: React.FC<WorscoCinemaPlayerProps> = ({
     let cancelled = false;
     setIsResolving(true);
     setIsBuffering(true);
+    setAllStreams([]);
+    setPtbrEmbedUrls([]);
+    if (internalPipelineStage === "orion") {
+      setPtCues([]);
+      setEnCues([]);
+    }
     setCandidateIdx(0);
     setUseProxyForMp4(false);
     setActiveCueText("");
@@ -273,7 +283,7 @@ export const WorscoCinemaPlayer: React.FC<WorscoCinemaPlayerProps> = ({
         setPtbrEmbedUrls(resolvedEmbeds);
 
         if (resolvedStreams.length === 0) {
-          setInternalPipelineStage("embed");
+          setInternalPipelineStage((prev) => (prev === "orion" ? "atlas" : "embed"));
           setIsResolving(false);
           return;
         }
@@ -441,7 +451,7 @@ export const WorscoCinemaPlayer: React.FC<WorscoCinemaPlayerProps> = ({
       if (nextIdx < orderedCandidates.length) {
         setCandidateIdx(nextIdx);
       } else {
-        setInternalPipelineStage("embed");
+        setInternalPipelineStage((prev) => (prev === "orion" ? "atlas" : "embed"));
       }
     };
 
@@ -535,8 +545,14 @@ export const WorscoCinemaPlayer: React.FC<WorscoCinemaPlayerProps> = ({
         }
       });
 
+      let didRecoverMedia = false;
       hls.on(Hls.Events.ERROR, (_, errData) => {
         if (errData.fatal) {
+          if (errData.type === Hls.ErrorTypes.MEDIA_ERROR && !didRecoverMedia) {
+            didRecoverMedia = true;
+            hls.recoverMediaError();
+            return;
+          }
           window.clearTimeout(watchdogTimer);
           advanceToNextCandidate();
         }
@@ -713,8 +729,9 @@ export const WorscoCinemaPlayer: React.FC<WorscoCinemaPlayerProps> = ({
     dubCode: activeDubCode,
     dubType: activeDubType,
   });
+  const safePtbrEmbed = ptbrEmbedUrls.find((u) => !u.includes("embedyplayer.xyz"));
   const embedPlayerUrl =
-    audioMode === "dublado" && ptbrEmbedUrls.length > 0 ? ptbrEmbedUrls[0] : defaultEmbedUrl;
+    audioMode === "dublado" && safePtbrEmbed ? safePtbrEmbed : defaultEmbedUrl;
 
   // Quick preset buttons shown directly in the bar
   const quickDubPresets = useMemo(() => {

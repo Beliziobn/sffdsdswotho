@@ -1,9 +1,9 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Play, Plus, Check, Star, Info, Volume2, VolumeX } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Play, Plus, Check, Info } from "lucide-react";
 import { CinemaItem, isCinemaInWatchlist, toggleCinemaWatchlist } from "@/lib/cinema";
+import { toast } from "sonner";
 
 interface CinemaHeroProps {
   item: CinemaItem;
@@ -23,106 +23,98 @@ export const CinemaHero = ({ item, onPlay }: CinemaHeroProps) => {
   const handleToggleWatchlist = () => {
     const added = toggleCinemaWatchlist(item.id);
     setInWatchlist(added);
+    toast.success(
+      added ? `"${item.title}" adicionado à Minha Lista` : `"${item.title}" removido da Minha Lista`
+    );
   };
 
   return (
-    <div className="relative w-full h-[78vh] min-h-[560px] max-h-[820px] overflow-hidden bg-black text-white">
-      {/* Cinematic Backdrop Image with Parallax Depth */}
+    <section className="relative w-full min-h-[74vh] max-h-[820px] flex items-end pt-32 pb-14 overflow-hidden bg-[#060608] text-white">
+      {/* Cinematic Backdrop Image */}
       <div className="absolute inset-0 z-0">
         <img
           src={item.backdropUrl}
           alt={item.title}
-          className="w-full h-full object-cover object-center brightness-60 scale-105 transform transition-transform duration-1000"
+          referrerPolicy="no-referrer"
+          className="w-full h-full object-cover object-center opacity-55 scale-[1.03] transition-transform duration-1000"
         />
-        {/* Multilayered Cinematic Gradients */}
-        <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0c] via-[#0a0a0c]/60 to-transparent" />
-        <div className="absolute inset-0 bg-gradient-to-r from-[#0a0a0c] via-[#0a0a0c]/80 to-transparent" />
-        <div className="absolute top-0 left-0 right-0 h-32 bg-gradient-to-b from-[#0a0a0c]/80 to-transparent" />
+        {/* Measured Scrims blending cleanly into #060608 canvas */}
+        <div className="absolute inset-0 bg-gradient-to-t from-[#060608] via-[#060608]/65 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-r from-[#060608]/95 via-[#060608]/45 to-transparent" />
+        <div className="absolute top-0 left-0 right-0 h-32 bg-gradient-to-b from-[#060608]/80 to-transparent" />
       </div>
 
       {/* Hero Content Container */}
-      <div className="relative z-10 container mx-auto h-full px-6 lg:px-12 flex flex-col justify-end pb-16 lg:pb-20 max-w-7xl">
+      <div className="relative z-10 max-w-7xl mx-auto w-full px-6 lg:px-12">
         <motion.div
-          initial={{ opacity: 0, y: 30 }}
+          initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.7 }}
-          className="max-w-2xl"
+          transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
+          className="max-w-2xl space-y-5"
         >
-          {/* Clean Unboxed Metadata (Zero-Pill Discipline) */}
-          <div className="flex flex-wrap items-center gap-2 text-xs text-zinc-300 font-light mb-3 tracking-wide">
-            <span className="uppercase text-amber-400 font-medium">
-              {item.type === "serie" ? "Série Canônica" : "Filme em Destaque"}
+          {/* Quiet Unboxed Metadata (Zero-Pill Discipline) */}
+          <div className="flex flex-wrap items-center gap-2 text-xs font-medium text-zinc-300 tracking-wide tabular-nums">
+            <span className="text-white font-semibold">
+              {item.type === "serie" ? "Série em Destaque" : "Destaque"}
             </span>
-            <span aria-hidden="true" className="opacity-40">·</span>
+            <span aria-hidden="true" className="text-zinc-600">·</span>
             <span>{item.year}</span>
-            <span aria-hidden="true" className="opacity-40">·</span>
+            <span aria-hidden="true" className="text-zinc-600">·</span>
             <span>{item.duration}</span>
-            <span aria-hidden="true" className="opacity-40">·</span>
-            <span className="flex items-center gap-1 text-amber-400 font-normal">
-              <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
-              {item.rating.toFixed(1)}
-            </span>
-            <span aria-hidden="true" className="opacity-40">·</span>
+            <span aria-hidden="true" className="text-zinc-600">·</span>
+            <span className="text-white font-semibold">★ {item.rating.toFixed(1)}</span>
+            <span aria-hidden="true" className="text-zinc-600">·</span>
             <span>{item.quality}</span>
-            <span aria-hidden="true" className="opacity-40">·</span>
-            <span className="border border-zinc-700/80 px-1.5 py-0.2 text-[10px] rounded font-mono text-zinc-300">
-              {item.ageRating}
-            </span>
+            <span aria-hidden="true" className="text-zinc-600">·</span>
+            <span className="text-zinc-300">{item.ageRating}</span>
           </div>
 
           {/* Title */}
-          <h1 className="text-3xl sm:text-5xl lg:text-6xl font-light tracking-tight text-white mb-4 leading-tight">
+          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-semibold tracking-tight text-white leading-[1.06] text-balance">
             {item.title}
           </h1>
 
-          {/* Subtitle / Genres */}
-          <p className="text-xs uppercase tracking-widest text-zinc-400 mb-4 font-normal">
-            {item.genres.join(" / ")}
+          {/* Genres line */}
+          <p className="text-xs text-zinc-400 tracking-wide">
+            {item.genres.join(" · ")}
           </p>
 
           {/* Synopsis */}
-          <p className="text-sm text-zinc-300 font-light leading-relaxed mb-8 line-clamp-3 md:line-clamp-4">
+          <p className="text-sm sm:text-base text-zinc-300/90 leading-relaxed line-clamp-3 font-normal max-w-xl">
             {item.synopsis}
           </p>
 
-          {/* Action Buttons */}
-          <div className="flex flex-wrap items-center gap-3">
-            <Button
+          {/* Apple TV+ Inspired CTAs: Alabaster Primary + Frosted Glass Secondary */}
+          <div className="pt-1 flex flex-wrap items-center gap-3">
+            <button
+              type="button"
               onClick={() => onPlay(item)}
-              className="bg-white hover:bg-zinc-200 text-black font-medium text-xs tracking-wider uppercase px-6 py-5 rounded-full flex items-center gap-2 shadow-lg transition-transform hover:scale-105 active:scale-95"
+              className="bg-white hover:bg-zinc-200 text-black font-semibold text-sm px-6 py-3 rounded-full flex items-center gap-2.5 shadow-[0_8px_30px_rgba(255,255,255,0.16)] transition active:scale-95 cursor-pointer whitespace-nowrap shrink-0"
             >
               <Play className="h-4 w-4 fill-black" />
-              Assistir Agora
-            </Button>
+              <span>{item.type === "serie" ? "Assistir Série" : "Assistir Filme"}</span>
+            </button>
 
-            <Button
-              asChild
-              variant="outline"
-              className="bg-black/40 hover:bg-white/10 text-white border-zinc-700 font-medium text-xs tracking-wider uppercase px-6 py-5 rounded-full flex items-center gap-2 backdrop-blur-md transition-colors"
-            >
-              <Link to={`/cinema/${item.id}`}>
-                <Info className="h-4 w-4" />
-                Mais Detalhes
-              </Link>
-            </Button>
-
-            <Button
+            <button
+              type="button"
               onClick={handleToggleWatchlist}
-              variant="ghost"
-              size="icon"
-              className={`h-11 w-11 rounded-full border border-zinc-700/80 backdrop-blur-md transition-all ${
-                inWatchlist
-                  ? "bg-amber-500/20 text-amber-400 border-amber-400/50"
-                  : "bg-black/40 text-zinc-300 hover:text-white hover:bg-white/10"
-              }`}
-              title={inWatchlist ? "Remover da Minha Lista" : "Adicionar à Minha Lista"}
+              className="bg-white/[0.08] hover:bg-white/[0.14] backdrop-blur-xl border border-white/15 text-white font-medium text-sm px-5 py-3 rounded-full flex items-center gap-2 transition cursor-pointer whitespace-nowrap shrink-0"
             >
               {inWatchlist ? <Check className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
-            </Button>
+              <span>{inWatchlist ? "Na Minha Lista" : "Minha Lista"}</span>
+            </button>
+
+            <Link
+              to={`/cinema/${item.id}`}
+              className="bg-white/[0.04] hover:bg-white/[0.1] backdrop-blur-xl border border-white/10 text-zinc-200 hover:text-white font-medium text-sm px-5 py-3 rounded-full flex items-center gap-2 transition whitespace-nowrap shrink-0"
+            >
+              <Info className="h-4 w-4" />
+              <span>Detalhes</span>
+            </Link>
           </div>
         </motion.div>
       </div>
-    </div>
+    </section>
   );
 };
 

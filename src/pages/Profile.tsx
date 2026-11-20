@@ -1,9 +1,11 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
-import Hls from "hls.js";
 import {
+  ArrowLeft,
   BookOpen,
+  ChevronLeft,
+  ChevronRight,
   Film,
   Tv,
   Bookmark,
@@ -17,14 +19,15 @@ import {
   Check,
   Search,
   X,
-  Download,
   FileText,
+  Folder,
   FolderOpen,
   RotateCw,
   HardDrive,
   ExternalLink,
   CheckCircle2,
-  AlertCircle,
+  Layers,
+  Loader2,
 } from "lucide-react";
 import Navigation from "@/components/Navigation";
 import Footer from "@/components/Footer";
@@ -47,15 +50,24 @@ import {
   getUserDownloads,
   syncDownloadsFromCloud,
   getAllCachedDownloadIds,
-  getOrFetchDownloadBytes,
+  getHotCachedDownloadMedia,
+  getOrFetchDownloadMedia,
+  preloadDownloadIntoMemory,
+  prewarmDownloadFolder,
   markDownloadOpened,
   removeDownloadEntry,
   clearDownloadsHistory,
   executeTrackedDownload,
   formatDownloadBytes,
+  groupDownloadsIntoFolders,
+  resolveDownloadFolderMetadata,
+  DownloadFolderGroup,
   UserDownloadEntry,
-  DownloadMediaType,
 } from "@/lib/downloadsStore";
+import {
+  notifyDownloadError,
+  notifyDownloadSuccess,
+} from "@/lib/downloadNotifications";
 import {
   Dialog,
   DialogContent,
@@ -65,6 +77,7 @@ import {
 } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
 import OriginalPdfViewer from "@/components/books/OriginalPdfViewer";
+import OfflineMediaTheater from "@/components/downloads/OfflineMediaTheater";
 import { formatDate } from "@/lib/format";
 import { toast } from "sonner";
 
@@ -77,7 +90,14 @@ type ProfileSectionTab =
   | "reviews"
   | "settings";
 
-type DownloadsFilterMode = "all" | "in_progress" | "completed" | "offline" | "failed";
+type DownloadsFilterMode =
+  | "all"
+  | "serie"
+  | "anime"
+  | "filme"
+  | "manga_webtoon"
+  | "livro"
+  | "in_progress";
 
 const TYPE_LABELS: Record<HistoryMediaType, string> = {
   book: "Livro",
@@ -86,17 +106,6 @@ const TYPE_LABELS: Record<HistoryMediaType, string> = {
   manga: "Mangá",
   webtoon: "Webtoon",
   news: "Reportagem",
-};
-
-const DOWNLOAD_TYPE_LABELS: Record<DownloadMediaType, string> = {
-  pdf: "PDF Original",
-  book: "Livro Digital",
-  article: "Artigo",
-  cinema: "Cinema & Série",
-  anime: "Anime",
-  manga: "Mangá",
-  webtoon: "Webtoon",
-  document: "Documento",
 };
 
 const READER_THEME_CHOICES: Array<{
@@ -124,119 +133,6 @@ function isVideoDownloadEntry(entry: UserDownloadEntry): boolean {
   );
 }
 
-function DownloadedVideoViewer({
-  entry,
-  bytes,
-}: {
-  entry: UserDownloadEntry;
-  bytes: Uint8Array;
-}) {
-  const videoRef = useRef<HTMLVideoElement | null>(null);
-  const [videoError, setVideoError] = useState<string | null>(null);
-  const isTsStream =
-    entry.mimeType === "video/mp2t" || /\.ts(\?|$)/i.test(entry.fileName || "");
-
-  const handleSaveCopy = () => {
-    const safeBytes = new Uint8Array(bytes);
-    const blob = new Blob([safeBytes], {
-      type: entry.mimeType || (isTsStream ? "video/mp2t" : "video/mp4"),
-    });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = entry.fileName || "video-wotho.mp4";
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    window.setTimeout(() => URL.revokeObjectURL(url), 10 * 60 * 1000);
-  };
-
-  useEffect(() => {
-    const videoEl = videoRef.current;
-    if (!videoEl) return;
-
-    setVideoError(null);
-    const safeBytes = new Uint8Array(bytes);
-    const mediaBlob = new Blob([safeBytes], {
-      type: entry.mimeType || (isTsStream ? "video/mp2t" : "video/mp4"),
-    });
-    const mediaUrl = URL.createObjectURL(mediaBlob);
-    let hls: Hls | null = null;
-    let manifestUrl: string | null = null;
-
-    if (isTsStream && Hls.isSupported()) {
-      const syntheticM3u8 = `#EXTM3U\n#EXT-X-VERSION:3\n#EXT-X-TARGETDURATION:7200\n#EXT-X-MEDIA-SEQUENCE:0\n#EXTINF:7200.0,\n${mediaUrl}\n#EXT-X-ENDLIST\n`;
-      const manifestBlob = new Blob([syntheticM3u8], {
-        type: "application/vnd.apple.mpegurl",
-      });
-      manifestUrl = URL.createObjectURL(manifestBlob);
-      hls = new Hls({ enableWorker: true });
-      hls.loadSource(manifestUrl);
-      hls.attachMedia(videoEl);
-      hls.on(Hls.Events.ERROR, (_evt, data) => {
-        if (data?.fatal) {
-          setVideoError(
-            "Este arquivo .ts pode ser aberto em qualquer reprodutor de mídia (VLC/QuickTime). Clique em Salvar Cópia abaixo."
-          );
-        }
-      });
-    } else {
-      videoEl.src = mediaUrl;
-    }
-
-    return () => {
-      if (hls) hls.destroy();
-      URL.revokeObjectURL(mediaUrl);
-      if (manifestUrl) URL.revokeObjectURL(manifestUrl);
-    };
-  }, [bytes, entry.mimeType, isTsStream]);
-
-  return (
-    <div className="h-full flex flex-col items-center justify-center gap-4 p-2 sm:p-4">
-      <div className="w-full max-w-4xl aspect-video bg-black rounded-2xl overflow-hidden border border-black/15 shadow-lg relative flex items-center justify-center">
-        <video
-          ref={videoRef}
-          controls
-          autoPlay
-          playsInline
-          onError={() =>
-            setVideoError(
-              "O codec deste arquivo não é decodificado diretamente pelo navegador. Salve a cópia para assistir no seu reprodutor local."
-            )
-          }
-          className="w-full h-full object-contain"
-        />
-      </div>
-
-      {videoError && (
-        <p className="text-xs text-[#6E6E73] dark:text-[#A1A1A6] text-center max-w-lg">
-          {videoError}
-        </p>
-      )}
-
-      <div className="flex flex-wrap items-center justify-center gap-3">
-        <button
-          type="button"
-          onClick={handleSaveCopy}
-          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-[#1D1D1F] text-white dark:bg-[#F5F5F7] dark:text-[#1D1D1F] text-xs font-medium hover:opacity-90 transition-opacity whitespace-nowrap shrink-0"
-        >
-          <Download className="w-3.5 h-3.5" />
-          Salvar Cópia no Dispositivo
-        </button>
-        {entry.openHref && (
-          <Link
-            to={entry.openHref}
-            className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-full border border-black/10 dark:border-white/15 text-xs font-medium text-[#1D1D1F] dark:text-[#F5F5F7] hover:bg-black/5 dark:hover:bg-white/5 transition-colors whitespace-nowrap shrink-0"
-          >
-            <ExternalLink className="w-3.5 h-3.5" />
-            Ir para a Página da Obra
-          </Link>
-        )}
-      </div>
-    </div>
-  );
-}
-
 const Profile = () => {
   const { user, isAdmin, signOut } = useAuth();
   const { data: books = [] } = useBooks();
@@ -261,14 +157,26 @@ const Profile = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [downloadsFilter, setDownloadsFilter] = useState<DownloadsFilterMode>("all");
   const [downloadsSearch, setDownloadsSearch] = useState("");
+  const [selectedFolderKey, setSelectedFolderKey] = useState<string | null>(
+    () => searchParams.get("folder")
+  );
+  const [selectedSeasonTab, setSelectedSeasonTab] = useState<number | "all">("all");
+  const [highlightedDownloadId, setHighlightedDownloadId] = useState<string | null>(
+    () => searchParams.get("item")
+  );
   const [cachedDownloadIds, setCachedDownloadIds] = useState<Set<string>>(new Set());
   const [openingDownloadId, setOpeningDownloadId] = useState<string | null>(null);
   const [redownloadingId, setRedownloadingId] = useState<string | null>(null);
   const [viewerState, setViewerState] = useState<{
     entry: UserDownloadEntry;
-    bytes: Uint8Array;
+    blob: Blob | null;
+    streamUrl?: string | null;
+    isHlsStream?: boolean;
   } | null>(null);
+  const [isLoadingTheaterEntry, setIsLoadingTheaterEntry] = useState(false);
   const [refreshTick, setRefreshTick] = useState(0);
+  const openRequestSeqRef = useRef(0);
+  const deferredMarkTimerRef = useRef<number | null>(null);
 
   const [profile, setProfile] = useState<UserProfileData>(() => getLocalUserProfile(user));
   const [editName, setEditName] = useState(profile.displayName);
@@ -288,14 +196,36 @@ const Profile = () => {
 
   useEffect(() => {
     const tabParam = searchParams.get("tab") as ProfileSectionTab | null;
+    const folderParam = searchParams.get("folder");
+    const itemParam = searchParams.get("item");
     if (tabParam && validTabs.includes(tabParam) && tabParam !== activeTab) {
       setActiveTab(tabParam);
+    }
+    if (folderParam !== selectedFolderKey) {
+      setSelectedFolderKey(folderParam);
+      setSelectedSeasonTab("all");
+    }
+    if (itemParam) {
+      setHighlightedDownloadId(itemParam);
     }
   }, [searchParams]);
 
   const handleSelectTab = (tab: ProfileSectionTab) => {
     setActiveTab(tab);
+    if (tab !== "downloads") {
+      setSelectedFolderKey(null);
+      setHighlightedDownloadId(null);
+    }
     setSearchParams(tab === "history" ? {} : { tab }, { replace: true });
+  };
+
+  const handleSelectFolder = (folderKey: string | null) => {
+    setSelectedFolderKey(folderKey);
+    setSelectedSeasonTab("all");
+    setHighlightedDownloadId(null);
+    const nextParams: Record<string, string> = { tab: "downloads" };
+    if (folderKey) nextParams.folder = folderKey;
+    setSearchParams(nextParams, { replace: true });
   };
 
   useEffect(() => {
@@ -431,24 +361,92 @@ const Profile = () => {
     };
   }, [downloads, inProgressDownloads.length, cachedDownloadIds]);
 
-  const filteredDownloads = useMemo(() => {
-    return downloads.filter((d) => {
-      if (downloadsFilter === "in_progress" && d.status !== "in_progress") return false;
-      if (downloadsFilter === "completed" && d.status !== "completed") return false;
-      if (downloadsFilter === "offline" && !cachedDownloadIds.has(d.id)) return false;
-      if (downloadsFilter === "failed" && d.status !== "failed") return false;
+  const downloadFolders = useMemo(
+    () => groupDownloadsIntoFolders(downloads, cachedDownloadIds),
+    [downloads, cachedDownloadIds]
+  );
+
+  const activeFolder: DownloadFolderGroup | null = useMemo(() => {
+    if (!selectedFolderKey) return null;
+    return downloadFolders.find((f) => f.folderKey === selectedFolderKey) || null;
+  }, [downloadFolders, selectedFolderKey]);
+
+  // Pre-warm first files when entering a folder so Play/Abrir is instant
+  useEffect(() => {
+    if (activeTab === "downloads" && activeFolder?.entries?.length) {
+      prewarmDownloadFolder(activeFolder.entries, 2);
+    }
+  }, [activeTab, activeFolder?.folderKey]);
+
+  // Deep-link scroll, season auto-focus & optional 1-click autoplay from notification
+  useEffect(() => {
+    if (activeTab !== "downloads" || !highlightedDownloadId) return;
+    const targetEntry = downloads.find((d) => d.id === highlightedDownloadId);
+    if (targetEntry) {
+      const meta = resolveDownloadFolderMetadata(targetEntry);
+      if (meta.seasonNumber !== null && activeFolder?.seasons.length) {
+        setSelectedSeasonTab(meta.seasonNumber);
+      }
+      if (searchParams.get("autoplay") === "1" && targetEntry.status === "completed") {
+        const nextParams = new URLSearchParams(searchParams);
+        nextParams.delete("autoplay");
+        setSearchParams(nextParams, { replace: true });
+        void handleOpenDownloadedFile(targetEntry);
+      }
+    }
+    const scrollTimer = window.setTimeout(() => {
+      const el = document.getElementById(`download-entry-${highlightedDownloadId}`);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+    }, 140);
+    const clearTimer = window.setTimeout(() => {
+      setHighlightedDownloadId(null);
+    }, 4500);
+    return () => {
+      window.clearTimeout(scrollTimer);
+      window.clearTimeout(clearTimer);
+    };
+  }, [activeTab, highlightedDownloadId, activeFolder?.folderKey, downloads, searchParams]);
+
+  const filteredFolders = useMemo(() => {
+    return downloadFolders.filter((folder) => {
+      if (downloadsFilter === "serie" && folder.folderKind !== "serie") return false;
+      if (downloadsFilter === "anime" && folder.folderKind !== "anime") return false;
+      if (downloadsFilter === "filme" && folder.folderKind !== "filme") return false;
+      if (
+        downloadsFilter === "manga_webtoon" &&
+        folder.folderKind !== "manga" &&
+        folder.folderKind !== "webtoon"
+      ) {
+        return false;
+      }
+      if (downloadsFilter === "livro" && folder.folderKind !== "livro") return false;
+      if (downloadsFilter === "in_progress" && folder.inProgressCount === 0) return false;
       if (downloadsSearch.trim()) {
         const q = downloadsSearch.toLowerCase().trim();
-        return (
-          d.title.toLowerCase().includes(q) ||
-          (d.author || "").toLowerCase().includes(q) ||
-          d.fileName.toLowerCase().includes(q) ||
-          (d.category || "").toLowerCase().includes(q)
+        const matchesFolder =
+          folder.folderTitle.toLowerCase().includes(q) ||
+          (folder.author || "").toLowerCase().includes(q) ||
+          folder.kindLabel.toLowerCase().includes(q);
+        const matchesChild = folder.entries.some(
+          (e) =>
+            e.title.toLowerCase().includes(q) ||
+            e.fileName.toLowerCase().includes(q)
         );
+        return matchesFolder || matchesChild;
       }
       return true;
     });
-  }, [downloads, downloadsFilter, downloadsSearch, cachedDownloadIds]);
+  }, [downloadFolders, downloadsFilter, downloadsSearch]);
+
+  const viewerFolder = useMemo(() => {
+    if (!viewerState) return activeFolder;
+    const meta = resolveDownloadFolderMetadata(viewerState.entry);
+    return (
+      downloadFolders.find((f) => f.folderKey === meta.folderKey) || activeFolder
+    );
+  }, [viewerState, downloadFolders, activeFolder]);
 
   const filteredHistory = useMemo(() => {
     return allHistory.filter((item) => {
@@ -536,18 +534,64 @@ const Profile = () => {
     navigate("/");
   };
 
-  const handleOpenDownloadedFile = async (entry: UserDownloadEntry) => {
-    if (openingDownloadId) return;
-    setOpeningDownloadId(entry.id);
-    try {
-      const { bytes } = await getOrFetchDownloadBytes(entry);
-      const updated = markDownloadOpened(entry.id) || entry;
-      setViewerState({ entry: updated, bytes });
+  const scheduleDeferredMarkOpened = (downloadId: string) => {
+    if (deferredMarkTimerRef.current) {
+      window.clearTimeout(deferredMarkTimerRef.current);
+    }
+    deferredMarkTimerRef.current = window.setTimeout(() => {
+      markDownloadOpened(downloadId);
       setRefreshTick((t) => t + 1);
-    } catch {
-      toast.error("Não foi possível abrir o arquivo agora. Tente baixar novamente.");
-    } finally {
+      deferredMarkTimerRef.current = null;
+    }, 280);
+  };
+
+  const handleOpenDownloadedFile = async (entry: UserDownloadEntry) => {
+    const seq = ++openRequestSeqRef.current;
+
+    // Path 1: Instant 0ms synchronous hit from in-memory hot cache
+    const hot = getHotCachedDownloadMedia(entry.id);
+    if (hot) {
       setOpeningDownloadId(null);
+      setIsLoadingTheaterEntry(false);
+      setViewerState({ entry, blob: hot.blob, streamUrl: null });
+      scheduleDeferredMarkOpened(entry.id);
+      return;
+    }
+
+    // Path 2: Optimistic instant modal open while reading IndexedDB Blob (~5-15ms) or preparing direct stream
+    setOpeningDownloadId(entry.id);
+    setIsLoadingTheaterEntry(true);
+    setViewerState({ entry, blob: null, streamUrl: null });
+
+    try {
+      const media = await getOrFetchDownloadMedia(entry);
+      if (openRequestSeqRef.current !== seq) return;
+      setViewerState({
+        entry,
+        blob: media.blob,
+        streamUrl: media.streamUrl || null,
+        isHlsStream: Boolean(media.isHlsStream),
+      });
+      setIsLoadingTheaterEntry(false);
+      setOpeningDownloadId(null);
+      scheduleDeferredMarkOpened(entry.id);
+    } catch {
+      if (openRequestSeqRef.current !== seq) return;
+      setViewerState(null);
+      setIsLoadingTheaterEntry(false);
+      setOpeningDownloadId(null);
+      toast.error("Não foi possível abrir o arquivo agora. Tente baixar novamente.", {
+        duration: 5000,
+      });
+    }
+  };
+
+  const handleOpenFolderPrimaryEntry = (folder: DownloadFolderGroup) => {
+    const completed = folder.entries.find((e) => e.status === "completed");
+    if (completed) {
+      void handleOpenDownloadedFile(completed);
+    } else {
+      handleSelectFolder(folder.folderKey);
     }
   };
 
@@ -558,7 +602,7 @@ const Profile = () => {
       if (entry.type === "book" || entry.type === "pdf" || entry.type === "article") {
         const matchedBook = books.find((b) => String(b.id) === String(entry.itemId));
         const { downloadRealBook } = await import("@/lib/mediaDownloaders");
-        await downloadRealBook({
+        const newEntry = await downloadRealBook({
           book: matchedBook
             ? {
                 id: String(matchedBook.id),
@@ -579,7 +623,7 @@ const Profile = () => {
                 download_url: entry.downloadUrl,
               },
         });
-        toast.success(`"${entry.title}" transferido com sucesso.`);
+        notifyDownloadSuccess(newEntry);
         return;
       }
 
@@ -591,13 +635,13 @@ const Profile = () => {
         const baseId = seriesMatch ? seriesMatch[1] : entry.itemId.replace(/-(pt|en)$/, "");
         const cinemaItem = CINEMA_CATALOG.find((c) => c.id === baseId);
         if (cinemaItem) {
-          await downloadRealCinemaVideo({
+          const newEntry = await downloadRealCinemaVideo({
             item: cinemaItem,
             language: lang,
             seasonNumber: seriesMatch ? parseInt(seriesMatch[2], 10) : 1,
             episodeNumber: seriesMatch ? parseInt(seriesMatch[3], 10) : 1,
           });
-          toast.success(`"${entry.title}" transferido com sucesso.`);
+          notifyDownloadSuccess(newEntry);
           return;
         }
       }
@@ -616,13 +660,13 @@ const Profile = () => {
             season?.episodes.find((e) => e.number === eNum) ||
             anime?.episodes.find((e) => e.number === eNum);
           if (anime && season && episode) {
-            await downloadRealAnimeEpisode({
+            const newEntry = await downloadRealAnimeEpisode({
               anime,
               season,
               episode,
               dubId: `${dubCode}:${dubType}`,
             });
-            toast.success(`"${entry.title}" transferido com sucesso.`);
+            notifyDownloadSuccess(newEntry);
             return;
           }
         }
@@ -632,12 +676,14 @@ const Profile = () => {
         (entry.type === "manga" || entry.type === "webtoon" || entry.type === "cinema" || entry.type === "anime") &&
         !entry.downloadUrl
       ) {
-        toast.info("Abra a página da obra para iniciar um novo download atualizado.");
+        toast.info("Abra a página da obra para iniciar um novo download atualizado.", {
+          duration: 5000,
+        });
         if (entry.openHref) navigate(entry.openHref);
         return;
       }
 
-      await executeTrackedDownload({
+      const newEntry = await executeTrackedDownload({
         itemId: entry.itemId,
         type: entry.type,
         title: entry.title,
@@ -649,14 +695,16 @@ const Profile = () => {
         fileName: entry.fileName,
         mimeType: entry.mimeType,
         expectedFileSizeFormatted: entry.fileSizeFormatted,
+        seriesId: entry.seriesId,
+        seriesTitle: entry.seriesTitle,
+        mediaKind: entry.mediaKind,
+        seasonNumber: entry.seasonNumber,
+        episodeNumber: entry.episodeNumber,
+        episodeTitle: entry.episodeTitle,
       });
-      toast.success(`"${entry.title}" transferido com sucesso.`);
+      notifyDownloadSuccess(newEntry);
     } catch (err) {
-      toast.error(
-        err instanceof Error && err.message
-          ? err.message
-          : "Erro ao transferir o arquivo novamente."
-      );
+      notifyDownloadError(err, "Erro ao transferir o arquivo novamente.");
     } finally {
       setRedownloadingId(null);
     }
@@ -665,13 +713,23 @@ const Profile = () => {
   const handleRemoveDownload = async (entry: UserDownloadEntry) => {
     await removeDownloadEntry(entry.id);
     setRefreshTick((t) => t + 1);
-    toast.success(`"${entry.title}" removido dos downloads.`);
+    toast.success(`"${entry.title}" removido dos downloads.`, { duration: 5000 });
+  };
+
+  const handleRemoveFolder = async (folder: DownloadFolderGroup) => {
+    for (const entry of folder.entries) {
+      await removeDownloadEntry(entry.id);
+    }
+    setRefreshTick((t) => t + 1);
+    handleSelectFolder(null);
+    toast.success(`Pasta "${folder.folderTitle}" removida.`, { duration: 5000 });
   };
 
   const handleClearDownloads = async () => {
     await clearDownloadsHistory();
     setRefreshTick((t) => t + 1);
-    toast.success("Histórico de downloads e cache local limpos.");
+    handleSelectFolder(null);
+    toast.success("Histórico de downloads e cache local limpos.", { duration: 5000 });
   };
 
   const initials = useMemo(() => {
@@ -1064,7 +1122,7 @@ const Profile = () => {
           </motion.section>
         )}
 
-        {/* 4. TAB: DOWNLOADS */}
+        {/* 4. TAB: DOWNLOADS (Organized Folder -> Season -> Episode Workspace) */}
         {activeTab === "downloads" && (
           <motion.section
             initial={{ opacity: 0, y: 6 }}
@@ -1072,9 +1130,15 @@ const Profile = () => {
             transition={{ duration: 0.18 }}
           >
             <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-2 mb-5">
-              <h2 className="text-2xl sm:text-[28px] font-semibold tracking-[-0.03em] text-[#1D1D1F] dark:text-[#F5F5F7]">
-                Downloads
-              </h2>
+              <div className="flex items-center gap-3">
+                <h2 className="text-2xl sm:text-[28px] font-semibold tracking-[-0.03em] text-[#1D1D1F] dark:text-[#F5F5F7]">
+                  Downloads
+                </h2>
+                <span className="text-xs text-[#86868B] tabular-nums">
+                  {downloadFolders.length}{" "}
+                  {downloadFolders.length === 1 ? "pasta" : "pastas"}
+                </span>
+              </div>
               <div className="flex flex-wrap items-center gap-2 text-xs text-[#86868B] tabular-nums">
                 <span>
                   <strong className="text-[#1D1D1F] dark:text-[#F5F5F7] font-semibold">
@@ -1116,7 +1180,7 @@ const Profile = () => {
                     ) : (
                       <>
                         <CheckCircle2 className="w-3.5 h-3.5 text-[#16A34A] shrink-0" />
-                        <span>Download finalizado — arquivo salvo e pronto para abrir</span>
+                        <span>Download finalizado — organizado na sua pasta e pronto para abrir</span>
                       </>
                     )}
                   </div>
@@ -1143,332 +1207,786 @@ const Profile = () => {
               </div>
             )}
 
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
-              <div className="flex items-center gap-1 flex-wrap">
-                {[
-                  { id: "all" as const, label: "Todos" },
-                  {
-                    id: "in_progress" as const,
-                    label:
-                      inProgressDownloads.length > 0
-                        ? `Baixando (${inProgressDownloads.length})`
-                        : "Em Andamento",
-                  },
-                  { id: "completed" as const, label: "Concluídos" },
-                  { id: "offline" as const, label: "Offline" },
-                  { id: "failed" as const, label: "Com Falha" },
-                ].map((f) => (
-                  <button
-                    key={f.id}
-                    type="button"
-                    onClick={() => setDownloadsFilter(f.id)}
-                    className={`px-3 py-1.5 text-[13px] font-medium rounded-full transition-colors whitespace-nowrap shrink-0 ${
-                      downloadsFilter === f.id
-                        ? "bg-[#1D1D1F] text-white dark:bg-[#F5F5F7] dark:text-[#1D1D1F]"
-                        : "text-[#6E6E73] dark:text-[#A1A1A6] hover:text-[#1D1D1F] dark:hover:text-[#F5F5F7] hover:bg-black/[0.04] dark:hover:bg-white/[0.06]"
-                    }`}
-                  >
-                    {f.label}
-                  </button>
-                ))}
-              </div>
-
-              <div className="flex items-center gap-2.5">
-                <div className="relative flex-1 sm:w-60">
-                  <Search className="w-3.5 h-3.5 absolute left-3.5 top-1/2 -translate-y-1/2 text-[#86868B] pointer-events-none" />
-                  <input
-                    type="text"
-                    value={downloadsSearch}
-                    onChange={(e) => setDownloadsSearch(e.target.value)}
-                    placeholder="Buscar..."
-                    className="w-full bg-white dark:bg-[#1C1C1E] border border-black/[0.065] dark:border-white/[0.08] rounded-full pl-9 pr-8 py-2 text-[13px] text-[#1D1D1F] dark:text-[#F5F5F7] placeholder:text-[#86868B] outline-none focus:border-black/20 dark:focus:border-white/25 focus:ring-2 focus:ring-black/[0.06]"
-                  />
-                  {downloadsSearch && (
+            {/* LEVEL 2: INSIDE AN ORGANIZED FOLDER VIEW */}
+            {activeFolder ? (
+              <div className="space-y-5">
+                {/* Folder Breadcrumb & Header Card */}
+                <div className="bg-white dark:bg-[#1C1C1E] border border-black/[0.065] dark:border-white/[0.08] rounded-[20px] p-5 sm:p-6 shadow-[0_1px_2px_rgba(0,0,0,0.03),0_8px_24px_rgba(0,0,0,0.025)]">
+                  <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
                     <button
                       type="button"
-                      onClick={() => setDownloadsSearch("")}
-                      aria-label="Limpar busca de downloads"
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-[#86868B] hover:text-[#1D1D1F] dark:hover:text-[#F5F5F7]"
+                      onClick={() => handleSelectFolder(null)}
+                      className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full border border-black/[0.08] dark:border-white/[0.12] bg-[#F5F5F7] dark:bg-[#2C2C2E] text-xs font-medium text-[#1D1D1F] dark:text-[#F5F5F7] hover:bg-black/[0.06] dark:hover:bg-white/[0.1] transition-colors whitespace-nowrap shrink-0"
                     >
-                      <X className="w-3.5 h-3.5" />
+                      <ArrowLeft className="w-3.5 h-3.5" />
+                      Todas as Pastas
                     </button>
+
+                    <div className="flex items-center gap-2">
+                      {activeFolder.openHref && (
+                        <Link
+                          to={activeFolder.openHref}
+                          className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full border border-black/[0.08] dark:border-white/[0.12] bg-white dark:bg-[#2C2C2E] text-xs font-medium text-[#1D1D1F] dark:text-[#F5F5F7] hover:bg-[#F5F5F7] dark:hover:bg-[#3A3A3C] transition-colors whitespace-nowrap shrink-0"
+                        >
+                          <ExternalLink className="w-3.5 h-3.5" />
+                          Página no Catálogo
+                        </Link>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveFolder(activeFolder)}
+                        className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-medium text-[#6E6E73] hover:text-[#DC2626] hover:bg-[#DC2626]/10 transition-colors whitespace-nowrap shrink-0"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        Remover Pasta
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div className="flex items-center gap-4 min-w-0">
+                      <div className="relative w-16 h-24 sm:w-20 sm:h-28 shrink-0 overflow-hidden rounded-xl border border-black/[0.065] dark:border-white/[0.08] bg-[#F5F5F7] dark:bg-[#2C2C2E]">
+                        {activeFolder.cover ? (
+                          <img
+                            src={activeFolder.cover}
+                            alt={activeFolder.folderTitle}
+                            referrerPolicy="no-referrer"
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-[#86868B]">
+                            <FolderOpen className="w-6 h-6" />
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="min-w-0 space-y-1">
+                        <div className="flex flex-wrap items-center gap-2 text-xs text-[#86868B]">
+                          <span className="inline-flex items-center gap-1 font-medium text-[#1D1D1F] dark:text-[#F5F5F7]">
+                            <FolderOpen className="w-3.5 h-3.5" />
+                            Pasta · {activeFolder.kindLabel}
+                          </span>
+                          {activeFolder.seasons.length > 0 && (
+                            <>
+                              <span aria-hidden="true">·</span>
+                              <span className="tabular-nums">
+                                {activeFolder.seasons.length}{" "}
+                                {activeFolder.seasons.length === 1
+                                  ? "temporada"
+                                  : "temporadas"}
+                              </span>
+                            </>
+                          )}
+                          <span aria-hidden="true">·</span>
+                          <span className="tabular-nums">
+                            {activeFolder.entries.length}{" "}
+                            {activeFolder.entries.length === 1
+                              ? "arquivo"
+                              : activeFolder.seasons.length > 0
+                              ? "episódios"
+                              : "arquivos"}
+                          </span>
+                          {activeFolder.totalBytesFormatted !== "—" && (
+                            <>
+                              <span aria-hidden="true">·</span>
+                              <span className="tabular-nums">
+                                {activeFolder.totalBytesFormatted}
+                              </span>
+                            </>
+                          )}
+                        </div>
+
+                        <h3 className="text-xl sm:text-2xl font-semibold tracking-[-0.025em] text-[#1D1D1F] dark:text-[#F5F5F7] truncate">
+                          {activeFolder.folderTitle}
+                        </h3>
+
+                        {activeFolder.author && (
+                          <p className="text-xs text-[#6E6E73] dark:text-[#A1A1A6] truncate">
+                            {activeFolder.author}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
+                    {activeFolder.completedCount > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => handleOpenFolderPrimaryEntry(activeFolder)}
+                        className="inline-flex items-center justify-center gap-2 h-10 px-5 rounded-full bg-[#1D1D1F] text-white dark:bg-[#F5F5F7] dark:text-[#1D1D1F] text-xs font-semibold hover:opacity-90 transition-opacity whitespace-nowrap shrink-0"
+                      >
+                        <Play className="w-3.5 h-3.5 fill-current" />
+                        {activeFolder.folderKind === "serie" ||
+                        activeFolder.folderKind === "anime"
+                          ? "Assistir Episódio"
+                          : activeFolder.folderKind === "filme"
+                          ? "Assistir Filme"
+                          : "Abrir Arquivo"}
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Season Selector Pills (when Series or Anime has seasons) */}
+                  {activeFolder.seasons.length > 0 && (
+                    <div className="mt-5 pt-4 border-t border-black/[0.065] dark:border-white/[0.08] flex items-center gap-1.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedSeasonTab("all")}
+                        className={`px-3.5 py-1.5 rounded-full text-xs font-medium whitespace-nowrap shrink-0 transition-colors ${
+                          selectedSeasonTab === "all"
+                            ? "bg-[#1D1D1F] text-white dark:bg-[#F5F5F7] dark:text-[#1D1D1F]"
+                            : "bg-[#F5F5F7] dark:bg-[#2C2C2E] text-[#6E6E73] dark:text-[#A1A1A6] hover:text-[#1D1D1F] dark:hover:text-white"
+                        }`}
+                      >
+                        Todas as Temporadas ({activeFolder.seasons.length})
+                      </button>
+                      {activeFolder.seasons.map((season) => (
+                        <button
+                          key={season.seasonNumber}
+                          type="button"
+                          onClick={() => setSelectedSeasonTab(season.seasonNumber)}
+                          className={`px-3.5 py-1.5 rounded-full text-xs font-medium whitespace-nowrap shrink-0 transition-colors ${
+                            selectedSeasonTab === season.seasonNumber
+                              ? "bg-[#1D1D1F] text-white dark:bg-[#F5F5F7] dark:text-[#1D1D1F]"
+                              : "bg-[#F5F5F7] dark:bg-[#2C2C2E] text-[#6E6E73] dark:text-[#A1A1A6] hover:text-[#1D1D1F] dark:hover:text-white"
+                          }`}
+                        >
+                          {season.label} ({season.entries.length})
+                        </button>
+                      ))}
+                    </div>
                   )}
                 </div>
 
-                {downloads.length > 0 && (
-                  <button
-                    type="button"
-                    onClick={handleClearDownloads}
-                    className="inline-flex items-center gap-1.5 px-3 py-2 rounded-full text-xs font-medium text-[#6E6E73] hover:text-[#DC2626] hover:bg-[#DC2626]/10 transition-colors whitespace-nowrap shrink-0"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                    Limpar
-                  </button>
+                {/* Organized Season Containers or Flat Chapter/File List inside Folder */}
+                {activeFolder.seasons.length > 0 ? (
+                  <div className="space-y-4">
+                    {activeFolder.seasons
+                      .filter(
+                        (s) =>
+                          selectedSeasonTab === "all" ||
+                          s.seasonNumber === selectedSeasonTab
+                      )
+                      .map((season) => (
+                        <div
+                          key={season.seasonNumber}
+                          className="bg-white dark:bg-[#1C1C1E] border border-black/[0.065] dark:border-white/[0.08] rounded-[20px] shadow-[0_1px_2px_rgba(0,0,0,0.03),0_8px_24px_rgba(0,0,0,0.025)] overflow-hidden"
+                        >
+                          <div className="px-5 sm:px-6 py-3.5 border-b border-black/[0.065] dark:border-white/[0.08] bg-[#FAFAFC] dark:bg-white/[0.02] flex flex-wrap items-center justify-between gap-2">
+                            <div className="flex items-center gap-2">
+                              <Layers className="w-4 h-4 text-[#6E6E73] dark:text-[#A1A1A6]" />
+                              <h4 className="text-sm font-semibold tracking-tight text-[#1D1D1F] dark:text-[#F5F5F7]">
+                                {season.label}
+                              </h4>
+                            </div>
+                            <div className="flex items-center gap-2 text-xs text-[#86868B] tabular-nums">
+                              <span>
+                                {season.entries.length}{" "}
+                                {season.entries.length === 1 ? "episódio" : "episódios"}
+                              </span>
+                              {season.totalBytes > 0 && (
+                                <>
+                                  <span aria-hidden="true">·</span>
+                                  <span>{formatDownloadBytes(season.totalBytes)}</span>
+                                </>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="divide-y divide-black/[0.065] dark:divide-white/[0.08]">
+                            {season.entries.map((entry) => {
+                              const eMeta = resolveDownloadFolderMetadata(entry);
+                              const isCached = cachedDownloadIds.has(entry.id);
+                              const isOpening = openingDownloadId === entry.id;
+                              const isRedownloading = redownloadingId === entry.id;
+                              const isHighlighted = highlightedDownloadId === entry.id;
+                              const progressPct =
+                                entry.status === "completed"
+                                  ? 100
+                                  : Math.max(0, Math.min(99, entry.progressPercent ?? 12));
+
+                              return (
+                                <div
+                                  key={entry.id}
+                                  id={`download-entry-${entry.id}`}
+                                  className={`flex flex-col md:flex-row items-start md:items-center justify-between gap-4 px-5 sm:px-6 py-4 transition-colors ${
+                                    isHighlighted
+                                      ? "bg-emerald-500/[0.07] dark:bg-emerald-400/[0.09] ring-1 ring-inset ring-emerald-500/40"
+                                      : "hover:bg-[#FAFAFC] dark:hover:bg-white/[0.02]"
+                                  }`}
+                                >
+                                  <div className="flex items-start sm:items-center gap-3.5 min-w-0 flex-1 w-full">
+                                    <button
+                                      type="button"
+                                      disabled={isOpening || entry.status === "in_progress"}
+                                      onClick={() => handleOpenDownloadedFile(entry)}
+                                      className="flex h-11 w-14 shrink-0 flex-col items-center justify-center rounded-xl border border-black/[0.08] dark:border-white/[0.1] bg-[#F5F5F7] dark:bg-[#2C2C2E] text-[#1D1D1F] dark:text-[#F5F5F7] hover:bg-[#E8E8ED] dark:hover:bg-[#3A3A3C] transition-colors"
+                                      title={`Assistir ${entry.title}`}
+                                    >
+                                      <span className="text-[11px] font-semibold tabular-nums">
+                                        E{String(eMeta.episodeNumber ?? 1).padStart(2, "0")}
+                                      </span>
+                                      <Play className="w-3 h-3 mt-0.5 opacity-70" />
+                                    </button>
+
+                                    <div className="min-w-0 flex-1 space-y-1">
+                                      <div className="flex flex-wrap items-center gap-2 text-xs text-[#86868B]">
+                                        <span className="font-medium text-[#1D1D1F] dark:text-[#F5F5F7] tabular-nums">
+                                          T{String(eMeta.seasonNumber ?? 1).padStart(2, "0")} · E
+                                          {String(eMeta.episodeNumber ?? 1).padStart(2, "0")}
+                                        </span>
+                                        {eMeta.languageLabel && (
+                                          <>
+                                            <span aria-hidden="true">·</span>
+                                            <span>{eMeta.languageLabel}</span>
+                                          </>
+                                        )}
+                                        {isCached && (
+                                          <>
+                                            <span aria-hidden="true">·</span>
+                                            <span className="inline-flex items-center gap-1 text-[#15803D] dark:text-[#4ADE80]">
+                                              <HardDrive className="w-3 h-3" />
+                                              Offline
+                                            </span>
+                                          </>
+                                        )}
+                                        {entry.fileSizeFormatted && (
+                                          <>
+                                            <span aria-hidden="true">·</span>
+                                            <span className="tabular-nums">
+                                              {entry.fileSizeFormatted}
+                                            </span>
+                                          </>
+                                        )}
+                                      </div>
+
+                                      <button
+                                        type="button"
+                                        onClick={() => handleOpenDownloadedFile(entry)}
+                                        className="block text-left text-[15px] font-semibold tracking-[-0.01em] text-[#1D1D1F] dark:text-[#F5F5F7] hover:opacity-70 transition-opacity truncate max-w-full"
+                                      >
+                                        {eMeta.episodeTitle ||
+                                          `Episódio ${eMeta.episodeNumber ?? 1}`}
+                                      </button>
+
+                                      <p className="text-xs text-[#6E6E73] dark:text-[#A1A1A6] truncate">
+                                        {entry.fileName}
+                                      </p>
+
+                                      {entry.status !== "completed" && (
+                                        <div className="pt-1.5 max-w-md flex items-center gap-3">
+                                          <Progress
+                                            value={
+                                              entry.status === "failed"
+                                                ? Math.max(8, progressPct)
+                                                : progressPct
+                                            }
+                                            className="h-1.5 flex-1 bg-[#EFEFF2] dark:bg-[#2C2C2E]"
+                                            indicatorClassName={
+                                              entry.status === "failed"
+                                                ? "bg-[#DC2626]"
+                                                : "bg-[#1D1D1F] dark:bg-[#F5F5F7]"
+                                            }
+                                          />
+                                          <span className="text-[11px] font-mono tabular-nums text-[#86868B]">
+                                            {entry.status === "failed" ? "Falha" : `${progressPct}%`}
+                                          </span>
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+
+                                  <div className="flex flex-wrap items-center gap-2 self-end md:self-center shrink-0">
+                                    <button
+                                      type="button"
+                                      disabled={isOpening || entry.status === "in_progress"}
+                                      onClick={() => handleOpenDownloadedFile(entry)}
+                                      className="inline-flex items-center gap-1.5 h-8 px-4 rounded-full bg-[#1D1D1F] text-white dark:bg-[#F5F5F7] dark:text-[#1D1D1F] text-xs font-medium hover:bg-[#333336] dark:hover:bg-[#E5E5EA] disabled:opacity-45 transition-colors whitespace-nowrap shrink-0"
+                                    >
+                                      <Play className="w-3 h-3 fill-current" />
+                                      {isOpening ? "Abrindo..." : "Assistir"}
+                                    </button>
+
+                                    <button
+                                      type="button"
+                                      disabled={isRedownloading || entry.status === "in_progress"}
+                                      onClick={() => handleRedownloadEntry(entry)}
+                                      title="Baixar arquivo novamente"
+                                      className="inline-flex items-center gap-1.5 h-8 px-3 rounded-full border border-black/[0.08] dark:border-white/[0.12] bg-white dark:bg-[#2C2C2E] text-xs font-medium text-[#1D1D1F] dark:text-[#F5F5F7] hover:bg-[#F5F5F7] dark:hover:bg-[#3A3A3C] disabled:opacity-45 transition-colors whitespace-nowrap shrink-0"
+                                    >
+                                      <RotateCw
+                                        className={`w-3 h-3 ${
+                                          isRedownloading || entry.status === "in_progress"
+                                            ? "animate-spin"
+                                            : ""
+                                        }`}
+                                      />
+                                      {entry.status === "failed" ? "Tentar novamente" : "Baixar"}
+                                    </button>
+
+                                    <button
+                                      type="button"
+                                      onClick={() => handleRemoveDownload(entry)}
+                                      title="Remover episódio"
+                                      aria-label={`Remover ${entry.title}`}
+                                      className="h-8 w-8 inline-flex items-center justify-center rounded-full text-[#86868B] hover:text-[#DC2626] hover:bg-[#DC2626]/10 transition-colors shrink-0"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                ) : (
+                  <div className="bg-white dark:bg-[#1C1C1E] border border-black/[0.065] dark:border-white/[0.08] rounded-[20px] shadow-[0_1px_2px_rgba(0,0,0,0.03),0_8px_24px_rgba(0,0,0,0.025)] overflow-hidden divide-y divide-black/[0.065] dark:divide-white/[0.08]">
+                    {activeFolder.looseEntries.map((entry) => {
+                      const eMeta = resolveDownloadFolderMetadata(entry);
+                      const isCached = cachedDownloadIds.has(entry.id);
+                      const isOpening = openingDownloadId === entry.id;
+                      const isRedownloading = redownloadingId === entry.id;
+                      const isHighlighted = highlightedDownloadId === entry.id;
+                      const isVideo = isVideoDownloadEntry(entry);
+                      const progressPct =
+                        entry.status === "completed"
+                          ? 100
+                          : Math.max(0, Math.min(99, entry.progressPercent ?? 12));
+
+                      return (
+                        <div
+                          key={entry.id}
+                          id={`download-entry-${entry.id}`}
+                          className={`flex flex-col md:flex-row items-start md:items-center justify-between gap-4 px-5 sm:px-6 py-4 transition-colors ${
+                            isHighlighted
+                              ? "bg-emerald-500/[0.07] dark:bg-emerald-400/[0.09] ring-1 ring-inset ring-emerald-500/40"
+                              : "hover:bg-[#FAFAFC] dark:hover:bg-white/[0.02]"
+                          }`}
+                        >
+                          <div className="flex items-start sm:items-center gap-3.5 min-w-0 flex-1 w-full">
+                            <button
+                              type="button"
+                              disabled={isOpening || entry.status === "in_progress"}
+                              onClick={() => handleOpenDownloadedFile(entry)}
+                              className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-black/[0.08] dark:border-white/[0.1] bg-[#F5F5F7] dark:bg-[#2C2C2E] text-[#1D1D1F] dark:text-[#F5F5F7] hover:bg-[#E8E8ED] dark:hover:bg-[#3A3A3C] transition-colors"
+                              title={`Abrir ${entry.title}`}
+                            >
+                              {isVideo ? (
+                                <Play className="w-4 h-4 fill-current" />
+                              ) : eMeta.episodeNumber !== null ? (
+                                <span className="text-xs font-semibold tabular-nums">
+                                  Cap.{eMeta.episodeNumber}
+                                </span>
+                              ) : (
+                                <FileText className="w-4 h-4" />
+                              )}
+                            </button>
+
+                            <div className="min-w-0 flex-1 space-y-1">
+                              <div className="flex flex-wrap items-center gap-2 text-xs text-[#86868B]">
+                                <span>{eMeta.kindLabel}</span>
+                                {eMeta.languageLabel && (
+                                  <>
+                                    <span aria-hidden="true">·</span>
+                                    <span>{eMeta.languageLabel}</span>
+                                  </>
+                                )}
+                                {isCached && (
+                                  <>
+                                    <span aria-hidden="true">·</span>
+                                    <span className="inline-flex items-center gap-1 text-[#15803D] dark:text-[#4ADE80]">
+                                      <HardDrive className="w-3 h-3" />
+                                      Offline
+                                    </span>
+                                  </>
+                                )}
+                                {entry.fileSizeFormatted && (
+                                  <>
+                                    <span aria-hidden="true">·</span>
+                                    <span className="tabular-nums">{entry.fileSizeFormatted}</span>
+                                  </>
+                                )}
+                                <span aria-hidden="true">·</span>
+                                <span className="tabular-nums">
+                                  {formatRelativeTime(entry.downloadedAt)}
+                                </span>
+                              </div>
+
+                              <button
+                                type="button"
+                                onMouseEnter={() => preloadDownloadIntoMemory(entry.id)}
+                                onClick={() => handleOpenDownloadedFile(entry)}
+                                className="block text-left text-[15px] font-semibold tracking-[-0.01em] text-[#1D1D1F] dark:text-[#F5F5F7] hover:opacity-70 transition-opacity truncate max-w-full"
+                              >
+                                {entry.title}
+                              </button>
+
+                              <p className="text-xs text-[#6E6E73] dark:text-[#A1A1A6] truncate">
+                                {entry.fileName}
+                              </p>
+
+                              {entry.status !== "completed" && (
+                                <div className="pt-1.5 max-w-md flex items-center gap-3">
+                                  <Progress
+                                    value={
+                                      entry.status === "failed"
+                                        ? Math.max(8, progressPct)
+                                        : progressPct
+                                    }
+                                    className="h-1.5 flex-1 bg-[#EFEFF2] dark:bg-[#2C2C2E]"
+                                    indicatorClassName={
+                                      entry.status === "failed"
+                                        ? "bg-[#DC2626]"
+                                        : "bg-[#1D1D1F] dark:bg-[#F5F5F7]"
+                                    }
+                                  />
+                                  <span className="text-[11px] font-mono tabular-nums text-[#86868B]">
+                                    {entry.status === "failed" ? "Falha" : `${progressPct}%`}
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="flex flex-wrap items-center gap-2 self-end md:self-center shrink-0">
+                            <button
+                              type="button"
+                              disabled={entry.status === "in_progress"}
+                              onMouseEnter={() =>
+                                entry.status === "completed" && preloadDownloadIntoMemory(entry.id)
+                              }
+                              onClick={() => handleOpenDownloadedFile(entry)}
+                              className="inline-flex items-center gap-1.5 h-8 px-4 rounded-full bg-[#1D1D1F] text-white dark:bg-[#F5F5F7] dark:text-[#1D1D1F] text-xs font-medium hover:bg-[#333336] dark:hover:bg-[#E5E5EA] disabled:opacity-45 transition-colors whitespace-nowrap shrink-0"
+                            >
+                              {isVideo ? (
+                                <Play className="w-3 h-3 fill-current" />
+                              ) : (
+                                <BookOpen className="w-3.5 h-3.5" />
+                              )}
+                              {isOpening ? "Abrindo..." : isVideo ? "Assistir" : "Abrir"}
+                            </button>
+
+                            <button
+                              type="button"
+                              disabled={isRedownloading || entry.status === "in_progress"}
+                              onClick={() => handleRedownloadEntry(entry)}
+                              title="Baixar arquivo novamente"
+                              className="inline-flex items-center gap-1.5 h-8 px-3 rounded-full border border-black/[0.08] dark:border-white/[0.12] bg-white dark:bg-[#2C2C2E] text-xs font-medium text-[#1D1D1F] dark:text-[#F5F5F7] hover:bg-[#F5F5F7] dark:hover:bg-[#3A3A3C] disabled:opacity-45 transition-colors whitespace-nowrap shrink-0"
+                            >
+                              <RotateCw
+                                className={`w-3 h-3 ${
+                                  isRedownloading || entry.status === "in_progress"
+                                    ? "animate-spin"
+                                    : ""
+                                }`}
+                              />
+                              {entry.status === "failed" ? "Tentar novamente" : "Baixar"}
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveDownload(entry)}
+                              title="Remover download"
+                              aria-label={`Remover ${entry.title}`}
+                              className="h-8 w-8 inline-flex items-center justify-center rounded-full text-[#86868B] hover:text-[#DC2626] hover:bg-[#DC2626]/10 transition-colors shrink-0"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
                 )}
               </div>
-            </div>
-
-            <div className="bg-white dark:bg-[#1C1C1E] border border-black/[0.065] dark:border-white/[0.08] rounded-[20px] shadow-[0_1px_2px_rgba(0,0,0,0.03),0_8px_24px_rgba(0,0,0,0.025)] overflow-hidden">
-              {filteredDownloads.length === 0 ? (
-                <div className="py-16 px-6 text-center">
-                  <div className="w-10 h-10 rounded-full bg-[#F5F5F7] dark:bg-[#2C2C2E] text-[#86868B] inline-flex items-center justify-center mb-3.5">
-                    <Download className="w-[18px] h-[18px]" />
-                  </div>
-                  <h3 className="text-base font-semibold tracking-[-0.015em] text-[#1D1D1F] dark:text-[#F5F5F7]">
-                    {downloads.length === 0
-                      ? "Nenhum registo encontrado"
-                      : "Nenhum download corresponde ao filtro"}
-                  </h3>
-                  <p className="text-[13px] text-[#86868B] mt-1 max-w-sm mx-auto">
-                    {downloads.length === 0
-                      ? "Livros e PDFs transferidos ficarão disponíveis aqui para abertura imediata."
-                      : "Tente limpar a busca ou selecionar outra categoria acima."}
-                  </p>
-                  <div className="mt-6 flex justify-center">
-                    {downloads.length === 0 ? (
-                      <Link
-                        to="/livros"
-                        className="px-4 py-2 rounded-full border border-black/[0.08] dark:border-white/[0.12] bg-white dark:bg-[#2C2C2E] text-xs font-medium text-[#1D1D1F] dark:text-[#F5F5F7] hover:bg-[#F5F5F7] dark:hover:bg-[#3A3A3C] transition-colors whitespace-nowrap"
+            ) : (
+              /* LEVEL 1: ORGANIZED FOLDERS OVERVIEW */
+              <>
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
+                  <div className="flex items-center gap-1 flex-wrap">
+                    {[
+                      { id: "all" as const, label: "Todas" },
+                      { id: "serie" as const, label: "Séries" },
+                      { id: "anime" as const, label: "Animes" },
+                      { id: "filme" as const, label: "Filmes" },
+                      { id: "manga_webtoon" as const, label: "Mangás & Webtoons" },
+                      { id: "livro" as const, label: "Livros & PDFs" },
+                      {
+                        id: "in_progress" as const,
+                        label:
+                          inProgressDownloads.length > 0
+                            ? `Baixando (${inProgressDownloads.length})`
+                            : "Em Andamento",
+                      },
+                    ].map((f) => (
+                      <button
+                        key={f.id}
+                        type="button"
+                        onClick={() => setDownloadsFilter(f.id)}
+                        className={`px-3 py-1.5 text-[13px] font-medium rounded-full transition-colors whitespace-nowrap shrink-0 ${
+                          downloadsFilter === f.id
+                            ? "bg-[#1D1D1F] text-white dark:bg-[#F5F5F7] dark:text-[#1D1D1F]"
+                            : "text-[#6E6E73] dark:text-[#A1A1A6] hover:text-[#1D1D1F] dark:hover:text-[#F5F5F7] hover:bg-black/[0.04] dark:hover:bg-white/[0.06]"
+                        }`}
                       >
-                        Explorar Livros & PDFs
-                      </Link>
-                    ) : (
+                        {f.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="flex items-center gap-2.5">
+                    <div className="relative flex-1 sm:w-60">
+                      <Search className="w-3.5 h-3.5 absolute left-3.5 top-1/2 -translate-y-1/2 text-[#86868B] pointer-events-none" />
+                      <input
+                        type="text"
+                        value={downloadsSearch}
+                        onChange={(e) => setDownloadsSearch(e.target.value)}
+                        placeholder="Buscar pasta ou episódio..."
+                        className="w-full bg-white dark:bg-[#1C1C1E] border border-black/[0.065] dark:border-white/[0.08] rounded-full pl-9 pr-8 py-2 text-[13px] text-[#1D1D1F] dark:text-[#F5F5F7] placeholder:text-[#86868B] outline-none focus:border-black/20 dark:focus:border-white/25 focus:ring-2 focus:ring-black/[0.06]"
+                      />
+                      {downloadsSearch && (
+                        <button
+                          type="button"
+                          onClick={() => setDownloadsSearch("")}
+                          aria-label="Limpar busca de downloads"
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-[#86868B] hover:text-[#1D1D1F] dark:hover:text-[#F5F5F7]"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+
+                    {downloads.length > 0 && (
                       <button
                         type="button"
-                        onClick={() => {
-                          setDownloadsFilter("all");
-                          setDownloadsSearch("");
-                        }}
-                        className="px-4 py-2 rounded-full border border-black/[0.08] dark:border-white/[0.12] bg-white dark:bg-[#2C2C2E] text-xs font-medium text-[#1D1D1F] dark:text-[#F5F5F7] hover:bg-[#F5F5F7] dark:hover:bg-[#3A3A3C] transition-colors whitespace-nowrap"
+                        onClick={handleClearDownloads}
+                        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-full text-xs font-medium text-[#6E6E73] hover:text-[#DC2626] hover:bg-[#DC2626]/10 transition-colors whitespace-nowrap shrink-0"
                       >
-                        Mostrar todos
+                        <Trash2 className="w-3.5 h-3.5" />
+                        Limpar
                       </button>
                     )}
                   </div>
                 </div>
-              ) : (
-                <div className="divide-y divide-black/[0.065] dark:divide-white/[0.08]">
-                  {filteredDownloads.map((entry) => {
-                    const isCached = cachedDownloadIds.has(entry.id);
-                    const isOpening = openingDownloadId === entry.id;
-                    const isRedownloading = redownloadingId === entry.id;
-                    const progressPct =
-                      entry.status === "completed"
-                        ? 100
-                        : Math.max(0, Math.min(99, entry.progressPercent ?? 12));
-                    const isRecentFinish =
-                      entry.status === "completed" && Boolean(recentlyFinishedMap[entry.id]);
-                    const stageDescription =
-                      entry.status === "completed"
-                        ? isRecentFinish
-                          ? "Finalização concluída — pronto para abrir"
-                          : "Download concluído"
-                        : entry.status === "failed"
-                        ? "Transferência interrompida"
-                        : entry.progressStage === "connecting"
-                        ? "Conectando ao servidor..."
-                        : entry.progressStage === "saving"
-                        ? "Salvando no armazenamento offline..."
-                        : entry.loadedBytes && entry.loadedBytes > 0
-                        ? entry.totalBytes
-                          ? `Baixando ${formatDownloadBytes(entry.loadedBytes)} de ${formatDownloadBytes(entry.totalBytes)}`
-                          : `Baixando ${formatDownloadBytes(entry.loadedBytes)}`
-                        : "Iniciando transferência...";
-                    const statusLabel =
-                      entry.status === "completed"
-                        ? "Concluído"
-                        : entry.status === "in_progress"
-                        ? "Transferindo"
-                        : "Falha ao transferir";
 
-                    return (
-                      <div
-                        key={entry.id}
-                        className="group flex flex-col md:flex-row items-start md:items-center justify-between gap-4 px-5 sm:px-6 py-4 transition-colors hover:bg-[#FAFAFC] dark:hover:bg-white/[0.02]"
-                      >
-                        <div className="flex items-start sm:items-center gap-4 min-w-0 flex-1 w-full">
-                          <button
-                            type="button"
-                            onClick={() => handleOpenDownloadedFile(entry)}
-                            className="relative w-14 h-20 shrink-0 overflow-hidden rounded-lg border border-black/[0.065] dark:border-white/[0.08] bg-[#F5F5F7] dark:bg-[#2C2C2E] text-left"
-                            title={`Abrir ${entry.title}`}
+                {filteredFolders.length === 0 ? (
+                  <div className="bg-white dark:bg-[#1C1C1E] border border-black/[0.065] dark:border-white/[0.08] rounded-[20px] shadow-[0_1px_2px_rgba(0,0,0,0.03),0_8px_24px_rgba(0,0,0,0.025)] py-16 px-6 text-center">
+                    <div className="w-10 h-10 rounded-full bg-[#F5F5F7] dark:bg-[#2C2C2E] text-[#86868B] inline-flex items-center justify-center mb-3.5">
+                      <Folder className="w-[18px] h-[18px]" />
+                    </div>
+                    <h3 className="text-base font-semibold tracking-[-0.015em] text-[#1D1D1F] dark:text-[#F5F5F7]">
+                      {downloads.length === 0
+                        ? "Nenhuma pasta de download ainda"
+                        : "Nenhuma pasta corresponde ao filtro"}
+                    </h3>
+                    <p className="text-[13px] text-[#86868B] mt-1 max-w-md mx-auto">
+                      {downloads.length === 0
+                        ? "Filmes, séries, animes, mangás e livros baixados são agrupados automaticamente por pasta e temporada aqui."
+                        : "Tente limpar a busca ou selecionar outra categoria acima."}
+                    </p>
+                    <div className="mt-6 flex flex-wrap justify-center gap-2">
+                      {downloads.length === 0 ? (
+                        <>
+                          <Link
+                            to="/cinema"
+                            className="px-4 py-2 rounded-full border border-black/[0.08] dark:border-white/[0.12] bg-white dark:bg-[#2C2C2E] text-xs font-medium text-[#1D1D1F] dark:text-[#F5F5F7] hover:bg-[#F5F5F7] dark:hover:bg-[#3A3A3C] transition-colors whitespace-nowrap"
                           >
-                            {entry.cover ? (
-                              <img
-                                src={entry.cover}
-                                alt={entry.title}
-                                referrerPolicy="no-referrer"
-                                className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-                                onError={(e) => {
-                                  (e.currentTarget as HTMLImageElement).style.display = "none";
-                                }}
-                              />
-                            ) : (
-                              <div className="w-full h-full flex items-center justify-center text-[#86868B]">
-                                <FileText className="w-4 h-4" />
-                              </div>
-                            )}
-                          </button>
+                            Explorar Cinema
+                          </Link>
+                          <Link
+                            to="/animes"
+                            className="px-4 py-2 rounded-full border border-black/[0.08] dark:border-white/[0.12] bg-white dark:bg-[#2C2C2E] text-xs font-medium text-[#1D1D1F] dark:text-[#F5F5F7] hover:bg-[#F5F5F7] dark:hover:bg-[#3A3A3C] transition-colors whitespace-nowrap"
+                          >
+                            Explorar Animes
+                          </Link>
+                          <Link
+                            to="/livros"
+                            className="px-4 py-2 rounded-full border border-black/[0.08] dark:border-white/[0.12] bg-white dark:bg-[#2C2C2E] text-xs font-medium text-[#1D1D1F] dark:text-[#F5F5F7] hover:bg-[#F5F5F7] dark:hover:bg-[#3A3A3C] transition-colors whitespace-nowrap"
+                          >
+                            Explorar Livros
+                          </Link>
+                        </>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setDownloadsFilter("all");
+                            setDownloadsSearch("");
+                          }}
+                          className="px-4 py-2 rounded-full border border-black/[0.08] dark:border-white/[0.12] bg-white dark:bg-[#2C2C2E] text-xs font-medium text-[#1D1D1F] dark:text-[#F5F5F7] hover:bg-[#F5F5F7] dark:hover:bg-[#3A3A3C] transition-colors whitespace-nowrap"
+                        >
+                          Mostrar todas as pastas
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {filteredFolders.map((folder) => {
+                      const activeItem = folder.entries.find(
+                        (e) => e.status === "in_progress"
+                      );
+                      const primaryCompleted =
+                        folder.entries.find((e) => e.status === "completed") || null;
+                      const isOpeningPrimary =
+                        Boolean(primaryCompleted) &&
+                        openingDownloadId === primaryCompleted?.id;
+                      const summaryText =
+                        folder.seasons.length > 0
+                          ? `${folder.seasons.length} ${
+                              folder.seasons.length === 1 ? "temporada" : "temporadas"
+                            } · ${folder.entries.length} ${
+                              folder.entries.length === 1 ? "episódio" : "episódios"
+                            }`
+                          : folder.folderKind === "manga" || folder.folderKind === "webtoon"
+                          ? `${folder.entries.length} ${
+                              folder.entries.length === 1 ? "capítulo" : "capítulos"
+                            }`
+                          : `${folder.entries.length} ${
+                              folder.entries.length === 1 ? "arquivo" : "arquivos"
+                            }`;
 
-                          <div className="min-w-0 flex-1 space-y-1">
-                            <div className="flex flex-wrap items-center gap-2 text-xs text-[#86868B]">
-                              <span>{DOWNLOAD_TYPE_LABELS[entry.type] || "Arquivo"}</span>
-                              <span aria-hidden="true">·</span>
-                              <span
-                                className={
-                                  entry.status === "failed"
-                                    ? "text-[#DC2626] font-medium"
-                                    : entry.status === "completed"
-                                    ? "text-[#1D1D1F] dark:text-[#F5F5F7] font-medium"
-                                    : "text-[#1D1D1F] dark:text-[#F5F5F7] font-medium"
-                                }
-                              >
-                                {statusLabel}
-                              </span>
-                              {isCached && (
-                                <>
-                                  <span aria-hidden="true">·</span>
-                                  <span className="inline-flex items-center gap-1 text-[#15803D] dark:text-[#4ADE80]">
-                                    <HardDrive className="w-3 h-3" />
-                                    Offline
-                                  </span>
-                                </>
-                              )}
-                              {entry.fileSizeFormatted && (
-                                <>
-                                  <span aria-hidden="true">·</span>
-                                  <span className="tabular-nums">{entry.fileSizeFormatted}</span>
-                                </>
-                              )}
-                              <span aria-hidden="true">·</span>
-                              <span className="tabular-nums">{formatRelativeTime(entry.downloadedAt)}</span>
-                            </div>
-
+                      return (
+                        <div
+                          key={folder.folderKey}
+                          onMouseEnter={() =>
+                            primaryCompleted && preloadDownloadIntoMemory(primaryCompleted.id)
+                          }
+                          className="group bg-white dark:bg-[#1C1C1E] border border-black/[0.065] dark:border-white/[0.08] rounded-[20px] p-4 sm:p-5 shadow-[0_1px_2px_rgba(0,0,0,0.03),0_8px_24px_rgba(0,0,0,0.025)] hover:border-black/[0.14] dark:hover:border-white/[0.18] transition-all flex flex-col justify-between gap-4"
+                        >
+                          <div className="flex items-start gap-4 min-w-0">
                             <button
                               type="button"
-                              onClick={() => handleOpenDownloadedFile(entry)}
-                              className="block text-left text-[15px] font-semibold tracking-[-0.01em] text-[#1D1D1F] dark:text-[#F5F5F7] hover:opacity-70 transition-opacity truncate max-w-full"
+                              onClick={() => handleSelectFolder(folder.folderKey)}
+                              className="relative w-16 h-24 shrink-0 overflow-hidden rounded-xl border border-black/[0.065] dark:border-white/[0.08] bg-[#F5F5F7] dark:bg-[#2C2C2E] text-left"
+                              title={`Abrir pasta ${folder.folderTitle}`}
                             >
-                              {entry.title}
+                              {folder.cover ? (
+                                <img
+                                  src={folder.cover}
+                                  alt={folder.folderTitle}
+                                  referrerPolicy="no-referrer"
+                                  className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                                  onError={(e) => {
+                                    (e.currentTarget as HTMLImageElement).style.display = "none";
+                                  }}
+                                />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center text-[#86868B]">
+                                  <FolderOpen className="w-5 h-5" />
+                                </div>
+                              )}
                             </button>
 
-                            <p className="text-[13px] text-[#6E6E73] dark:text-[#A1A1A6] truncate">
-                              {entry.author ? `${entry.author} · ` : ""}
-                              {entry.fileName}
-                              {entry.openCount && entry.openCount > 0
-                                ? ` · Aberto ${entry.openCount}×`
-                                : ""}
-                            </p>
-
-                            {/* Per-Item Download Completion Progress Bar */}
-                            <div className="pt-1.5 max-w-md space-y-1">
-                              <Progress
-                                value={entry.status === "failed" ? Math.max(8, progressPct) : progressPct}
-                                aria-label={`Progresso de download de ${entry.title}: ${progressPct}%`}
-                                className="h-1.5 bg-[#EFEFF2] dark:bg-[#2C2C2E]"
-                                indicatorClassName={
-                                  entry.status === "completed"
-                                    ? "bg-[#16A34A]"
-                                    : entry.status === "failed"
-                                    ? "bg-[#DC2626]"
-                                    : "bg-[#1D1D1F] dark:bg-[#F5F5F7]"
-                                }
-                              />
-                              <div className="flex items-center justify-between gap-3 text-[11px] text-[#86868B]">
-                                <span className="inline-flex items-center gap-1.5 truncate">
-                                  {entry.status === "completed" && (
-                                    <CheckCircle2 className="w-3 h-3 text-[#16A34A] shrink-0" />
-                                  )}
-                                  {entry.status === "failed" && (
-                                    <AlertCircle className="w-3 h-3 text-[#DC2626] shrink-0" />
-                                  )}
-                                  {entry.status === "in_progress" && (
-                                    <RotateCw className="w-3 h-3 animate-spin text-[#1D1D1F] dark:text-[#F5F5F7] shrink-0" />
-                                  )}
-                                  <span
-                                    className={
-                                      isRecentFinish
-                                        ? "text-[#15803D] dark:text-[#4ADE80] font-medium truncate"
-                                        : entry.status === "failed"
-                                        ? "text-[#DC2626] truncate"
-                                        : "truncate"
-                                    }
-                                  >
-                                    {stageDescription}
-                                  </span>
+                            <div className="min-w-0 flex-1 space-y-1.5">
+                              <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-[#86868B]">
+                                <span className="inline-flex items-center gap-1 font-medium text-[#1D1D1F] dark:text-[#F5F5F7]">
+                                  <Folder className="w-3 h-3" />
+                                  {folder.kindLabel}
                                 </span>
-                                <span
-                                  className={`font-mono tabular-nums shrink-0 font-medium ${
-                                    entry.status === "completed"
-                                      ? "text-[#15803D] dark:text-[#4ADE80]"
-                                      : entry.status === "failed"
-                                      ? "text-[#DC2626]"
-                                      : "text-[#1D1D1F] dark:text-[#F5F5F7]"
-                                  }`}
-                                >
-                                  {progressPct}%
-                                </span>
+                                <span aria-hidden="true">·</span>
+                                <span className="tabular-nums">{summaryText}</span>
+                                {folder.totalBytesFormatted !== "—" && (
+                                  <>
+                                    <span aria-hidden="true">·</span>
+                                    <span className="tabular-nums">
+                                      {folder.totalBytesFormatted}
+                                    </span>
+                                  </>
+                                )}
                               </div>
+
+                              <button
+                                type="button"
+                                onClick={() => handleSelectFolder(folder.folderKey)}
+                                className="block text-left text-base font-semibold tracking-[-0.015em] text-[#1D1D1F] dark:text-[#F5F5F7] hover:opacity-75 transition-opacity truncate max-w-full"
+                              >
+                                {folder.folderTitle}
+                              </button>
+
+                              <div className="flex flex-wrap items-center gap-2 text-xs text-[#6E6E73] dark:text-[#A1A1A6]">
+                                {folder.offlineCount > 0 && (
+                                  <span className="inline-flex items-center gap-1 text-[#15803D] dark:text-[#4ADE80]">
+                                    <HardDrive className="w-3 h-3" />
+                                    {folder.offlineCount} offline
+                                  </span>
+                                )}
+                                {folder.seasons.length > 0 && (
+                                  <span className="truncate">
+                                    {folder.seasons.map((s) => `T${s.seasonNumber}`).join(" · ")}
+                                  </span>
+                                )}
+                                {!folder.seasons.length && folder.author && (
+                                  <span className="truncate">{folder.author}</span>
+                                )}
+                              </div>
+
+                              {activeItem && (
+                                <div className="pt-1 flex items-center gap-2">
+                                  <Progress
+                                    value={activeItem.progressPercent ?? 12}
+                                    className="h-1.5 flex-1 bg-[#EFEFF2] dark:bg-[#2C2C2E]"
+                                    indicatorClassName="bg-[#1D1D1F] dark:bg-[#F5F5F7]"
+                                  />
+                                  <span className="text-[11px] font-mono tabular-nums text-[#86868B]">
+                                    {activeItem.progressPercent ?? 12}%
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="flex items-center justify-between gap-2 pt-3 border-t border-black/[0.055] dark:border-white/[0.07]">
+                            <span className="text-[11px] text-[#86868B] tabular-nums">
+                              Atualizado {formatRelativeTime(folder.latestDownloadedAt)}
+                            </span>
+
+                            <div className="flex items-center gap-2">
+                              {primaryCompleted && (
+                                <button
+                                  type="button"
+                                  disabled={isOpeningPrimary}
+                                  onMouseEnter={() =>
+                                    preloadDownloadIntoMemory(primaryCompleted.id)
+                                  }
+                                  onClick={() => handleOpenDownloadedFile(primaryCompleted)}
+                                  className="inline-flex items-center gap-1.5 h-8 px-3.5 rounded-full bg-[#1D1D1F] text-white dark:bg-[#F5F5F7] dark:text-[#1D1D1F] text-xs font-medium hover:opacity-90 disabled:opacity-45 transition-opacity whitespace-nowrap shrink-0"
+                                >
+                                  {isVideoDownloadEntry(primaryCompleted) ? (
+                                    <Play className="w-3 h-3 fill-current" />
+                                  ) : (
+                                    <BookOpen className="w-3.5 h-3.5" />
+                                  )}
+                                  {isOpeningPrimary
+                                    ? "Abrindo..."
+                                    : isVideoDownloadEntry(primaryCompleted)
+                                    ? "Assistir"
+                                    : "Abrir"}
+                                </button>
+                              )}
+
+                              <button
+                                type="button"
+                                onClick={() => handleSelectFolder(folder.folderKey)}
+                                className={`inline-flex items-center gap-1.5 h-8 px-3.5 rounded-full text-xs font-medium transition-colors whitespace-nowrap shrink-0 ${
+                                  primaryCompleted
+                                    ? "border border-black/[0.08] dark:border-white/[0.12] bg-white dark:bg-[#2C2C2E] text-[#1D1D1F] dark:text-[#F5F5F7] hover:bg-[#F5F5F7] dark:hover:bg-[#3A3A3C]"
+                                    : "bg-[#1D1D1F] text-white dark:bg-[#F5F5F7] dark:text-[#1D1D1F] hover:opacity-90"
+                                }`}
+                              >
+                                <FolderOpen className="w-3.5 h-3.5" />
+                                Abrir Pasta
+                              </button>
                             </div>
                           </div>
                         </div>
-
-                        <div className="flex flex-wrap items-center gap-2 self-end md:self-center shrink-0">
-                          <button
-                            type="button"
-                            disabled={isOpening || entry.status === "in_progress"}
-                            onClick={() => handleOpenDownloadedFile(entry)}
-                            className="inline-flex items-center gap-1.5 h-8 px-4 rounded-full bg-[#1D1D1F] text-white dark:bg-[#F5F5F7] dark:text-[#1D1D1F] text-xs font-medium hover:bg-[#333336] dark:hover:bg-[#E5E5EA] disabled:opacity-45 transition-colors whitespace-nowrap shrink-0"
-                          >
-                            <FolderOpen className="w-3.5 h-3.5" />
-                            {isOpening ? "Abrindo..." : "Abrir"}
-                          </button>
-
-                          <button
-                            type="button"
-                            disabled={isRedownloading || entry.status === "in_progress"}
-                            onClick={() => handleRedownloadEntry(entry)}
-                            title="Baixar arquivo novamente para o dispositivo"
-                            className="inline-flex items-center gap-1.5 h-8 px-3.5 rounded-full border border-black/[0.08] dark:border-white/[0.12] bg-white dark:bg-[#2C2C2E] text-xs font-medium text-[#1D1D1F] dark:text-[#F5F5F7] hover:bg-[#F5F5F7] dark:hover:bg-[#3A3A3C] disabled:opacity-45 transition-colors whitespace-nowrap shrink-0"
-                          >
-                            <RotateCw
-                              className={`w-3 h-3 ${
-                                isRedownloading || entry.status === "in_progress" ? "animate-spin" : ""
-                              }`}
-                            />
-                            {isRedownloading || entry.status === "in_progress"
-                              ? "Baixando..."
-                              : entry.status === "failed"
-                              ? "Tentar novamente"
-                              : "Baixar novamente"}
-                          </button>
-
-                          {entry.openHref && (
-                            <Link
-                              to={entry.openHref}
-                              title="Ir para a página da obra"
-                              className="h-8 w-8 inline-flex items-center justify-center rounded-full text-[#86868B] hover:text-[#1D1D1F] dark:hover:text-[#F5F5F7] hover:bg-[#F5F5F7] dark:hover:bg-[#2C2C2E] transition-colors shrink-0"
-                            >
-                              <ExternalLink className="w-3.5 h-3.5" />
-                            </Link>
-                          )}
-
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveDownload(entry)}
-                            title="Remover do histórico de downloads"
-                            aria-label={`Remover ${entry.title} dos downloads`}
-                            className="h-8 w-8 inline-flex items-center justify-center rounded-full text-[#86868B] hover:text-[#DC2626] hover:bg-[#DC2626]/10 transition-colors shrink-0"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </>
+            )}
           </motion.section>
         )}
 
@@ -1953,49 +2471,121 @@ const Profile = () => {
         )}
       </main>
 
-      {/* In-App Downloaded File Viewer Modal */}
-      <Dialog
-        open={Boolean(viewerState)}
+      {/* Organized Video Screening Room for Movies, Series & Animes */}
+      <OfflineMediaTheater
+        open={Boolean(viewerState && isVideoDownloadEntry(viewerState.entry))}
         onOpenChange={(open) => {
-          if (!open) setViewerState(null);
+          if (!open) {
+            openRequestSeqRef.current++;
+            setIsLoadingTheaterEntry(false);
+            setOpeningDownloadId(null);
+            setViewerState(null);
+          }
+        }}
+        entry={viewerState?.entry || null}
+        mediaBlob={viewerState?.blob || null}
+        streamUrl={viewerState?.streamUrl || null}
+        isHlsStream={Boolean(viewerState?.isHlsStream)}
+        folder={viewerFolder}
+        cachedIds={cachedDownloadIds}
+        isLoadingMedia={isLoadingTheaterEntry}
+        onSelectEntry={handleOpenDownloadedFile}
+        onPreloadEntry={(ep) => preloadDownloadIntoMemory(ep.id)}
+      />
+
+      {/* Organized PDF / Book / Manga / Webtoon Offline Reader Modal */}
+      <Dialog
+        open={Boolean(viewerState && !isVideoDownloadEntry(viewerState.entry))}
+        onOpenChange={(open) => {
+          if (!open) {
+            openRequestSeqRef.current++;
+            setIsLoadingTheaterEntry(false);
+            setOpeningDownloadId(null);
+            setViewerState(null);
+          }
         }}
       >
         <DialogContent className="max-w-5xl w-[95vw] h-[90vh] flex flex-col p-0 overflow-hidden gap-0">
-          <DialogHeader className="px-6 py-4 border-b border-border shrink-0 pr-12">
-            <DialogTitle className="font-display text-lg truncate">
-              {viewerState?.entry.title}
-            </DialogTitle>
-            <DialogDescription className="text-xs text-muted-foreground truncate">
-              {viewerState?.entry.author ? `${viewerState.entry.author} · ` : ""}
-              {viewerState?.entry.fileName}
-              {viewerState?.entry.fileSizeFormatted
-                ? ` · ${viewerState.entry.fileSizeFormatted}`
-                : ""}
-            </DialogDescription>
-          </DialogHeader>
+          {viewerState && !isVideoDownloadEntry(viewerState.entry) && (
+            <>
+              <DialogHeader className="px-5 sm:px-6 py-3.5 border-b border-border shrink-0 pr-12 flex-row items-center justify-between gap-3 space-y-0">
+                <div className="min-w-0 flex-1">
+                  <DialogTitle className="font-display text-base sm:text-lg truncate">
+                    {viewerState.entry.title}
+                  </DialogTitle>
+                  <DialogDescription className="text-xs text-muted-foreground truncate">
+                    {viewerState.entry.author ? `${viewerState.entry.author} · ` : ""}
+                    {viewerState.entry.fileName}
+                    {viewerState.entry.fileSizeFormatted
+                      ? ` · ${viewerState.entry.fileSizeFormatted}`
+                      : ""}
+                  </DialogDescription>
+                </div>
 
-          <div className="flex-1 overflow-y-auto p-3 sm:p-4 bg-muted/20">
-            {viewerState &&
-              (isVideoDownloadEntry(viewerState.entry) ? (
-                <DownloadedVideoViewer
-                  entry={viewerState.entry}
-                  bytes={viewerState.bytes}
-                />
-              ) : (
-                <OriginalPdfViewer
-                  pdfUrl={viewerState.entry.downloadUrl || ""}
-                  downloadUrl={viewerState.entry.downloadUrl || ""}
-                  pdfBytes={viewerState.bytes}
-                  itemId={viewerState.entry.itemId}
-                  cover={viewerState.entry.cover}
-                  category={viewerState.entry.category}
-                  title={viewerState.entry.title}
-                  author={viewerState.entry.author || "Acervo Wotho"}
-                  fileSizeFormatted={viewerState.entry.fileSizeFormatted}
-                  hasTextMode={false}
-                />
-              ))}
-          </div>
+                {viewerFolder && viewerFolder.looseEntries.length > 1 && (
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    {(() => {
+                      const list = viewerFolder.looseEntries.filter(
+                        (e) => e.status === "completed"
+                      );
+                      const idx = list.findIndex((e) => e.id === viewerState.entry.id);
+                      const prev = idx > 0 ? list[idx - 1] : null;
+                      const next = idx >= 0 && idx < list.length - 1 ? list[idx + 1] : null;
+                      return (
+                        <>
+                          <button
+                            type="button"
+                            disabled={!prev}
+                            onMouseEnter={() => prev && preloadDownloadIntoMemory(prev.id)}
+                            onClick={() => prev && handleOpenDownloadedFile(prev)}
+                            className="inline-flex items-center gap-1 h-8 px-3 rounded-full border border-border text-xs font-medium hover:bg-muted disabled:opacity-40 transition-colors"
+                          >
+                            <ChevronLeft className="w-3.5 h-3.5" />
+                            Anterior
+                          </button>
+                          <button
+                            type="button"
+                            disabled={!next}
+                            onMouseEnter={() => next && preloadDownloadIntoMemory(next.id)}
+                            onClick={() => next && handleOpenDownloadedFile(next)}
+                            className="inline-flex items-center gap-1 h-8 px-3 rounded-full border border-border text-xs font-medium hover:bg-muted disabled:opacity-40 transition-colors"
+                          >
+                            Próximo
+                            <ChevronRight className="w-3.5 h-3.5" />
+                          </button>
+                        </>
+                      );
+                    })()}
+                  </div>
+                )}
+              </DialogHeader>
+
+              <div className="flex-1 overflow-y-auto p-3 sm:p-4 bg-muted/20">
+                {viewerState.blob ? (
+                  <OriginalPdfViewer
+                    key={viewerState.entry.id}
+                    pdfUrl=""
+                    downloadUrl={viewerState.entry.downloadUrl || ""}
+                    pdfBlob={viewerState.blob}
+                    itemId={viewerState.entry.itemId}
+                    cover={viewerState.entry.cover}
+                    category={viewerState.entry.category}
+                    title={viewerState.entry.title}
+                    author={viewerState.entry.author || "Acervo Wotho"}
+                    fileSizeFormatted={viewerState.entry.fileSizeFormatted}
+                    hasTextMode={false}
+                  />
+                ) : (
+                  <div className="h-full min-h-[320px] flex flex-col items-center justify-center gap-3 text-muted-foreground">
+                    <Loader2 className="w-6 h-6 animate-spin text-foreground" />
+                    <span className="text-xs font-medium">
+                      Abrindo arquivo salvo...
+                    </span>
+                  </div>
+                )}
+              </div>
+            </>
+          )}
         </DialogContent>
       </Dialog>
 
