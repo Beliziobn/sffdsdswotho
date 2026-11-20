@@ -319,6 +319,17 @@ const CANON_BRIDGE_REGISTRY: Record<string, CanonBridgeMapping> = {
     hasMangaAdaptation: true,
     chaptersPerEpisode: 2.3,
   },
+  "slam-dunk": {
+    hasMangaAdaptation: true,
+    chaptersPerEpisode: 2.7,
+    episodeMap: {
+      1: [1, 2],
+      2: [3, 5],
+      3: [6, 8],
+      4: [9, 11],
+      5: [12, 14],
+    },
+  },
 };
 
 export const AMBIENT_THEME_MAP: Record<string, AmbientTheme> = {
@@ -377,6 +388,11 @@ export const AMBIENT_THEME_MAP: Record<string, AmbientTheme> = {
     ambientRgb: "249, 115, 22",
     logline: "Fantasmas, OVNIs e velocidade absurda colidem na mais elétrica aventura sobrenatural da nova geração.",
   },
+  "slam-dunk": {
+    accentHex: "#ef4444",
+    ambientRgb: "239, 68, 68",
+    logline: "Do delinquente ruivo ao reboteiro lendário de Shohoku: paixão, superação e basquete inesquecível.",
+  },
 };
 
 export const PHILOSOPHICAL_QUOTES: Record<string, PhilosophicalWorkMeta> = {
@@ -419,6 +435,11 @@ export const PHILOSOPHICAL_QUOTES: Record<string, PhilosophicalWorkMeta> = {
     quote: "“Nada nasce do nada: para ganhar algo, outro valor equivalente precisa ser entregue.”",
     authorNote: "Hiromu Arakawa · Troca Equivalente",
     themeLabel: "Sacrifício e Humanismo",
+  },
+  "slam-dunk": {
+    quote: "“Quando você desiste, o jogo acaba naquele exato instante.”",
+    authorNote: "Takehiko Inoue · Técnico Anzai",
+    themeLabel: "Superação, Disciplina e Espírito de Equipe",
   },
 };
 

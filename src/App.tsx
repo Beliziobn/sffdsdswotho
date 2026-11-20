@@ -12,32 +12,6 @@ import AppErrorBoundary from "./components/AppErrorBoundary";
 import { GeoLanguageProvider } from "./lib/geoLanguage";
 import { PageShellSkeleton } from "./components/skeletons/AppSkeletons";
 import Index from "./pages/Index";
-import NotFound from "./pages/NotFound";
-import Books from "./pages/Books";
-import BookDetail from "./pages/BookDetail";
-import Reader from "./pages/Reader";
-import News from "./pages/News";
-import NewsArticle from "./pages/NewsArticle";
-import Library from "./pages/Library";
-import Auth from "./pages/Auth";
-import ContentDetail from "./pages/ContentDetail";
-import ContentReader from "./pages/ContentReader";
-import WebtoonDetail from "./pages/WebtoonDetail";
-import Webtoons from "./pages/Webtoons";
-import WebtoonReader from "./pages/WebtoonReader";
-import Animes from "./pages/Animes";
-import AnimeDetail from "./pages/AnimeDetail";
-import Cinema from "./pages/Cinema";
-import CinemaDetail from "./pages/CinemaDetail";
-import ForYou from "./pages/ForYou";
-import ContinueReading from "./pages/ContinueReading";
-import Search from "./pages/Search";
-import Terms from "./pages/Terms";
-import Privacy from "./pages/Privacy";
-import SiteMapPage from "./pages/SiteMapPage";
-import About from "./pages/About";
-import Contact from "./pages/Contact";
-import Profile from "./pages/Profile";
 
 function lazyWithRetry<T extends ComponentType<any>>(
   factory: () => Promise<{ default: T }>
@@ -59,6 +33,32 @@ function lazyWithRetry<T extends ComponentType<any>>(
   });
 }
 
+const NotFound = lazyWithRetry(() => import("./pages/NotFound"));
+const Books = lazyWithRetry(() => import("./pages/Books"));
+const BookDetail = lazyWithRetry(() => import("./pages/BookDetail"));
+const Reader = lazyWithRetry(() => import("./pages/Reader"));
+const News = lazyWithRetry(() => import("./pages/News"));
+const NewsArticle = lazyWithRetry(() => import("./pages/NewsArticle"));
+const Library = lazyWithRetry(() => import("./pages/Library"));
+const Auth = lazyWithRetry(() => import("./pages/Auth"));
+const ContentDetail = lazyWithRetry(() => import("./pages/ContentDetail"));
+const ContentReader = lazyWithRetry(() => import("./pages/ContentReader"));
+const WebtoonDetail = lazyWithRetry(() => import("./pages/WebtoonDetail"));
+const Webtoons = lazyWithRetry(() => import("./pages/Webtoons"));
+const WebtoonReader = lazyWithRetry(() => import("./pages/WebtoonReader"));
+const Animes = lazyWithRetry(() => import("./pages/Animes"));
+const AnimeDetail = lazyWithRetry(() => import("./pages/AnimeDetail"));
+const Cinema = lazyWithRetry(() => import("./pages/Cinema"));
+const CinemaDetail = lazyWithRetry(() => import("./pages/CinemaDetail"));
+const ForYou = lazyWithRetry(() => import("./pages/ForYou"));
+const ContinueReading = lazyWithRetry(() => import("./pages/ContinueReading"));
+const Search = lazyWithRetry(() => import("./pages/Search"));
+const Terms = lazyWithRetry(() => import("./pages/Terms"));
+const Privacy = lazyWithRetry(() => import("./pages/Privacy"));
+const SiteMapPage = lazyWithRetry(() => import("./pages/SiteMapPage"));
+const About = lazyWithRetry(() => import("./pages/About"));
+const Contact = lazyWithRetry(() => import("./pages/Contact"));
+const Profile = lazyWithRetry(() => import("./pages/Profile"));
 const Admin = lazyWithRetry(() => import("./pages/Admin"));
 const AnimeMangaReader = lazyWithRetry(() => import("./pages/AnimeMangaReader"));
 const PurchaseSuccess = lazyWithRetry(() => import("./pages/PurchaseSuccess"));

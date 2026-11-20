@@ -229,11 +229,14 @@ export const SecureAnimePlayer: React.FC<SecureAnimePlayerProps> = ({
     (episode.subHlsStreamUrl || "").split("?")[0] ||
     catalogDubUrl;
 
+  const isMaximaImgUrl = (url: string) => /maximaimg\.online/i.test(url || "");
+
   const isCatalogDubExplicit =
     !isSteelBallRun &&
     !isMovieEpisode &&
     animeId !== "slam-dunk" &&
     !catalogDubUrl.startsWith("/api/") &&
+    !isMaximaImgUrl(catalogDubUrl) &&
     /-dublado|-dub\b|op-cn|dublado|-pt\.mp4/i.test(catalogDubUrl);
 
   // Map anime catalog seasons/episodes to exact TMDB ID, Media Type, Season & Episode
@@ -253,7 +256,7 @@ export const SecureAnimePlayer: React.FC<SecureAnimePlayerProps> = ({
         season: 1,
         episode: 1,
         title: episode.title.includes("THE FIRST SLAM DUNK") ? "The First Slam Dunk" : "Slam Dunk",
-        year: episode.tmdbMovieId === 783675 ? 2022 : 1994,
+        year: episode.tmdbMovieId === 783675 ? 2022 : Number((episode.airDate || "1994").slice(0, 4)) || 1994,
       };
     }
 
@@ -604,6 +607,10 @@ export const SecureAnimePlayer: React.FC<SecureAnimePlayerProps> = ({
         if (cancelled) return;
         if (Array.isArray(data?.streams)) {
           setOrionStreams(data.streams);
+          if (data.streams.length > 0) {
+            setUseEmbedFallback(false);
+            setCandidateIdx(0);
+          }
         }
         if (Array.isArray(data?.ptbrEmbedUrls)) {
           setPtbrEmbedUrls(data.ptbrEmbedUrls);
@@ -707,15 +714,20 @@ export const SecureAnimePlayer: React.FC<SecureAnimePlayerProps> = ({
     }
 
     if (selectedDubId === "ptbr:0" || selectedDubId === "pt:0") {
-      // 1. Verified explicit PT-BR dub URL from catalog (maximaimg -dublado)
+      // 1. Reliable direct PT-BR dub URL from catalog (e.g. archive.org — excludes offline maximaimg CDN)
       if (isCatalogDubExplicit && catalogDubUrl && !catalogDubUrl.startsWith("/api/")) {
         addCandidate(makeCatalogStream(catalogDubUrl, "dublado", "Português (Dublado PT-BR)"));
       }
-      // 2. All PT-BR dubbed streams from Orion / WatchPlay / Embedplayer2 / Blogger
+      // 2. All live PT-BR dubbed streams from Orion / WatchPlay / Embedplayer2 / Blogger
       dubResolved.forEach(addCandidate);
-      // 3. Only if zero PT-BR dubbed routes worked, fall back gracefully to original + sub
+      // 3. Only if zero PT-BR dubbed routes worked, fall back gracefully to original + PT-BR subtitles
       nonDubResolved.forEach(addCandidate);
-      if (catalogSubUrl && !catalogSubUrl.startsWith("/api/") && animeId !== "slam-dunk") {
+      if (
+        catalogSubUrl &&
+        !catalogSubUrl.startsWith("/api/") &&
+        !isMaximaImgUrl(catalogSubUrl) &&
+        animeId !== "slam-dunk"
+      ) {
         addCandidate(makeCatalogStream(catalogSubUrl, "original", "Japonês (Original · Legendado PT-BR)"));
       }
       return list;
@@ -723,7 +735,12 @@ export const SecureAnimePlayer: React.FC<SecureAnimePlayerProps> = ({
 
     if (selectedDubId === "pt:1" || selectedDubId === "ptbr:1") {
       orionStreams.forEach(addCandidate);
-      if (catalogSubUrl && !catalogSubUrl.startsWith("/api/") && animeId !== "slam-dunk") {
+      if (
+        catalogSubUrl &&
+        !catalogSubUrl.startsWith("/api/") &&
+        !isMaximaImgUrl(catalogSubUrl) &&
+        animeId !== "slam-dunk"
+      ) {
         addCandidate(makeCatalogStream(catalogSubUrl, "legendado", "Português (Legendado)"));
       }
       return list;
@@ -733,6 +750,7 @@ export const SecureAnimePlayer: React.FC<SecureAnimePlayerProps> = ({
     if (
       (catalogSubUrl || catalogDubUrl) &&
       !(catalogSubUrl || catalogDubUrl).startsWith("/api/") &&
+      !isMaximaImgUrl(catalogSubUrl || catalogDubUrl) &&
       animeId !== "slam-dunk"
     ) {
       addCandidate(
@@ -819,6 +837,7 @@ export const SecureAnimePlayer: React.FC<SecureAnimePlayerProps> = ({
 
     const shouldWaitForOrion =
       isSteelBallRun ||
+      isMovieEpisode ||
       !isCatalogDubExplicit ||
       selectedDubId !== "ptbr:0";
 
@@ -886,7 +905,7 @@ export const SecureAnimePlayer: React.FC<SecureAnimePlayerProps> = ({
       const baseProxyUrl = activeStream?.proxyUrl || `/api/cinema/mp4-proxy?url=${encodeURIComponent(activeRawUrl)}`;
       const selfHealParams = new URLSearchParams({
         tmdbId: String(tmdbTarget.tmdbId || ""),
-        type: "tv",
+        type: tmdbTarget.mediaType,
         season: String(effectiveTmdbSeason),
         episode: String(effectiveTmdbEpisode),
         title: tmdbTarget.title,
@@ -1075,6 +1094,7 @@ export const SecureAnimePlayer: React.FC<SecureAnimePlayerProps> = ({
     isResolvingOrion,
     isCatalogDubExplicit,
     isSteelBallRun,
+    isMovieEpisode,
     selectedDubId,
     tmdbTarget,
     effectiveTmdbSeason,
@@ -1138,7 +1158,9 @@ export const SecureAnimePlayer: React.FC<SecureAnimePlayerProps> = ({
       ? episode.anivideoEmbedUrl
       : ptbrEmbedUrls[0] ||
         (tmdbTarget.tmdbId
-          ? `https://embedyplayer.xyz/embed/${tmdbTarget.tmdbId}/${effectiveTmdbSeason}/${effectiveTmdbEpisode}`
+          ? tmdbTarget.mediaType === "movie"
+            ? `https://embedyplayer.xyz/embed/${tmdbTarget.tmdbId}`
+            : `https://embedyplayer.xyz/embed/${tmdbTarget.tmdbId}/${effectiveTmdbSeason}/${effectiveTmdbEpisode}`
           : `https://playerflix.ink/`);
 
   const toggleFullscreen = () => {

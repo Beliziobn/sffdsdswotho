@@ -1297,15 +1297,18 @@ export function injectSeoIntoHtml(html, rawPathname, options = {}) {
     );
   }
 
-  // 7. Always inject rich semantic HTML5 into #root so crawlers, AdSense auditors, and non-JS clients
-  //    immediately receive complete paragraphs of editorial content and legal navigation links.
-  const safeH1 = clampHeading(seo.h1 || seo.title, 150);
-  const botBody = renderSemanticBotShell({ ...seo, h1: safeH1 }, origin);
-  const ssrMarkerMatch = /<!--WOTHO_SSR_START-->[\s\S]*?<!--WOTHO_SSR_END-->/i;
-  if (ssrMarkerMatch.test(out)) {
-    out = out.replace(ssrMarkerMatch, `<!--WOTHO_SSR_START-->\n      ${botBody}\n    <!--WOTHO_SSR_END-->`);
-  } else {
-    out = out.replace(/<div id="root">[\s\S]*?<\/div>/i, `<div id="root">\n      ${botBody}\n    </div>`);
+  // 7. Only inject the crawler-specific semantic HTML shell (#wotho-ssr-seo) for verified search/AdSense bots.
+  //    Human browsers always receive the clean visual page-content skeleton (#wotho-boot-skeleton) from index.html
+  //    so users never see unstyled SSR link lists or duplicate hero banners while React boots.
+  if (isBot) {
+    const safeH1 = clampHeading(seo.h1 || seo.title, 150);
+    const botBody = renderSemanticBotShell({ ...seo, h1: safeH1 }, origin);
+    const ssrMarkerMatch = /<!--WOTHO_SSR_START-->[\s\S]*?<!--WOTHO_SSR_END-->/i;
+    if (ssrMarkerMatch.test(out)) {
+      out = out.replace(ssrMarkerMatch, `<!--WOTHO_SSR_START-->\n      ${botBody}\n    <!--WOTHO_SSR_END-->`);
+    } else {
+      out = out.replace(/<div id="root">[\s\S]*?<\/div>/i, `<div id="root">\n      ${botBody}\n    </div>`);
+    }
   }
 
   return { html: out, seo };
@@ -1390,7 +1393,7 @@ export async function handleSeoPrerenderRequest(req, res) {
   const template = findIndexHtmlTemplate();
   const { html, seo } = injectSeoIntoHtml(template, normalizedPath, {
     origin: DEFAULT_ORIGIN,
-    isBot: true,
+    isBot,
   });
 
   res.statusCode = 200;
