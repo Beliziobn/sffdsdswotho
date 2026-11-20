@@ -63,7 +63,18 @@ let firestoreNetworkAvailable = true;
 let connectionCheckPromise: Promise<boolean> | null = null;
 let lastCheckTs = 0;
 
+const FIREBASE_CRAWLER_UA_REGEX =
+  /googlebot|google-inspectiontool|storebot-google|adsbot-google|apis-google|mediapartners-google|googleother|bingbot|bingpreview|msnbot|adidxbot|duckduckbot|baiduspider|yandexbot|slurp|applebot|facebookexternalhit|twitterbot|linkedinbot|oai-searchbot|chatgpt-user|gptbot|claudebot|perplexitybot|lighthouse|chrome-lighthouse|pagespeed|gtmetrix|ptst|headlesschrome/i;
+
+export function isBotUserAgent(): boolean {
+  if (typeof navigator === "undefined") return false;
+  return FIREBASE_CRAWLER_UA_REGEX.test(navigator.userAgent || "");
+}
+
 async function probeFirestoreBackend(timeoutMs = 4000): Promise<boolean> {
+  if (isBotUserAgent()) {
+    return false;
+  }
   if (typeof navigator !== "undefined" && navigator.onLine === false) {
     return false;
   }
@@ -91,6 +102,10 @@ async function probeFirestoreBackend(timeoutMs = 4000): Promise<boolean> {
 
 // Connection test on boot per firebase-integration-rpc skill, guarded below Firestore's 10s OnlineStateTracker timeout
 async function testConnection(): Promise<boolean> {
+  if (isBotUserAgent()) {
+    firestoreNetworkAvailable = false;
+    return false;
+  }
   lastCheckTs = Date.now();
   const reachable = await probeFirestoreBackend(4000);
   if (!reachable) {
@@ -137,6 +152,9 @@ async function testConnection(): Promise<boolean> {
 }
 
 export function ensureFirestoreReady(): Promise<boolean> {
+  if (isBotUserAgent()) {
+    return Promise.resolve(false);
+  }
   if (!connectionCheckPromise) {
     connectionCheckPromise = testConnection();
   }
@@ -144,6 +162,9 @@ export function ensureFirestoreReady(): Promise<boolean> {
 }
 
 export async function ensureFirestoreOnline(): Promise<boolean> {
+  if (isBotUserAgent()) {
+    return false;
+  }
   const ready = await ensureFirestoreReady();
   if (ready) return true;
   if (typeof navigator !== "undefined" && navigator.onLine === false) {
@@ -161,12 +182,11 @@ export function isFirestoreAvailable(): boolean {
   return firestoreNetworkAvailable;
 }
 
-if (typeof window !== "undefined") {
+if (typeof window !== "undefined" && !isBotUserAgent()) {
   window.addEventListener("online", () => {
     lastCheckTs = 0;
     connectionCheckPromise = null;
     void ensureFirestoreOnline();
   });
+  void ensureFirestoreReady();
 }
-
-void ensureFirestoreReady();

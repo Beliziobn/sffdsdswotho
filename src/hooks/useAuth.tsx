@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
-import { auth as firebaseAuth } from "@/lib/firebase";
+import { auth as firebaseAuth, isBotUserAgent } from "@/lib/firebase";
 import { onAuthStateChanged, signOut as firebaseSignOut } from "firebase/auth";
 import {
   getSpecialAdminUser,
@@ -22,6 +22,11 @@ export const useAuth = () => {
   const [isAdmin, setIsAdmin] = useState<boolean>(() => isSpecialAdminLoggedIn());
 
   useEffect(() => {
+    if (isBotUserAgent()) {
+      setLoading(false);
+      return;
+    }
+
     const syncSpecialAdmin = (): boolean => {
       if (isSpecialAdminLoggedIn()) {
         const specialUser = getSpecialAdminUser() as unknown as User;

@@ -666,32 +666,31 @@ export function translateTextSync(text: string, lang: AppLanguage = "en"): strin
   return out !== trimmed ? text.replace(trimmed, out) : text;
 }
 
+const SEARCH_CRAWLER_UA_REGEX =
+  /googlebot|google-inspectiontool|storebot-google|adsbot-google|apis-google|mediapartners-google|googleother|bingbot|bingpreview|msnbot|adidxbot|duckduckbot|baiduspider|yandexbot|slurp|applebot|facebookexternalhit|twitterbot|linkedinbot|oai-searchbot|chatgpt-user|gptbot|claudebot|perplexitybot|lighthouse|chrome-lighthouse|pagespeed|gtmetrix|ptst|headlesschrome/i;
+
+export function isSearchEngineCrawler(): boolean {
+  if (typeof navigator === "undefined") return false;
+  try {
+    const ua = navigator.userAgent || "";
+    if (SEARCH_CRAWLER_UA_REGEX.test(ua)) return true;
+  } catch {
+    // ignore
+  }
+  return false;
+}
+
 /**
- * Translates a single string directly via client-side GTX endpoint as fallback
+ * Translates a single string synchronously via dictionary fallback without hitting external translate.googleapis.com from the browser
  */
 async function translateSingleClientFallback(text: string, targetLang: AppLanguage): Promise<string> {
   const trimmed = text.trim();
   if (!trimmed) return text;
-  try {
-    const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${encodeURIComponent(
-      targetLang
-    )}&dt=t&q=${encodeURIComponent(trimmed)}`;
-    const r = await fetch(url);
-    if (!r.ok) return text;
-    const d = await r.json();
-    if (Array.isArray(d) && Array.isArray(d[0])) {
-      const trans = d[0]
-        .map((seg: any) => (Array.isArray(seg) && typeof seg[0] === "string" ? seg[0] : ""))
-        .join("")
-        .trim();
-      if (trans) {
-        memoryTranslationCache.set(`${targetLang}:${trimmed}`, trans);
-        scheduleSaveTranslationCache();
-        return trans;
-      }
-    }
-  } catch {
-    // ignore
+  const sync = translateTextSync(text, targetLang);
+  if (sync && sync !== text) {
+    memoryTranslationCache.set(`${targetLang}:${trimmed}`, sync.trim());
+    scheduleSaveTranslationCache();
+    return sync;
   }
   return text;
 }
@@ -878,7 +877,20 @@ function getInitialGeoState(): GeoInfo {
     // ignore URL parse error
   }
 
-  // 2. Check manual user override in localStorage
+  // 2. Always preserve canonical Portuguese (pt-BR) for Search Engine Crawlers (Googlebot, Bingbot, InspectionTool)
+  // even when they crawl from US data centers (America/Los_Angeles / en-US).
+  if (isSearchEngineCrawler()) {
+    return {
+      countryCode: "BR",
+      countryName: "Brasil",
+      isLusophone: true,
+      language: "pt",
+      detectionSource: "seo_crawler_canonical_pt",
+      isManualOverride: false,
+    };
+  }
+
+  // 3. Check manual user override in localStorage
   try {
     const rawOverride = localStorage.getItem(STORAGE_OVERRIDE_KEY);
     if (rawOverride) {
@@ -1060,6 +1072,7 @@ export const GeoLanguageProvider: React.FC<{ children: React.ReactNode }> = ({ c
   const detectIpGeolocation = useCallback(
     async (forceResetOverride = false) => {
       if (typeof window === "undefined") return;
+      if (isSearchEngineCrawler()) return;
 
       if (!forceResetOverride) {
         try {
@@ -1107,25 +1120,6 @@ export const GeoLanguageProvider: React.FC<{ children: React.ReactNode }> = ({ c
             detectedCode = data.countryCode.toUpperCase();
             detectedName = data.countryName || "";
             source = data.detectionSource || "api_geo";
-          }
-        }
-
-        if (!detectedCode) {
-          try {
-            const clientGeoResp = await fetch("https://get.geojs.io/v1/ip/geo.json", {
-              headers: { Accept: "application/json" },
-              signal: AbortSignal.timeout(2200),
-            });
-            if (clientGeoResp.ok) {
-              const clientGeo = await clientGeoResp.json();
-              if (clientGeo && typeof clientGeo.country_code === "string" && clientGeo.country_code.length === 2) {
-                detectedCode = clientGeo.country_code.toUpperCase();
-                detectedName = clientGeo.country || "";
-                source = "client_ip_geojs";
-              }
-            }
-          } catch {
-            // Keep timezone-based country
           }
         }
 

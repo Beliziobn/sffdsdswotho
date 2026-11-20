@@ -15,6 +15,11 @@ import { getAllOriginalPdfBooks, getOriginalPdfForBook } from "@/lib/originalPdf
 import { expandNewsToDeepReport } from "@/lib/newsExpander";
 import { syncDailyNews, getCachedNews, hasFreshLiveSyndicatedCache, fetchTopicRssNews } from "@/lib/newsSyndication";
 import { queryNewsArchive, fetchPermanentArticle } from "@/lib/newsArchiveEngine";
+import { SCIENTIFIC_ARTICLES } from "@/data/scientificArticles";
+import { CURRICULAR_BOOKS } from "@/data/curricularBooks";
+import { MODERN_BOOKS } from "@/lib/modernBooks";
+import { CURATED_GUTENBERG_BOOKS, fetchGutenbergCatalog, fetchGutenbergChapters } from "@/lib/gutenbergBooks";
+import { getAutoImportedBooks } from "@/lib/bookAutomation";
 
 export type Book = {
   id: string;
@@ -99,7 +104,6 @@ export const useBooks = (search = "") =>
         // 2. Scientific Articles
         (async (): Promise<Book[]> => {
           try {
-            const { SCIENTIFIC_ARTICLES } = await import("@/data/scientificArticles");
             return SCIENTIFIC_ARTICLES.filter((s) =>
               search
                 ? s.title.toLowerCase().includes(lowerSearch) ||
@@ -127,7 +131,6 @@ export const useBooks = (search = "") =>
         // 3. Curricular Textbooks
         (async (): Promise<Book[]> => {
           try {
-            const { CURRICULAR_BOOKS } = await import("@/data/curricularBooks");
             return CURRICULAR_BOOKS.filter((c) =>
               search
                 ? c.title.toLowerCase().includes(lowerSearch) ||
@@ -156,7 +159,6 @@ export const useBooks = (search = "") =>
         // 4. Modern Bestsellers
         (async (): Promise<Book[]> => {
           try {
-            const { MODERN_BOOKS } = await import("@/lib/modernBooks");
             return MODERN_BOOKS.filter((b) =>
               search
                 ? b.title.toLowerCase().includes(lowerSearch) ||
@@ -183,7 +185,6 @@ export const useBooks = (search = "") =>
         // 5. Gutenberg Catalog
         (async (): Promise<Book[]> => {
           try {
-            const { fetchGutenbergCatalog } = await import("@/lib/gutenbergBooks");
             const list = await fetchGutenbergCatalog(search);
             return list.map((b) => ({
               id: b.id,
@@ -205,7 +206,6 @@ export const useBooks = (search = "") =>
         // 6. Auto-Imported Books
         (async (): Promise<Book[]> => {
           try {
-            const { getAutoImportedBooks } = await import("@/lib/bookAutomation");
             const list = await getAutoImportedBooks();
             return list
               .filter((b) =>
@@ -302,7 +302,6 @@ export const useBook = (id?: string) =>
       // 2. Check fast local registries by prefix before hitting network
       if (id.startsWith("sci-")) {
         try {
-          const { SCIENTIFIC_ARTICLES } = await import("@/data/scientificArticles");
           const found = SCIENTIFIC_ARTICLES.find((s) => s.id === id);
           if (found) {
             return getSingleBookWithOverrides(id, {
@@ -324,7 +323,6 @@ export const useBook = (id?: string) =>
 
       if (id.startsWith("curr-")) {
         try {
-          const { CURRICULAR_BOOKS } = await import("@/data/curricularBooks");
           const found = CURRICULAR_BOOKS.find((c) => c.id === id);
           if (found) {
             return getSingleBookWithOverrides(id, {
@@ -345,7 +343,6 @@ export const useBook = (id?: string) =>
       }
 
       if (id.startsWith("mod-")) {
-        const { MODERN_BOOKS } = await import("@/lib/modernBooks");
         const found = MODERN_BOOKS.find((b) => b.id === id);
         if (found) {
           return getSingleBookWithOverrides(id, {
@@ -366,7 +363,6 @@ export const useBook = (id?: string) =>
 
       if (id.startsWith("auto-")) {
         try {
-          const { getAutoImportedBooks } = await import("@/lib/bookAutomation");
           const list = await getAutoImportedBooks();
           const found = list.find((b) => b.id === id);
           if (found) {
@@ -408,7 +404,6 @@ export const useBook = (id?: string) =>
       } catch {}
 
       if (id.startsWith("guten-") || /^\d+$/.test(id)) {
-        const { CURATED_GUTENBERG_BOOKS, fetchGutenbergCatalog } = await import("@/lib/gutenbergBooks");
         const cleanId = id.startsWith("guten-") ? id : `guten-${id}`;
         const found = CURATED_GUTENBERG_BOOKS.find((b) => b.id === cleanId);
         if (found) {
@@ -495,7 +490,6 @@ export const useChapters = (bookId?: string) =>
       // Check Scientific Articles chapters
       if (bookId.startsWith("sci-")) {
         try {
-          const { SCIENTIFIC_ARTICLES } = await import("@/data/scientificArticles");
           const found = SCIENTIFIC_ARTICLES.find((s) => s.id === bookId);
           if (found && found.chapters) {
             return found.chapters as Chapter[];
@@ -506,7 +500,6 @@ export const useChapters = (bookId?: string) =>
       // Check Curricular Textbooks chapters
       if (bookId.startsWith("curr-")) {
         try {
-          const { CURRICULAR_BOOKS } = await import("@/data/curricularBooks");
           const found = CURRICULAR_BOOKS.find((c) => c.id === bookId);
           if (found && found.chapters) {
             return found.chapters as Chapter[];
@@ -517,7 +510,6 @@ export const useChapters = (bookId?: string) =>
       // Check Auto-Imported chapters
       if (bookId.startsWith("auto-")) {
         try {
-          const { getAutoImportedBooks } = await import("@/lib/bookAutomation");
           const list = await getAutoImportedBooks();
           const found = list.find((b) => b.id === bookId);
           if (found && found.chapters) {
@@ -528,7 +520,6 @@ export const useChapters = (bookId?: string) =>
 
       // Check Modern Bestsellers chapters
       if (bookId.startsWith("mod-")) {
-        const { MODERN_BOOKS } = await import("@/lib/modernBooks");
         const found = MODERN_BOOKS.find((b) => b.id === bookId);
         if (found && found.chapters) {
           return found.chapters as Chapter[];
@@ -537,7 +528,6 @@ export const useChapters = (bookId?: string) =>
 
       // Check Gutenberg chapters
       if (/^(?:guten-)?\d+$/.test(bookId)) {
-        const { fetchGutenbergChapters } = await import("@/lib/gutenbergBooks");
         const chaps = await fetchGutenbergChapters(bookId);
         if (chaps && chaps.length > 0) return chaps as Chapter[];
       }

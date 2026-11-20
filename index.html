@@ -5,25 +5,35 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="referrer" content="strict-origin-when-cross-origin" />
 
-    <!-- Google AdSense -->
-    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8089523516720577"
-     crossorigin="anonymous"></script>
+    <!-- Google AdSense Verification Meta -->
     <meta name="google-adsense-account" content="ca-pub-8089523516720577" />
 
-    <!-- Google Tag Manager (deferred & error-safe so adblockers/preview iframes never block boot) -->
+    <!-- Google AdSense & Google Tag Manager (skipped for search crawlers like Googlebot/InspectionTool to prevent blocked doubleclick.net & analytics XHR errors in Search Console) -->
     <script>
       window.dataLayer = window.dataLayer || [];
       function gtag(){dataLayer.push(arguments);}
       gtag('js', new Date());
-      window.addEventListener('load', function () {
-        try {
-          var s = document.createElement('script');
-          s.async = true;
-          s.src = 'https://www.googletagmanager.com/gtm.js?id=GTM-W9XSHXQS';
-          s.onerror = function () {};
-          document.head.appendChild(s);
-        } catch (e) {}
-      });
+      (function () {
+        var ua = (typeof navigator !== 'undefined' && navigator.userAgent) ? navigator.userAgent : '';
+        var isSearchBot = /googlebot|google-inspectiontool|storebot-google|googleother|bingbot|bingpreview|msnbot|adidxbot|duckduckbot|baiduspider|yandexbot|slurp|applebot|oai-searchbot|chatgpt-user|gptbot|claudebot|perplexitybot|lighthouse|chrome-lighthouse|pagespeed|gtmetrix|ptst|headlesschrome/i.test(ua);
+        if (isSearchBot) return;
+        window.addEventListener('load', function () {
+          try {
+            var ads = document.createElement('script');
+            ads.async = true;
+            ads.crossOrigin = 'anonymous';
+            ads.src = 'https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8089523516720577';
+            ads.onerror = function () {};
+            document.head.appendChild(ads);
+
+            var gtm = document.createElement('script');
+            gtm.async = true;
+            gtm.src = 'https://www.googletagmanager.com/gtm.js?id=GTM-W9XSHXQS';
+            gtm.onerror = function () {};
+            document.head.appendChild(gtm);
+          } catch (e) {}
+        });
+      })();
     </script>
     <meta name="google-site-verification" content="n_nVQKGN9hqwtcg5XjGbYyX8xzfR0aaTIEiLNZuZgwk" />
     <meta name="msvalidate.01" content="3DD20C5692A3D68BDDFFEA861D2C737F" />

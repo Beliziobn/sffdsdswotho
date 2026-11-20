@@ -7,11 +7,12 @@
 User-agent: Bingbot
 Allow: /
 Allow: /assets/
+Allow: /api/
 Allow: /sitemap.xml
 Allow: /sitemap-index.xml
 Allow: /news-sitemap.xml
 Allow: /api/sitemap.xml
-Disallow: /api/
+Disallow: /api/admin/
 Disallow: /admin
 Disallow: /auth
 Disallow: /perfil
@@ -34,7 +35,8 @@ Disallow: /*?*filter=
 User-agent: BingPreview
 Allow: /
 Allow: /assets/
-Disallow: /api/
+Allow: /api/
+Disallow: /api/admin/
 Disallow: /admin
 Disallow: /auth
 Disallow: /perfil
@@ -42,7 +44,8 @@ Disallow: /compra/
 
 User-agent: msnbot
 Allow: /
-Disallow: /api/
+Allow: /api/
+Disallow: /api/admin/
 Disallow: /admin
 Disallow: /auth
 Disallow: /perfil
@@ -53,7 +56,8 @@ Allow: /
 
 User-agent: OAI-SearchBot
 Allow: /
-Disallow: /api/
+Allow: /api/
+Disallow: /api/admin/
 Disallow: /admin
 Disallow: /auth
 Disallow: /perfil
@@ -61,33 +65,41 @@ Disallow: /compra/
 
 User-agent: ChatGPT-User
 Allow: /
-Disallow: /api/
+Allow: /api/
+Disallow: /api/admin/
 Disallow: /admin
 Disallow: /auth
 
 User-agent: GPTBot
 Allow: /
-Disallow: /api/
+Allow: /api/
+Disallow: /api/admin/
 Disallow: /admin
 Disallow: /auth
 
 User-agent: ClaudeBot
 Allow: /
-Disallow: /api/
+Allow: /api/
+Disallow: /api/admin/
 Disallow: /admin
 Disallow: /auth
 
 User-agent: PerplexityBot
 Allow: /
-Disallow: /api/
+Allow: /api/
+Disallow: /api/admin/
 Disallow: /admin
 Disallow: /auth
 
 User-agent: Googlebot
 Allow: /
 Allow: /assets/
+Allow: /api/
+Allow: /sitemap.xml
+Allow: /sitemap-index.xml
+Allow: /news-sitemap.xml
 Allow: /api/sitemap.xml
-Disallow: /api/
+Disallow: /api/admin/
 Disallow: /admin
 Disallow: /auth
 Disallow: /perfil
@@ -108,14 +120,19 @@ User-agent: Googlebot-Image
 Allow: /
 
 User-agent: Googlebot-News
+Allow: /
 Allow: /noticias
 Allow: /news-sitemap.xml
 
 User-agent: Googlebot-Video
+Allow: /
 Allow: /cinema
 Allow: /animes
 
 User-agent: AdsBot-Google
+Allow: /
+
+User-agent: Mediapartners-Google
 Allow: /
 
 User-agent: APIs-Google
@@ -124,7 +141,8 @@ Allow: /
 User-agent: *
 Allow: /
 Allow: /assets/
-Disallow: /api/
+Allow: /api/
+Disallow: /api/admin/
 Disallow: /admin
 Disallow: /auth
 Disallow: /perfil

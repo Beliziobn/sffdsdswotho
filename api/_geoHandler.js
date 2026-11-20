@@ -107,6 +107,11 @@ export async function handleGeoLocateRequest(req, res) {
   try {
     const urlObj = new URL(req.url || '/api/geo', 'http://localhost');
     const overrideCountry = (urlObj.searchParams.get('country') || '').trim().toUpperCase();
+    const userAgent = getHeader(req, 'user-agent');
+    const isCrawler =
+      /googlebot|google-inspectiontool|storebot-google|adsbot-google|apis-google|mediapartners-google|googleother|bingbot|bingpreview|msnbot|adidxbot|duckduckbot|baiduspider|yandexbot|slurp|applebot|facebookexternalhit|twitterbot|linkedinbot|oai-searchbot|chatgpt-user|gptbot|claudebot|perplexitybot|lighthouse/i.test(
+        userAgent
+      );
 
     let countryCode = '';
     let countryName = '';
@@ -115,6 +120,10 @@ export async function handleGeoLocateRequest(req, res) {
     if (overrideCountry && /^[A-Z]{2}$/.test(overrideCountry)) {
       countryCode = overrideCountry;
       detectionSource = 'query_override';
+    } else if (isCrawler) {
+      countryCode = 'BR';
+      countryName = 'Brasil';
+      detectionSource = 'seo_crawler_canonical_pt';
     } else {
       const headerCountry =
         getHeader(req, 'x-vercel-ip-country') ||

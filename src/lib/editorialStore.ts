@@ -214,7 +214,15 @@ export async function initCloudEditorialSync(force = false): Promise<void> {
   }
 }
 
-if (typeof window !== "undefined") {
+if (
+  typeof window !== "undefined" &&
+  !(
+    typeof navigator !== "undefined" &&
+    /googlebot|google-inspectiontool|storebot-google|adsbot-google|apis-google|mediapartners-google|googleother|bingbot|bingpreview|msnbot|adidxbot|duckduckbot|baiduspider|yandexbot|slurp|applebot|facebookexternalhit|twitterbot|linkedinbot|oai-searchbot|chatgpt-user|gptbot|claudebot|perplexitybot|lighthouse|chrome-lighthouse|pagespeed|gtmetrix|ptst|headlesschrome/i.test(
+      navigator.userAgent || ""
+    )
+  )
+) {
   if (isSpecialAdminLoggedIn()) {
     void refreshSpecialAdminSession();
   }

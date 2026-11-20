@@ -43,11 +43,30 @@ function toAbsoluteImageUrl(img, origin = BASE_URL) {
   return `${origin}/${trimmed}`;
 }
 
+const MIN_SITEMAP_TIMESTAMP = new Date('2024-01-01T00:00:00.000Z').getTime();
+
 function toIsoDate(value, fallbackIso) {
-  if (!value) return fallbackIso;
+  const fallbackParsed = new Date(fallbackIso || Date.now());
+  const safeFallbackMs = Number.isNaN(fallbackParsed.getTime())
+    ? Date.now()
+    : Math.max(fallbackParsed.getTime(), MIN_SITEMAP_TIMESTAMP);
+  const safeFallbackIso = new Date(safeFallbackMs).toISOString();
+
+  if (!value) return safeFallbackIso;
   const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) return fallbackIso;
+  const ms = parsed.getTime();
+  if (Number.isNaN(ms) || ms < MIN_SITEMAP_TIMESTAMP) {
+    return safeFallbackIso;
+  }
+  const nowMs = Date.now();
+  if (ms > nowMs) {
+    return new Date(nowMs).toISOString();
+  }
   return parsed.toISOString();
+}
+
+function toW3cDateOnly(value, fallbackIso) {
+  return toIsoDate(value, fallbackIso).split('T')[0];
 }
 
 function truncateText(text, max = 180) {
@@ -457,7 +476,7 @@ function wrapUrlset(entries, origin) {
 function buildSectionEntries(catalog, customOrigin = BASE_URL) {
   const origin = (customOrigin || BASE_URL).replace(/\/+$/, '');
   const catalogLastmodIso = toIsoDate(catalog.generatedAt, new Date().toISOString());
-  const catalogLastmodDate = catalogLastmodIso.split('T')[0];
+  const catalogLastmodDate = toW3cDateOnly(catalogLastmodIso, catalogLastmodIso);
 
   const latestNewsIso =
     (catalog.news || [])
@@ -465,7 +484,7 @@ function buildSectionEntries(catalog, customOrigin = BASE_URL) {
       .filter(Boolean)
       .sort()
       .pop() || catalogLastmodIso;
-  const latestNewsDate = toIsoDate(latestNewsIso, catalogLastmodIso).split('T')[0];
+  const latestNewsDate = toW3cDateOnly(latestNewsIso, catalogLastmodIso);
 
   const pages = STATIC_ROUTES.map((route) => {
     const isDynamicFeedRoute = route.path === '/' || route.path === '/noticias';
@@ -480,13 +499,14 @@ function buildSectionEntries(catalog, customOrigin = BASE_URL) {
   });
 
   const books = (catalog.books || []).map((b) => {
+    const numYear = Number(b.year) || 0;
     const rawDate =
       b.updated_at ||
       b.published_at ||
-      (b.year ? `${Math.min(Math.max(Number(b.year) || 2024, 1900), 2026)}-06-01T00:00:00.000Z` : catalogLastmodIso);
+      (numYear >= 2024 && numYear <= 2026 ? `${numYear}-06-01T00:00:00.000Z` : catalogLastmodIso);
     return {
       loc: `${origin}/livros/${encodeURIComponent(b.id)}`,
-      lastmod: toIsoDate(rawDate, catalogLastmodIso).split('T')[0],
+      lastmod: toW3cDateOnly(rawDate, catalogLastmodIso),
       changefreq: b.kind === 'scientific' ? 'monthly' : 'weekly',
       priority: '0.8',
       image: b.cover_url || `${origin}/og-image.jpg`,
@@ -495,16 +515,17 @@ function buildSectionEntries(catalog, customOrigin = BASE_URL) {
   });
 
   const cinema = (catalog.cinema || []).map((c) => {
+    const numYear = Number(c.year) || 0;
     const rawDate =
       c.updated_at ||
-      (c.year && Number(c.year) >= 2026
+      (numYear >= 2026
         ? catalogLastmodIso
-        : c.year
-        ? `${Math.min(Math.max(Number(c.year), 1920), 2026)}-06-01T00:00:00.000Z`
+        : numYear >= 2024
+        ? `${numYear}-06-01T00:00:00.000Z`
         : catalogLastmodIso);
     return {
       loc: `${origin}/cinema/${encodeURIComponent(c.id)}`,
-      lastmod: toIsoDate(rawDate, catalogLastmodIso).split('T')[0],
+      lastmod: toW3cDateOnly(rawDate, catalogLastmodIso),
       changefreq: 'weekly',
       priority: '0.8',
       image: c.posterUrl || c.backdropUrl || `${origin}/og-image.jpg`,
@@ -513,16 +534,17 @@ function buildSectionEntries(catalog, customOrigin = BASE_URL) {
   });
 
   const animes = (catalog.animes || []).map((a) => {
+    const numYear = Number(a.year) || 0;
     const rawDate =
       a.updated_at ||
-      (a.year && Number(a.year) >= 2026
+      (numYear >= 2026
         ? catalogLastmodIso
-        : a.year
-        ? `${Math.min(Math.max(Number(a.year), 1980), 2026)}-06-01T00:00:00.000Z`
+        : numYear >= 2024
+        ? `${numYear}-06-01T00:00:00.000Z`
         : catalogLastmodIso);
     return {
       loc: `${origin}/animes/${encodeURIComponent(a.id)}`,
-      lastmod: toIsoDate(rawDate, catalogLastmodIso).split('T')[0],
+      lastmod: toW3cDateOnly(rawDate, catalogLastmodIso),
       changefreq: 'weekly',
       priority: '0.8',
       image: a.cover || a.banner || `${origin}/og-image.jpg`,
@@ -534,7 +556,7 @@ function buildSectionEntries(catalog, customOrigin = BASE_URL) {
     const rawDate = w.updated_at || w.published_at || catalogLastmodIso;
     return {
       loc: `${origin}/webtoon/${encodeURIComponent(w.id)}`,
-      lastmod: toIsoDate(rawDate, catalogLastmodIso).split('T')[0],
+      lastmod: toW3cDateOnly(rawDate, catalogLastmodIso),
       changefreq: w.status === 'Completo' ? 'monthly' : 'weekly',
       priority: '0.8',
       image: w.cover || w.banner || `${origin}/og-image.jpg`,
@@ -544,7 +566,7 @@ function buildSectionEntries(catalog, customOrigin = BASE_URL) {
 
   const news = (catalog.news || []).slice(0, 1500).map((n) => ({
     loc: `${origin}/noticias/${encodeURIComponent(n.slug)}`,
-    lastmod: toIsoDate(n.updated_at || n.published_at, catalogLastmodIso),
+    lastmod: toW3cDateOnly(n.updated_at || n.published_at, catalogLastmodIso),
     changefreq: 'daily',
     priority: '0.7',
     image: n.cover_url || `${origin}/og-image.jpg`,
@@ -599,19 +621,20 @@ export function buildSubSitemapXml(sectionName, customOrigin = BASE_URL, catalog
 export function buildSitemapIndexXml(customOrigin = BASE_URL, catalogOverride = null) {
   const origin = (customOrigin || BASE_URL).replace(/\/+$/, '');
   const catalog = catalogOverride || loadSeoCatalog();
-  const catalogLastmod = toIsoDate(catalog.generatedAt, new Date().toISOString());
-  const latestNewsIso = toIsoDate(
+  const catalogLastmodIso = toIsoDate(catalog.generatedAt, new Date().toISOString());
+  const catalogLastmod = toW3cDateOnly(catalogLastmodIso, catalogLastmodIso);
+  const latestNewsDate = toW3cDateOnly(
     (catalog.news || []).map((n) => n?.published_at).filter(Boolean).sort().pop(),
-    catalogLastmod
+    catalogLastmodIso
   );
   const sitemaps = [
-    { loc: `${origin}/sitemap-pages.xml`, lastmod: latestNewsIso },
+    { loc: `${origin}/sitemap-pages.xml`, lastmod: latestNewsDate },
     { loc: `${origin}/sitemap-books.xml`, lastmod: catalogLastmod },
     { loc: `${origin}/sitemap-cinema.xml`, lastmod: catalogLastmod },
     { loc: `${origin}/sitemap-animes.xml`, lastmod: catalogLastmod },
     { loc: `${origin}/sitemap-webtoons.xml`, lastmod: catalogLastmod },
-    { loc: `${origin}/sitemap-news.xml`, lastmod: latestNewsIso },
-    { loc: `${origin}/news-sitemap.xml`, lastmod: latestNewsIso },
+    { loc: `${origin}/sitemap-news.xml`, lastmod: latestNewsDate },
+    { loc: `${origin}/news-sitemap.xml`, lastmod: latestNewsDate },
   ];
 
   let xml = '<?xml version="1.0" encoding="UTF-8"?>\n';

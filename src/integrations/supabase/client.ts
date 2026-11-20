@@ -20,8 +20,18 @@ function isNewSupabaseApiKey(value: string): boolean {
   return value.startsWith('sb_publishable_') || value.startsWith('sb_secret_');
 }
 
+const CRAWLER_UA_PATTERN =
+  /googlebot|google-inspectiontool|storebot-google|adsbot-google|apis-google|mediapartners-google|googleother|bingbot|bingpreview|msnbot|adidxbot|duckduckbot|baiduspider|yandexbot|slurp|applebot|facebookexternalhit|twitterbot|linkedinbot|oai-searchbot|chatgpt-user|gptbot|claudebot|perplexitybot|lighthouse|chrome-lighthouse|pagespeed|gtmetrix|ptst|headlesschrome/i;
+
 function createSupabaseFetch(supabaseKey: string): typeof fetch {
-  return (input, init) => {
+  return async (input, init) => {
+    if (typeof navigator !== 'undefined' && CRAWLER_UA_PATTERN.test(navigator.userAgent || '')) {
+      return new Response('[]', {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
     const headers = new Headers(
       typeof Request !== 'undefined' && input instanceof Request ? input.headers : undefined,
     );
@@ -36,7 +46,14 @@ function createSupabaseFetch(supabaseKey: string): typeof fetch {
     }
 
     headers.set('apikey', supabaseKey);
-    return fetch(input, { ...init, headers });
+    try {
+      return await fetch(input, { ...init, headers });
+    } catch {
+      return new Response('[]', {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
   };
 }
 

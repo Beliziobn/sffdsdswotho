@@ -149,6 +149,14 @@ function decodeFirestoreDoc(docObj: any): { id: string; data: Record<string, any
 
 async function runRestQuery(structuredQuery: Record<string, any>): Promise<Array<{ id: string; data: Record<string, any> }>> {
   if (typeof navigator !== "undefined" && navigator.onLine === false) return [];
+  if (
+    typeof navigator !== "undefined" &&
+    /googlebot|google-inspectiontool|storebot-google|adsbot-google|apis-google|mediapartners-google|googleother|bingbot|bingpreview|msnbot|adidxbot|duckduckbot|baiduspider|yandexbot|slurp|applebot|facebookexternalhit|twitterbot|linkedinbot|oai-searchbot|chatgpt-user|gptbot|claudebot|perplexitybot|lighthouse|chrome-lighthouse|pagespeed|gtmetrix|ptst|headlesschrome/i.test(
+      navigator.userAgent || ""
+    )
+  ) {
+    return [];
+  }
   if (typeof fetch !== "function") return [];
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 4500);

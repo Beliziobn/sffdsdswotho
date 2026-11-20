@@ -3,258 +3,228 @@
         xmlns:news="http://www.google.com/schemas/sitemap-news/0.9"
         xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
   <url>
-    <loc>https://wotho.vercel.app/noticias/trump-xi-and-putin-shake-hands-as-leaders-gather-in-china-6966843840</loc>
+    <loc>https://wotho.vercel.app/noticias/the-war-is-ravaging-ukraine-s-wildlife-too-8812448962</loc>
     <news:news>
       <news:publication>
         <news:name>Wotho</news:name>
         <news:language>pt</news:language>
       </news:publication>
-      <news:publication_date>2026-11-18T17:23:48.000Z</news:publication_date>
-      <news:title>Trump, Xi and Putin Shake Hands as Leaders Gather in China</news:title>
+      <news:publication_date>2026-11-20T16:05:55.000Z</news:publication_date>
+      <news:title>The War Is Ravaging Ukraine’s Wildlife, Too</news:title>
     </news:news>
     <image:image>
-      <image:loc>https://static01.nyt.com/images/2026/11/18/multimedia/18trump-summits-promo6am/18trump-summits-promo6am-mediumSquareAt3X.jpg</image:loc>
-      <image:title>Trump, Xi and Putin Shake Hands as Leaders Gather in China</image:title>
+      <image:loc>https://static01.nyt.com/images/2026/09/23/multimedia/00int-ukraine-wildlife-01-mfkg/00int-ukraine-wildlife-01-mfkg-mediumSquareAt3X.jpg</image:loc>
+      <image:title>The War Is Ravaging Ukraine’s Wildlife, Too</image:title>
     </image:image>
   </url>
   <url>
-    <loc>https://wotho.vercel.app/noticias/jeff-bezos-revela-bastidores-de-como-robert-pattinson-virou-o-novo-james-bo-13691443854</loc>
+    <loc>https://wotho.vercel.app/noticias/5-notebooks-bons-ate-r-6-000-que-valem-a-pena-comprar-na-black-friday-2026-4498588719</loc>
     <news:news>
       <news:publication>
         <news:name>Wotho</news:name>
         <news:language>pt</news:language>
       </news:publication>
-      <news:publication_date>2026-11-18T17:03:00.000Z</news:publication_date>
-      <news:title>Jeff Bezos revela bastidores de como Robert Pattinson virou o novo James Bond</news:title>
+      <news:publication_date>2026-11-20T16:00:01.000Z</news:publication_date>
+      <news:title>5 notebooks bons até R$ 6.000 que valem a pena comprar na Black Friday 2026</news:title>
     </news:news>
     <image:image>
-      <image:loc>https://tl.ctcdn.com.br/ZyMryWA-rg8k141GIpluz80sGvw=/0x0/filters:format(webp):quality(85)/68e63756-eed7-40fe-946d-c8cb31c5fe26.png</image:loc>
-      <image:title>Jeff Bezos revela bastidores de como Robert Pattinson virou o novo James Bond</image:title>
+      <image:loc>https://tl.ctcdn.com.br/kCNXCvfK9pY0AX1Q8ziVnRs60gw=/0x0/filters:format(webp):quality(85)/3c872e54-4f57-4da9-8041-78e759196b36.jpg</image:loc>
+      <image:title>5 notebooks bons até R$ 6.000 que valem a pena comprar na Black Friday 2026</image:title>
     </image:image>
   </url>
   <url>
-    <loc>https://wotho.vercel.app/noticias/openai-lanca-gpt-6-2-astra-e-sol-mais-baratos-mas-estreia-divide-usuarios-1436668839</loc>
+    <loc>https://wotho.vercel.app/noticias/google-play-revela-lista-de-melhores-apps-e-jogos-de-2026-para-android-13486781051</loc>
     <news:news>
       <news:publication>
         <news:name>Wotho</news:name>
         <news:language>pt</news:language>
       </news:publication>
-      <news:publication_date>2026-11-18T17:02:00.000Z</news:publication_date>
-      <news:title>OpenAI lança GPT-6.2 Astra e Sol mais baratos, mas estreia divide usuários</news:title>
+      <news:publication_date>2026-11-20T16:00:00.000Z</news:publication_date>
+      <news:title>Google Play revela lista de melhores apps e jogos de 2026 para Android</news:title>
     </news:news>
     <image:image>
-      <image:loc>https://tl.ctcdn.com.br/47KZ8teS09ddDYX0PA4tpJgOMdM=/0x0/filters:format(webp):quality(85)/18446ab6-fd96-4ef4-ad57-251e00fc4358.png</image:loc>
-      <image:title>OpenAI lança GPT-6.2 Astra e Sol mais baratos, mas estreia divide usuários</image:title>
+      <image:loc>https://www.estadao.com.br/resizer/v2/IS6TCVBZMZGP5DLWAHHS4JGEEA.jpg?quality=80&amp;auth=c5132d12d1b14c88fa35dc4699f9f9ff93e9fcc59b5d5bbb6528ad76e98d220c&amp;width=710</image:loc>
+      <image:title>Google Play revela lista de melhores apps e jogos de 2026 para Android</image:title>
     </image:image>
   </url>
   <url>
-    <loc>https://wotho.vercel.app/noticias/onde-comprar-o-gta-6-pelo-menor-preco-2824597553</loc>
+    <loc>https://wotho.vercel.app/noticias/russian-objects-crashed-in-poland-officials-say-here-s-what-we-can-see-4827366643</loc>
     <news:news>
       <news:publication>
         <news:name>Wotho</news:name>
         <news:language>pt</news:language>
       </news:publication>
-      <news:publication_date>2026-11-18T17:00:00.000Z</news:publication_date>
-      <news:title>Onde comprar o GTA 6 pelo menor preço?</news:title>
+      <news:publication_date>2026-11-20T15:49:29.000Z</news:publication_date>
+      <news:title>‘Russian Objects’ Crashed in Poland, Officials Say. Here’s What We Can See.</news:title>
     </news:news>
     <image:image>
-      <image:loc>https://www.estadao.com.br/resizer/v2/6V2GGQGDUJFBDPAZZBG66HKYZM.jpg?quality=80&amp;auth=17b1a2ea0b7f2ee8b6bce19cc71242c93accd5765860094136dc297846dac3e0&amp;width=710</image:loc>
-      <image:title>Onde comprar o GTA 6 pelo menor preço?</image:title>
+      <image:loc>https://static01.nyt.com/images/2026/11/20/20vid-poland-air-28802-cover/20vid-poland-air-28802-cover-mediumSquareAt3X-v2.jpg</image:loc>
+      <image:title>‘Russian Objects’ Crashed in Poland, Officials Say. Here’s What We Can See.</image:title>
     </image:image>
   </url>
   <url>
-    <loc>https://wotho.vercel.app/noticias/gta-6-tem-quantos-trofeus-e-conquistas-veja-a-lista-completa-5454386622</loc>
+    <loc>https://wotho.vercel.app/noticias/melania-review-so-bad-it-robbed-me-of-my-capacity-to-discern-time-and-space-3391807690</loc>
     <news:news>
       <news:publication>
         <news:name>Wotho</news:name>
         <news:language>pt</news:language>
       </news:publication>
-      <news:publication_date>2026-11-18T16:15:00.000Z</news:publication_date>
-      <news:title>GTA 6 tem quantos troféus e conquistas? Veja a lista completa</news:title>
+      <news:publication_date>2026-11-20T15:38:39.000Z</news:publication_date>
+      <news:title>Melania review – so bad it robbed me of my capacity to discern time and space</news:title>
     </news:news>
     <image:image>
-      <image:loc>https://www.estadao.com.br/resizer/v2/XWGY2ZHIWRCMPECFET24BEFGPQ.jpg?quality=80&amp;auth=948ad2fcd54724ccf4595b11378c561e970117e7655650bc12be5fe1667b776f&amp;width=710</image:loc>
-      <image:title>GTA 6 tem quantos troféus e conquistas? Veja a lista completa</image:title>
+      <image:loc>https://i.guim.co.uk/img/media/803a07b3d049c498409c19962d75833e389d5abc/222_0_2140_1712/master/2140.jpg?width=140&amp;quality=85&amp;auto=format&amp;fit=max&amp;s=e7068ac8df56f0529c17952a58be4c28</image:loc>
+      <image:title>Melania review – so bad it robbed me of my capacity to discern time and space</image:title>
     </image:image>
   </url>
   <url>
-    <loc>https://wotho.vercel.app/noticias/conheca-os-dubladores-brasileiros-da-1-temporada-de-a-returner-s-magic-shou-17732436360</loc>
+    <loc>https://wotho.vercel.app/noticias/fatal-fury-city-of-the-wolves-ganha-animacao-para-laocorn-5711799926</loc>
     <news:news>
       <news:publication>
         <news:name>Wotho</news:name>
         <news:language>pt</news:language>
       </news:publication>
-      <news:publication_date>2026-11-18T16:00:00.000Z</news:publication_date>
-      <news:title>Conheça os dubladores brasileiros da 1ª temporada de A Returner&apos;s Magic Should Be Special</news:title>
+      <news:publication_date>2026-11-20T15:23:00.000Z</news:publication_date>
+      <news:title>Fatal Fury: City of the Wolves ganha animação para Laocorn</news:title>
     </news:news>
     <image:image>
-      <image:loc>https://a.storyblok.com/f/178900/1200x675/fd3bad28b8/a-returner-s-magic-should-be-special-titelbild.jpg</image:loc>
-      <image:title>Conheça os dubladores brasileiros da 1ª temporada de A Returner&apos;s Magic Should Be Special</image:title>
+      <image:loc>https://a.storyblok.com/f/178900/1024x576/c943a83fac/fatal-fury-city-of-the-wolves-laocorn-animacao.jpg</image:loc>
+      <image:title>Fatal Fury: City of the Wolves ganha animação para Laocorn</image:title>
     </image:image>
   </url>
   <url>
-    <loc>https://wotho.vercel.app/noticias/gta-6-a-720p-com-constantes-quedas-de-desempenho-na-xbox-series-s-7238913555</loc>
+    <loc>https://wotho.vercel.app/noticias/como-trocar-de-personagem-em-gta-6-saiba-mudar-entre-jason-e-lucia-no-gamep-6833961436</loc>
     <news:news>
       <news:publication>
         <news:name>Wotho</news:name>
         <news:language>pt</news:language>
       </news:publication>
-      <news:publication_date>2026-11-18T15:15:20.000Z</news:publication_date>
-      <news:title>GTA 6 a 720p com constantes quedas de desempenho na Xbox Series S</news:title>
+      <news:publication_date>2026-11-20T15:15:00.000Z</news:publication_date>
+      <news:title>Como trocar de personagem em GTA 6? Saiba mudar entre Jason e Lucia no gameplay</news:title>
     </news:news>
     <image:image>
-      <image:loc>https://assetsio.gnwcdn.com/Grand-Theft-Auto-VI_20261030101318.jpg?width=690&amp;quality=85&amp;format=jpg&amp;auto=webp</image:loc>
-      <image:title>GTA 6 a 720p com constantes quedas de desempenho na Xbox Series S</image:title>
+      <image:loc>https://www.estadao.com.br/resizer/v2/FIE7AKJTPVETNCQNUHYJY6RDQM.jpg?quality=80&amp;auth=5f66b7d76763fcc5942bfdb2353879ef7b7cc1f2a8a2cecbdfed9927b01c5ba6&amp;width=710</image:loc>
+      <image:title>Como trocar de personagem em GTA 6? Saiba mudar entre Jason e Lucia no gameplay</image:title>
     </image:image>
   </url>
   <url>
-    <loc>https://wotho.vercel.app/noticias/grand-theft-auto-vi-review-gaming-s-most-depraved-world-is-now-also-its-gre-7666196977</loc>
+    <loc>https://wotho.vercel.app/noticias/a-rockstar-explica-ausencia-de-mini-jogos-em-gta-6-13518770834</loc>
     <news:news>
       <news:publication>
         <news:name>Wotho</news:name>
         <news:language>pt</news:language>
       </news:publication>
-      <news:publication_date>2026-11-18T11:00:55.000Z</news:publication_date>
-      <news:title>Grand Theft Auto VI review – gaming’s most depraved world is now also its greatest love story</news:title>
+      <news:publication_date>2026-11-20T15:00:20.000Z</news:publication_date>
+      <news:title>A Rockstar explica ausência de mini-jogos em GTA 6</news:title>
     </news:news>
     <image:image>
-      <image:loc>https://i.guim.co.uk/img/media/53ac3eb2cb6dc9001ada3ba916d998589415975e/164_0_1827_1462/master/1827.jpg?width=140&amp;quality=85&amp;auto=format&amp;fit=max&amp;s=4ed0b6d61b03463e2536ef1c2e36a427</image:loc>
-      <image:title>Grand Theft Auto VI review – gaming’s most depraved world is now also its greatest love story</image:title>
+      <image:loc>https://assetsio.gnwcdn.com/gta-6-jason-on-green-principe-alvino-v1-motorcyle.jpg?width=690&amp;quality=85&amp;format=jpg&amp;auto=webp</image:loc>
+      <image:title>A Rockstar explica ausência de mini-jogos em GTA 6</image:title>
     </image:image>
   </url>
   <url>
-    <loc>https://wotho.vercel.app/noticias/black-witch-mirror-o-manga-de-yonan-togawa-termina-no-quarto-volume-2671859281</loc>
+    <loc>https://wotho.vercel.app/noticias/tab-s10-lite-ou-s10-fe-qual-comprar-na-black-friday-2026-9140004987</loc>
     <news:news>
       <news:publication>
         <news:name>Wotho</news:name>
         <news:language>pt</news:language>
       </news:publication>
-      <news:publication_date>2026-11-18T07:39:00.000Z</news:publication_date>
-      <news:title>Black Witch Mirror: o mangá de Yonan Togawa termina no quarto volume</news:title>
+      <news:publication_date>2026-11-20T14:51:53.000Z</news:publication_date>
+      <news:title>Tab S10 Lite ou S10 FE: qual comprar na Black Friday 2026?</news:title>
     </news:news>
     <image:image>
-      <image:loc>http://www.bing.com/th?id=ONUT.sSPk1vvk-4Jq6eT37WgHyw&amp;pid=News</image:loc>
-      <image:title>Black Witch Mirror: o mangá de Yonan Togawa termina no quarto volume</image:title>
+      <image:loc>https://tl.ctcdn.com.br/-0e0q3151NZRBZTcQss_ETVAl34=/0x0/filters:format(webp):quality(85)/86e8a236-cb84-4a4e-a1d4-af085b69933e.jpeg</image:loc>
+      <image:title>Tab S10 Lite ou S10 FE: qual comprar na Black Friday 2026?</image:title>
     </image:image>
   </url>
   <url>
-    <loc>https://wotho.vercel.app/noticias/vale-a-pena-comprar-a-edicao-ultimate-de-gta-6-5202644547</loc>
+    <loc>https://wotho.vercel.app/noticias/ijihaji-manga-ganha-serie-anime-pelo-estudio-gekkou-14391945279</loc>
     <news:news>
       <news:publication>
         <news:name>Wotho</news:name>
         <news:language>pt</news:language>
       </news:publication>
-      <news:publication_date>2026-11-18T06:13:00.000Z</news:publication_date>
-      <news:title>Vale a pena comprar a edição Ultimate de GTA 6?</news:title>
+      <news:publication_date>2026-11-20T02:35:00.000Z</news:publication_date>
+      <news:title>Ijihaji: mangá ganha série anime pelo estúdio Gekkou</news:title>
     </news:news>
     <image:image>
-      <image:loc>http://www.bing.com/th?id=ONUT.DD7j-yTjD22hoExHk4fzdg&amp;pid=News</image:loc>
-      <image:title>Vale a pena comprar a edição Ultimate de GTA 6?</image:title>
+      <image:loc>http://www.bing.com/th?id=ONUT.PliWiKbhIzNNeZHP03eZtw&amp;pid=News</image:loc>
+      <image:title>Ijihaji: mangá ganha série anime pelo estúdio Gekkou</image:title>
     </image:image>
   </url>
   <url>
-    <loc>https://wotho.vercel.app/noticias/gp-de-las-vegas-da-formula-1-veja-datas-horarios-e-onde-assistir-12535101252</loc>
+    <loc>https://wotho.vercel.app/noticias/gp-de-las-vegas-da-formula-1-veja-horario-e-onde-assistir-a-corrida-ao-vivo-672632848</loc>
     <news:news>
       <news:publication>
         <news:name>Wotho</news:name>
         <news:language>pt</news:language>
       </news:publication>
-      <news:publication_date>2026-11-18T05:05:00.000Z</news:publication_date>
-      <news:title>GP de Las Vegas da Fórmula 1: veja datas, horários e onde assistir</news:title>
+      <news:publication_date>2026-11-20T00:54:00.000Z</news:publication_date>
+      <news:title>GP de Las Vegas da Fórmula 1: veja horário e onde assistir à corrida ao vivo</news:title>
     </news:news>
     <image:image>
-      <image:loc>https://classic.exame.com/wp-content/uploads/2024/12/ED1270_Ideias_8.jpg</image:loc>
-      <image:title>GP de Las Vegas da Fórmula 1: veja datas, horários e onde assistir</image:title>
+      <image:loc>http://www.bing.com/th?id=ONUT.ja0JrXZjs386S-ab9mamAw&amp;pid=News</image:loc>
+      <image:title>GP de Las Vegas da Fórmula 1: veja horário e onde assistir à corrida ao vivo</image:title>
     </image:image>
   </url>
   <url>
-    <loc>https://wotho.vercel.app/noticias/jogos-de-hoje-quarta-18-de-novembro-onde-assistir-futebol-ao-vivo-e-horario-18663792480</loc>
+    <loc>https://wotho.vercel.app/noticias/anime-majutsu-wo-kiwamete-tabi-ni-deta-tensei-elf-moteamashita-jumyo-de-ike-15001289731</loc>
     <news:news>
       <news:publication>
         <news:name>Wotho</news:name>
         <news:language>pt</news:language>
       </news:publication>
-      <news:publication_date>2026-11-18T01:00:00.000Z</news:publication_date>
-      <news:title>Jogos de hoje, quarta, 18 de novembro: onde assistir futebol ao vivo e horários</news:title>
+      <news:publication_date>2026-11-20T00:35:00.000Z</news:publication_date>
+      <news:title>Anime Majutsu wo Kiwamete Tabi ni Deta Tensei Elf, Moteamashita Jumyo de Ikeru Densetsu to Naru revela data de estreia e músicas-tema em novo trailer</news:title>
     </news:news>
     <image:image>
-      <image:loc>https://veja.abril.com.br/wp-content/uploads/2025/08/GettyImages-1810162066.jpg?quality=70&amp;strip=info&amp;resize=1200,630&amp;crop=1</image:loc>
-      <image:title>Jogos de hoje, quarta, 18 de novembro: onde assistir futebol ao vivo e horários</image:title>
+      <image:loc>https://a.storyblok.com/f/178900/1460x821/85380a7108/majutsu-wo-kiwamete-tabi-ni-deta-tensei-elf-moteamashita-jumyo-de-ikeru-densetsu-to-naru.jpg</image:loc>
+      <image:title>Anime Majutsu wo Kiwamete Tabi ni Deta Tensei Elf, Moteamashita Jumyo de Ikeru Densetsu to Naru revela data de estreia e músicas-tema em novo trailer</image:title>
     </image:image>
   </url>
   <url>
-    <loc>https://wotho.vercel.app/noticias/panini-anuncia-solo-leveling-ragnarok-gyarus-nao-podem-ser-gentis-com-otaku-22626997384</loc>
+    <loc>https://wotho.vercel.app/noticias/formula-1-hoje-horarios-e-onde-assistir-ao-gp-de-las-vegas-nesta-quinta-fei-15832042469</loc>
     <news:news>
       <news:publication>
         <news:name>Wotho</news:name>
         <news:language>pt</news:language>
       </news:publication>
-      <news:publication_date>2026-11-17T19:47:00.000Z</news:publication_date>
-      <news:title>Panini anuncia Solo Leveling: Ragnarok, Gyarus não podem ser gentis com otakus?! e outros títulos</news:title>
+      <news:publication_date>2026-11-19T15:00:00.000Z</news:publication_date>
+      <news:title>Fórmula 1 hoje: horários e onde assistir ao GP de Las Vegas nesta quinta-feira (19)</news:title>
     </news:news>
     <image:image>
-      <image:loc>https://a.storyblok.com/f/178900/1280x720/de63ae87a6/gals-cant-be-kind-to-otaku-opening-hero.png</image:loc>
-      <image:title>Panini anuncia Solo Leveling: Ragnarok, Gyarus não podem ser gentis com otakus?! e outros títulos</image:title>
+      <image:loc>http://www.bing.com/th?id=ONUT.b011vaQYm19vNlr_gRsw5w&amp;pid=News</image:loc>
+      <image:title>Fórmula 1 hoje: horários e onde assistir ao GP de Las Vegas nesta quinta-feira (19)</image:title>
     </image:image>
   </url>
   <url>
-    <loc>https://wotho.vercel.app/noticias/atp-finals-wta-da-barraca-fim-do-2-servico-e-cuecas-azuis-17953321136</loc>
+    <loc>https://wotho.vercel.app/noticias/uefa-women-s-champions-league-veja-em-direto-e-gratuitamente-o-jogo-benfica-27832888461</loc>
     <news:news>
       <news:publication>
         <news:name>Wotho</news:name>
         <news:language>pt</news:language>
       </news:publication>
-      <news:publication_date>2026-11-17T11:00:00.000Z</news:publication_date>
-      <news:title>ATP Finals, WTA dá barraca, fim do 2º serviço e cuecas azuis</news:title>
+      <news:publication_date>2026-11-19T11:06:00.000Z</news:publication_date>
+      <news:title>UEFA Women’s Champions League: Veja em direto e gratuitamente o jogo Benfica x Roma</news:title>
     </news:news>
     <image:image>
-      <image:loc>http://www.bing.com/th?id=ONUT.YmLn87NkWhV79tGEg_oweQ&amp;pid=News</image:loc>
-      <image:title>ATP Finals, WTA dá barraca, fim do 2º serviço e cuecas azuis</image:title>
+      <image:loc>https://www.tvpop.com.br/wp-content/uploads/2024/09/onde-assistir-champions-league.jpg</image:loc>
+      <image:title>UEFA Women’s Champions League: Veja em direto e gratuitamente o jogo Benfica x Roma</image:title>
     </image:image>
   </url>
   <url>
-    <loc>https://wotho.vercel.app/noticias/o-corpo-invisivel-2840772014</loc>
+    <loc>https://wotho.vercel.app/noticias/jogos-de-hoje-19-11-onde-assistir-a-sao-paulo-x-fluminense-e-mais-442592751</loc>
     <news:news>
       <news:publication>
         <news:name>Wotho</news:name>
         <news:language>pt</news:language>
       </news:publication>
-      <news:publication_date>2026-11-17T10:26:00.000Z</news:publication_date>
-      <news:title>O corpo invisível</news:title>
+      <news:publication_date>2026-11-19T01:00:00.000Z</news:publication_date>
+      <news:title>Jogos de hoje, 19/11: onde assistir a São Paulo x Fluminense e mais</news:title>
     </news:news>
     <image:image>
-      <image:loc>http://www.bing.com/th?id=ONUT.i9hOLdwMT67ok7ALASB5nQ&amp;pid=News</image:loc>
-      <image:title>O corpo invisível</image:title>
-    </image:image>
-  </url>
-  <url>
-    <loc>https://wotho.vercel.app/noticias/adidas-transforma-galocha-classica-em-item-de-streetwear-6172971489</loc>
-    <news:news>
-      <news:publication>
-        <news:name>Wotho</news:name>
-        <news:language>pt</news:language>
-      </news:publication>
-      <news:publication_date>2026-11-16T16:00:00.000Z</news:publication_date>
-      <news:title>Adidas transforma galocha clássica em item de streetwear</news:title>
-    </news:news>
-    <image:image>
-      <image:loc>http://www.bing.com/th?id=ONUT.qIOu26UNbDddc_D2rICBuw&amp;pid=News</image:loc>
-      <image:title>Adidas transforma galocha clássica em item de streetwear</image:title>
-    </image:image>
-  </url>
-  <url>
-    <loc>https://wotho.vercel.app/noticias/iconica-bola-da-champions-league-sera-reformulada-e-tera-novo-visual-apos-t-6007194137</loc>
-    <news:news>
-      <news:publication>
-        <news:name>Wotho</news:name>
-        <news:language>pt</news:language>
-      </news:publication>
-      <news:publication_date>2026-11-16T05:03:00.000Z</news:publication_date>
-      <news:title>Icônica bola da Champions League será reformulada e terá novo visual após troca de patrocinador</news:title>
-    </news:news>
-    <image:image>
-      <image:loc>http://www.bing.com/th?id=ONUT.3M8AQJjI_CF2-MPATb-KhA&amp;pid=News</image:loc>
-      <image:title>Icônica bola da Champions League será reformulada e terá novo visual após troca de patrocinador</image:title>
+      <image:loc>https://media.bolavip.com/wp-content/uploads/sites/27/2026/11/18175306/3C3Y9HM-1200x740.webp</image:loc>
+      <image:title>Jogos de hoje, 19/11: onde assistir a São Paulo x Fluminense e mais</image:title>
     </image:image>
   </url>
   <url>
@@ -3750,6 +3720,36 @@
     <image:image>
       <image:loc>https://www.otakupt.com/wp-content/uploads/2024/08/Herdling-game-visual.jpg</image:loc>
       <image:title>Herdling – Nintendo Switch 2 Edition já está disponível</image:title>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://wotho.vercel.app/noticias/outlook-fica-fora-do-ar-nesta-quinta-12-e-dificulta-acesso-a-emails-4406081864</loc>
+    <news:news>
+      <news:publication>
+        <news:name>Wotho</news:name>
+        <news:language>pt</news:language>
+      </news:publication>
+      <news:publication_date>2026-11-12T18:41:27.000Z</news:publication_date>
+      <news:title>Outlook fica fora do ar nesta quinta (12) e dificulta acesso a emails</news:title>
+    </news:news>
+    <image:image>
+      <image:loc>https://files.tecnoblog.net/wp-content/uploads/2024/03/capa-outlook_tb.png</image:loc>
+      <image:title>Outlook fica fora do ar nesta quinta (12) e dificulta acesso a emails</image:title>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://wotho.vercel.app/noticias/outlook-fora-do-ar-servico-de-e-mail-e-ia-da-microsoft-apresentam-instabili-11383929000</loc>
+    <news:news>
+      <news:publication>
+        <news:name>Wotho</news:name>
+        <news:language>pt</news:language>
+      </news:publication>
+      <news:publication_date>2026-11-12T18:40:04.000Z</news:publication_date>
+      <news:title>Outlook fora do ar? Serviço de e-mail e IA da Microsoft apresentam instabilidade nesta quinta</news:title>
+    </news:news>
+    <image:image>
+      <image:loc>https://s2-g1.glbimg.com/p6em53stHln_Q00KrBOjE3391Hk=/i.s3.glbimg.com/v1/AUTH_59edd422c0c84a879bd37670ae4f538a/internal_photos/bs/2023/5/X/j7ie9ITcWGokB0ImViYA/2023-01-25t085942z-1524107725-rc2kxy962ywx-rtrmadp-3-microsoft-outages.jpg</image:loc>
+      <image:title>Outlook fora do ar? Serviço de e-mail e IA da Microsoft apresentam instabilidade nesta quinta</image:title>
     </image:image>
   </url>
 </urlset>
