@@ -160,8 +160,8 @@ async function syncEditorialDocViaServerApi(
   docId: string,
   action: "upsert" | "delete",
   payload?: Record<string, any>
-): Promise<{ ok: boolean; status: number; error?: string }> {
-  if (typeof window === "undefined") return { ok: false, status: 0 };
+): Promise<{ ok: boolean; status: number; firestoreSynced: boolean; error?: string }> {
+  if (typeof window === "undefined") return { ok: false, status: 0, firestoreSynced: false };
   try {
     const bearer = await resolveMasterSessionBearerToken();
     const headers: Record<string, string> = {
@@ -182,52 +182,111 @@ async function syncEditorialDocViaServerApi(
         payload,
       }),
     });
-    if (res.ok) return { ok: true, status: res.status };
     const data = await res.json().catch(() => ({}));
+    if (res.ok) {
+      return {
+        ok: true,
+        status: res.status,
+        firestoreSynced: Boolean(data?.firestoreSynced),
+      };
+    }
     return {
       ok: false,
       status: res.status,
+      firestoreSynced: false,
       error: data?.error || `Erro HTTP ${res.status} ao sincronizar com o servidor.`,
     };
   } catch {
-    return { ok: false, status: 0, error: "Falha de rede ao comunicar com o servidor editorial." };
+    return {
+      ok: false,
+      status: 0,
+      firestoreSynced: false,
+      error: "Falha de rede ao comunicar com o servidor editorial.",
+    };
   }
 }
 
+// 2.4 MB raw binary slices (exact multiple of 3 bytes so base64 segments concatenate without mid-stream padding,
+// and comfortably below Vercel's 4.5 MB serverless HTTP body limit for PDFs up to 25 MB!)
+const PDF_UPLOAD_SLICE_BYTES = 2_400_000;
+
 export async function uploadPdfBinaryToServer(
   bookId: string,
-  pdfBytes: ArrayBuffer | Uint8Array
-): Promise<{ ok: boolean; status: number; error?: string }> {
-  if (typeof window === "undefined" || !bookId) return { ok: false, status: 0 };
+  pdfBytes: ArrayBuffer | Uint8Array,
+  onProgress?: (step: string, pct: number) => void
+): Promise<{ ok: boolean; status: number; firestoreSynced: boolean; error?: string }> {
+  if (typeof window === "undefined" || !bookId) {
+    return { ok: false, status: 0, firestoreSynced: false };
+  }
   try {
     const bearer = await resolveMasterSessionBearerToken();
-    const headers: Record<string, string> = {
-      "Content-Type": "application/pdf",
-      "X-Requested-With": "WothoStudio",
-    };
-    if (bearer) {
-      headers.Authorization = `Bearer ${bearer}`;
-    }
-    const bodyBlob =
-      pdfBytes instanceof Uint8Array
-        ? new Blob([new Uint8Array(pdfBytes)], { type: "application/pdf" })
-        : new Blob([pdfBytes], { type: "application/pdf" });
+    const bytes = pdfBytes instanceof Uint8Array ? pdfBytes : new Uint8Array(pdfBytes);
+    const totalChunks = Math.max(1, Math.ceil(bytes.byteLength / PDF_UPLOAD_SLICE_BYTES));
+    let nextPosition = 1;
 
-    const res = await fetch(`/api/editorial/pdf-upload?id=${encodeURIComponent(bookId)}`, {
-      method: "POST",
-      headers,
-      credentials: "include",
-      body: bodyBlob,
-    });
-    if (res.ok) return { ok: true, status: res.status };
-    const data = await res.json().catch(() => ({}));
+    for (let chunkIndex = 0; chunkIndex < totalChunks; chunkIndex++) {
+      const start = chunkIndex * PDF_UPLOAD_SLICE_BYTES;
+      const end = Math.min(bytes.byteLength, start + PDF_UPLOAD_SLICE_BYTES);
+      const slice = bytes.subarray(start, end);
+
+      if (onProgress) {
+        const pct = Math.round(((chunkIndex + 0.25) / totalChunks) * 90);
+        onProgress(
+          totalChunks > 1
+            ? `Publicando PDF na nuvem global (parte ${chunkIndex + 1}/${totalChunks})...`
+            : "Publicando PDF original na nuvem global...",
+          pct
+        );
+      }
+
+      const headers: Record<string, string> = {
+        "Content-Type": "application/pdf",
+        "X-Requested-With": "WothoStudio",
+      };
+      if (bearer) {
+        headers.Authorization = `Bearer ${bearer}`;
+      }
+
+      const params = new URLSearchParams({
+        id: bookId,
+        chunkIndex: String(chunkIndex),
+        totalChunks: String(totalChunks),
+        startPosition: String(nextPosition),
+      });
+
+      const res = await fetch(`/api/editorial/pdf-upload?${params.toString()}`, {
+        method: "POST",
+        headers,
+        credentials: "include",
+        body: new Blob([new Uint8Array(slice)], { type: "application/pdf" }),
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.ok) {
+        return {
+          ok: false,
+          status: res.status,
+          firestoreSynced: false,
+          error: data?.error || `Falha ao enviar parte ${chunkIndex + 1}/${totalChunks} do PDF (HTTP ${res.status}).`,
+        };
+      }
+
+      if (typeof data?.nextPosition === "number" && data.nextPosition > nextPosition) {
+        nextPosition = data.nextPosition;
+      } else {
+        nextPosition += Math.max(1, Number(data?.chunksWritten) || 1);
+      }
+    }
+
+    onProgress?.("PDF original publicado na nuvem para todos os leitores!", 100);
+    return { ok: true, status: 200, firestoreSynced: true };
+  } catch {
     return {
       ok: false,
-      status: res.status,
-      error: data?.error || `Falha ao enviar o arquivo PDF (HTTP ${res.status}).`,
+      status: 0,
+      firestoreSynced: false,
+      error: "Falha de rede ao enviar o arquivo PDF.",
     };
-  } catch {
-    return { ok: false, status: 0, error: "Falha de rede ao enviar o arquivo PDF." };
   }
 }
 
@@ -292,10 +351,15 @@ async function writeEditorialDoc(
   );
   const serverSynced = serverRes.ok;
 
+  // Primary Master Admin global cloud path: server wrote atomically to Firestore — ZERO Google login required!
+  if (serverSynced && serverRes.firestoreSynced) {
+    return { firestoreSynced: true, serverSynced: true };
+  }
+
   const fsData = firestoreSafePayload || payload;
   const targetPath = `${collectionName}/${docId}`;
 
-  // Optional Firestore mirror when Google Admin is authenticated
+  // Fallback direct client Firestore SDK write when Google Admin is authenticated
   if (isGoogleAdminAuthenticated()) {
     const online = await ensureFirestoreOnline();
     if (online) {
@@ -304,7 +368,7 @@ async function writeEditorialDoc(
         return { firestoreSynced: true, serverSynced };
       } catch (err: any) {
         if (serverSynced) {
-          console.warn(`[CloudEditorial] Optional Firestore mirror skipped (${targetPath}):`, err?.message || err);
+          console.warn(`[CloudEditorial] Fallback Firestore write warning (${targetPath}):`, err?.message || err);
           return { firestoreSynced: false, serverSynced: true };
         }
         try {
@@ -316,11 +380,6 @@ async function writeEditorialDoc(
     }
   }
 
-  // Primary Master Admin publishing path: Server Editorial Store succeeded — NO Google login required!
-  if (serverSynced) {
-    return { firestoreSynced: false, serverSynced: true };
-  }
-
   if (serverRes.status === 401) {
     throw new Error(
       "Sessão de administrador mestre expirada. Saia e entre novamente com seu e-mail e senha mestra em /admin."
@@ -329,7 +388,7 @@ async function writeEditorialDoc(
 
   throw new Error(
     serverRes.error ||
-      "Não foi possível confirmar a gravação no servidor editorial. Verifique sua conexão e tente novamente."
+      "Não foi possível confirmar a gravação na base de dados global (Firestore). Verifique sua conexão e tente novamente."
   );
 }
 
@@ -344,6 +403,10 @@ async function deleteEditorialDoc(
   );
   const serverSynced = serverRes.ok;
 
+  if (serverSynced && serverRes.firestoreSynced) {
+    return;
+  }
+
   if (isGoogleAdminAuthenticated()) {
     const online = await ensureFirestoreOnline();
     if (online) {
@@ -357,10 +420,10 @@ async function deleteEditorialDoc(
     }
   }
 
-  if (!serverSynced) {
+  if (!serverSynced || !serverRes.firestoreSynced) {
     throw new Error(
       serverRes.error ||
-        "Sessão editorial expirada ou não validada. Entre novamente no Studio Editorial (/admin)."
+        "Falha ao remover publicação na base de dados global. Entre novamente no Studio Editorial (/admin)."
     );
   }
 }
@@ -983,6 +1046,9 @@ export async function publishBookToCloudDetailed(book: Book & {
     ...((book as any).source_repository
       ? { source_repository: String((book as any).source_repository).trim().slice(0, 200) }
       : {}),
+    ...(isInlinePdf || isLocalIdbPdf || (book as any).pdf_base64 || (book as any).has_cloud_pdf_binary
+      ? { has_cloud_pdf_binary: true }
+      : {}),
   };
 
   if ((book as any).pdf_base64) {
@@ -1056,7 +1122,7 @@ export async function publishBookToCloudDetailed(book: Book & {
       cachedBooksResult = null;
     }
     return {
-      ok: Boolean(writeRes.serverSynced || writeRes.firestoreSynced),
+      ok: Boolean(writeRes.firestoreSynced),
       firestoreSynced: writeRes.firestoreSynced,
       serverSynced: writeRes.serverSynced,
     };
@@ -1123,18 +1189,20 @@ export async function publishPdfBinaryToCloud(
 
   if (!binaryBytes || binaryBytes.byteLength <= 100) return false;
 
-  // 1. Primary path: direct raw binary PDF upload to /api/editorial/pdf-upload (supports up to 25 MB, zero Google login!)
-  onProgress?.("Enviando arquivo PDF original para o servidor...", 35);
-  const uploadRes = await uploadPdfBinaryToServer(bookId, binaryBytes);
-  let serverUploaded = uploadRes.ok;
+  // 1. Primary global cloud path: chunked binary upload to /api/editorial/pdf-upload (up to 25 MB,
+  // persisted directly to global Firestore across all Vercel instances — ZERO Google login required!)
+  onProgress?.("Enviando arquivo PDF original para a nuvem global...", 15);
+  const uploadRes = await uploadPdfBinaryToServer(bookId, binaryBytes, onProgress);
+  let serverUploaded = Boolean(uploadRes.ok && uploadRes.firestoreSynced);
 
   if (serverUploaded) {
     cachedPdfBinaryMap.set(bookId, binaryBytes.slice());
-    onProgress?.("PDF original publicado para todos os leitores!", 90);
+    onProgress?.("PDF original publicado na nuvem para todos os leitores!", 100);
+    return true;
   }
 
-  // 2. Optional Firestore chunk mirror (when Google Admin is connected and PDF <= 4.5 MB)
-  if (isGoogleAdminAuthenticated() && binaryBytes.byteLength <= 4500 * 1024) {
+  // 2. Fallback direct Firestore SDK chunk upload if Google Admin is signed in and server upload failed
+  if (isGoogleAdminAuthenticated() && binaryBytes.byteLength <= 12 * 1024 * 1024) {
     try {
       if (!rawBase64) {
         let bin = "";
@@ -1145,15 +1213,15 @@ export async function publishPdfBinaryToCloud(
         rawBase64 = btoa(bin);
       }
 
-      const CHUNK_SIZE = 88000;
+      const CHUNK_SIZE = 600_000;
       const totalChunks = Math.ceil(rawBase64.length / CHUNK_SIZE);
       const binBookId = `pdfbin-${bookId}`.slice(0, 128);
       const online = await ensureFirestoreOnline();
 
       if (online) {
-        for (let start = 0; start < totalChunks; start += 5) {
+        for (let start = 0; start < totalChunks; start += 4) {
           const batch = writeBatch(db);
-          const end = Math.min(totalChunks, start + 5);
+          const end = Math.min(totalChunks, start + 4);
           for (let i = start; i < end; i++) {
             const chunkStr = rawBase64.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE);
             const chunkSuffix = `-c${i + 1}`;
@@ -1162,7 +1230,7 @@ export async function publishPdfBinaryToCloud(
             batch.set(doc(db, CHAPTERS_COLLECTION, chunkDocId), {
               id: chunkDocId,
               book_id: binBookId,
-              title: `PDF Binary Chunk ${i + 1}/${totalChunks}`,
+              title: `PDF Binary Segment ${i + 1}/${totalChunks}`,
               content: chunkStr,
               position: i + 1,
               is_free_preview: true,
@@ -1171,15 +1239,16 @@ export async function publishPdfBinaryToCloud(
           await batch.commit();
           if (onProgress) {
             onProgress(
-              `Espelhando PDF na nuvem (${end}/${totalChunks})...`,
+              `Publicando PDF na nuvem (${end}/${totalChunks})...`,
               Math.round((end / totalChunks) * 100)
             );
           }
         }
+        cachedPdfBinaryMap.set(bookId, binaryBytes.slice());
         serverUploaded = true;
       }
     } catch (err) {
-      console.warn("[CloudEditorial] Optional Firestore PDF mirror notice:", err);
+      console.warn("[CloudEditorial] Fallback Firestore PDF upload error:", err);
     }
   }
 
@@ -1268,7 +1337,7 @@ export async function fetchCloudPdfBinary(bookId: string): Promise<Uint8Array | 
       }
       return null;
     })(),
-    10000,
+    25000,
     null
   );
 }

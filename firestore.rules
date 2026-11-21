@@ -3,7 +3,7 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     function isValidId(id) {
-      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-\\.]+$');
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-\\.]+$');
     }
 
     function incoming() {
@@ -25,13 +25,14 @@ service cloud.firestore {
         ];
     }
 
-    function isEditorialBatchAuthorized(docId) {
-      return existsAfter(/databases/$(database)/documents/editorial_auth/$(docId)) &&
-        getAfter(/databases/$(database)/documents/editorial_auth/$(docId)).data.updatedAt == request.time;
+    function isEditorialBatchAuthorized(proofId) {
+      return isValidId(proofId) &&
+        existsAfter(/databases/$(database)/documents/editorial_auth/$(proofId)) &&
+        getAfter(/databases/$(database)/documents/editorial_auth/$(proofId)).data.updatedAt == request.time;
     }
 
-    function isEditorialWriter(docId) {
-      return isGoogleAdmin() || isEditorialBatchAuthorized(docId);
+    function isEditorialWriter(proofId) {
+      return isGoogleAdmin() || isEditorialBatchAuthorized(proofId);
     }
 
     function isValidEditorialProof(data) {
@@ -40,7 +41,7 @@ service cloud.firestore {
         data.token is string &&
         data.token.size() >= 1 &&
         data.token.size() <= 128 &&
-        hashing.sha256(data.token.toUtf8()).toHexString().lower() == 'f3e0632fd1f33ee9812c87ac718cff4fe6af986c3b95d9f345879cd04854a055' &&
+        hashing.sha256(data.token.toUtf8()).toHexString().lower() == 'da8af3d2dd55b52778bdd63510f5c018415036bf54149202fb9859bd4fda062e' &&
         data.updatedAt == request.time;
     }
 
@@ -65,7 +66,7 @@ service cloud.firestore {
 
     function isValidBook(data) {
       return data.keys().hasAll(['title', 'author', 'published']) &&
-        data.keys().hasOnly(['id', 'title', 'author', 'description', 'cover_url', 'price_cents', 'currency', 'category', 'published', 'featured', 'created_at', 'pdf_url', 'download_url', 'original_pages_count', 'file_size_formatted', 'edition_notes', 'source_repository']) &&
+        data.keys().hasOnly(['id', 'title', 'author', 'description', 'cover_url', 'price_cents', 'currency', 'category', 'published', 'featured', 'created_at', 'pdf_url', 'download_url', 'original_pages_count', 'file_size_formatted', 'edition_notes', 'source_repository', 'has_cloud_pdf_binary']) &&
         data.title is string && data.title.size() >= 1 && data.title.size() <= 300 &&
         data.author is string && data.author.size() >= 1 && data.author.size() <= 150 &&
         data.published is bool &&
@@ -82,7 +83,8 @@ service cloud.firestore {
         (!('original_pages_count' in data) || (data.original_pages_count is number && data.original_pages_count >= 0)) &&
         (!('file_size_formatted' in data) || (data.file_size_formatted is string && data.file_size_formatted.size() <= 50)) &&
         (!('edition_notes' in data) || (data.edition_notes is string && data.edition_notes.size() <= 1000)) &&
-        (!('source_repository' in data) || (data.source_repository is string && data.source_repository.size() <= 200));
+        (!('source_repository' in data) || (data.source_repository is string && data.source_repository.size() <= 200)) &&
+        (!('has_cloud_pdf_binary' in data) || data.has_cloud_pdf_binary is bool);
     }
 
     function isValidChapter(data) {
@@ -90,7 +92,7 @@ service cloud.firestore {
         data.keys().hasOnly(['id', 'book_id', 'title', 'content', 'position', 'is_free_preview']) &&
         data.book_id is string && data.book_id.size() >= 1 && data.book_id.size() <= 128 &&
         data.title is string && data.title.size() >= 1 && data.title.size() <= 300 &&
-        data.content is string && data.content.size() <= 100000 &&
+        data.content is string && data.content.size() <= 650000 &&
         data.position is number &&
         (!('id' in data) || (data.id is string && data.id.size() <= 128)) &&
         (!('is_free_preview' in data) || data.is_free_preview is bool);
@@ -180,7 +182,8 @@ service cloud.firestore {
 
     // News articles: Publicly readable by all visitors and users everywhere
     match /news/{newsId} {
-      allow get, list: if true;
+      allow get: if isValidId(newsId);
+      allow list: if true;
       allow create: if isValidId(newsId) && isValidNews(incoming()) && isEditorialWriter(newsId);
       allow update: if isValidId(newsId) && isValidNews(incoming()) && isEditorialWriter(newsId);
       allow delete: if isValidId(newsId) && isEditorialWriter(newsId);
@@ -188,23 +191,26 @@ service cloud.firestore {
 
     // Books: Publicly readable by all visitors
     match /books/{bookId} {
-      allow get, list: if true;
+      allow get: if isValidId(bookId);
+      allow list: if true;
       allow create: if isValidId(bookId) && isValidBook(incoming()) && isEditorialWriter(bookId);
       allow update: if isValidId(bookId) && isValidBook(incoming()) && isEditorialWriter(bookId);
       allow delete: if isValidId(bookId) && isEditorialWriter(bookId);
     }
 
-    // Chapters: Publicly readable by all visitors
+    // Chapters & chunked PDF binaries: Publicly readable by all visitors
     match /chapters/{chapterId} {
-      allow get, list: if true;
-      allow create: if isValidId(chapterId) && isValidChapter(incoming()) && isEditorialWriter(chapterId);
-      allow update: if isValidId(chapterId) && isValidChapter(incoming()) && isEditorialWriter(chapterId);
-      allow delete: if isValidId(chapterId) && isEditorialWriter(chapterId);
+      allow get: if isValidId(chapterId);
+      allow list: if true;
+      allow create: if isValidId(chapterId) && isValidChapter(incoming()) && (isEditorialWriter(chapterId) || isEditorialWriter(incoming().book_id));
+      allow update: if isValidId(chapterId) && isValidChapter(incoming()) && (isEditorialWriter(chapterId) || isEditorialWriter(incoming().book_id));
+      allow delete: if isValidId(chapterId) && (isEditorialWriter(chapterId) || (resource != null && isEditorialWriter(resource.data.book_id)));
     }
 
     // Anime Overrides: Publicly readable by all visitors
     match /anime_overrides/{animeId} {
-      allow get, list: if true;
+      allow get: if isValidId(animeId);
+      allow list: if true;
       allow create: if isValidId(animeId) && isValidAnimeOverride(incoming()) && isEditorialWriter(animeId);
       allow update: if isValidId(animeId) && isValidAnimeOverride(incoming()) && isEditorialWriter(animeId);
       allow delete: if isValidId(animeId) && isEditorialWriter(animeId);

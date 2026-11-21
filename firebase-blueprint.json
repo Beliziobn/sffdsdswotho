@@ -43,19 +43,20 @@
         "original_pages_count": { "type": "number" },
         "file_size_formatted": { "type": "string", "maxLength": 50 },
         "edition_notes": { "type": "string", "maxLength": 1000 },
-        "source_repository": { "type": "string", "maxLength": 200 }
+        "source_repository": { "type": "string", "maxLength": 200 },
+        "has_cloud_pdf_binary": { "type": "boolean" }
       },
       "required": ["title", "author", "published"]
     },
     "chapters": {
       "title": "Book Chapter",
-      "description": "Chapter belonging to a book publication",
+      "description": "Chapter or chunked PDF binary segment belonging to a book publication",
       "type": "object",
       "properties": {
         "id": { "type": "string", "maxLength": 128 },
         "book_id": { "type": "string", "maxLength": 128 },
         "title": { "type": "string", "maxLength": 300 },
-        "content": { "type": "string", "maxLength": 100000 },
+        "content": { "type": "string", "maxLength": 650000 },
         "position": { "type": "number" },
         "is_free_preview": { "type": "boolean" }
       },

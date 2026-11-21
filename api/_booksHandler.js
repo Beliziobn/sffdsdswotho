@@ -14,17 +14,21 @@ function getStorageCandidates() {
 }
 
 let cachedFirebaseCfg = null;
+let cachedFirebaseCfgMtime = 0;
 function loadFirebaseAppletConfig() {
-  if (cachedFirebaseCfg !== null) return cachedFirebaseCfg;
   try {
     const cfgPath = path.join(process.cwd(), 'firebase-applet-config.json');
     if (fs.existsSync(cfgPath)) {
+      const mtime = fs.statSync(cfgPath).mtimeMs;
+      if (cachedFirebaseCfg && mtime === cachedFirebaseCfgMtime) {
+        return cachedFirebaseCfg;
+      }
       cachedFirebaseCfg = JSON.parse(fs.readFileSync(cfgPath, 'utf8'));
+      cachedFirebaseCfgMtime = mtime;
       return cachedFirebaseCfg;
     }
   } catch {}
-  cachedFirebaseCfg = {};
-  return cachedFirebaseCfg;
+  return cachedFirebaseCfg || {};
 }
 
 function decodeFsVal(v) {
@@ -34,6 +38,36 @@ function decodeFsVal(v) {
   if ('doubleValue' in v) return Number(v.doubleValue);
   if ('booleanValue' in v) return Boolean(v.booleanValue);
   return undefined;
+}
+
+function sanitizeFsDocId(raw) {
+  return String(raw || '')
+    .trim()
+    .replace(/[^a-zA-Z0-9_.-]/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 128);
+}
+
+async function fetchFirestoreBookById(bookId) {
+  const cfg = loadFirebaseAppletConfig();
+  const safeId = sanitizeFsDocId(bookId);
+  if (!cfg?.projectId || !cfg?.firestoreDatabaseId || !cfg?.apiKey || !safeId) return null;
+  try {
+    const dbPath = `projects/${cfg.projectId}/databases/${cfg.firestoreDatabaseId}`;
+    const url = `https://firestore.googleapis.com/v1/${dbPath}/documents/books/${encodeURIComponent(safeId)}?key=${encodeURIComponent(cfg.apiKey)}`;
+    const res = await fetch(url, { signal: AbortSignal.timeout(7000) });
+    if (!res.ok) return null;
+    const docObj = await res.json();
+    if (!docObj?.fields) return null;
+    const out = {};
+    for (const [k, v] of Object.entries(docObj.fields)) {
+      out[k] = decodeFsVal(v);
+    }
+    return out;
+  } catch {
+    return null;
+  }
 }
 
 async function queryFirestoreRestChaptersByBookId(bookId) {
@@ -57,7 +91,7 @@ async function queryFirestoreRestChaptersByBookId(bookId) {
           },
         },
       }),
-      signal: AbortSignal.timeout(6500),
+      signal: AbortSignal.timeout(22000),
     });
     if (!res.ok) return [];
     const rows = await res.json();
@@ -79,8 +113,15 @@ async function queryFirestoreRestChaptersByBookId(bookId) {
 
 async function fetchFirestorePdfBufferById(bookId) {
   if (!bookId) return null;
-  const binBookId = `pdfbin-${bookId}`.slice(0, 128);
-  const chunks = await queryFirestoreRestChaptersByBookId(binBookId);
+  const safeId = sanitizeFsDocId(bookId);
+  const candidateBinIds = Array.from(
+    new Set([`pdfbin-${safeId}`.slice(0, 128), `pdfbin-${bookId}`.slice(0, 128)])
+  );
+  let chunks = [];
+  for (const binBookId of candidateBinIds) {
+    chunks = await queryFirestoreRestChaptersByBookId(binBookId);
+    if (chunks.length > 0) break;
+  }
   if (!chunks || chunks.length === 0) return null;
   const joinedBase64 = chunks.map((c) => String(c.content || '').trim()).join('');
   if (joinedBase64.length < 100) return null;
@@ -88,12 +129,14 @@ async function fetchFirestorePdfBufferById(bookId) {
     const buf = Buffer.from(joinedBase64, 'base64');
     if (buf.length > 100 && buf.subarray(0, 5).toString('ascii').startsWith('%PDF-')) {
       const { pdfDirs } = getStorageCandidates();
-      const safeId = String(bookId).replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 128);
-      for (const dir of pdfDirs) {
-        try {
-          if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-          fs.writeFileSync(path.join(dir, `${safeId}.pdf`), buf);
-        } catch {}
+      const safeFileId = sanitizeBookFileId(bookId);
+      if (safeFileId) {
+        for (const dir of pdfDirs) {
+          try {
+            if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+            fs.writeFileSync(path.join(dir, `${safeFileId}.pdf`), buf);
+          } catch {}
+        }
       }
       return buf;
     }
@@ -381,11 +424,16 @@ export async function handlePdfProxyRequest(req, res) {
     }
 
     const storedData = bookId ? getEditorialStoredBookAndChapters(bookId) : { book: null, chapters: [], pdfBuffer: null };
+    const firestoreBookMeta =
+      bookId && !storedData.book && !urlObj.searchParams.get('title')
+        ? await fetchFirestoreBookById(bookId)
+        : null;
+    const resolvedBookMeta = storedData.book || firestoreBookMeta;
 
-    const finalTitle = urlObj.searchParams.get('title') || storedData.book?.title || 'Livro Digital';
-    const finalAuthor = urlObj.searchParams.get('author') || storedData.book?.author || 'Acervo Wotho';
-    const finalCategory = urlObj.searchParams.get('category') || storedData.book?.category || 'Literatura';
-    const finalDesc = urlObj.searchParams.get('description') || storedData.book?.description || '';
+    const finalTitle = urlObj.searchParams.get('title') || resolvedBookMeta?.title || 'Livro Digital';
+    const finalAuthor = urlObj.searchParams.get('author') || resolvedBookMeta?.author || 'Acervo Wotho';
+    const finalCategory = urlObj.searchParams.get('category') || resolvedBookMeta?.category || 'Literatura';
+    const finalDesc = urlObj.searchParams.get('description') || resolvedBookMeta?.description || '';
 
     let cleanUtf8Filename = (requestedFilename || `${finalTitle}-${finalAuthor}.pdf`).trim();
     if (!cleanUtf8Filename.toLowerCase().endsWith('.pdf')) {

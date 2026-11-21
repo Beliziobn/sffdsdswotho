@@ -153,7 +153,7 @@ export const mapEditorialBookToContent = (b: Book & Record<string, any>): Conten
 export const useContents = (options?: { type?: ContentType; category?: string; limit?: number }) =>
   useQuery({
     queryKey: ["contents", options?.type ?? "all", options?.category ?? "all", options?.limit ?? 0],
-    staleTime: 1000 * 60 * 10,
+    staleTime: 1000 * 30,
     refetchOnWindowFocus: false,
     queryFn: async () => {
       let dbData: Content[] = [];
