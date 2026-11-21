@@ -9,7 +9,15 @@ const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const MAX_PDF_UPLOAD_BYTES = 25 * 1024 * 1024; // 25 MB raw PDF binary
 const PDF_B64_CHUNK_CHARS = 600_000; // Fits safely inside Firestore's 650 KB chapter content rule & 1 MiB doc limit
 const FIRESTORE_COMMIT_BATCH_LIMIT = 6; // Max ~3.6 MB per Firestore REST commit
-const FIRESTORE_READ_CACHE_TTL_MS = 15_000;
+const FIRESTORE_READ_CACHE_TTL_MS = 300_000; // 5-minute shared server read cache (invalidated instantly on any write/delete)
+const FIRESTORE_QUOTA_BACKOFF_MS = 120_000; // Pause Firestore reads for 2 min after HTTP 429 RESOURCE_EXHAUSTED
+let firestoreQuotaBackoffUntil = 0;
+
+function isQuotaExceededMessage(status, text) {
+  if (status === 429) return true;
+  const s = String(text || '').toLowerCase();
+  return s.includes('resource_exhausted') || s.includes('quota exceeded') || s.includes('quota limit exceeded');
+}
 
 function resolveStorageDir() {
   const localDir = path.join(process.cwd(), '.cache', 'wotho_editorial');
@@ -318,14 +326,22 @@ async function executeFirestoreCommit(writes, timeoutMs = 15_000) {
       return { ok: true };
     }
     const errText = await res.text().catch(() => '');
+    const quotaExceeded = isQuotaExceededMessage(res.status, errText);
+    if (quotaExceeded) {
+      firestoreQuotaBackoffUntil = Date.now() + FIRESTORE_QUOTA_BACKOFF_MS;
+    }
     return {
       ok: false,
       status: res.status,
-      error: `Firestore HTTP ${res.status}: ${errText.slice(0, 240)}`,
+      quotaExceeded,
+      error: quotaExceeded
+        ? 'Cota diária gratuita do Firestore atingida (HTTP 429 RESOURCE_EXHAUSTED). A cota reinicia amanhã ou pode ser ampliada no console do Firebase.'
+        : `Firestore HTTP ${res.status}: ${errText.slice(0, 240)}`,
     };
   } catch (err) {
     return {
       ok: false,
+      quotaExceeded: false,
       error: err instanceof Error ? err.message : 'Falha de rede ao gravar no Firestore.',
     };
   }
@@ -507,6 +523,10 @@ async function queryFirestoreCollectionRest(col, opts = {}) {
     return cached.data;
   }
 
+  if (Date.now() < firestoreQuotaBackoffUntil) {
+    return cached ? cached.data : null;
+  }
+
   const dbPath = `projects/${cfg.projectId}/databases/${cfg.firestoreDatabaseId}`;
 
   if (docId) {
@@ -515,6 +535,10 @@ async function queryFirestoreCollectionRest(col, opts = {}) {
     try {
       const url = `https://firestore.googleapis.com/v1/${dbPath}/documents/${col}/${encodeURIComponent(safeDocId)}?key=${encodeURIComponent(cfg.apiKey)}`;
       const res = await fetch(url, { signal: AbortSignal.timeout(7_000) });
+      if (res.status === 429) {
+        firestoreQuotaBackoffUntil = Date.now() + FIRESTORE_QUOTA_BACKOFF_MS;
+        return cached ? cached.data : null;
+      }
       if (!res.ok) return null;
       const docObj = await res.json();
       const decoded = decodeFsDocument(docObj);
@@ -556,6 +580,10 @@ async function queryFirestoreCollectionRest(col, opts = {}) {
       body: JSON.stringify({ structuredQuery }),
       signal: AbortSignal.timeout(9_000),
     });
+    if (res.status === 429) {
+      firestoreQuotaBackoffUntil = Date.now() + FIRESTORE_QUOTA_BACKOFF_MS;
+      return cached ? cached.data : null;
+    }
     if (!res.ok) return null;
     const rows = await res.json();
     if (!Array.isArray(rows)) return [];
@@ -1129,26 +1157,62 @@ export async function handleEditorialPdfUploadRequest(req, res) {
     await deleteFirestoreChaptersForBookId(`pdfbin-${safeDocId}`.slice(0, 128)).catch(() => {});
   }
 
-  // Write warm local disk cache if single-shot upload
+  // Write warm local disk cache (supports both single-shot and chunked append so server-backed publishing still works during Firestore 429 quota pauses)
+  let savedToDisk = false;
   if (!isChunked || totalChunks === 1) {
-    saveUploadedPdfBuffer(rawBookId, buf);
+    savedToDisk = saveUploadedPdfBuffer(rawBookId, buf);
+  } else {
+    const safeFileId = sanitizeBookFileId(rawBookId);
+    if (safeFileId) {
+      for (const dir of [UPLOADED_PDF_DIR, LEGACY_TMP_PDF_DIR]) {
+        try {
+          if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+          const targetPath = resolveConfinedPdfPath(dir, safeFileId);
+          if (targetPath) {
+            if (chunkIndex === 0) fs.writeFileSync(targetPath, buf);
+            else fs.appendFileSync(targetPath, buf);
+            savedToDisk = true;
+          }
+        } catch {}
+      }
+    }
   }
 
   // Persist globally to Firestore (works across all Vercel serverless instances & devices!)
   const base64Slice = buf.toString('base64');
   const fsRes = await commitFirestorePdfBase64Chunks(safeDocId, base64Slice, startPosition);
+  const encodedId = encodeURIComponent(rawBookId);
+
   if (!fsRes.ok) {
-    return sendJson(res, 502, {
+    if (fsRes.quotaExceeded && savedToDisk) {
+      return sendJson(res, 200, {
+        ok: true,
+        firestoreSynced: false,
+        serverSynced: true,
+        quotaExceeded: true,
+        warning: fsRes.error,
+        id: rawBookId,
+        sizeBytes: buf.length,
+        chunkIndex,
+        totalChunks,
+        nextPosition: startPosition + Math.ceil(base64Slice.length / PDF_B64_CHUNK_CHARS),
+        chunksWritten: Math.ceil(base64Slice.length / PDF_B64_CHUNK_CHARS),
+        pdfUrl: `/api/books/pdf-proxy?id=${encodedId}`,
+        downloadUrl: `/api/books/pdf-proxy?id=${encodedId}&download=true`,
+      });
+    }
+    return sendJson(res, fsRes.quotaExceeded ? 429 : 502, {
       ok: false,
       firestoreSynced: false,
+      quotaExceeded: Boolean(fsRes.quotaExceeded),
       error: fsRes.error || 'Falha ao persistir o arquivo PDF na base de dados global.',
     });
   }
 
-  const encodedId = encodeURIComponent(rawBookId);
   return sendJson(res, 200, {
     ok: true,
     firestoreSynced: true,
+    serverSynced: true,
     id: rawBookId,
     sizeBytes: buf.length,
     chunkIndex,
@@ -1358,9 +1422,22 @@ export async function handleEditorialCloudSyncRequest(req, res) {
       writeEditorialCloudStore(store);
 
       if (!firestoreRes.ok) {
+        if (firestoreRes.quotaExceeded) {
+          return sendJson(res, 200, {
+            ok: true,
+            firestoreSynced: false,
+            serverSynced: true,
+            quotaExceeded: true,
+            warning: firestoreRes.error,
+            collection: col,
+            docId,
+            action: 'upsert',
+          });
+        }
         return sendJson(res, 502, {
           ok: false,
           firestoreSynced: false,
+          serverSynced: true,
           error: firestoreRes.error || 'Falha ao gravar publicação na base de dados global.',
         });
       }
@@ -1368,6 +1445,7 @@ export async function handleEditorialCloudSyncRequest(req, res) {
       return sendJson(res, 200, {
         ok: true,
         firestoreSynced: true,
+        serverSynced: true,
         collection: col,
         docId,
         action: 'upsert',

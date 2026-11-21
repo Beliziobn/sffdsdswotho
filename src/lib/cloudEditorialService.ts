@@ -78,7 +78,7 @@ const BOOKS_COLLECTION = "books";
 const CHAPTERS_COLLECTION = "chapters";
 const ANIME_OVERRIDES_COLLECTION = "anime_overrides";
 
-const READ_CACHE_TTL_MS = 15_000;
+const READ_CACHE_TTL_MS = 120_000;
 const FIRESTORE_READ_TIMEOUT_MS = 9_000;
 
 const ADMIN_BEARER_STORAGE_KEY = "worscoi_admin_bearer_v1";
@@ -160,7 +160,7 @@ async function syncEditorialDocViaServerApi(
   docId: string,
   action: "upsert" | "delete",
   payload?: Record<string, any>
-): Promise<{ ok: boolean; status: number; firestoreSynced: boolean; error?: string }> {
+): Promise<{ ok: boolean; status: number; firestoreSynced: boolean; quotaExceeded?: boolean; warning?: string; error?: string }> {
   if (typeof window === "undefined") return { ok: false, status: 0, firestoreSynced: false };
   try {
     const bearer = await resolveMasterSessionBearerToken();
@@ -183,17 +183,20 @@ async function syncEditorialDocViaServerApi(
       }),
     });
     const data = await res.json().catch(() => ({}));
-    if (res.ok) {
+    if (res.ok && data?.ok) {
       return {
         ok: true,
         status: res.status,
         firestoreSynced: Boolean(data?.firestoreSynced),
+        quotaExceeded: Boolean(data?.quotaExceeded),
+        warning: typeof data?.warning === "string" ? data.warning : undefined,
       };
     }
     return {
       ok: false,
       status: res.status,
       firestoreSynced: false,
+      quotaExceeded: Boolean(data?.quotaExceeded || res.status === 429),
       error: data?.error || `Erro HTTP ${res.status} ao sincronizar com o servidor.`,
     };
   } catch {
@@ -214,7 +217,7 @@ export async function uploadPdfBinaryToServer(
   bookId: string,
   pdfBytes: ArrayBuffer | Uint8Array,
   onProgress?: (step: string, pct: number) => void
-): Promise<{ ok: boolean; status: number; firestoreSynced: boolean; error?: string }> {
+): Promise<{ ok: boolean; status: number; firestoreSynced: boolean; quotaExceeded?: boolean; error?: string }> {
   if (typeof window === "undefined" || !bookId) {
     return { ok: false, status: 0, firestoreSynced: false };
   }
@@ -223,6 +226,8 @@ export async function uploadPdfBinaryToServer(
     const bytes = pdfBytes instanceof Uint8Array ? pdfBytes : new Uint8Array(pdfBytes);
     const totalChunks = Math.max(1, Math.ceil(bytes.byteLength / PDF_UPLOAD_SLICE_BYTES));
     let nextPosition = 1;
+    let allFirestoreSynced = true;
+    let anyQuotaExceeded = false;
 
     for (let chunkIndex = 0; chunkIndex < totalChunks; chunkIndex++) {
       const start = chunkIndex * PDF_UPLOAD_SLICE_BYTES;
@@ -267,9 +272,13 @@ export async function uploadPdfBinaryToServer(
           ok: false,
           status: res.status,
           firestoreSynced: false,
+          quotaExceeded: Boolean(data?.quotaExceeded || res.status === 429),
           error: data?.error || `Falha ao enviar parte ${chunkIndex + 1}/${totalChunks} do PDF (HTTP ${res.status}).`,
         };
       }
+
+      if (!data?.firestoreSynced) allFirestoreSynced = false;
+      if (data?.quotaExceeded) anyQuotaExceeded = true;
 
       if (typeof data?.nextPosition === "number" && data.nextPosition > nextPosition) {
         nextPosition = data.nextPosition;
@@ -278,8 +287,18 @@ export async function uploadPdfBinaryToServer(
       }
     }
 
-    onProgress?.("PDF original publicado na nuvem para todos os leitores!", 100);
-    return { ok: true, status: 200, firestoreSynced: true };
+    onProgress?.(
+      allFirestoreSynced
+        ? "PDF original publicado na nuvem para todos os leitores!"
+        : "PDF salvo no servidor editorial!",
+      100
+    );
+    return {
+      ok: true,
+      status: 200,
+      firestoreSynced: allFirestoreSynced,
+      quotaExceeded: anyQuotaExceeded,
+    };
   } catch {
     return {
       ok: false,
@@ -342,7 +361,7 @@ async function writeEditorialDoc(
   docId: string,
   payload: Record<string, any>,
   firestoreSafePayload?: Record<string, any>
-): Promise<{ firestoreSynced: boolean; serverSynced: boolean }> {
+): Promise<{ firestoreSynced: boolean; serverSynced: boolean; quotaExceeded?: boolean; warning?: string }> {
   const serverRes = await syncEditorialDocViaServerApi(
     collectionName,
     docId,
@@ -354,6 +373,17 @@ async function writeEditorialDoc(
   // Primary Master Admin global cloud path: server wrote atomically to Firestore — ZERO Google login required!
   if (serverSynced && serverRes.firestoreSynced) {
     return { firestoreSynced: true, serverSynced: true };
+  }
+
+  // If Firestore free daily quota was reached (HTTP 429), do NOT block Master Admin publishing:
+  // the book is already saved on the editorial server and can be synced to Firestore when quota resets/upgrades.
+  if (serverSynced && serverRes.quotaExceeded) {
+    return {
+      firestoreSynced: false,
+      serverSynced: true,
+      quotaExceeded: true,
+      warning: serverRes.warning,
+    };
   }
 
   const fsData = firestoreSafePayload || payload;
@@ -378,6 +408,11 @@ async function writeEditorialDoc(
         }
       }
     }
+  }
+
+  // If server saved cleanly even without Firestore confirmation, never block publishing
+  if (serverSynced) {
+    return { firestoreSynced: false, serverSynced: true };
   }
 
   if (serverRes.status === 401) {
@@ -700,39 +735,29 @@ export async function fetchCloudNews(forceFresh = false): Promise<NewsItem[]> {
 
   inflightNewsPromise = withTimeout(
     (async () => {
-      const serverItemsPromise = fetchEditorialCollectionFromServerApi<NewsItem>(NEWS_COLLECTION);
-      let firestoreItems: NewsItem[] = [];
       try {
-        const restDocs = await runRestQuery({
-          from: [{ collectionId: NEWS_COLLECTION }],
-          where: {
-            fieldFilter: {
-              field: { fieldPath: "published" },
-              op: "EQUAL",
-              value: { booleanValue: true },
-            },
-          },
-          limit: 36,
-        });
-        firestoreItems = restDocs.map((d) => d.data as NewsItem);
-        if (firestoreItems.length === 0) {
-          const ready = await ensureFirestoreReady();
-          if (ready) {
-            const q = query(
-              collection(db, NEWS_COLLECTION),
-              where("published", "==", true),
-              limit(36)
-            );
-            const snapshot = await getDocs(q);
-            firestoreItems = snapshot.docs.map((d) => d.data() as NewsItem);
+        // Server-cache-first read (shares 1 Firestore query across all visitors every 5 minutes, saving >95% daily read quota!)
+        const serverItems = await fetchEditorialCollectionFromServerApi<NewsItem>(NEWS_COLLECTION);
+        let firestoreItems: NewsItem[] = [];
+        if (serverItems.length === 0) {
+          try {
+            const restDocs = await runRestQuery({
+              from: [{ collectionId: NEWS_COLLECTION }],
+              where: {
+                fieldFilter: {
+                  field: { fieldPath: "published" },
+                  op: "EQUAL",
+                  value: { booleanValue: true },
+                },
+              },
+              limit: 36,
+            });
+            firestoreItems = restDocs.map((d) => d.data as NewsItem);
+          } catch (err: any) {
+            console.warn("[CloudEditorial] Could not list cloud news:", err?.message || err);
           }
         }
-      } catch (err: any) {
-        console.warn("[CloudEditorial] Could not list cloud news:", err?.message || err);
-      }
 
-      try {
-        const serverItems = await serverItemsPromise;
         const byKey = new Map<string, NewsItem>();
         for (const item of [...serverItems, ...firestoreItems]) {
           if (!item || item.published === false) continue;
@@ -1122,9 +1147,10 @@ export async function publishBookToCloudDetailed(book: Book & {
       cachedBooksResult = null;
     }
     return {
-      ok: Boolean(writeRes.firestoreSynced),
+      ok: Boolean(writeRes.firestoreSynced || writeRes.serverSynced),
       firestoreSynced: writeRes.firestoreSynced,
       serverSynced: writeRes.serverSynced,
+      error: (writeRes as any).warning,
     };
   } catch (err: any) {
     const permissionDenied = Boolean(err?.permissionDenied || isFirestorePermissionDenied(err));
@@ -1193,11 +1219,16 @@ export async function publishPdfBinaryToCloud(
   // persisted directly to global Firestore across all Vercel instances — ZERO Google login required!)
   onProgress?.("Enviando arquivo PDF original para a nuvem global...", 15);
   const uploadRes = await uploadPdfBinaryToServer(bookId, binaryBytes, onProgress);
-  let serverUploaded = Boolean(uploadRes.ok && uploadRes.firestoreSynced);
+  let serverUploaded = Boolean(uploadRes.ok);
 
   if (serverUploaded) {
     cachedPdfBinaryMap.set(bookId, binaryBytes.slice());
-    onProgress?.("PDF original publicado na nuvem para todos os leitores!", 100);
+    onProgress?.(
+      uploadRes.firestoreSynced
+        ? "PDF original publicado na nuvem para todos os leitores!"
+        : "PDF original salvo no servidor editorial!",
+      100
+    );
     return true;
   }
 
@@ -1366,48 +1397,38 @@ export async function fetchCloudBooks(forceFresh = false): Promise<Book[]> {
 
   inflightBooksPromise = withTimeout(
     (async () => {
-      const serverBooksPromise = fetchEditorialCollectionFromServerApi<Book>(BOOKS_COLLECTION);
-      let firestoreBooks: Book[] = [];
       try {
-        // Use fast Firestore REST API immediately (~200ms) so cold visitor loads never stall behind WebChannel setup
-        const restDocs = await runRestQuery({
-          from: [{ collectionId: BOOKS_COLLECTION }],
-          where: {
-            fieldFilter: {
-              field: { fieldPath: "published" },
-              op: "EQUAL",
-              value: { booleanValue: true },
-            },
-          },
-          limit: 200,
-        });
-        firestoreBooks = restDocs.map((d) => unpackBookFromCloud(d.data as Book));
-        if (firestoreBooks.length === 0) {
-          const ready = await ensureFirestoreReady();
-          if (ready) {
-            const q = query(
-              collection(db, BOOKS_COLLECTION),
-              where("published", "==", true),
-              limit(200)
-            );
-            const snapshot = await getDocs(q);
-            firestoreBooks = snapshot.docs.map((d) => unpackBookFromCloud(d.data() as Book));
+        // Server-cache-first read (shares 1 Firestore query across all visitors every 5 minutes, saving >95% daily read quota!)
+        const rawServerBooks = await fetchEditorialCollectionFromServerApi<Book>(BOOKS_COLLECTION);
+        const serverBooks = rawServerBooks.map((b) => unpackBookFromCloud(b));
+        let firestoreBooks: Book[] = [];
+
+        if (serverBooks.length === 0) {
+          try {
+            const restDocs = await runRestQuery({
+              from: [{ collectionId: BOOKS_COLLECTION }],
+              where: {
+                fieldFilter: {
+                  field: { fieldPath: "published" },
+                  op: "EQUAL",
+                  value: { booleanValue: true },
+                },
+              },
+              limit: 200,
+            });
+            firestoreBooks = restDocs.map((d) => unpackBookFromCloud(d.data as Book));
+          } catch (err: any) {
+            console.warn("[CloudEditorial] Could not list cloud books:", err?.message || err);
           }
         }
-      } catch (err: any) {
-        console.warn("[CloudEditorial] Could not list cloud books:", err?.message || err);
-      }
 
-      try {
-        const serverBooks = (await serverBooksPromise).map((b) => unpackBookFromCloud(b));
         const byId = new Map<string, Book>();
-        for (const b of [...firestoreBooks, ...serverBooks]) {
+        for (const b of [...serverBooks, ...firestoreBooks]) {
           if (!b || !b.id || b.published === false) continue;
           const existing = byId.get(b.id);
           if (!existing) {
             byId.set(b.id, b);
           } else {
-            // Merge preferring real data:image covers and complete fields
             byId.set(b.id, {
               ...b,
               ...existing,
@@ -1424,31 +1445,6 @@ export async function fetchCloudBooks(forceFresh = false): Promise<Book[]> {
           const tb = b.created_at ? new Date(b.created_at).getTime() : 0;
           return (Number.isFinite(tb) ? tb : 0) - (Number.isFinite(ta) ? ta : 0);
         });
-
-        // For any Firestore book whose cover is a generic placeholder, check if `pdfmeta-${book.id}` exists
-        await Promise.all(
-          merged.map(async (b) => {
-            if (!b.cover_url || b.cover_url.includes("photo-1544947950-fa07a98d237f")) {
-              try {
-                const restMeta = await runRestQuery({
-                  from: [{ collectionId: CHAPTERS_COLLECTION }],
-                  where: {
-                    fieldFilter: {
-                      field: { fieldPath: "book_id" },
-                      op: "EQUAL",
-                      value: { stringValue: `pdfmeta-${b.id}`.slice(0, 128) },
-                    },
-                  },
-                  limit: 1,
-                });
-                const metaContent = restMeta[0]?.data?.content;
-                if (typeof metaContent === "string" && metaContent.startsWith("data:image/")) {
-                  b.cover_url = metaContent;
-                }
-              } catch {}
-            }
-          })
-        );
 
         cachedBooksResult = { data: merged, ts: Date.now() };
         return merged;

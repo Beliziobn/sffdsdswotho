@@ -1095,17 +1095,27 @@ const Admin = () => {
       setUploadedPdfData(null);
 
       if (bookCloudRes.ok && pdfCloudOk) {
-        setLastSaveCloudWarning(null);
+        if (!bookCloudRes.firestoreSynced && bookCloudRes.error) {
+          setLastSaveCloudWarning(bookCloudRes.error);
+          toast.success(
+            hadUpload
+              ? `Livro em PDF "${saved.title}" (${publishedPages} páginas) publicado no servidor editorial!`
+              : `Obra "${saved.title}" publicada no servidor editorial!`,
+            { description: bookCloudRes.error }
+          );
+        } else {
+          setLastSaveCloudWarning(null);
+          toast.success(
+            hadUpload
+              ? `Livro em PDF "${saved.title}" (${publishedPages} páginas) publicado para todos os usuários!`
+              : `Obra "${saved.title}" publicada para todos os usuários!`
+          );
+        }
         setLastSyncTime(
           new Date().toLocaleTimeString("pt-BR", {
             hour: "2-digit",
             minute: "2-digit",
           })
-        );
-        toast.success(
-          hadUpload
-            ? `Livro em PDF "${saved.title}" (${publishedPages} páginas) publicado para todos os usuários!`
-            : `Obra "${saved.title}" publicada para todos os usuários!`
         );
       } else if (bookCloudRes.ok) {
         const msg =
