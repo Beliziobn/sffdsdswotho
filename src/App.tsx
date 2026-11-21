@@ -93,22 +93,26 @@ const CloudEditorialQuerySync = () => {
   useEffect(() => {
     const syncTimer = window.setTimeout(() => {
       runLazyCloudEditorialSync();
-    }, 4000);
+    }, 1200);
 
     let debounceTimer: number | null = null;
     let lastInvalidatedAt = 0;
 
     const handleEditorialUpdated = () => {
       const now = Date.now();
-      if (now - lastInvalidatedAt < 2500) return;
+      if (now - lastInvalidatedAt < 1500) return;
       if (debounceTimer) window.clearTimeout(debounceTimer);
       debounceTimer = window.setTimeout(() => {
         lastInvalidatedAt = Date.now();
         void qc.invalidateQueries({ queryKey: ["news"] });
         void qc.invalidateQueries({ queryKey: ["news-feed"] });
         void qc.invalidateQueries({ queryKey: ["books"] });
+        void qc.invalidateQueries({ queryKey: ["book"] });
+        void qc.invalidateQueries({ queryKey: ["chapters"] });
         void qc.invalidateQueries({ queryKey: ["contents"] });
-      }, 300);
+        void qc.invalidateQueries({ queryKey: ["content"] });
+        void qc.invalidateQueries({ queryKey: ["content-feed"] });
+      }, 250);
     };
 
     window.addEventListener("worscoi_editorial_updated", handleEditorialUpdated);

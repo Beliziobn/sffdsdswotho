@@ -7,10 +7,17 @@ import {
   getCustomBookChapters,
   getSingleBookWithOverrides,
   getSingleNewsWithOverrides,
+  mergeCloudBooksIntoStore,
   mergeCloudNewsIntoStore,
 } from "@/lib/editorialStore";
 import { isExcludedItem, filterExcludedItems } from "@/lib/excludedItems";
-import { fetchCloudBooks, fetchCloudChapters, fetchCloudNews, fetchCloudNewsBySlug } from "@/lib/cloudEditorialService";
+import {
+  fetchCloudBookById,
+  fetchCloudBooks,
+  fetchCloudChapters,
+  fetchCloudNews,
+  fetchCloudNewsBySlug,
+} from "@/lib/cloudEditorialService";
 import { getAllOriginalPdfBooks, getOriginalPdfForBook } from "@/lib/originalPdfRegistry";
 import { getCanonicalChaptersForOriginalPdf } from "@/lib/canonicalBookChapters";
 import { expandNewsToDeepReport } from "@/lib/newsExpander";
@@ -266,7 +273,9 @@ export const useBooks = (search = "") =>
         // 8. Cloud Books from Firestore
         (async (): Promise<Book[]> => {
           try {
-            return await fetchCloudBooks();
+            const list = await fetchCloudBooks();
+            if (list.length > 0) mergeCloudBooksIntoStore(list, true);
+            return list;
           } catch {}
           return [];
         })(),
@@ -294,10 +303,17 @@ export const useBook = (id?: string) =>
     queryFn: async () => {
       if (!id || isExcludedItem({ id })) return null;
 
-      // 1. Check custom/overridden editorial book first (synchronous)
+      // 1. Check custom/overridden editorial book and cloud lookup for book-editorial-*
       const directCustom = getSingleBookWithOverrides(id, null);
-      if (id.startsWith("book-editorial-") && directCustom) {
-        return directCustom;
+      if (id.startsWith("book-editorial-")) {
+        try {
+          const cloudDirect = await fetchCloudBookById(id);
+          if (cloudDirect) {
+            mergeCloudBooksIntoStore([cloudDirect], true);
+            return getSingleBookWithOverrides(id, cloudDirect);
+          }
+        } catch {}
+        if (directCustom) return directCustom;
       }
 
       // 2. Check fast local registries by prefix before hitting network
@@ -446,7 +462,13 @@ export const useBook = (id?: string) =>
       const [cloudMatch, dbMatch] = await Promise.all([
         (async (): Promise<Book | null> => {
           try {
+            const direct = await fetchCloudBookById(id);
+            if (direct) {
+              mergeCloudBooksIntoStore([direct], true);
+              return direct;
+            }
             const cloudList = await fetchCloudBooks();
+            if (cloudList.length > 0) mergeCloudBooksIntoStore(cloudList, true);
             return cloudList.find((b) => b.id === id) || null;
           } catch {
             return null;
@@ -477,15 +499,20 @@ export const useChapters = (bookId?: string) =>
       if (!bookId) return [];
 
       const customChaps = getCustomBookChapters(bookId);
-      if (bookId.startsWith("book-editorial-") && customChaps.length > 0) {
-        return customChaps;
-      }
-
       if (bookId.startsWith("book-editorial-")) {
         try {
           const cloudChaps = await fetchCloudChapters(bookId);
-          if (cloudChaps && cloudChaps.length > 0) return cloudChaps;
+          if (cloudChaps && cloudChaps.length > 0) {
+            const byKey = new Map<string, Chapter>();
+            for (const c of [...customChaps, ...cloudChaps]) {
+              if (!c) continue;
+              const k = c.id || `pos-${c.position}`;
+              byKey.set(k, c);
+            }
+            return Array.from(byKey.values()).sort((a, b) => (a.position || 0) - (b.position || 0));
+          }
         } catch {}
+        if (customChaps.length > 0) return customChaps;
       }
 
       // Check Scientific Articles chapters

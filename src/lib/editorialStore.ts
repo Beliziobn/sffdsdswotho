@@ -12,6 +12,7 @@ import {
   fetchCloudBooks,
   fetchCloudAnimeOverrides,
   subscribeToCloudNews,
+  subscribeToCloudBooks,
 } from "./cloudEditorialService";
 import { auth } from "./firebase";
 import { onAuthStateChanged } from "firebase/auth";
@@ -37,7 +38,12 @@ const ANIME_OVERRIDES_KEY = "worscoi_editorial_anime_overrides_v1";
 let memoryNewsOverrides: Record<string, EditorialNewsPatch> | null = null;
 let memoryCustomNews: NewsItem[] | null = null;
 let memoryDeletedNews: string[] | null = null;
+let memoryBookOverrides: Record<string, Partial<Book>> | null = null;
+let memoryCustomBooks: Book[] | null = null;
+let memoryDeletedBooks: string[] | null = null;
+let memoryCustomChapters: Record<string, Chapter[]> | null = null;
 let unsubscribeCloudNewsListener: (() => void) | null = null;
+let unsubscribeCloudBooksListener: (() => void) | null = null;
 
 function toTimestamp(val?: string | null): number {
   if (!val) return 0;
@@ -139,18 +145,138 @@ export function mergeCloudNewsIntoStore(cloudNews: NewsItem[], silent = false): 
   return changed;
 }
 
+function isBookRecordDifferent(a: any, b: any): boolean {
+  if (!a || !b) return true;
+  const fields = [
+    "title",
+    "author",
+    "description",
+    "cover_url",
+    "category",
+    "published",
+    "featured",
+    "price_cents",
+    "currency",
+    "pdf_url",
+    "download_url",
+    "original_pages_count",
+    "file_size_formatted",
+    "edition_notes",
+    "source_repository",
+  ];
+  for (const f of fields) {
+    if ((a[f] ?? undefined) !== (b[f] ?? undefined)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+export function mergeCloudBooksIntoStore(cloudBooks: Book[], silent = false): boolean {
+  if (typeof window === "undefined" || !Array.isArray(cloudBooks) || cloudBooks.length === 0) {
+    return false;
+  }
+
+  const customBooks = [...getCustomBooks()];
+  const overrides = { ...getBookOverrides() };
+  const deletedSet = new Set(getDeletedBookIds());
+  let changed = false;
+
+  for (const cb of cloudBooks) {
+    if (!cb || !cb.id) continue;
+
+    if (cb.published === false) {
+      if (overrides[cb.id]) {
+        delete overrides[cb.id];
+        changed = true;
+      }
+      const before = customBooks.length;
+      const filtered = customBooks.filter((b) => b.id !== cb.id);
+      if (filtered.length !== before) {
+        customBooks.length = 0;
+        customBooks.push(...filtered);
+        changed = true;
+      }
+      continue;
+    }
+
+    if (deletedSet.has(cb.id)) continue;
+
+    const prevOverride = overrides[cb.id];
+    const existingIdx = customBooks.findIndex((b) => b.id === cb.id);
+    const prevCustom = existingIdx >= 0 ? customBooks[existingIdx] : undefined;
+
+    if (
+      !prevOverride ||
+      !prevCustom ||
+      isBookRecordDifferent(prevOverride, cb) ||
+      isBookRecordDifferent(prevCustom, cb)
+    ) {
+      overrides[cb.id] = cb;
+      if (existingIdx >= 0) {
+        customBooks[existingIdx] = cb;
+      } else {
+        customBooks.unshift(cb);
+      }
+      changed = true;
+    }
+  }
+
+  if (changed) {
+    const cappedBooks = customBooks.slice(0, 120);
+    memoryBookOverrides = overrides;
+    memoryCustomBooks = cappedBooks;
+    safeWriteJson(BOOK_OVERRIDES_KEY, overrides, false);
+    safeWriteJson(CUSTOM_BOOKS_KEY, cappedBooks, false);
+    if (!silent) {
+      window.dispatchEvent(new Event("worscoi_editorial_updated"));
+    }
+  }
+
+  return changed;
+}
+
+function attachRealtimeCloudListeners(): void {
+  if (
+    typeof window === "undefined" ||
+    (typeof navigator !== "undefined" &&
+      /googlebot|google-inspectiontool|storebot-google|adsbot-google|apis-google|mediapartners-google|googleother|bingbot|bingpreview|msnbot|adidxbot|duckduckbot|baiduspider|yandexbot|slurp|applebot|facebookexternalhit|twitterbot|linkedinbot|oai-searchbot|chatgpt-user|gptbot|claudebot|perplexitybot|lighthouse|chrome-lighthouse|pagespeed|gtmetrix|ptst|headlesschrome/i.test(
+        navigator.userAgent || ""
+      ))
+  ) {
+    return;
+  }
+
+  if (!unsubscribeCloudNewsListener) {
+    unsubscribeCloudNewsListener = subscribeToCloudNews((items) => {
+      if (items && items.length > 0) {
+        mergeCloudNewsIntoStore(items, false);
+      }
+    });
+  }
+
+  if (!unsubscribeCloudBooksListener) {
+    unsubscribeCloudBooksListener = subscribeToCloudBooks((books) => {
+      if (books && books.length > 0) {
+        mergeCloudBooksIntoStore(books, false);
+      }
+    });
+  }
+}
+
 let isCloudSyncing = false;
 let hasCompletedInitialCloudSync = false;
 
 export async function initCloudEditorialSync(force = false): Promise<void> {
   if (typeof window === "undefined" || isCloudSyncing) return;
+  attachRealtimeCloudListeners();
   if (!force && hasCompletedInitialCloudSync) return;
   isCloudSyncing = true;
   hasCompletedInitialCloudSync = true;
   try {
     const [cloudNews, cloudBooks, cloudAnimes] = await Promise.all([
-      fetchCloudNews(),
-      fetchCloudBooks(),
+      fetchCloudNews(force),
+      fetchCloudBooks(force),
       fetchCloudAnimeOverrides(),
     ]);
 
@@ -163,26 +289,7 @@ export async function initCloudEditorialSync(force = false): Promise<void> {
     }
 
     if (cloudBooks && cloudBooks.length > 0) {
-      const customBooks = [...getCustomBooks()];
-      const overrides = { ...getBookOverrides() };
-      let booksChanged = false;
-      for (const cb of cloudBooks) {
-        if (!cb || !cb.id) continue;
-        const prev = overrides[cb.id];
-        if (!prev || prev.title !== cb.title || prev.cover_url !== cb.cover_url) {
-          overrides[cb.id] = cb;
-          const idx = customBooks.findIndex((b) => b.id === cb.id);
-          if (idx >= 0) {
-            customBooks[idx] = cb;
-          } else {
-            customBooks.unshift(cb);
-          }
-          booksChanged = true;
-        }
-      }
-      if (booksChanged) {
-        safeWriteJson(BOOK_OVERRIDES_KEY, overrides, false);
-        safeWriteJson(CUSTOM_BOOKS_KEY, customBooks.slice(0, 40), false);
+      if (mergeCloudBooksIntoStore(cloudBooks, true)) {
         changed = true;
       }
     }
@@ -243,6 +350,15 @@ function safeReadJson<T>(key: string, fallback: T): T {
   }
 }
 
+function compactBookForLocalStorage(item: any) {
+  if (!item || typeof item !== "object") return item;
+  const copy = { ...item };
+  if (typeof copy.cover_url === "string" && copy.cover_url.startsWith("data:") && copy.cover_url.length > 60000) {
+    copy.cover_url = copy.cover_url.slice(0, 60000);
+  }
+  return copy;
+}
+
 function safeWriteJson<T>(key: string, value: T, notify = true): void {
   if (typeof window === "undefined") return;
   try {
@@ -270,7 +386,33 @@ function safeWriteJson<T>(key: string, value: T, notify = true): void {
       localStorage.setItem(key, JSON.stringify(value));
     }
   } catch (err) {
-    console.warn("[EditorialStore] localStorage write notice:", err);
+    // Fallback compaction on QuotaExceededError so non-thumbnail metadata still persists
+    try {
+      if (key === CUSTOM_BOOKS_KEY && Array.isArray(value)) {
+        const compacted = value.slice(0, 60).map((b: any) => {
+          const copy = compactBookForLocalStorage(b);
+          if (typeof copy?.cover_url === "string" && copy.cover_url.startsWith("data:")) {
+            delete copy.cover_url;
+          }
+          return copy;
+        });
+        localStorage.setItem(key, JSON.stringify(compacted));
+      } else if (key === BOOK_OVERRIDES_KEY && value && typeof value === "object") {
+        const compacted: Record<string, any> = {};
+        for (const [k, entry] of Object.entries(value as Record<string, any>).slice(0, 80)) {
+          const copy = compactBookForLocalStorage(entry);
+          if (typeof copy?.cover_url === "string" && copy.cover_url.startsWith("data:")) {
+            delete copy.cover_url;
+          }
+          compacted[k] = copy;
+        }
+        localStorage.setItem(key, JSON.stringify(compacted));
+      } else {
+        console.warn("[EditorialStore] localStorage write notice:", err);
+      }
+    } catch {
+      console.warn("[EditorialStore] localStorage write notice:", err);
+    }
   } finally {
     if (notify) {
       try {
@@ -1171,16 +1313,24 @@ export async function acquireDiversePublications(
 // ============================================================================
 
 export function getBookOverrides(): Record<string, Partial<Book>> {
-  return safeReadJson<Record<string, Partial<Book>>>(BOOK_OVERRIDES_KEY, {});
+  if (!memoryBookOverrides) {
+    memoryBookOverrides = safeReadJson<Record<string, Partial<Book>>>(BOOK_OVERRIDES_KEY, {});
+  }
+  return memoryBookOverrides;
 }
 
 export function getCustomBooks(): Book[] {
-  return safeReadJson<Book[]>(CUSTOM_BOOKS_KEY, []);
+  if (!memoryCustomBooks) {
+    memoryCustomBooks = safeReadJson<Book[]>(CUSTOM_BOOKS_KEY, []);
+  }
+  return memoryCustomBooks;
 }
 
 export function getDeletedBookIds(): string[] {
-  const local = safeReadJson<string[]>(DELETED_BOOKS_KEY, []);
-  return Array.from(new Set([...local, ...Array.from(EXCLUDED_IDS)]));
+  if (!memoryDeletedBooks) {
+    memoryDeletedBooks = safeReadJson<string[]>(DELETED_BOOKS_KEY, []);
+  }
+  return Array.from(new Set([...memoryDeletedBooks, ...Array.from(EXCLUDED_IDS)]));
 }
 
 export function applyBookEditorialOverrides(books: Book[], search = ""): Book[] {
@@ -1188,24 +1338,29 @@ export function applyBookEditorialOverrides(books: Book[], search = ""): Book[] 
   const customBooks = getCustomBooks();
   const deletedSet = new Set(getDeletedBookIds());
 
+  const incomingById = new Map<string, Book>();
+  for (const b of books) {
+    if (b && b.id) incomingById.set(b.id, b);
+  }
+
   const result: Book[] = [];
   const seenIds = new Set<string>();
   const q = search.trim().toLowerCase();
 
+  const matchesSearch = (book: Book) =>
+    !q ||
+    (book.title || "").toLowerCase().includes(q) ||
+    (book.author || "").toLowerCase().includes(q) ||
+    (book.category || "").toLowerCase().includes(q) ||
+    (book.description || "").toLowerCase().includes(q);
+
   for (const cb of customBooks) {
     if (deletedSet.has(cb.id)) continue;
-    const merged = overrides[cb.id] ? { ...cb, ...overrides[cb.id] } : cb;
+    const base = incomingById.get(cb.id) || cb;
+    const merged = overrides[cb.id] ? { ...base, ...overrides[cb.id] } : base;
     if (merged.published === false) continue;
-    if (
-      q &&
-      !merged.title.toLowerCase().includes(q) &&
-      !merged.author.toLowerCase().includes(q) &&
-      !merged.category.toLowerCase().includes(q) &&
-      !merged.description.toLowerCase().includes(q)
-    ) {
-      continue;
-    }
     seenIds.add(merged.id);
+    if (!matchesSearch(merged)) continue;
     result.push(merged);
   }
 
@@ -1214,6 +1369,7 @@ export function applyBookEditorialOverrides(books: Book[], search = ""): Book[] 
     const merged = overrides[b.id] ? { ...b, ...overrides[b.id] } : b;
     if (merged.published === false) continue;
     seenIds.add(merged.id);
+    if (!matchesSearch(merged)) continue;
     result.push(merged);
   }
 
@@ -1230,7 +1386,7 @@ export function getSingleBookWithOverrides(id: string, baseBook: Book | null): B
   const overrides = getBookOverrides();
   const customBooks = getCustomBooks();
   const customMatch = customBooks.find((b) => b.id === id);
-  const target = customMatch || baseBook;
+  const target = baseBook || customMatch;
 
   if (!target) {
     const patch = overrides[id];
@@ -1247,7 +1403,8 @@ export function getSingleBookWithOverrides(id: string, baseBook: Book | null): B
         published: patch.published ?? true,
         featured: patch.featured ?? true,
         created_at: patch.created_at || new Date().toISOString(),
-      };
+        ...patch,
+      } as Book;
     }
     return null;
   }
@@ -1314,21 +1471,25 @@ export function saveBookPublication(
     ...(input.source_repository ? { source_repository: input.source_repository } : {}),
   };
 
-  const overrides = getBookOverrides();
+  const overrides = { ...getBookOverrides() };
   overrides[id] = fullBook;
+  memoryBookOverrides = overrides;
   safeWriteJson(BOOK_OVERRIDES_KEY, overrides);
 
-  const customBooks = getCustomBooks();
+  const customBooks = [...getCustomBooks()];
   const idx = customBooks.findIndex((b) => b.id === id);
   if (idx >= 0) {
     customBooks[idx] = fullBook;
+    memoryCustomBooks = customBooks;
     safeWriteJson(CUSTOM_BOOKS_KEY, customBooks);
   } else if (input.isNew !== false) {
     customBooks.unshift(fullBook);
+    memoryCustomBooks = customBooks;
     safeWriteJson(CUSTOM_BOOKS_KEY, customBooks);
   }
 
-  const deleted = getDeletedBookIds().filter((d) => d !== id);
+  const deleted = (memoryDeletedBooks ?? safeReadJson<string[]>(DELETED_BOOKS_KEY, [])).filter((d) => d !== id);
+  memoryDeletedBooks = deleted;
   safeWriteJson(DELETED_BOOKS_KEY, deleted);
 
   if (!input.skipAutoCloudPublish) {
@@ -1345,13 +1506,22 @@ export function saveBookPublication(
 }
 
 export function deleteBookPublication(id: string): void {
-  const deleted = getDeletedBookIds();
-  if (!deleted.includes(id)) {
-    deleted.push(id);
-    safeWriteJson(DELETED_BOOKS_KEY, deleted);
+  const currentDeleted = memoryDeletedBooks ?? safeReadJson<string[]>(DELETED_BOOKS_KEY, []);
+  if (!currentDeleted.includes(id)) {
+    const nextDeleted = [...currentDeleted, id];
+    memoryDeletedBooks = nextDeleted;
+    safeWriteJson(DELETED_BOOKS_KEY, nextDeleted);
   }
   const customBooks = getCustomBooks().filter((b) => b.id !== id);
+  memoryCustomBooks = customBooks;
   safeWriteJson(CUSTOM_BOOKS_KEY, customBooks);
+
+  const overrides = { ...getBookOverrides() };
+  if (overrides[id]) {
+    delete overrides[id];
+    memoryBookOverrides = overrides;
+    safeWriteJson(BOOK_OVERRIDES_KEY, overrides);
+  }
 
   // Mark book deleted in Firestore Cloud and notify IndexNow
   void deleteBookFromCloud(id);
@@ -1359,11 +1529,13 @@ export function deleteBookPublication(id: string): void {
 }
 
 export function getCustomBookChapters(bookId: string): Chapter[] {
-  const all = safeReadJson<Record<string, Chapter[]>>(CUSTOM_CHAPTERS_KEY, {});
-  return all[bookId] || [];
+  if (!memoryCustomChapters) {
+    memoryCustomChapters = safeReadJson<Record<string, Chapter[]>>(CUSTOM_CHAPTERS_KEY, {});
+  }
+  return memoryCustomChapters[bookId] || [];
 }
 
-export function saveCustomBookChapter(input: {
+function persistLocalCustomBookChapter(input: {
   id?: string;
   book_id: string;
   title: string;
@@ -1371,8 +1543,11 @@ export function saveCustomBookChapter(input: {
   position?: number;
   is_free_preview?: boolean;
 }): Chapter {
-  const all = safeReadJson<Record<string, Chapter[]>>(CUSTOM_CHAPTERS_KEY, {});
-  const list = all[input.book_id] || [];
+  if (!memoryCustomChapters) {
+    memoryCustomChapters = safeReadJson<Record<string, Chapter[]>>(CUSTOM_CHAPTERS_KEY, {});
+  }
+  const all = { ...memoryCustomChapters };
+  const list = [...(all[input.book_id] || [])];
   const position = input.position ?? list.length + 1;
   const id = input.id || `${input.book_id}-cap-${position}-${Date.now().toString().slice(-4)}`;
 
@@ -1393,12 +1568,36 @@ export function saveCustomBookChapter(input: {
   }
   list.sort((a, b) => a.position - b.position);
   all[input.book_id] = list;
+  memoryCustomChapters = all;
   safeWriteJson(CUSTOM_CHAPTERS_KEY, all);
+  return chapter;
+}
 
+export function saveCustomBookChapter(input: {
+  id?: string;
+  book_id: string;
+  title: string;
+  content: string;
+  position?: number;
+  is_free_preview?: boolean;
+}): Chapter {
+  const chapter = persistLocalCustomBookChapter(input);
   // Sync chapter to Firestore Cloud
   void publishChapterToCloud(chapter);
-
   return chapter;
+}
+
+export async function saveCustomBookChapterWithCloud(input: {
+  id?: string;
+  book_id: string;
+  title: string;
+  content: string;
+  position?: number;
+  is_free_preview?: boolean;
+}): Promise<{ chapter: Chapter; cloudSynced: boolean }> {
+  const chapter = persistLocalCustomBookChapter(input);
+  const cloudSynced = await publishChapterToCloud(chapter);
+  return { chapter, cloudSynced };
 }
 
 // ============================================================================

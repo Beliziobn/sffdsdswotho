@@ -266,7 +266,12 @@ export const OriginalPdfViewer: React.FC<OriginalPdfViewerProps> = ({
         const lookupBookId =
           itemId ||
           (targetRef.startsWith("idb://") ? targetRef.slice("idb://".length) : "");
-        if (lookupBookId && (lookupBookId.startsWith("book-editorial-") || targetRef.startsWith("idb://"))) {
+        if (
+          lookupBookId &&
+          (lookupBookId.startsWith("book-editorial-") ||
+            targetRef.startsWith("idb://") ||
+            targetRef.startsWith("/api/books/pdf-proxy"))
+        ) {
           setLoadingProgress(35);
           const cloudBytes = await fetchCloudPdfBinary(lookupBookId);
           if (cloudBytes && cloudBytes.byteLength > 100) {

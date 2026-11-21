@@ -5,6 +5,8 @@ import {
   getDocs,
   setDoc,
   deleteDoc,
+  writeBatch,
+  serverTimestamp,
   onSnapshot,
   query,
   where,
@@ -13,6 +15,63 @@ import {
 import { auth, db, ensureFirestoreReady, ensureFirestoreOnline } from "./firebase";
 import firebaseConfig from "../../firebase-applet-config.json";
 import type { Book, Chapter, NewsItem } from "@/hooks/useCatalog";
+
+export enum OperationType {
+  CREATE = "create",
+  UPDATE = "update",
+  DELETE = "delete",
+  LIST = "list",
+  GET = "get",
+  WRITE = "write",
+}
+
+export interface FirestoreErrorInfo {
+  error: string;
+  operationType: OperationType;
+  path: string | null;
+  authInfo: {
+    userId: string | undefined;
+    email: string | null | undefined;
+    emailVerified: boolean | undefined;
+    isAnonymous: boolean | undefined;
+    tenantId: string | null | undefined;
+    providerInfo: Array<{
+      providerId: string;
+      displayName: string | null;
+      email: string | null;
+      photoUrl: string | null;
+    }>;
+  };
+}
+
+export function handleFirestoreError(
+  error: unknown,
+  operationType: OperationType,
+  path: string | null
+): never {
+  const errMessage = error instanceof Error ? error.message : String(error);
+  const errInfo: FirestoreErrorInfo = {
+    error: errMessage,
+    authInfo: {
+      userId: auth.currentUser?.uid,
+      email: auth.currentUser?.email,
+      emailVerified: auth.currentUser?.emailVerified,
+      isAnonymous: auth.currentUser?.isAnonymous,
+      tenantId: auth.currentUser?.tenantId,
+      providerInfo:
+        auth.currentUser?.providerData.map((provider) => ({
+          providerId: provider.providerId,
+          displayName: provider.displayName,
+          email: provider.email,
+          photoUrl: provider.photoURL,
+        })) || [],
+    },
+    operationType,
+    path,
+  };
+  console.error("Firestore Error:", JSON.stringify(errInfo));
+  throw error instanceof Error ? error : new Error(JSON.stringify(errInfo));
+}
 
 const NEWS_COLLECTION = "news";
 const BOOKS_COLLECTION = "books";
@@ -152,12 +211,25 @@ async function fetchEditorialOverridesFromServerApi(): Promise<Record<string, Re
   }
 }
 
+function isFirestorePermissionDenied(err: any): boolean {
+  const code = String(err?.code || "").toLowerCase();
+  const msg = String(err?.message || err || "").toLowerCase();
+  return code === "permission-denied" || msg.includes("insufficient permissions") || msg.includes("permission_denied");
+}
+
+function attachSyncMeta(err: unknown, serverSynced: boolean): Error {
+  const wrapped = err instanceof Error ? err : new Error(String(err || "Falha ao gravar no Firestore."));
+  (wrapped as any).serverSynced = serverSynced;
+  (wrapped as any).permissionDenied = isFirestorePermissionDenied(err);
+  return wrapped;
+}
+
 async function writeEditorialDoc(
   collectionName: string,
   docId: string,
   payload: Record<string, any>,
   firestoreSafePayload?: Record<string, any>
-): Promise<void> {
+): Promise<{ firestoreSynced: boolean; serverSynced: boolean }> {
   const serverSynced = await syncEditorialDocViaServerApi(
     collectionName,
     docId,
@@ -165,27 +237,62 @@ async function writeEditorialDoc(
     payload
   );
 
-  // Only attempt direct client-side Firestore write when authenticated with an authorized Google Admin account.
-  // The deployed Firestore security rules require isGoogleAdmin() (request.auth != null && verified admin email)
-  // and reject unauthenticated client writes with permission-denied.
+  const fsData = firestoreSafePayload || payload;
+  const targetPath = `${collectionName}/${docId}`;
+
   if (isGoogleAdminAuthenticated()) {
-    try {
-      await ensureFirestoreOnline();
-      await setDoc(doc(db, collectionName, docId), firestoreSafePayload || payload);
-      return;
-    } catch (err: any) {
-      if (serverSynced) {
-        return;
+    const online = await ensureFirestoreOnline();
+    if (!online && !serverSynced) {
+      throw new Error("Sem conexão com o Firestore. Verifique sua internet e tente novamente.");
+    }
+    if (online) {
+      try {
+        await setDoc(doc(db, collectionName, docId), fsData);
+        return { firestoreSynced: true, serverSynced };
+      } catch (err: any) {
+        try {
+          handleFirestoreError(err, OperationType.WRITE, targetPath);
+        } catch (wrapped) {
+          throw attachSyncMeta(wrapped, serverSynced);
+        }
       }
-      throw err;
+    }
+    return { firestoreSynced: false, serverSynced };
+  }
+
+  if (hasMasterAdminSession()) {
+    const online = await ensureFirestoreOnline();
+    if (!online) {
+      throw attachSyncMeta(
+        new Error("Sem conexão com a nuvem (Firestore). Tente novamente quando estiver online."),
+        serverSynced
+      );
+    }
+    try {
+      const proofToken = await resolveMasterEditorialProofToken();
+      const batch = writeBatch(db);
+      batch.set(doc(db, "editorial_auth", docId), {
+        token: proofToken,
+        updatedAt: serverTimestamp(),
+      });
+      batch.set(doc(db, collectionName, docId), fsData);
+      await batch.commit();
+      return { firestoreSynced: true, serverSynced };
+    } catch (err: any) {
+      try {
+        handleFirestoreError(err, OperationType.WRITE, targetPath);
+      } catch (wrapped) {
+        throw attachSyncMeta(wrapped, serverSynced);
+      }
     }
   }
 
-  if (!serverSynced && !hasMasterAdminSession()) {
+  if (!serverSynced) {
     throw new Error(
       "Sessão editorial expirada ou não validada. Entre novamente no Studio Editorial (/admin)."
     );
   }
+  return { firestoreSynced: false, serverSynced };
 }
 
 async function deleteEditorialDoc(
@@ -198,20 +305,43 @@ async function deleteEditorialDoc(
     "delete"
   );
 
+  const targetPath = `${collectionName}/${docId}`;
+
   if (isGoogleAdminAuthenticated()) {
+    const online = await ensureFirestoreOnline();
+    if (online) {
+      try {
+        await deleteDoc(doc(db, collectionName, docId));
+        return;
+      } catch (err: any) {
+        handleFirestoreError(err, OperationType.DELETE, targetPath);
+      }
+    }
+    if (serverSynced) return;
+    throw new Error("Sem conexão com a nuvem (Firestore).");
+  }
+
+  if (hasMasterAdminSession()) {
+    const online = await ensureFirestoreOnline();
+    if (!online) {
+      throw new Error("Sem conexão com a nuvem (Firestore).");
+    }
     try {
-      await ensureFirestoreOnline();
-      await deleteDoc(doc(db, collectionName, docId));
+      const proofToken = await resolveMasterEditorialProofToken();
+      const batch = writeBatch(db);
+      batch.set(doc(db, "editorial_auth", docId), {
+        token: proofToken,
+        updatedAt: serverTimestamp(),
+      });
+      batch.delete(doc(db, collectionName, docId));
+      await batch.commit();
       return;
     } catch (err: any) {
-      if (serverSynced) {
-        return;
-      }
-      throw err;
+      handleFirestoreError(err, OperationType.DELETE, targetPath);
     }
   }
 
-  if (!serverSynced && !hasMasterAdminSession()) {
+  if (!serverSynced) {
     throw new Error(
       "Sessão editorial expirada ou não validada. Entre novamente no Studio Editorial (/admin)."
     );
@@ -349,6 +479,11 @@ export function sanitizeDocId(rawId: string): string {
 export function invalidateCloudNewsCache(): void {
   cachedNewsResult = null;
   inflightNewsPromise = null;
+}
+
+export function invalidateCloudBooksCache(): void {
+  cachedBooksResult = null;
+  inflightBooksPromise = null;
 }
 
 // ============================================================================
@@ -732,7 +867,7 @@ function unpackBookFromCloud(rawBook: Book): Book {
   return copy as Book;
 }
 
-export async function publishBookToCloud(book: Book & {
+export async function publishBookToCloudDetailed(book: Book & {
   pdf_url?: string;
   download_url?: string;
   pdf_base64?: string;
@@ -740,15 +875,23 @@ export async function publishBookToCloud(book: Book & {
   file_size_formatted?: string;
   edition_notes?: string;
   source_repository?: string;
-}): Promise<boolean> {
+}): Promise<{
+  ok: boolean;
+  firestoreSynced: boolean;
+  serverSynced: boolean;
+  permissionDenied?: boolean;
+  error?: string;
+}> {
   const docId = sanitizeDocId(book.id);
-  if (!docId) return false;
+  if (!docId) return { ok: false, firestoreSynced: false, serverSynced: false, error: "Identificador de livro inválido." };
 
+  const defaultCover =
+    "https://images.unsplash.com/photo-1544947950-fa07a98d237f?w=800&auto=format&fit=crop&q=80";
   const rawCoverUrl = (book.cover_url || "").trim();
   const safeFirestoreCoverUrl =
-    rawCoverUrl.length > 0 && rawCoverUrl.length <= 1000
+    rawCoverUrl.length > 0 && rawCoverUrl.length <= 450000
       ? rawCoverUrl
-      : "https://images.unsplash.com/photo-1544947950-fa07a98d237f?w=800&auto=format&fit=crop&q=80";
+      : defaultCover;
 
   const rawPdfUrl = String((book as any).pdf_url || "").trim();
   const rawDownloadUrl = String((book as any).download_url || "").trim();
@@ -778,69 +921,65 @@ export async function publishBookToCloud(book: Book & {
     has_cloud_pdf_binary: Boolean(isInlinePdf || isLocalIdbPdf || (book as any).pdf_base64),
   });
 
+  const safeTitle = (book.title || "Sem título").trim().slice(0, 300) || "Sem título";
+  const safeAuthor = (book.author || "Autor Editorial").trim().slice(0, 150) || "Autor Editorial";
+  const safePagesCount = Number((book as any).original_pages_count);
+
   const firestoreSafePayload: Record<string, any> = {
     id: String(book.id || docId).slice(0, 128),
-    title: (book.title || "Sem título").trim().slice(0, 300),
-    author: (book.author || "Autor Editorial").trim().slice(0, 150),
+    title: safeTitle,
+    author: safeAuthor,
     description: packedDescription,
     cover_url: safeFirestoreCoverUrl,
     price_cents: Math.max(0, Number(book.price_cents) || 0),
-    currency: (book.currency || "BRL").trim().slice(0, 10),
-    category: (book.category || "Literatura").trim().slice(0, 100),
+    currency: (book.currency || "BRL").trim().slice(0, 10) || "BRL",
+    category: (book.category || "Literatura").trim().slice(0, 100) || "Literatura",
     published: Boolean(book.published ?? true),
     featured: Boolean(book.featured ?? true),
     created_at: (book.created_at || new Date().toISOString()).slice(0, 100),
+    ...(proxyPdfUrl && !proxyPdfUrl.startsWith("data:")
+      ? { pdf_url: proxyPdfUrl.slice(0, 2000) }
+      : {}),
+    ...(proxyDownloadUrl && !proxyDownloadUrl.startsWith("data:")
+      ? { download_url: proxyDownloadUrl.slice(0, 2000) }
+      : {}),
+    ...(Number.isFinite(safePagesCount) && safePagesCount >= 0
+      ? { original_pages_count: Math.round(safePagesCount) }
+      : {}),
+    ...((book as any).file_size_formatted
+      ? { file_size_formatted: String((book as any).file_size_formatted).trim().slice(0, 50) }
+      : {}),
+    ...((book as any).edition_notes
+      ? { edition_notes: String((book as any).edition_notes).trim().slice(0, 1000) }
+      : {}),
+    ...((book as any).source_repository
+      ? { source_repository: String((book as any).source_repository).trim().slice(0, 200) }
+      : {}),
   };
 
-  // Server payload carries the full cover (up to 450 KB) and optional pdf_base64 (NOT truncated!)
+  // Server payload carries the clean description and optional pdf_base64
   const payload: Record<string, any> = {
     ...firestoreSafePayload,
     description: cleanDescription,
-    cover_url: rawCoverUrl.slice(0, 450000) || safeFirestoreCoverUrl,
+    cover_url: safeFirestoreCoverUrl,
   };
 
-  if (proxyPdfUrl) {
-    payload.pdf_url = proxyPdfUrl;
-  }
-  if (proxyDownloadUrl) {
-    payload.download_url = proxyDownloadUrl;
-  }
   if ((book as any).pdf_base64) {
     payload.pdf_base64 = (book as any).pdf_base64;
   } else if (isInlinePdf) {
     payload.pdf_base64 = rawPdfUrl;
   }
-  if ((book as any).original_pages_count) {
-    payload.original_pages_count = Number((book as any).original_pages_count);
-  }
-  if ((book as any).file_size_formatted) {
-    payload.file_size_formatted = String((book as any).file_size_formatted).trim().slice(0, 50);
-  }
-  if ((book as any).edition_notes) {
-    payload.edition_notes = String((book as any).edition_notes).trim().slice(0, 1000);
-  }
-  if ((book as any).source_repository) {
-    payload.source_repository = String((book as any).source_repository).trim().slice(0, 200);
-  }
 
   try {
-    if (!canAuthorizeCloudWrite()) return false;
-    await writeEditorialDoc(BOOKS_COLLECTION, docId, payload, firestoreSafePayload);
-
-    // If cover is a base64 image > 1000 chars (< 92,000 chars), also store it in CHAPTERS_COLLECTION
-    // under book_id = "pdfmeta-<book.id>" so Firestore readers on any device receive the real PDF cover!
-    if (rawCoverUrl.length > 1000 && rawCoverUrl.length <= 92000) {
-      const coverMetaDocId = sanitizeDocId(`pdfmeta-${book.id}`);
-      const coverMetaPayload = {
-        id: coverMetaDocId,
-        book_id: `pdfmeta-${book.id}`.slice(0, 128),
-        title: (book.title || "Capa PDF").slice(0, 300),
-        content: rawCoverUrl,
-        position: 1,
-        is_free_preview: true,
+    if (!canAuthorizeCloudWrite()) {
+      return {
+        ok: false,
+        firestoreSynced: false,
+        serverSynced: false,
+        error: "Faça login administrativo no painel para publicar na nuvem para todos os usuários.",
       };
-      await writeEditorialDoc(CHAPTERS_COLLECTION, coverMetaDocId, coverMetaPayload);
     }
+    const writeRes = await writeEditorialDoc(BOOKS_COLLECTION, docId, payload, firestoreSafePayload);
 
     const cleanCachedBook: any = {
       ...payload,
@@ -855,12 +994,41 @@ export async function publishBookToCloud(book: Book & {
         data: cleanCachedBook.published ? [cleanCachedBook as Book, ...rest] : rest,
         ts: Date.now(),
       };
+    } else {
+      cachedBooksResult = null;
     }
-    return true;
+    return {
+      ok: writeRes.firestoreSynced,
+      firestoreSynced: writeRes.firestoreSynced,
+      serverSynced: writeRes.serverSynced,
+    };
   } catch (err: any) {
+    const permissionDenied = Boolean(err?.permissionDenied || isFirestorePermissionDenied(err));
+    const serverSynced = Boolean(err?.serverSynced);
     console.warn("[CloudEditorial] Failed to write book to cloud:", err);
-    return false;
+    return {
+      ok: false,
+      firestoreSynced: false,
+      serverSynced,
+      permissionDenied,
+      error: permissionDenied
+        ? "O Firestore exigiu autenticação Google de administrador para gravar na nuvem global (ou o arquivo firestore.rules ainda não foi implantado no Firebase Console). Clique em 'Conectar Google' no topo para sincronizar para todos os usuários."
+        : err?.message || "Falha ao gravar publicação na nuvem.",
+    };
   }
+}
+
+export async function publishBookToCloud(book: Book & {
+  pdf_url?: string;
+  download_url?: string;
+  pdf_base64?: string;
+  original_pages_count?: number;
+  file_size_formatted?: string;
+  edition_notes?: string;
+  source_repository?: string;
+}): Promise<boolean> {
+  const res = await publishBookToCloudDetailed(book);
+  return res.ok;
 }
 
 /**
@@ -887,11 +1055,16 @@ export async function publishPdfBinaryToCloud(
   const CHUNK_SIZE = 88000;
   const totalChunks = Math.ceil(rawBase64.length / CHUNK_SIZE);
   const binBookId = `pdfbin-${bookId}`.slice(0, 128);
+  const isGoogle = isGoogleAdminAuthenticated();
+  const isMaster = hasMasterAdminSession();
 
   try {
+    const chunks: Array<{ chunkDocId: string; chunkPayload: Record<string, any> }> = [];
     for (let i = 0; i < totalChunks; i++) {
       const chunkStr = rawBase64.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE);
-      const chunkDocId = sanitizeDocId(`${binBookId}-c${i + 1}`);
+      const chunkSuffix = `-c${i + 1}`;
+      const safeBase = sanitizeDocId(binBookId).slice(0, 120 - chunkSuffix.length);
+      const chunkDocId = sanitizeDocId(`${safeBase}${chunkSuffix}`);
       const chunkPayload = {
         id: chunkDocId,
         book_id: binBookId,
@@ -900,14 +1073,49 @@ export async function publishPdfBinaryToCloud(
         position: i + 1,
         is_free_preview: true,
       };
-      if (onProgress) {
-        onProgress(
-          `Enviando PDF para a nuvem (${i + 1}/${totalChunks})...`,
-          Math.round(((i + 1) / totalChunks) * 100)
-        );
-      }
-      await writeEditorialDoc(CHAPTERS_COLLECTION, chunkDocId, chunkPayload);
+      chunks.push({ chunkDocId, chunkPayload });
     }
+
+    // Sync server store in parallel batches of 5 chunks
+    for (let start = 0; start < chunks.length; start += 5) {
+      const group = chunks.slice(start, start + 5);
+      await Promise.all(
+        group.map(({ chunkDocId, chunkPayload }) =>
+          syncEditorialDocViaServerApi(CHAPTERS_COLLECTION, chunkDocId, "upsert", chunkPayload)
+        )
+      );
+    }
+
+    // Write chunks to Firestore in batches of 5 chunks (max 10 ops per batch)
+    if (isGoogle || isMaster) {
+      const online = await ensureFirestoreOnline();
+      if (!online) {
+        throw new Error("Sem conexão com o Firestore para enviar os blocos do PDF.");
+      }
+      const proofToken = isGoogle ? "" : await resolveMasterEditorialProofToken();
+      for (let start = 0; start < chunks.length; start += 5) {
+        const group = chunks.slice(start, start + 5);
+        const batch = writeBatch(db);
+        for (const { chunkDocId, chunkPayload } of group) {
+          if (!isGoogle) {
+            batch.set(doc(db, "editorial_auth", chunkDocId), {
+              token: proofToken,
+              updatedAt: serverTimestamp(),
+            });
+          }
+          batch.set(doc(db, CHAPTERS_COLLECTION, chunkDocId), chunkPayload);
+        }
+        await batch.commit();
+        if (onProgress) {
+          const done = Math.min(chunks.length, start + group.length);
+          onProgress(
+            `Enviando PDF para a nuvem (${done}/${totalChunks})...`,
+            Math.round((done / totalChunks) * 100)
+          );
+        }
+      }
+    }
+
     return true;
   } catch (err) {
     console.warn("[CloudEditorial] Failed to upload PDF binary chunks:", err);
@@ -930,14 +1138,14 @@ export async function fetchCloudPdfBinary(bookId: string): Promise<Uint8Array | 
   return withTimeout(
     (async () => {
       try {
-        // 1. Try server chunks first
-        let chunks = await fetchEditorialCollectionFromServerApi<Chapter>(
+        // 1. Try Firestore CHAPTERS_COLLECTION for `pdfbin-${bookId}` and server API in parallel
+        const serverPromise = fetchEditorialCollectionFromServerApi<Chapter>(
           CHAPTERS_COLLECTION,
           { bookId: binBookId }
         );
 
-        // 2. If not in server memory, query Firestore CHAPTERS_COLLECTION for `pdfbin-${bookId}`
-        if (!chunks || chunks.length === 0) {
+        let firestoreChunks: Chapter[] = [];
+        try {
           const ready = await ensureFirestoreReady();
           if (!ready) {
             const restDocs = await runRestQuery({
@@ -950,16 +1158,21 @@ export async function fetchCloudPdfBinary(bookId: string): Promise<Uint8Array | 
                 },
               },
             });
-            chunks = restDocs.map((d) => d.data as Chapter);
+            firestoreChunks = restDocs.map((d) => d.data as Chapter);
           } else {
             const q = query(
               collection(db, CHAPTERS_COLLECTION),
               where("book_id", "==", binBookId)
             );
             const snap = await getDocs(q);
-            chunks = snap.docs.map((d) => d.data() as Chapter);
+            firestoreChunks = snap.docs.map((d) => d.data() as Chapter);
           }
+        } catch (err) {
+          console.warn("[CloudEditorial] Firestore PDF binary query warning:", err);
         }
+
+        const serverChunks = await serverPromise;
+        const chunks = firestoreChunks.length > 0 ? firestoreChunks : serverChunks;
 
         if (chunks && chunks.length > 0) {
           const sorted = [...chunks].sort((a, b) => (Number(a.position) || 0) - (Number(b.position) || 0));
@@ -999,12 +1212,7 @@ export async function deleteBookFromCloud(bookId: string): Promise<boolean> {
 
   try {
     await deleteEditorialDoc(BOOKS_COLLECTION, docId);
-    if (cachedBooksResult) {
-      cachedBooksResult = {
-        data: cachedBooksResult.data.filter((b) => b.id !== bookId && sanitizeDocId(b.id) !== docId),
-        ts: Date.now(),
-      };
-    }
+    invalidateCloudBooksCache();
     return true;
   } catch (err: any) {
     console.warn("[CloudEditorial] Failed to delete book in cloud:", err);
@@ -1012,11 +1220,11 @@ export async function deleteBookFromCloud(bookId: string): Promise<boolean> {
   }
 }
 
-export async function fetchCloudBooks(): Promise<Book[]> {
-  if (cachedBooksResult && Date.now() - cachedBooksResult.ts < READ_CACHE_TTL_MS) {
+export async function fetchCloudBooks(forceFresh = false): Promise<Book[]> {
+  if (!forceFresh && cachedBooksResult && Date.now() - cachedBooksResult.ts < READ_CACHE_TTL_MS) {
     return cachedBooksResult.data;
   }
-  if (inflightBooksPromise) {
+  if (!forceFresh && inflightBooksPromise) {
     return inflightBooksPromise;
   }
 
@@ -1055,13 +1263,13 @@ export async function fetchCloudBooks(): Promise<Book[]> {
       try {
         const serverBooks = (await serverBooksPromise).map((b) => unpackBookFromCloud(b));
         const byId = new Map<string, Book>();
-        for (const b of [...serverBooks, ...firestoreBooks]) {
+        for (const b of [...firestoreBooks, ...serverBooks]) {
           if (!b || !b.id || b.published === false) continue;
           const existing = byId.get(b.id);
           if (!existing) {
             byId.set(b.id, b);
           } else {
-            // Merge so if serverBook has full data:image cover_url, we preserve it
+            // Merge preferring real data:image covers and complete fields
             byId.set(b.id, {
               ...b,
               ...existing,
@@ -1073,8 +1281,13 @@ export async function fetchCloudBooks(): Promise<Book[]> {
           }
         }
 
-        // For any Firestore editorial book whose cover is a generic placeholder, check if `pdfmeta-${book.id}` exists
-        const merged = Array.from(byId.values());
+        const merged = Array.from(byId.values()).sort((a, b) => {
+          const ta = a.created_at ? new Date(a.created_at).getTime() : 0;
+          const tb = b.created_at ? new Date(b.created_at).getTime() : 0;
+          return (Number.isFinite(tb) ? tb : 0) - (Number.isFinite(ta) ? ta : 0);
+        });
+
+        // For any legacy Firestore book whose cover is a generic placeholder, check if `pdfmeta-${book.id}` exists
         await Promise.all(
           merged.map(async (b) => {
             if (
@@ -1091,6 +1304,22 @@ export async function fetchCloudBooks(): Promise<Book[]> {
                     if (data?.content && data.content.startsWith("data:image/")) {
                       b.cover_url = data.content;
                     }
+                  }
+                } else {
+                  const restMeta = await runRestQuery({
+                    from: [{ collectionId: CHAPTERS_COLLECTION }],
+                    where: {
+                      fieldFilter: {
+                        field: { fieldPath: "book_id" },
+                        op: "EQUAL",
+                        value: { stringValue: `pdfmeta-${b.id}`.slice(0, 128) },
+                      },
+                    },
+                    limit: 1,
+                  });
+                  const metaContent = restMeta[0]?.data?.content;
+                  if (typeof metaContent === "string" && metaContent.startsWith("data:image/")) {
+                    b.cover_url = metaContent;
                   }
                 }
               } catch {}
@@ -1111,6 +1340,104 @@ export async function fetchCloudBooks(): Promise<Book[]> {
   return inflightBooksPromise;
 }
 
+export async function fetchCloudBookById(bookId: string): Promise<Book | null> {
+  const clean = (bookId || "").trim();
+  if (!clean) return null;
+
+  if (cachedBooksResult && Date.now() - cachedBooksResult.ts < READ_CACHE_TTL_MS) {
+    const match = cachedBooksResult.data.find((b) => b.id === clean);
+    if (match) return match;
+  }
+
+  return withTimeout(
+    (async () => {
+      try {
+        const docId = sanitizeDocId(clean);
+        const ready = await ensureFirestoreReady();
+        if (ready) {
+          const snap = await getDoc(doc(db, BOOKS_COLLECTION, docId));
+          if (snap.exists()) {
+            const unpacked = unpackBookFromCloud(snap.data() as Book);
+            if (unpacked.published !== false) return unpacked;
+            return null;
+          }
+        } else {
+          const restDocs = await runRestQuery({
+            from: [{ collectionId: BOOKS_COLLECTION }],
+            where: {
+              fieldFilter: {
+                field: { fieldPath: "id" },
+                op: "EQUAL",
+                value: { stringValue: clean },
+              },
+            },
+            limit: 1,
+          });
+          if (restDocs[0]?.data) {
+            const unpacked = unpackBookFromCloud(restDocs[0].data as Book);
+            if (unpacked.published !== false) return unpacked;
+          }
+        }
+
+        const serverItems = await fetchEditorialCollectionFromServerApi<Book>(BOOKS_COLLECTION);
+        const serverMatch = serverItems.find((b) => b && b.id === clean && b.published !== false);
+        return serverMatch ? unpackBookFromCloud(serverMatch) : null;
+      } catch (err: any) {
+        console.warn("[CloudEditorial] Could not fetch cloud book by id:", err?.message || err);
+        return null;
+      }
+    })(),
+    FIRESTORE_READ_TIMEOUT_MS,
+    null
+  );
+}
+
+export function subscribeToCloudBooks(
+  onUpdate: (books: Book[]) => void
+): () => void {
+  let active = true;
+  let unsubscribeSnapshot: (() => void) | null = null;
+
+  void ensureFirestoreReady().then((ready) => {
+    if (!active || !ready) return;
+    try {
+      const q = query(
+        collection(db, BOOKS_COLLECTION),
+        where("published", "==", true),
+        limit(200)
+      );
+      unsubscribeSnapshot = onSnapshot(
+        q,
+        (snapshot) => {
+          const items = snapshot.docs
+            .map((d) => unpackBookFromCloud(d.data() as Book))
+            .filter((b) => b && b.id && b.published !== false)
+            .sort((a, b) => {
+              const ta = a.created_at ? new Date(a.created_at).getTime() : 0;
+              const tb = b.created_at ? new Date(b.created_at).getTime() : 0;
+              return (Number.isFinite(tb) ? tb : 0) - (Number.isFinite(ta) ? ta : 0);
+            });
+          cachedBooksResult = { data: items, ts: Date.now() };
+          onUpdate(items);
+        },
+        (error) => {
+          console.warn("[CloudEditorial] Books realtime listener notice:", error?.message || error);
+        }
+      );
+    } catch (err: any) {
+      console.warn("[CloudEditorial] Could not attach realtime books listener:", err?.message || err);
+    }
+  });
+
+  return () => {
+    active = false;
+    if (unsubscribeSnapshot) {
+      unsubscribeSnapshot();
+      unsubscribeSnapshot = null;
+    }
+  };
+}
+
 // ============================================================================
 // 3. CHAPTERS CLOUD PERSISTENCE
 // ============================================================================
@@ -1119,13 +1446,14 @@ export async function publishChapterToCloud(chapter: Chapter): Promise<boolean> 
   const docId = sanitizeDocId(chapter.id);
   if (!docId) return false;
 
+  const safePos = Number(chapter.position);
   const payload = {
-    id: chapter.id,
+    id: String(chapter.id || docId).slice(0, 128),
     book_id: (chapter.book_id || "").trim().slice(0, 128),
-    title: (chapter.title || "Capítulo").trim().slice(0, 300),
-    content: (chapter.content || "").trim().slice(0, 100000),
-    position: Number(chapter.position) || 1,
-    is_free_preview: chapter.is_free_preview ?? true,
+    title: ((chapter.title || "").trim() || "Capítulo").slice(0, 300),
+    content: (chapter.content || "").trim().slice(0, 99000),
+    position: Number.isFinite(safePos) ? safePos : 1,
+    is_free_preview: Boolean(chapter.is_free_preview ?? true),
   };
 
   try {
@@ -1185,7 +1513,7 @@ export async function fetchCloudChapters(bookId: string): Promise<Chapter[]> {
       try {
         const serverChapters = await serverChaptersPromise;
         const byId = new Map<string, Chapter>();
-        for (const ch of [...serverChapters, ...firestoreChapters]) {
+        for (const ch of [...firestoreChapters, ...serverChapters]) {
           if (!ch || !ch.id || (ch.position !== undefined && Number(ch.position) <= 0)) continue;
           if (!byId.has(ch.id)) {
             byId.set(ch.id, ch);
@@ -1300,16 +1628,39 @@ export async function syncLocalEditorialToCloud(
   customBooks: Book[],
   customChapters: Record<string, Chapter[]>,
   animeOverrides: Record<string, Record<string, any>>
-): Promise<{ newsCount: number; booksCount: number; chaptersCount: number; animesCount: number }> {
+): Promise<{
+  newsCount: number;
+  booksCount: number;
+  chaptersCount: number;
+  animesCount: number;
+  permissionDenied?: boolean;
+}> {
   let newsCount = 0;
   let booksCount = 0;
   let chaptersCount = 0;
   let animesCount = 0;
+  let permissionDenied = false;
 
   for (const n of customNews) {
-    const ok = await publishNewsToCloud(n);
-    if (ok) newsCount++;
+    const res = await publishNewsToCloudDetailed(n);
+    if (res.ok) newsCount++;
+    else if (res.error && isFirestorePermissionDenied(res.error)) permissionDenied = true;
   }
+
+  // Merge any server-cached editorial books so linking Google pushes all prior Master Password books too
+  const booksById = new Map<string, Book>();
+  for (const b of customBooks) {
+    if (b?.id) booksById.set(b.id, b);
+  }
+  try {
+    const serverBooks = await fetchEditorialCollectionFromServerApi<Book>(BOOKS_COLLECTION);
+    for (const sb of serverBooks) {
+      if (sb?.id && !booksById.has(sb.id)) {
+        booksById.set(sb.id, unpackBookFromCloud(sb));
+      }
+    }
+  } catch {}
+  const allBooksToSync = Array.from(booksById.values());
 
   // Dynamically import IndexedDB helpers to sync any locally attached PDF bytes to Cloud
   let idbHelpers: {
@@ -1320,7 +1671,7 @@ export async function syncLocalEditorialToCloud(
     idbHelpers = await import("@/lib/pdfUploadService");
   } catch {}
 
-  for (const b of customBooks) {
+  for (const b of allBooksToSync) {
     let pdfBase64: string | undefined;
     if (idbHelpers.getPdfBytesFromIndexedDB && idbHelpers.arrayBufferToBase64) {
       try {
@@ -1332,20 +1683,31 @@ export async function syncLocalEditorialToCloud(
       } catch {}
     }
 
-    const ok = await publishBookToCloud({
+    const res = await publishBookToCloudDetailed({
       ...b,
       ...(pdfBase64 ? { pdf_base64: pdfBase64 } : {}),
     });
-    if (ok) {
+    if (res.ok) {
       booksCount++;
       if (pdfBase64) {
         await publishPdfBinaryToCloud(b.id, pdfBase64);
       }
+    } else if (res.permissionDenied) {
+      permissionDenied = true;
     }
   }
 
-  for (const bookId of Object.keys(customChapters)) {
-    const chaps = customChapters[bookId] || [];
+  const allChapterBookIds = new Set<string>([
+    ...Object.keys(customChapters),
+    ...allBooksToSync.map((b) => b.id),
+  ]);
+  for (const bookId of allChapterBookIds) {
+    let chaps = customChapters[bookId] || [];
+    if (chaps.length === 0) {
+      try {
+        chaps = await fetchEditorialCollectionFromServerApi<Chapter>(CHAPTERS_COLLECTION, { bookId });
+      } catch {}
+    }
     for (const c of chaps) {
       const ok = await publishChapterToCloud(c);
       if (ok) chaptersCount++;
@@ -1357,5 +1719,6 @@ export async function syncLocalEditorialToCloud(
     if (ok) animesCount++;
   }
 
-  return { newsCount, booksCount, chaptersCount, animesCount };
+  invalidateCloudBooksCache();
+  return { newsCount, booksCount, chaptersCount, animesCount, permissionDenied };
 }

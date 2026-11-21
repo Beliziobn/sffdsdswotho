@@ -585,19 +585,21 @@ export async function downloadRealBook(params: {
   const { book } = params;
   const originalPdf = getOriginalPdfForBook(book.id);
   const explicitSourceUrl =
-    originalPdf?.pdfUrl || book.pdf_url || book.download_url || undefined;
+    book.pdf_url || originalPdf?.pdfUrl || book.download_url || undefined;
 
   const baseFileName = cleanFileBaseName(
     `${originalPdf?.title || book.title}${originalPdf?.author || book.author ? ` - ${originalPdf?.author || book.author}` : ""}`
   );
 
+  const isCloudProxyPdf = Boolean(explicitSourceUrl?.startsWith("/api/books/pdf-proxy"));
   const isSynthesizedOrLocal =
     !explicitSourceUrl ||
     explicitSourceUrl.startsWith("synth://") ||
     explicitSourceUrl.startsWith("idb://") ||
+    isCloudProxyPdf ||
     book.id.startsWith("book-editorial-");
 
-  // If book has an authentic external physical PDF file (and is not synth:// or idb://), download that exact PDF
+  // If book has an authentic external physical PDF file (and is not synth://, idb://, or cloud proxy), download that exact PDF
   if (explicitSourceUrl && !isSynthesizedOrLocal) {
     return executeTrackedDownload({
       itemId: String(book.id),
@@ -615,22 +617,26 @@ export async function downloadRealBook(params: {
     });
   }
 
-  // Compile or resolve binary PDF (IndexedDB -> Cloud -> Full Multi-Page Chapter Compilation)
+  // Compile or resolve binary PDF (IndexedDB -> Cloud -> Server Proxy -> Full Multi-Page Chapter Compilation)
   return executeTrackedDownload({
     itemId: String(book.id),
-    type: originalPdf ? "pdf" : "book",
+    type: originalPdf || isCloudProxyPdf ? "pdf" : "book",
     title: originalPdf?.title || book.title,
     author: originalPdf?.author || book.author,
     category: book.category,
     description: book.description,
     cover: book.cover_url || originalPdf?.coverUrl || undefined,
-    openHref: originalPdf ? `/ler/${book.id}?mode=pdf` : `/ler/${book.id}?mode=text`,
+    openHref: originalPdf || isCloudProxyPdf || book.id.startsWith("book-editorial-") ? `/ler/${book.id}?mode=pdf` : `/ler/${book.id}?mode=text`,
     fileName: `${baseFileName}.pdf`,
     mimeType: "application/pdf",
     customDownloader: async (onProgress) => {
       onProgress({ progressPercent: 8, loadedBytes: 0, progressStage: "connecting" });
 
-      if (explicitSourceUrl?.startsWith("idb://") || book.id.startsWith("book-editorial-")) {
+      if (
+        explicitSourceUrl?.startsWith("idb://") ||
+        isCloudProxyPdf ||
+        book.id.startsWith("book-editorial-")
+      ) {
         const idbKey = explicitSourceUrl?.startsWith("idb://")
           ? explicitSourceUrl.slice("idb://".length)
           : book.id;
@@ -651,6 +657,19 @@ export async function downloadRealBook(params: {
             return { buffer: cloudBytes.slice().buffer, mimeType: "application/pdf" };
           }
         } catch {}
+
+        if (isCloudProxyPdf && explicitSourceUrl) {
+          try {
+            const proxyRes = await fetch(explicitSourceUrl);
+            if (proxyRes.ok && proxyRes.headers.get("X-Pdf-Fallback") !== "synthesized") {
+              const buf = await proxyRes.arrayBuffer();
+              if (buf.byteLength > 200) {
+                onProgress({ progressPercent: 95, loadedBytes: buf.byteLength, progressStage: "saving" });
+                return { buffer: buf, mimeType: "application/pdf" };
+              }
+            }
+          } catch {}
+        }
       }
 
       let chapters = params.chapters && params.chapters.length > 0

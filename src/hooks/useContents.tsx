@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "./useAuth";
 import { Book } from "./useCatalog";
 import { isExcludedItem, filterExcludedItems } from "@/lib/excludedItems";
-import { getAllOriginalPdfBooks } from "@/lib/originalPdfRegistry";
+import { getAllOriginalPdfBooks, hasOriginalPdf } from "@/lib/originalPdfRegistry";
 import { CURATED_WEBTOONS, getWebtoonById, ensureExpandedWebtoonsLoaded } from "@/lib/webtoons";
 import { getFullWebtoonChapters } from "@/lib/webtoonSyncEngine";
 import { syncOfficialWebtoonChapters, buildOfficialViewerUrl } from "@/lib/webtoonOfficialSync";
@@ -99,6 +99,57 @@ export const CONTENT_SELECT =
 
 const SELECT = CONTENT_SELECT;
 
+export const mapEditorialBookToContent = (b: Book & Record<string, any>): Content => {
+  const hasPdf = Boolean(
+    b.pdf_url ||
+      b.download_url ||
+      b.has_cloud_pdf_binary ||
+      b.original_pages_count ||
+      hasOriginalPdf(b.id)
+  );
+  const pages = Number(b.original_pages_count) || 24;
+  const sizeFormatted = b.file_size_formatted || "Edição Editorial";
+  const yearVal = b.created_at ? new Date(b.created_at).getFullYear() : new Date().getFullYear();
+
+  return {
+    id: b.id,
+    type: (b.category === "Artigos Científicos" ? "academic" : "book") as ContentType,
+    title: b.title,
+    subtitle: hasPdf
+      ? `Edição em PDF Original · ${pages} págs. (${sizeFormatted})`
+      : `Obra Editorial · ${b.category || "Literatura"}`,
+    description: b.description || "",
+    body: b.description || "",
+    author: b.author || "Miguel Worscoi",
+    tags: Array.from(
+      new Set([
+        ...(hasPdf ? ["PDF Original", "Obra Completa"] : ["Editorial", "Obra Completa"]),
+        b.category || "Literatura",
+      ])
+    ).filter(Boolean),
+    category: b.category || "Literatura",
+    slug: b.id,
+    cover: b.cover_url,
+    rating: 5.0,
+    rating_count: 1,
+    formats: hasPdf
+      ? ["PDF Original", "Leitura Online", "Download Direto"]
+      : ["Leitura Online", "Capítulos", "PDF"],
+    language: "pt",
+    year: Number.isFinite(yearVal) && yearVal > 1000 ? yearVal : new Date().getFullYear(),
+    size: hasPdf ? `${pages} páginas (${sizeFormatted})` : "Edição Digital",
+    views: 1500,
+    read_time: Math.max(15, Math.round(pages * 1.5)),
+    episode_count: 1,
+    price_cents: b.price_cents ?? 0,
+    currency: b.currency || "BRL",
+    published: b.published ?? true,
+    featured: b.featured ?? true,
+    collection: "Acervo Editorial",
+    created_at: b.created_at || new Date().toISOString(),
+  };
+};
+
 export const useContents = (options?: { type?: ContentType; category?: string; limit?: number }) =>
   useQuery({
     queryKey: ["contents", options?.type ?? "all", options?.category ?? "all", options?.limit ?? 0],
@@ -119,7 +170,7 @@ export const useContents = (options?: { type?: ContentType; category?: string; l
         return [];
       })();
 
-      // If requested type is "book", "academic" or all, merge Scientific, Curricular, Modern bestsellers and Gutenberg books in parallel
+      // If requested type is "book", "academic" or all, merge Cloud Editorial Books, Scientific, Curricular, Modern bestsellers and Gutenberg books in parallel
       if (!options?.type || options.type === "book" || options.type === "academic") {
         try {
           const [
@@ -129,6 +180,8 @@ export const useContents = (options?: { type?: ContentType; category?: string; l
             { MODERN_BOOKS },
             gutenList,
             autoList,
+            cloudBooks,
+            editorialMod,
           ] = await Promise.all([
             dbPromise,
             import("@/data/scientificArticles"),
@@ -136,8 +189,44 @@ export const useContents = (options?: { type?: ContentType; category?: string; l
             import("@/lib/modernBooks"),
             import("@/lib/gutenbergBooks").then((m) => m.fetchGutenbergCatalog()),
             import("@/lib/bookAutomation").then((m) => m.getAutoImportedBooks()),
+            import("@/lib/cloudEditorialService").then((m) => m.fetchCloudBooks()).catch(() => [] as Book[]),
+            import("@/lib/editorialStore"),
           ]);
           dbData = dbResolved;
+
+          if (cloudBooks && cloudBooks.length > 0) {
+            editorialMod.mergeCloudBooksIntoStore(cloudBooks, true);
+          }
+
+          const bookOverrides = editorialMod.getBookOverrides();
+          const deletedBookSet = new Set(editorialMod.getDeletedBookIds());
+          const editorialById = new Map<string, Book>();
+          for (const cb of [...(cloudBooks || []), ...editorialMod.getCustomBooks()]) {
+            if (!cb || !cb.id || deletedBookSet.has(cb.id)) continue;
+            const prev = editorialById.get(cb.id);
+            const patch = bookOverrides[cb.id];
+            const merged = patch ? { ...(prev || {}), ...cb, ...patch } : prev ? { ...prev, ...cb } : cb;
+            if (merged.published !== false) {
+              editorialById.set(cb.id, merged);
+            }
+          }
+
+          const editorialMapped: Content[] = Array.from(editorialById.values())
+            .filter((b) => {
+              const isAcademic = b.category === "Artigos Científicos";
+              if (options?.type === "academic" && !isAcademic) return false;
+              if (options?.type === "book" && isAcademic) return false;
+              if (options?.category && options.category !== "all" && b.category !== options.category) {
+                return false;
+              }
+              return true;
+            })
+            .sort((a, b) => {
+              const ta = a.created_at ? new Date(a.created_at).getTime() : 0;
+              const tb = b.created_at ? new Date(b.created_at).getTime() : 0;
+              return (Number.isFinite(tb) ? tb : 0) - (Number.isFinite(ta) ? ta : 0);
+            })
+            .map((b) => mapEditorialBookToContent(b as Book & Record<string, any>));
 
           const sciMapped: Content[] = SCIENTIFIC_ARTICLES
             .filter((s) => (options?.category && options.category !== "all" ? s.field === options.category || options.category === "Artigos Científicos" : true))
@@ -356,10 +445,25 @@ export const useContents = (options?: { type?: ContentType; category?: string; l
               }))
             : [];
 
+          const bookOverridesMap = editorialMod.getBookOverrides();
+          const deletedSet = new Set(editorialMod.getDeletedBookIds());
           const map = new Map<string, Content>();
-          // Scientific articles & Curricular textbooks first, then Automated books, then modern bestsellers, then classics, then original PDFs, then curated webtoons, then db
-          for (const item of [...sciMapped, ...currMapped, ...autoMapped, ...modernMapped, ...gutenMapped, ...pdfMapped, ...curatedWebtoonPreview, ...dbData]) {
-            if (!map.has(item.id)) map.set(item.id, item);
+          // Master Admin cloud & editorial books first, then Scientific articles & Curricular textbooks, Automated books, Modern bestsellers, Classics, Original PDFs, Webtoons, and DB
+          for (const item of [...editorialMapped, ...sciMapped, ...currMapped, ...autoMapped, ...modernMapped, ...gutenMapped, ...pdfMapped, ...curatedWebtoonPreview, ...dbData]) {
+            if (deletedSet.has(item.id)) continue;
+            const patch = bookOverridesMap[item.id];
+            if (patch?.published === false) continue;
+            const finalItem: Content = patch
+              ? {
+                  ...item,
+                  ...(patch.title ? { title: patch.title } : {}),
+                  ...(patch.author ? { author: patch.author } : {}),
+                  ...(patch.description ? { description: patch.description } : {}),
+                  ...(patch.cover_url ? { cover: patch.cover_url } : {}),
+                  ...(patch.category ? { category: patch.category } : {}),
+                }
+              : item;
+            if (!map.has(finalItem.id)) map.set(finalItem.id, finalItem);
           }
           const combined = filterExcludedItems(Array.from(map.values()));
           return options?.limit ? combined.slice(0, options.limit) : combined;
@@ -677,6 +781,27 @@ export const useContent = (id?: string) =>
             collection: found.collection || "Webtoons em Destaque",
             created_at: new Date().toISOString(),
           } as Content;
+        }
+      } catch {}
+
+      // Check Cloud / Editorial published books
+      try {
+        const [{ getSingleBookWithOverrides, mergeCloudBooksIntoStore }, { fetchCloudBookById }] =
+          await Promise.all([
+            import("@/lib/editorialStore"),
+            import("@/lib/cloudEditorialService"),
+          ]);
+        const localBook = getSingleBookWithOverrides(id, null);
+        if (localBook) {
+          return mapEditorialBookToContent(localBook as Book & Record<string, any>);
+        }
+        const cloudBook = await fetchCloudBookById(id);
+        if (cloudBook) {
+          mergeCloudBooksIntoStore([cloudBook], true);
+          const merged = getSingleBookWithOverrides(id, cloudBook);
+          if (merged) {
+            return mapEditorialBookToContent(merged as Book & Record<string, any>);
+          }
         }
       } catch {}
 
