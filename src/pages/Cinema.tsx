@@ -141,6 +141,36 @@ export const Cinema = () => {
     () => CINEMA_CATALOG.filter((item) => item.genres.includes("Romance")),
     [catalogVersion]
   );
+  const scifiFantasyList = useMemo(
+    () =>
+      CINEMA_CATALOG.filter((item) =>
+        item.genres.some((g) => {
+          const low = g.toLowerCase();
+          return low.includes("ficção") || low.includes("ficcao") || low === "fantasia";
+        })
+      ),
+    [catalogVersion]
+  );
+  const thrillerCrimeList = useMemo(
+    () =>
+      CINEMA_CATALOG.filter((item) =>
+        item.genres.some((g) => {
+          const low = g.toLowerCase();
+          return low === "suspense" || low === "crime" || low === "terror";
+        })
+      ),
+    [catalogVersion]
+  );
+  const comedyAnimationList = useMemo(
+    () =>
+      CINEMA_CATALOG.filter((item) =>
+        item.genres.some((g) => {
+          const low = g.toLowerCase();
+          return low.includes("comédia") || low.includes("comedia") || low.includes("animação") || low.includes("animacao");
+        })
+      ),
+    [catalogVersion]
+  );
   const awardList = useMemo(
     () => CINEMA_CATALOG.filter((item) => item.awardWinning),
     [catalogVersion]
@@ -505,6 +535,108 @@ export const Cinema = () => {
               {actionList.slice(0, 12).map((item) => (
                 <CinemaCard
                   key={`action-${item.id}`}
+                  item={item}
+                  onPlay={(item) => navigate(`/cinema/${item.id}`)}
+                  showProgress={progressMap[item.id]?.progressPercent}
+                />
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* Curated Showcase Row 5: Ficção Científica, Fantasia & Mundos Épicos */}
+        {showShowcaseSections && scifiFantasyList.length > 0 && (
+          <section className="mb-14 pb-10 border-b border-zinc-800/80">
+            <div className="flex items-center justify-between mb-5">
+              <div>
+                <span className="text-[11px] uppercase tracking-wider text-amber-400 font-medium block">
+                  Viagens Espaciais, Magia, Distopias & Universos Épicos
+                </span>
+                <h3 className="text-xl sm:text-2xl font-light text-white tracking-tight mt-0.5">
+                  Ficção Científica & Fantasia
+                </h3>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setSelectedGenre("Ficção Científica")}
+                className="text-xs text-amber-400 hover:text-amber-300 uppercase tracking-wider font-normal"
+              >
+                Ver Todos ({scifiFantasyList.length})
+              </Button>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4 sm:gap-6">
+              {scifiFantasyList.slice(0, 12).map((item) => (
+                <CinemaCard
+                  key={`scifi-${item.id}`}
+                  item={item}
+                  onPlay={(item) => navigate(`/cinema/${item.id}`)}
+                  showProgress={progressMap[item.id]?.progressPercent}
+                />
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* Curated Showcase Row 6: Suspense, Crime, Mistério & Terror */}
+        {showShowcaseSections && thrillerCrimeList.length > 0 && (
+          <section className="mb-14 pb-10 border-b border-zinc-800/80">
+            <div className="flex items-center justify-between mb-5">
+              <div>
+                <span className="text-[11px] uppercase tracking-wider text-amber-400 font-medium block">
+                  Investigação, Thriller Psicológico, Máfia & Sobrenatural
+                </span>
+                <h3 className="text-xl sm:text-2xl font-light text-white tracking-tight mt-0.5">
+                  Suspense, Crime & Terror
+                </h3>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setSelectedGenre("Suspense")}
+                className="text-xs text-amber-400 hover:text-amber-300 uppercase tracking-wider font-normal"
+              >
+                Ver Todos ({thrillerCrimeList.length})
+              </Button>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4 sm:gap-6">
+              {thrillerCrimeList.slice(0, 12).map((item) => (
+                <CinemaCard
+                  key={`thriller-${item.id}`}
+                  item={item}
+                  onPlay={(item) => navigate(`/cinema/${item.id}`)}
+                  showProgress={progressMap[item.id]?.progressPercent}
+                />
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* Curated Showcase Row 7: Comédia, Animação & Entretenimento */}
+        {showShowcaseSections && comedyAnimationList.length > 0 && (
+          <section className="mb-14 pb-10 border-b border-zinc-800/80">
+            <div className="flex items-center justify-between mb-5">
+              <div>
+                <span className="text-[11px] uppercase tracking-wider text-amber-400 font-medium block">
+                  Sitcoms Completas, Humor & Animações Aclamadas
+                </span>
+                <h3 className="text-xl sm:text-2xl font-light text-white tracking-tight mt-0.5">
+                  Comédia & Animação
+                </h3>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setSelectedGenre("Comédia")}
+                className="text-xs text-amber-400 hover:text-amber-300 uppercase tracking-wider font-normal"
+              >
+                Ver Todos ({comedyAnimationList.length})
+              </Button>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4 sm:gap-6">
+              {comedyAnimationList.slice(0, 12).map((item) => (
+                <CinemaCard
+                  key={`comedy-${item.id}`}
                   item={item}
                   onPlay={(item) => navigate(`/cinema/${item.id}`)}
                   showProgress={progressMap[item.id]?.progressPercent}

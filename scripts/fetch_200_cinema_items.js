@@ -173,20 +173,25 @@ const CURATED_SERIES = [
   { id: 76479, extraGenres: ['Ação', 'Ficção Científica'], featured: true, trending: true }, // The Boys
   { id: 95557, extraGenres: ['Ação', 'Animação', 'Ficção Científica'], featured: true, trending: true }, // Invencível (Invincible)
   { id: 61889, extraGenres: ['Ação', 'Crime', 'Drama'], trending: true }, // Demolidor (Daredevil)
+  { id: 202555, extraGenres: ['Ação', 'Crime', 'Drama'], featured: true, trending: true }, // Demolidor: Renascido (Daredevil: Born Again)
   { id: 67178, extraGenres: ['Ação', 'Crime', 'Drama'], trending: true }, // O Justiceiro (The Punisher)
   { id: 108978, extraGenres: ['Ação', 'Crime', 'Suspense'], featured: true, trending: true }, // Reacher
   { id: 129552, extraGenres: ['Ação', 'Suspense'], trending: true }, // O Agente Noturno (The Night Agent)
   { id: 60574, extraGenres: ['Crime', 'Drama', 'Ação'], featured: true, trending: true }, // Peaky Blinders
   { id: 44217, extraGenres: ['Ação', 'Aventura', 'Histórico'], trending: true }, // Vikings
+  { id: 116135, extraGenres: ['Ação', 'Aventura', 'Histórico'], trending: true }, // Vikings: Valhalla
+  { id: 63333, extraGenres: ['Ação', 'Aventura', 'Histórico'], trending: true }, // O Último Reino (The Last Kingdom)
   { id: 2288, extraGenres: ['Ação', 'Crime', 'Suspense'], trending: true }, // Prison Break
-  { id: 1399, extraGenres: ['Ação', 'Aventura', 'Drama'], featured: true, trending: true }, // Game of Thrones
-  { id: 94997, extraGenres: ['Ação', 'Aventura', 'Drama'], featured: true, trending: true }, // A Casa do Dragão
-  { id: 84773, extraGenres: ['Ação', 'Aventura', 'Drama'], trending: true }, // O Senhor dos Anéis: Os Anéis de Poder
+  { id: 1399, extraGenres: ['Ação', 'Aventura', 'Drama', 'Fantasia'], featured: true, trending: true }, // Game of Thrones
+  { id: 94997, extraGenres: ['Ação', 'Aventura', 'Drama', 'Fantasia'], featured: true, trending: true }, // A Casa do Dragão
+  { id: 84773, extraGenres: ['Ação', 'Aventura', 'Drama', 'Fantasia'], trending: true }, // O Senhor dos Anéis: Os Anéis de Poder
   { id: 106379, extraGenres: ['Ação', 'Ficção Científica', 'Aventura'], featured: true, trending: true }, // Fallout
   { id: 125988, extraGenres: ['Ficção Científica', 'Drama', 'Suspense'], trending: true }, // Silo
   { id: 196322, extraGenres: ['Ficção Científica', 'Suspense', 'Drama'], trending: true }, // Matéria Escura (Dark Matter)
   { id: 108545, extraGenres: ['Ficção Científica', 'Suspense', 'Drama'], trending: true }, // O Problema dos 3 Corpos
   { id: 70523, extraGenres: ['Ficção Científica', 'Suspense', 'Drama'], trending: true }, // Dark
+  { id: 90669, extraGenres: ['Ficção Científica', 'Suspense', 'Drama'], trending: true }, // 1899
+  { id: 202250, extraGenres: ['Ficção Científica', 'Crime', 'Suspense'], trending: true }, // Corpos (Bodies)
   { id: 71446, extraGenres: ['Ação', 'Crime', 'Suspense'], trending: true }, // La Casa de Papel
   { id: 96677, extraGenres: ['Crime', 'Suspense', 'Ação'], trending: true }, // Lupin
   { id: 63351, extraGenres: ['Crime', 'Drama'], trending: true }, // Narcos
@@ -200,22 +205,153 @@ const CURATED_SERIES = [
   { id: 105248, extraGenres: ['Animação', 'Ação', 'Ficção Científica'], trending: true }, // Cyberpunk: Mercenários
   { id: 194764, extraGenres: ['Crime', 'Drama'], featured: true, trending: true }, // Pinguim (The Penguin)
   { id: 84958, extraGenres: ['Ação', 'Ficção Científica', 'Aventura'], trending: true }, // Loki
-  { id: 92749, extraGenres: ['Ação', 'Aventura'], trending: true }, // Cavaleiro da Lua
+  { id: 92749, extraGenres: ['Ação', 'Aventura', 'Fantasia'], trending: true }, // Cavaleiro da Lua
   { id: 82856, extraGenres: ['Ação', 'Ficção Científica', 'Aventura'], trending: true }, // The Mandalorian
   { id: 83867, extraGenres: ['Ficção Científica', 'Ação', 'Drama'], trending: true }, // Andor
+  { id: 114461, extraGenres: ['Ficção Científica', 'Ação', 'Aventura'], trending: true }, // Ahsoka
+  { id: 92830, extraGenres: ['Ficção Científica', 'Ação', 'Aventura'], trending: true }, // Obi-Wan Kenobi
   { id: 1405, extraGenres: ['Crime', 'Drama', 'Suspense'], trending: true }, // Dexter
   { id: 62560, extraGenres: ['Crime', 'Drama', 'Suspense'], trending: true }, // Mr. Robot
-  { id: 124364, extraGenres: ['Suspense', 'Ficção Científica', 'Drama'], trending: true }, // Origem (From)
+  { id: 124364, extraGenres: ['Suspense', 'Terror', 'Ficção Científica', 'Drama'], featured: true, trending: true }, // Origem (From)
   { id: 236235, extraGenres: ['Ação', 'Crime', 'Comédia'], trending: true }, // Magnatas do Crime (The Gentlemen)
   { id: 153312, extraGenres: ['Crime', 'Drama', 'Ação'], trending: true }, // Tulsa King
   { id: 73586, extraGenres: ['Drama'], trending: true }, // Yellowstone
+  { id: 118357, extraGenres: ['Drama', 'Histórico', 'Aventura'], trending: true }, // 1883
+  { id: 157744, extraGenres: ['Drama', 'Histórico'], trending: true }, // 1923
+  { id: 157741, extraGenres: ['Drama'], featured: true, trending: true }, // Landman
   { id: 42573, extraGenres: ['Animação', 'Comédia', 'Drama', 'Séries Juvenis'], featured: true, trending: true }, // Slam Dunk
+
+  // Expanded Fantasy, Sci-Fi, Supernatural & Horror Series
+  { id: 71912, extraGenres: ['Fantasia', 'Ação', 'Aventura', 'Drama'], featured: true, trending: true }, // The Witcher
+  { id: 90802, extraGenres: ['Fantasia', 'Drama'], featured: true, trending: true }, // The Sandman
+  { id: 75006, extraGenres: ['Ficção Científica', 'Ação', 'Comédia', 'Fantasia'], trending: true }, // The Umbrella Academy
+  { id: 103768, extraGenres: ['Fantasia', 'Aventura', 'Drama', 'Ficção Científica'], trending: true }, // Sweet Tooth
+  { id: 75758, extraGenres: ['Ficção Científica', 'Aventura', 'Drama'], trending: true }, // Perdidos no Espaço (Lost in Space)
+  { id: 93740, extraGenres: ['Ficção Científica', 'Drama'], trending: true }, // Fundação (Foundation)
+  { id: 87917, extraGenres: ['Ficção Científica', 'Drama'], trending: true }, // Para Toda a Humanidade (For All Mankind)
+  { id: 63247, extraGenres: ['Ficção Científica', 'Suspense', 'Drama'], trending: true }, // Westworld
+  { id: 4607, extraGenres: ['Ficção Científica', 'Aventura', 'Suspense', 'Drama'], trending: true }, // Lost
+  { id: 1705, extraGenres: ['Ficção Científica', 'Suspense', 'Drama'], trending: true }, // Fringe
+  { id: 63639, extraGenres: ['Ficção Científica', 'Drama', 'Suspense'], trending: true }, // The Expanse
+  { id: 68152, extraGenres: ['Ficção Científica', 'Suspense', 'Drama'], trending: true }, // 3%
+  { id: 1622, extraGenres: ['Fantasia', 'Terror', 'Suspense', 'Ação'], featured: true, trending: true }, // Supernatural
+  { id: 1402, extraGenres: ['Terror', 'Suspense', 'Ação', 'Drama'], featured: true, trending: true }, // The Walking Dead
+  { id: 211684, extraGenres: ['Terror', 'Ação', 'Drama'], trending: true }, // The Walking Dead: Daryl Dixon
+  { id: 206586, extraGenres: ['Terror', 'Ação', 'Drama'], trending: true }, // The Walking Dead: The Ones Who Live
+  { id: 97400, extraGenres: ['Terror', 'Suspense', 'Drama'], trending: true }, // Missa da Meia-Noite (Midnight Mass)
+  { id: 72844, extraGenres: ['Terror', 'Suspense', 'Drama'], trending: true }, // A Maldição da Residência Hill
+  { id: 86924, extraGenres: ['Terror', 'Suspense', 'Drama', 'Romance'], trending: true }, // A Maldição da Mansão Bly
+  { id: 135771, extraGenres: ['Terror', 'Suspense', 'Drama'], trending: true }, // A Queda da Casa de Usher
+  { id: 83659, extraGenres: ['Terror', 'Suspense', 'Fantasia'], trending: true }, // O Gabinete de Curiosidades de Guillermo del Toro
+  { id: 124101, extraGenres: ['Suspense', 'Terror', 'Drama'], trending: true }, // Yellowjackets
+  { id: 79680, extraGenres: ['Ficção Científica', 'Ação', 'Suspense'], trending: true }, // O Expresso do Amanhã (Snowpiercer)
+  { id: 80752, extraGenres: ['Ficção Científica', 'Ação', 'Drama'], trending: true }, // See
+  { id: 71914, extraGenres: ['Fantasia', 'Aventura', 'Ação'], trending: true }, // A Roda do Tempo (The Wheel of Time)
+  { id: 68507, extraGenres: ['Fantasia', 'Aventura', 'Drama'], trending: true }, // His Dark Materials: Fronteiras do Universo
+  { id: 71915, extraGenres: ['Fantasia', 'Comédia'], trending: true }, // Belas Maldições (Good Omens)
+  { id: 63174, extraGenres: ['Fantasia', 'Crime', 'Drama', 'Romance'], trending: true }, // Lucifer
+  { id: 39351, extraGenres: ['Fantasia', 'Crime', 'Suspense'], trending: true }, // Grimm
+  { id: 39272, extraGenres: ['Fantasia', 'Aventura', 'Romance'], trending: true }, // Once Upon a Time
+  { id: 46896, extraGenres: ['Fantasia', 'Drama', 'Suspense'], trending: true }, // The Originals
+  { id: 79696, extraGenres: ['Suspense', 'Ficção Científica', 'Drama'], trending: true }, // Manifest: O Mistério do Voo 828
+  { id: 61664, extraGenres: ['Ficção Científica', 'Drama', 'Ação'], trending: true }, // Sense8
+  { id: 68421, extraGenres: ['Ficção Científica', 'Ação', 'Suspense'], trending: true }, // Altered Carbon
+  { id: 79788, extraGenres: ['Ficção Científica', 'Ação', 'Drama'], trending: true }, // Watchmen
+  { id: 110492, extraGenres: ['Ação', 'Comédia', 'Ficção Científica'], trending: true }, // Pacificador (Peacemaker)
+  { id: 85271, extraGenres: ['Ficção Científica', 'Fantasia', 'Drama'], trending: true }, // WandaVision
+  { id: 138501, extraGenres: ['Fantasia', 'Comédia', 'Aventura'], trending: true }, // Agatha Desde Sempre
+  { id: 52814, extraGenres: ['Ficção Científica', 'Ação', 'Aventura'], trending: true }, // Halo
+
+  // Expanded Crime, Espionage, Legal, Medical & Prestige Drama Series
+  { id: 120911, extraGenres: ['Ação', 'Suspense', 'Drama'], trending: true }, // A Lista Terminal (The Terminal List)
+  { id: 73375, extraGenres: ['Ação', 'Suspense', 'Drama'], trending: true }, // Jack Ryan de Tom Clancy
+  { id: 222766, extraGenres: ['Ação', 'Crime', 'Suspense'], featured: true, trending: true }, // O Dia do Chacal (The Day of the Jackal)
+  { id: 95480, extraGenres: ['Suspense', 'Crime', 'Drama'], trending: true }, // Slow Horses
+  { id: 113988, extraGenres: ['Ação', 'Drama', 'Suspense'], featured: true, trending: true }, // Operação Lioness (Special Ops: Lioness)
+  { id: 97951, extraGenres: ['Crime', 'Drama', 'Suspense'], trending: true }, // Mayor of Kingstown
+  { id: 1409, extraGenres: ['Crime', 'Drama', 'Ação'], trending: true }, // Filhos da Anarquia (Sons of Anarchy)
+  { id: 1398, extraGenres: ['Crime', 'Drama'], trending: true }, // Família Soprano (The Sopranos)
+  { id: 1438, extraGenres: ['Crime', 'Drama'], trending: true }, // A Escuta (The Wire)
+  { id: 60622, extraGenres: ['Crime', 'Drama', 'Suspense'], trending: true }, // Fargo
+  { id: 40008, extraGenres: ['Crime', 'Suspense', 'Terror', 'Drama'], trending: true }, // Hannibal
+  { id: 46952, extraGenres: ['Crime', 'Drama', 'Suspense'], trending: true }, // Lista Negra (The Blacklist)
+  { id: 37680, extraGenres: ['Drama', 'Comédia'], featured: true, trending: true }, // Suits: Homens de Terno
+  { id: 62852, extraGenres: ['Drama'], trending: true }, // Billions
+  { id: 21510, extraGenres: ['Crime', 'Drama', 'Comédia'], trending: true }, // White Collar: Fascínio Criminoso
+  { id: 5920, extraGenres: ['Crime', 'Drama', 'Suspense'], trending: true }, // O Mentalista (The Mentalist)
+  { id: 1408, extraGenres: ['Drama', 'Suspense'], trending: true }, // House, M.D.
+  { id: 71712, extraGenres: ['Drama'], trending: true }, // The Good Doctor: O Bom Doutor
+  { id: 250307, extraGenres: ['Drama'], featured: true, trending: true }, // The Pitt
+  { id: 75219, extraGenres: ['Ação', 'Drama'], trending: true }, // 9-1-1
+  { id: 79744, extraGenres: ['Crime', 'Ação', 'Drama'], trending: true }, // The Rookie
+  { id: 71790, extraGenres: ['Ação', 'Crime', 'Drama'], trending: true }, // S.W.A.T.
+  { id: 4057, extraGenres: ['Crime', 'Drama', 'Suspense'], trending: true }, // Criminal Minds
+  { id: 41727, extraGenres: ['Ação', 'Crime', 'Drama'], trending: true }, // Banshee
+  { id: 79525, extraGenres: ['Ação', 'Crime', 'Drama'], trending: true }, // Warrior
+  { id: 86836, extraGenres: ['Ação', 'Crime', 'Drama'], trending: true }, // Gangs of London
+  { id: 4613, extraGenres: ['Histórico', 'Ação', 'Drama'], trending: true }, // Band of Brothers: Irmãos de Guerra
+  { id: 16997, extraGenres: ['Histórico', 'Ação', 'Drama'], trending: true }, // O Pacífico (The Pacific)
+  { id: 94365, extraGenres: ['Histórico', 'Ação', 'Drama'], trending: true }, // Mestres do Ar (Masters of the Air)
+  { id: 86428, extraGenres: ['Crime', 'Drama'], trending: true }, // Sintonia
+  { id: 237069, extraGenres: ['Ação', 'Crime', 'Drama'], featured: true, trending: true }, // DNA do Crime
+  { id: 124653, extraGenres: ['Crime', 'Drama'], trending: true }, // Dom
+  { id: 110354, extraGenres: ['Crime', 'Suspense', 'Drama'], trending: true }, // Bom Dia, Verônica
+  { id: 226259, extraGenres: ['Ação', 'Crime', 'Drama'], trending: true }, // Cangaço Novo
+  { id: 83226, extraGenres: ['Crime', 'Drama', 'Ação'], trending: true }, // Impuros
+  { id: 105116, extraGenres: ['Fantasia', 'Suspense', 'Drama'], trending: true }, // Cidade Invisível
+  { id: 207332, extraGenres: ['Drama', 'Histórico', 'Ação'], featured: true, trending: true }, // Senna
+
+  // Expanded Comedy, Sitcoms, Dramedy & Western Animation Series
+  { id: 2316, extraGenres: ['Comédia'], featured: true, trending: true }, // The Office
+  { id: 1668, extraGenres: ['Comédia', 'Romance'], featured: true, trending: true }, // Friends
+  { id: 48891, extraGenres: ['Comédia', 'Crime'], featured: true, trending: true }, // Brooklyn Nine-Nine
+  { id: 97546, extraGenres: ['Comédia', 'Drama'], featured: true, trending: true }, // Ted Lasso
+  { id: 136311, extraGenres: ['Comédia', 'Drama'], trending: true }, // Falando a Real (Shrinking)
+  { id: 107113, extraGenres: ['Comédia', 'Crime', 'Suspense'], trending: true }, // Only Murders in the Building
+  { id: 111803, extraGenres: ['Comédia', 'Drama', 'Suspense'], featured: true, trending: true }, // The White Lotus
+  { id: 71728, extraGenres: ['Comédia', 'Crime', 'Drama'], trending: true }, // Barry
+  { id: 67070, extraGenres: ['Comédia', 'Drama'], trending: true }, // Fleabag
+  { id: 60573, extraGenres: ['Comédia'], trending: true }, // Silicon Valley
+  { id: 1421, extraGenres: ['Comédia'], trending: true }, // Modern Family
+  { id: 1100, extraGenres: ['Comédia', 'Romance'], trending: true }, // How I Met Your Mother
+  { id: 1418, extraGenres: ['Comédia'], trending: true }, // The Big Bang Theory
+  { id: 71738, extraGenres: ['Comédia', 'Drama'], trending: true }, // Jovem Sheldon (Young Sheldon)
+  { id: 60625, extraGenres: ['Animação', 'Comédia', 'Ficção Científica'], trending: true }, // Rick and Morty
+  { id: 138502, extraGenres: ['Animação', 'Ação', 'Ficção Científica'], featured: true, trending: true }, // X-Men '97
+  { id: 91363, extraGenres: ['Animação', 'Ação', 'Ficção Científica'], trending: true }, // What If...?
+  { id: 223313, extraGenres: ['Animação', 'Ação', 'Drama', 'Histórico'], featured: true, trending: true }, // Samurai de Olhos Azuis (Blue Eye Samurai)
+  { id: 115004, extraGenres: ['Animação', 'Fantasia', 'Ação', 'Aventura'], trending: true }, // A Lenda de Vox Machina
+  { id: 71024, extraGenres: ['Animação', 'Fantasia', 'Ação', 'Terror'], trending: true }, // Castlevania
+
+  // Additional Doramas & Youth/Romance Hit Series
+  { id: 228629, extraGenres: ['Doramas', 'Drama', 'Ação'], featured: true, trending: true }, // Heróis de Plantão (The Trauma Code: Heroes on Call)
+  { id: 242831, extraGenres: ['Doramas', 'Romance', 'Comédia', 'Drama'], featured: true, trending: true }, // O Amor Mora ao Lado (Love Next Door)
+  { id: 235758, extraGenres: ['Doramas', 'Fantasia', 'Crime', 'Romance'], featured: true, trending: true }, // A Juíza do Inferno (The Judge from Hell)
+  { id: 230456, extraGenres: ['Doramas', 'Romance', 'Comédia', 'Drama'], trending: true }, // Mr. Plankton
+  { id: 234946, extraGenres: ['Doramas', 'Séries Juvenis', 'Romance', 'Drama'], trending: true }, // Família por Escolha (Family by Choice)
+  { id: 243225, extraGenres: ['Doramas', 'Suspense', 'Terror', 'Drama'], trending: true }, // Loja de Luz (Light Shop)
+  { id: 210733, extraGenres: ['Doramas', 'Séries Juvenis', 'Romance', 'Drama'], featured: true, trending: true }, // Amor Oculto (Hidden Love)
+  { id: 154822, extraGenres: ['Doramas', 'Fantasia', 'Romance'], trending: true }, // Amor Entre Fada e Demônio
+  { id: 127636, extraGenres: ['Doramas', 'Séries Juvenis', 'Romance', 'Comédia'], trending: true }, // Caí no Teu Sorriso (Falling Into Your Smile)
+  { id: 90762, extraGenres: ['Doramas', 'Fantasia', 'Ação', 'Aventura'], trending: true }, // Os Indomáveis (The Untamed)
+  { id: 79424, extraGenres: ['Doramas', 'Séries Juvenis', 'Romance', 'Comédia'], trending: true }, // Jardim de Meteoros (Meteor Garden)
+  { id: 115005, extraGenres: ['Doramas', 'Drama', 'Histórico', 'Romance'], trending: true }, // Pachinko
+  { id: 31917, extraGenres: ['Séries Juvenis', 'Suspense', 'Drama', 'Romance'], trending: true }, // Pretty Little Liars
+  { id: 1395, extraGenres: ['Séries Juvenis', 'Drama', 'Romance'], trending: true }, // Gossip Girl
+  { id: 63210, extraGenres: ['Séries Juvenis', 'Fantasia', 'Ação', 'Romance'], trending: true }, // Shadowhunters
+  { id: 107124, extraGenres: ['Séries Juvenis', 'Comédia', 'Drama'], trending: true }, // Julie and the Phantoms
+  { id: 136598, extraGenres: ['Romance', 'Drama', 'Histórico'], trending: true }, // A Imperatriz (The Empress)
+  { id: 56570, extraGenres: ['Romance', 'Drama', 'Fantasia', 'Histórico'], trending: true }, // Outlander
+  { id: 92685, extraGenres: ['Romance', 'Comédia', 'Drama'], trending: true }, // Emily em Paris
+  { id: 90775, extraGenres: ['Romance', 'Drama'], trending: true }, // Virgin River
+  { id: 70785, extraGenres: ['Séries Juvenis', 'Drama'], trending: true }, // Anne with an E
+  { id: 4586, extraGenres: ['Comédia', 'Drama', 'Romance'], trending: true }, // Gilmore Girls
 ];
 
-// Curated Movies (Korean Action, Global Action, Romance, Youth Romance, Sci-Fi, Thrillers)
+// Curated Movies (Korean Action, Global Action, Romance, Youth Romance, Sci-Fi, Fantasy, Thrillers, Horror, Animation, Comedy & Award-Winners)
 const CURATED_MOVIES = [
   // Korean Action, Youth Action & Thrillers
-  { id: 396535, extraGenres: ['Doramas', 'Ação', 'Suspense'], featured: true, trending: true }, // Invasão Zumbi (Train to Busan)
+  { id: 396535, extraGenres: ['Doramas', 'Ação', 'Suspense', 'Terror'], featured: true, trending: true }, // Invasão Zumbi (Train to Busan)
   { id: 581392, extraGenres: ['Doramas', 'Ação', 'Suspense'], trending: true }, // Invasão Zumbi 2: Península
   { id: 479718, extraGenres: ['Doramas', 'Ação', 'Crime'], trending: true }, // Os Fora da Lei (The Outlaws)
   { id: 619803, extraGenres: ['Doramas', 'Ação', 'Crime'], featured: true, trending: true }, // Força Bruta (The Roundup)
@@ -240,7 +376,7 @@ const CURATED_MOVIES = [
   { id: 581526, extraGenres: ['Doramas', 'Ação', 'Crime'], trending: true }, // Livrai-nos do Mal (Deliver Us from Evil)
   { id: 606523, extraGenres: ['Doramas', 'Crime', 'Drama', 'Ação'], trending: true }, // Noite no Paraíso (Night in Paradise)
   { id: 571785, extraGenres: ['Doramas', 'Ação', 'Suspense'], trending: true }, // Tempo de Caça (Time to Hunt)
-  { id: 838209, extraGenres: ['Doramas', 'Suspense'], featured: true, trending: true }, // Exhuma
+  { id: 838209, extraGenres: ['Doramas', 'Suspense', 'Terror'], featured: true, trending: true }, // Exhuma
   { id: 729854, extraGenres: ['Doramas', 'Ação', 'Drama', 'Suspense'], trending: true }, // Utopia de Concreto (Concrete Utopia)
   { id: 995926, extraGenres: ['Doramas', 'Ação', 'Crime'], trending: true }, // Veterano 2 (I, the Executioner)
   { id: 1075676, extraGenres: ['Doramas', 'Ação', 'Histórico'], trending: true }, // Guerra e Revolta (Uprising)
@@ -279,7 +415,7 @@ const CURATED_MOVIES = [
   { id: 14756, extraGenres: ['Ação', 'Histórico', 'Drama'], trending: true }, // O Grande Mestre (Ip Man)
   { id: 929590, extraGenres: ['Ação', 'Drama', 'Suspense'], trending: true }, // Guerra Civil (Civil War)
   { id: 533535, extraGenres: ['Ação', 'Comédia', 'Ficção Científica'], featured: true, trending: true }, // Deadpool & Wolverine
-  { id: 558449, extraGenres: ['Ação', 'Aventura', 'Drama'], featured: true, trending: true }, // Gladiador II
+  { id: 558449, extraGenres: ['Ação', 'Aventura', 'Drama', 'Histórico'], featured: true, trending: true }, // Gladiador II
   { id: 573435, extraGenres: ['Ação', 'Comédia', 'Crime'], trending: true }, // Bad Boys: Até o Fim
   { id: 646097, extraGenres: ['Ação', 'Crime', 'Suspense'], trending: true }, // Rebel Ridge
   { id: 414906, extraGenres: ['Ação', 'Crime', 'Suspense'], featured: true, trending: true }, // Batman (The Batman)
@@ -314,9 +450,9 @@ const CURATED_MOVIES = [
   { id: 1079091, extraGenres: ['Romance', 'Drama'], featured: true, trending: true }, // É Assim Que Acaba (It Ends with Us)
   { id: 843527, extraGenres: ['Romance', 'Comédia', 'Drama'], trending: true }, // Uma Ideia de Você (The Idea of You)
   { id: 851644, extraGenres: ['Doramas', 'Romance', 'Drama', 'Séries Juvenis'], featured: true, trending: true }, // Garota do Século 20 (20th Century Girl)
-  { id: 372058, extraGenres: ['Romance', 'Animação', 'Drama'], featured: true, trending: true }, // Your Name (Kimi no Na wa)
-  { id: 568160, extraGenres: ['Romance', 'Animação', 'Aventura'], trending: true }, // O Tempo com Você (Weathering with You)
-  { id: 916224, extraGenres: ['Animação', 'Aventura', 'Romance'], trending: true }, // Suzume
+  { id: 372058, extraGenres: ['Romance', 'Animação', 'Drama', 'Fantasia'], featured: true, trending: true }, // Your Name (Kimi no Na wa)
+  { id: 568160, extraGenres: ['Romance', 'Animação', 'Aventura', 'Fantasia'], trending: true }, // O Tempo com Você (Weathering with You)
+  { id: 916224, extraGenres: ['Animação', 'Aventura', 'Romance', 'Fantasia'], trending: true }, // Suzume
   { id: 378064, extraGenres: ['Romance', 'Animação', 'Drama'], trending: true }, // A Voz do Silêncio (A Silent Voice)
   { id: 1291559, extraGenres: ['Doramas', 'Romance', 'Drama'], trending: true }, // Drawing Closer
   { id: 977871, extraGenres: ['Doramas', 'Romance', 'Drama'], trending: true }, // Mesmo Se Este Amor Desaparecer Esta Noite
@@ -335,6 +471,157 @@ const CURATED_MOVIES = [
   { id: 332562, extraGenres: ['Romance', 'Drama'], trending: true }, // Nasce uma Estrela
   { id: 331482, extraGenres: ['Romance', 'Drama', 'Histórico'], trending: true }, // Adoráveis Mulheres
   { id: 930094, extraGenres: ['Romance', 'Comédia'], trending: true }, // Vermelho, Branco e Sangue Azul
+
+  // Sci-Fi, Fantasy & Blockbuster Adventure Movies
+  { id: 438631, extraGenres: ['Ficção Científica', 'Aventura', 'Ação'], featured: true, trending: true }, // Duna (Dune: Part One)
+  { id: 19995, extraGenres: ['Ficção Científica', 'Aventura', 'Ação'], trending: true }, // Avatar
+  { id: 76600, extraGenres: ['Ficção Científica', 'Aventura', 'Ação'], featured: true, trending: true }, // Avatar: O Caminho da Água
+  { id: 27205, extraGenres: ['Ficção Científica', 'Ação', 'Suspense'], featured: true, trending: true }, // A Origem (Inception)
+  { id: 577922, extraGenres: ['Ficção Científica', 'Ação', 'Suspense'], trending: true }, // Tenet
+  { id: 286217, extraGenres: ['Ficção Científica', 'Aventura', 'Drama'], trending: true }, // Perdido em Marte (The Martian)
+  { id: 329865, extraGenres: ['Ficção Científica', 'Drama', 'Suspense'], trending: true }, // A Chegada (Arrival)
+  { id: 49047, extraGenres: ['Ficção Científica', 'Suspense', 'Drama'], trending: true }, // Gravidade (Gravity)
+  { id: 137113, extraGenres: ['Ficção Científica', 'Ação'], trending: true }, // No Limite do Amanhã (Edge of Tomorrow)
+  { id: 333339, extraGenres: ['Ficção Científica', 'Aventura', 'Ação'], trending: true }, // Jogador Nº 1 (Ready Player One)
+  { id: 545611, extraGenres: ['Ficção Científica', 'Aventura', 'Comédia'], featured: true, trending: true }, // Tudo em Todo o Lugar ao Mesmo Tempo
+  { id: 653346, extraGenres: ['Ficção Científica', 'Aventura', 'Ação'], trending: true }, // Planeta dos Macacos: O Reinado
+  { id: 823464, extraGenres: ['Ficção Científica', 'Ação', 'Aventura'], trending: true }, // Godzilla e Kong: O Novo Império
+  { id: 940721, extraGenres: ['Ficção Científica', 'Ação', 'Drama'], featured: true, trending: true }, // Godzilla Minus One
+  { id: 945961, extraGenres: ['Ficção Científica', 'Terror', 'Suspense'], featured: true, trending: true }, // Alien: Romulus
+  { id: 447332, extraGenres: ['Ficção Científica', 'Terror', 'Suspense'], trending: true }, // Um Lugar Silencioso
+  { id: 520763, extraGenres: ['Ficção Científica', 'Terror', 'Suspense'], trending: true }, // Um Lugar Silencioso: Parte II
+  { id: 762441, extraGenres: ['Ficção Científica', 'Terror', 'Suspense'], trending: true }, // Um Lugar Silencioso: Dia Um
+  { id: 634649, extraGenres: ['Ação', 'Aventura', 'Ficção Científica'], featured: true, trending: true }, // Homem-Aranha: Sem Volta Para Casa
+  { id: 569094, extraGenres: ['Animação', 'Ação', 'Aventura', 'Ficção Científica'], featured: true, trending: true }, // Homem-Aranha: Através do Aranhaverso
+  { id: 324857, extraGenres: ['Animação', 'Ação', 'Aventura', 'Ficção Científica'], trending: true }, // Homem-Aranha no Aranhaverso
+  { id: 299534, extraGenres: ['Ação', 'Aventura', 'Ficção Científica'], featured: true, trending: true }, // Vingadores: Ultimato
+  { id: 299536, extraGenres: ['Ação', 'Aventura', 'Ficção Científica'], trending: true }, // Vingadores: Guerra Infinita
+  { id: 447365, extraGenres: ['Ação', 'Aventura', 'Ficção Científica', 'Comédia'], trending: true }, // Guardiões da Galáxia Vol. 3
+  { id: 284054, extraGenres: ['Ação', 'Aventura', 'Ficção Científica'], trending: true }, // Pantera Negra
+  { id: 263115, extraGenres: ['Ação', 'Drama', 'Ficção Científica'], trending: true }, // Logan
+  { id: 475557, extraGenres: ['Crime', 'Drama', 'Suspense'], featured: true, trending: true }, // Coringa (Joker)
+  { id: 120, extraGenres: ['Fantasia', 'Aventura', 'Ação'], featured: true, trending: true }, // O Senhor dos Anéis: A Sociedade do Anel
+  { id: 121, extraGenres: ['Fantasia', 'Aventura', 'Ação'], trending: true }, // O Senhor dos Anéis: As Duas Torres
+  { id: 122, extraGenres: ['Fantasia', 'Aventura', 'Ação'], featured: true, trending: true }, // O Senhor dos Anéis: O Retorno do Rei
+  { id: 671, extraGenres: ['Fantasia', 'Aventura'], trending: true }, // Harry Potter e a Pedra Filosofal
+  { id: 673, extraGenres: ['Fantasia', 'Aventura'], trending: true }, // Harry Potter e o Prisioneiro de Azkaban
+  { id: 12445, extraGenres: ['Fantasia', 'Aventura', 'Ação'], trending: true }, // Harry Potter e as Relíquias da Morte: Parte 2
+  { id: 22, extraGenres: ['Aventura', 'Fantasia', 'Ação'], trending: true }, // Piratas do Caribe: A Maldição do Pérola Negra
+  { id: 198663, extraGenres: ['Ficção Científica', 'Ação', 'Suspense', 'Séries Juvenis'], trending: true }, // Maze Runner: Correr ou Morrer
+  { id: 70160, extraGenres: ['Ficção Científica', 'Aventura', 'Ação', 'Séries Juvenis'], trending: true }, // Jogos Vorazes
+  { id: 695721, extraGenres: ['Ficção Científica', 'Ação', 'Drama'], trending: true }, // Jogos Vorazes: A Cantiga dos Pássaros e das Serpentes
+  { id: 157350, extraGenres: ['Ficção Científica', 'Ação', 'Aventura', 'Séries Juvenis'], trending: true }, // Divergente
+  { id: 8966, extraGenres: ['Fantasia', 'Romance', 'Drama', 'Séries Juvenis'], trending: true }, // Crepúsculo
+  { id: 402431, extraGenres: ['Fantasia', 'Romance', 'Aventura'], featured: true, trending: true }, // Wicked
+  { id: 696506, extraGenres: ['Ficção Científica', 'Comédia', 'Aventura'], featured: true, trending: true }, // Mickey 17
+  { id: 950396, extraGenres: ['Ação', 'Ficção Científica', 'Romance', 'Suspense'], featured: true, trending: true }, // Entre Montanhas (The Gorge)
+
+  // Prestige Drama, Crime, Thriller, Mystery & Award-Winners (Brazilian & International)
+  { id: 1000837, extraGenres: ['Drama', 'Histórico'], featured: true, trending: true }, // Ainda Estou Aqui
+  { id: 40096, extraGenres: ['Comédia', 'Aventura', 'Fantasia'], featured: true, trending: true }, // O Auto da Compadecida
+  { id: 666, extraGenres: ['Drama'], trending: true }, // Central do Brasil
+  { id: 974576, extraGenres: ['Drama', 'Suspense'], featured: true, trending: true }, // Conclave
+  { id: 1064213, extraGenres: ['Drama', 'Comédia', 'Romance'], featured: true, trending: true }, // Anora
+  { id: 549509, extraGenres: ['Drama', 'Histórico'], featured: true, trending: true }, // O Brutalista (The Brutalist)
+  { id: 933260, extraGenres: ['Terror', 'Ficção Científica', 'Suspense'], featured: true, trending: true }, // A Substância (The Substance)
+  { id: 792307, extraGenres: ['Ficção Científica', 'Romance', 'Comédia'], trending: true }, // Pobres Criaturas (Poor Things)
+  { id: 466420, extraGenres: ['Crime', 'Drama', 'Histórico'], trending: true }, // Assassinos da Lua das Flores
+  { id: 915935, extraGenres: ['Drama', 'Crime', 'Suspense'], trending: true }, // Anatomia de uma Queda
+  { id: 906126, extraGenres: ['Drama', 'Histórico', 'Aventura'], trending: true }, // Sociedade da Neve
+  { id: 49046, extraGenres: ['Drama', 'Histórico', 'Ação'], trending: true }, // Nada de Novo no Front
+  { id: 530915, extraGenres: ['Drama', 'Histórico', 'Ação'], trending: true }, // 1917
+  { id: 374720, extraGenres: ['Ação', 'Drama', 'Histórico'], trending: true }, // Dunkirk
+  { id: 324786, extraGenres: ['Drama', 'Histórico', 'Ação'], trending: true }, // Até o Último Homem (Hacksaw Ridge)
+  { id: 857, extraGenres: ['Drama', 'Histórico', 'Ação'], trending: true }, // O Resgate do Soldado Ryan
+  { id: 228150, extraGenres: ['Ação', 'Drama', 'Histórico'], trending: true }, // Corações de Ferro (Fury)
+  { id: 16869, extraGenres: ['Drama', 'Ação', 'Histórico'], trending: true }, // Bastardos Inglórios
+  { id: 68718, extraGenres: ['Drama', 'Ação'], trending: true }, // Django Livre
+  { id: 680, extraGenres: ['Crime', 'Suspense'], trending: true }, // Pulp Fiction: Tempo de Violência
+  { id: 550, extraGenres: ['Drama', 'Suspense'], trending: true }, // Clube da Luta (Fight Club)
+  { id: 807, extraGenres: ['Crime', 'Suspense'], trending: true }, // Seven: Os Sete Crimes Capitais
+  { id: 11324, extraGenres: ['Drama', 'Suspense'], trending: true }, // Ilha do Medo (Shutter Island)
+  { id: 106646, extraGenres: ['Crime', 'Drama', 'Comédia'], trending: true }, // O Lobo de Wall Street
+  { id: 640, extraGenres: ['Drama', 'Crime'], trending: true }, // Prenda-me se For Capaz
+  { id: 278, extraGenres: ['Drama', 'Crime'], featured: true, trending: true }, // Um Sonho de Liberdade
+  { id: 238, extraGenres: ['Drama', 'Crime'], featured: true, trending: true }, // O Poderoso Chefão
+  { id: 240, extraGenres: ['Drama', 'Crime'], trending: true }, // O Poderoso Chefão: Parte II
+  { id: 769, extraGenres: ['Drama', 'Crime'], trending: true }, // Os Bons Companheiros
+  { id: 1422, extraGenres: ['Drama', 'Suspense', 'Crime'], trending: true }, // Os Infiltrados
+  { id: 210577, extraGenres: ['Drama', 'Suspense'], trending: true }, // Garota Exemplar (Gone Girl)
+  { id: 146233, extraGenres: ['Drama', 'Suspense', 'Crime'], trending: true }, // Os Suspeitos (Prisoners)
+  { id: 1949, extraGenres: ['Crime', 'Drama', 'Suspense'], trending: true }, // Zodíaco
+  { id: 6977, extraGenres: ['Crime', 'Drama', 'Suspense'], trending: true }, // Onde os Fracos Não Têm Vez
+  { id: 244786, extraGenres: ['Drama'], trending: true }, // Whiplash: Em Busca da Perfeição
+  { id: 490132, extraGenres: ['Drama', 'Histórico'], trending: true }, // Green Book: O Guia
+  { id: 77338, extraGenres: ['Drama', 'Comédia'], trending: true }, // Intocáveis
+  { id: 1084736, extraGenres: ['Aventura', 'Histórico', 'Ação', 'Drama', 'Romance'], featured: true, trending: true }, // O Conde de Monte Cristo (2024)
+  { id: 1106739, extraGenres: ['Drama', 'Suspense', 'Crime'], trending: true }, // Jurado Nº 2 (Juror #2)
+  { id: 1005331, extraGenres: ['Ação', 'Suspense'], trending: true }, // Bagagem de Risco (Carry-On)
+  { id: 976893, extraGenres: ['Romance', 'Comédia', 'Crime'], trending: true }, // Assassino por Acaso (Hit Man)
+  { id: 937287, extraGenres: ['Drama', 'Romance'], trending: true }, // Rivais (Challengers)
+  { id: 930564, extraGenres: ['Drama', 'Comédia', 'Suspense'], trending: true }, // Saltburn
+  { id: 546554, extraGenres: ['Comédia', 'Crime', 'Suspense'], trending: true }, // Entre Facas e Segredos (Knives Out)
+  { id: 661374, extraGenres: ['Comédia', 'Crime', 'Suspense'], trending: true }, // Glass Onion: Um Mistério Knives Out
+
+  // Horror, Supernatural Thriller & Dark Mystery Movies
+  { id: 426063, extraGenres: ['Terror', 'Fantasia', 'Suspense'], featured: true, trending: true }, // Nosferatu (2024)
+  { id: 882598, extraGenres: ['Terror', 'Suspense'], trending: true }, // Sorria (Smile)
+  { id: 1100782, extraGenres: ['Terror', 'Suspense'], featured: true, trending: true }, // Sorria 2 (Smile 2)
+  { id: 1008042, extraGenres: ['Terror', 'Suspense'], trending: true }, // Fale Comigo (Talk to Me)
+  { id: 1226578, extraGenres: ['Terror', 'Suspense', 'Crime'], trending: true }, // Longlegs: Vínculo Mortal
+  { id: 1138194, extraGenres: ['Terror', 'Suspense'], trending: true }, // Herege (Heretic)
+  { id: 756999, extraGenres: ['Terror', 'Suspense'], trending: true }, // O Telefone Preto (The Black Phone)
+  { id: 419430, extraGenres: ['Terror', 'Suspense'], trending: true }, // Corra! (Get Out)
+  { id: 458723, extraGenres: ['Terror', 'Suspense'], trending: true }, // Nós (Us)
+  { id: 762504, extraGenres: ['Terror', 'Ficção Científica', 'Suspense'], trending: true }, // Não! Não Olhe! (Nope)
+  { id: 493922, extraGenres: ['Terror', 'Suspense', 'Drama'], trending: true }, // Hereditário
+  { id: 530385, extraGenres: ['Terror', 'Drama', 'Suspense'], trending: true }, // Midsommar: O Mal Não Espera a Noite
+  { id: 138843, extraGenres: ['Terror', 'Suspense'], trending: true }, // Invocação do Mal (The Conjuring)
+  { id: 259693, extraGenres: ['Terror', 'Suspense'], trending: true }, // Invocação do Mal 2
+  { id: 346364, extraGenres: ['Terror', 'Fantasia', 'Suspense'], trending: true }, // It: A Coisa
+  { id: 694, extraGenres: ['Terror', 'Suspense'], trending: true }, // O Iluminado (The Shining)
+  { id: 745, extraGenres: ['Suspense', 'Terror', 'Drama'], trending: true }, // O Sexto Sentido
+  { id: 381288, extraGenres: ['Terror', 'Suspense'], trending: true }, // Fragmentado (Split)
+  { id: 300669, extraGenres: ['Terror', 'Suspense'], trending: true }, // O Homem nas Trevas (Don't Breathe)
+  { id: 405774, extraGenres: ['Terror', 'Suspense', 'Drama'], trending: true }, // Caixa de Pássaros (Bird Box)
+  { id: 619264, extraGenres: ['Ficção Científica', 'Suspense', 'Terror'], trending: true }, // O Poço (The Platform)
+
+  // Animation, Family, Feel-Good & Comedy Movies
+  { id: 1022789, extraGenres: ['Animação', 'Aventura', 'Comédia'], featured: true, trending: true }, // Divertida Mente 2
+  { id: 150540, extraGenres: ['Animação', 'Aventura', 'Comédia'], trending: true }, // Divertida Mente
+  { id: 1184918, extraGenres: ['Animação', 'Ficção Científica', 'Aventura'], featured: true, trending: true }, // Robô Selvagem (The Wild Robot)
+  { id: 823219, extraGenres: ['Animação', 'Aventura', 'Fantasia'], featured: true, trending: true }, // Flow
+  { id: 315162, extraGenres: ['Animação', 'Aventura', 'Comédia', 'Fantasia'], trending: true }, // Gato de Botas 2: O Último Pedido
+  { id: 502356, extraGenres: ['Animação', 'Aventura', 'Comédia', 'Fantasia'], trending: true }, // Super Mario Bros. O Filme
+  { id: 939243, extraGenres: ['Ação', 'Ficção Científica', 'Comédia', 'Aventura'], featured: true, trending: true }, // Sonic 3: O Filme
+  { id: 1241982, extraGenres: ['Animação', 'Aventura', 'Comédia'], trending: true }, // Moana 2
+  { id: 762509, extraGenres: ['Aventura', 'Animação', 'Drama'], trending: true }, // Mufasa: O Rei Leão
+  { id: 354912, extraGenres: ['Animação', 'Aventura', 'Comédia', 'Fantasia'], trending: true }, // Viva: A Vida é uma Festa (Coco)
+  { id: 508442, extraGenres: ['Animação', 'Comédia', 'Fantasia', 'Drama'], trending: true }, // Soul
+  { id: 14160, extraGenres: ['Animação', 'Comédia', 'Aventura'], trending: true }, // Up: Altas Aventuras
+  { id: 10681, extraGenres: ['Animação', 'Ficção Científica', 'Aventura'], trending: true }, // WALL-E
+  { id: 862, extraGenres: ['Animação', 'Aventura', 'Comédia'], trending: true }, // Toy Story
+  { id: 2062, extraGenres: ['Animação', 'Comédia', 'Aventura'], trending: true }, // Ratatouille
+  { id: 10191, extraGenres: ['Animação', 'Fantasia', 'Aventura'], trending: true }, // Como Treinar o Seu Dragão
+  { id: 808, extraGenres: ['Animação', 'Comédia', 'Fantasia', 'Aventura'], trending: true }, // Shrek
+  { id: 809, extraGenres: ['Animação', 'Comédia', 'Fantasia', 'Aventura'], trending: true }, // Shrek 2
+  { id: 9502, extraGenres: ['Animação', 'Ação', 'Aventura', 'Comédia'], trending: true }, // Kung Fu Panda
+  { id: 269149, extraGenres: ['Animação', 'Aventura', 'Comédia'], trending: true }, // Zootopia
+  { id: 508883, extraGenres: ['Animação', 'Aventura', 'Fantasia'], trending: true }, // O Menino e a Garça
+  { id: 4935, extraGenres: ['Animação', 'Fantasia', 'Aventura', 'Romance'], trending: true }, // O Castelo Animado
+  { id: 128, extraGenres: ['Animação', 'Aventura', 'Fantasia'], trending: true }, // Princesa Mononoke
+  { id: 8392, extraGenres: ['Animação', 'Fantasia'], trending: true }, // Meu Amigo Totoro
+  { id: 12477, extraGenres: ['Animação', 'Drama', 'Histórico'], trending: true }, // Túmulo dos Vagalumes
+  { id: 346698, extraGenres: ['Comédia', 'Aventura', 'Fantasia'], trending: true }, // Barbie
+  { id: 75656, extraGenres: ['Suspense', 'Crime'], trending: true }, // Truque de Mestre (Now You See Me)
+  { id: 12153, extraGenres: ['Comédia', 'Crime'], trending: true }, // As Branquelas (White Chicks)
+  { id: 18785, extraGenres: ['Comédia'], trending: true }, // Se Beber, Não Case! (The Hangover)
+  { id: 8363, extraGenres: ['Comédia'], trending: true }, // Superbad: É Hoje
+  { id: 38365, extraGenres: ['Comédia'], trending: true }, // Gente Grande (Grown Ups)
+  { id: 37165, extraGenres: ['Comédia', 'Drama', 'Ficção Científica'], trending: true }, // O Show de Truman
+  { id: 13, extraGenres: ['Comédia', 'Drama', 'Romance'], trending: true }, // Forrest Gump: O Contador de Histórias
+  { id: 207, extraGenres: ['Drama'], trending: true }, // Sociedade dos Poetas Mortos
+  { id: 489, extraGenres: ['Drama'], trending: true }, // Gênio Indomável
 ];
 
 function slugify(text) {
@@ -411,6 +698,16 @@ async function discoverCandidates() {
     `https://api.themoviedb.org/3/discover/movie?api_key=${API_KEY}&language=pt-BR&with_genres=10749&sort_by=popularity.desc&page=2`,
     `https://api.themoviedb.org/3/discover/movie?api_key=${API_KEY}&language=pt-BR&with_genres=10749&sort_by=vote_count.desc&page=1`,
     `https://api.themoviedb.org/3/discover/movie?api_key=${API_KEY}&language=pt-BR&with_genres=10749&sort_by=vote_count.desc&page=2`,
+    // Sci-Fi & Fantasy Movies
+    `https://api.themoviedb.org/3/discover/movie?api_key=${API_KEY}&language=pt-BR&with_genres=878&sort_by=vote_count.desc&page=1`,
+    `https://api.themoviedb.org/3/discover/movie?api_key=${API_KEY}&language=pt-BR&with_genres=14&sort_by=vote_count.desc&page=1`,
+    // Thriller, Crime & Horror Movies
+    `https://api.themoviedb.org/3/discover/movie?api_key=${API_KEY}&language=pt-BR&with_genres=53&sort_by=vote_count.desc&page=1`,
+    `https://api.themoviedb.org/3/discover/movie?api_key=${API_KEY}&language=pt-BR&with_genres=80&sort_by=vote_count.desc&page=1`,
+    `https://api.themoviedb.org/3/discover/movie?api_key=${API_KEY}&language=pt-BR&with_genres=27&sort_by=vote_count.desc&page=1`,
+    // Comedy & Animation Movies
+    `https://api.themoviedb.org/3/discover/movie?api_key=${API_KEY}&language=pt-BR&with_genres=35&sort_by=vote_count.desc&page=1`,
+    `https://api.themoviedb.org/3/discover/movie?api_key=${API_KEY}&language=pt-BR&with_genres=16&sort_by=vote_count.desc&page=1`,
   ];
 
   const tvEndpoints = [
@@ -435,6 +732,14 @@ async function discoverCandidates() {
     // Action & Adventure TV Series
     `https://api.themoviedb.org/3/discover/tv?api_key=${API_KEY}&language=pt-BR&with_genres=10759&without_genres=16,10764,10767&sort_by=vote_count.desc&page=1`,
     `https://api.themoviedb.org/3/discover/tv?api_key=${API_KEY}&language=pt-BR&with_genres=10759&without_genres=16,10764,10767&sort_by=vote_count.desc&page=2`,
+    // Sci-Fi & Fantasy TV Series
+    `https://api.themoviedb.org/3/discover/tv?api_key=${API_KEY}&language=pt-BR&with_genres=10765&without_genres=16,10764,10767&sort_by=vote_count.desc&page=1`,
+    `https://api.themoviedb.org/3/discover/tv?api_key=${API_KEY}&language=pt-BR&with_genres=10765&without_genres=16,10764,10767&sort_by=vote_count.desc&page=2`,
+    // Crime & Mystery TV Series
+    `https://api.themoviedb.org/3/discover/tv?api_key=${API_KEY}&language=pt-BR&with_genres=80&without_genres=16,10764,10767&sort_by=vote_count.desc&page=1`,
+    `https://api.themoviedb.org/3/discover/tv?api_key=${API_KEY}&language=pt-BR&with_genres=9648&without_genres=16,10764,10767&sort_by=vote_count.desc&page=1`,
+    // Comedy & Drama TV Series
+    `https://api.themoviedb.org/3/discover/tv?api_key=${API_KEY}&language=pt-BR&with_genres=35&without_genres=16,10764,10767&sort_by=vote_count.desc&page=1`,
   ];
 
   const moviePages = await Promise.all(movieEndpoints.map((u) => fetchJson(u).catch(() => ({ results: [] }))));
@@ -460,8 +765,8 @@ async function discoverCandidates() {
   }
 
   return {
-    movies: Array.from(moviesMap.values()).slice(0, 275),
-    series: Array.from(tvMap.values()).slice(0, 255),
+    movies: Array.from(moviesMap.values()).slice(0, 420),
+    series: Array.from(tvMap.values()).slice(0, 380),
   };
 }
 
@@ -538,6 +843,8 @@ async function enrichItem(raw, type, usedSlugs) {
     const origLang = details.original_language || enDetails.original_language || raw.original_language || 'en';
     const rawGenreIds = raw.genre_ids || (details.genres || []).map((g) => g.id);
     const genreSet = new Set(rawGenreIds.map((gid) => GENRE_MAP[gid]).filter(Boolean));
+    if (rawGenreIds.includes(27)) genreSet.add('Terror');
+    if (rawGenreIds.includes(14) || rawGenreIds.includes(10765)) genreSet.add('Fantasia');
 
     // Automatically tag Asian live-action series/movies as Doramas
     if (['ko', 'zh', 'cn', 'tw'].includes(origLang) && !genreSet.has('Animação')) {
