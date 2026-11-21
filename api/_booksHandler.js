@@ -2,60 +2,172 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
 
-const UPLOADED_PDF_DIR = path.join('/tmp', 'wotho_uploaded_pdfs');
-const EDITORIAL_CLOUD_STORE_PATH = path.join('/tmp', 'wotho_editorial_cloud_store_v1.json');
+function getStorageCandidates() {
+  const durableDir = path.join(process.cwd(), '.cache', 'wotho_editorial');
+  return {
+    pdfDirs: [path.join(durableDir, 'wotho_uploaded_pdfs'), path.join('/tmp', 'wotho_uploaded_pdfs')],
+    storePaths: [
+      path.join(durableDir, 'wotho_editorial_cloud_store_v1.json'),
+      path.join('/tmp', 'wotho_editorial_cloud_store_v1.json'),
+    ],
+  };
+}
 
-function getUploadedPdfBufferById(bookId) {
-  if (!bookId) return null;
+let cachedFirebaseCfg = null;
+function loadFirebaseAppletConfig() {
+  if (cachedFirebaseCfg !== null) return cachedFirebaseCfg;
   try {
-    const safeId = String(bookId).replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 128);
-    const pdfPath = path.join(UPLOADED_PDF_DIR, `${safeId}.pdf`);
-    if (fs.existsSync(pdfPath)) {
-      const buf = fs.readFileSync(pdfPath);
-      if (buf.length > 100 && buf.subarray(0, 5).toString('ascii').startsWith('%PDF-')) {
-        return buf;
+    const cfgPath = path.join(process.cwd(), 'firebase-applet-config.json');
+    if (fs.existsSync(cfgPath)) {
+      cachedFirebaseCfg = JSON.parse(fs.readFileSync(cfgPath, 'utf8'));
+      return cachedFirebaseCfg;
+    }
+  } catch {}
+  cachedFirebaseCfg = {};
+  return cachedFirebaseCfg;
+}
+
+function decodeFsVal(v) {
+  if (!v || typeof v !== 'object') return v;
+  if ('stringValue' in v) return v.stringValue;
+  if ('integerValue' in v) return Number(v.integerValue);
+  if ('doubleValue' in v) return Number(v.doubleValue);
+  if ('booleanValue' in v) return Boolean(v.booleanValue);
+  return undefined;
+}
+
+async function queryFirestoreRestChaptersByBookId(bookId) {
+  const cfg = loadFirebaseAppletConfig();
+  if (!cfg?.projectId || !cfg?.firestoreDatabaseId || !cfg?.apiKey) return [];
+  try {
+    const dbPath = `projects/${cfg.projectId}/databases/${cfg.firestoreDatabaseId}`;
+    const url = `https://firestore.googleapis.com/v1/${dbPath}/documents:runQuery?key=${encodeURIComponent(cfg.apiKey)}`;
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        structuredQuery: {
+          from: [{ collectionId: 'chapters' }],
+          where: {
+            fieldFilter: {
+              field: { fieldPath: 'book_id' },
+              op: 'EQUAL',
+              value: { stringValue: String(bookId).slice(0, 128) },
+            },
+          },
+        },
+      }),
+      signal: AbortSignal.timeout(6500),
+    });
+    if (!res.ok) return [];
+    const rows = await res.json();
+    if (!Array.isArray(rows)) return [];
+    const out = [];
+    for (const row of rows) {
+      if (!row?.document?.fields) continue;
+      const obj = {};
+      for (const [k, v] of Object.entries(row.document.fields)) {
+        obj[k] = decodeFsVal(v);
       }
+      out.push(obj);
+    }
+    return out.sort((a, b) => (Number(a.position) || 0) - (Number(b.position) || 0));
+  } catch {
+    return [];
+  }
+}
+
+async function fetchFirestorePdfBufferById(bookId) {
+  if (!bookId) return null;
+  const binBookId = `pdfbin-${bookId}`.slice(0, 128);
+  const chunks = await queryFirestoreRestChaptersByBookId(binBookId);
+  if (!chunks || chunks.length === 0) return null;
+  const joinedBase64 = chunks.map((c) => String(c.content || '').trim()).join('');
+  if (joinedBase64.length < 100) return null;
+  try {
+    const buf = Buffer.from(joinedBase64, 'base64');
+    if (buf.length > 100 && buf.subarray(0, 5).toString('ascii').startsWith('%PDF-')) {
+      const { pdfDirs } = getStorageCandidates();
+      const safeId = String(bookId).replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 128);
+      for (const dir of pdfDirs) {
+        try {
+          if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+          fs.writeFileSync(path.join(dir, `${safeId}.pdf`), buf);
+        } catch {}
+      }
+      return buf;
     }
   } catch {}
   return null;
 }
 
-function getEditorialStoredBookAndChapters(bookId) {
-  if (!bookId) return { book: null, chapters: [] };
-  try {
-    if (fs.existsSync(EDITORIAL_CLOUD_STORE_PATH)) {
-      const parsed = JSON.parse(fs.readFileSync(EDITORIAL_CLOUD_STORE_PATH, 'utf8'));
-      const books = parsed?.books || {};
-      const chaptersMap = parsed?.chapters || {};
-      const safeId = String(bookId).replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 128);
-      const book = books[bookId] || books[safeId] || Object.values(books).find((b) => b && b.id === bookId) || null;
-      const chapters = Object.values(chaptersMap)
-        .filter((c) => c && c.book_id === bookId && Number(c.position) > 0)
-        .sort((a, b) => (Number(a.position) || 0) - (Number(b.position) || 0));
+function sanitizeBookFileId(bookId) {
+  return String(bookId || '')
+    .replace(/[^a-zA-Z0-9_-]/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .slice(0, 128);
+}
 
-      // Also check if chunks of PDF binary exist in chaptersMap under book_id === `pdfbin-${bookId}`
-      const binChunks = Object.values(chaptersMap)
-        .filter((c) => c && c.book_id === `pdfbin-${bookId}`)
-        .sort((a, b) => (Number(a.position) || 0) - (Number(b.position) || 0));
-      if (binChunks.length > 0) {
-        const joinedBase64 = binChunks.map((c) => String(c.content || '').trim()).join('');
-        if (joinedBase64) {
-          const buf = Buffer.from(joinedBase64, 'base64');
-          if (buf.length > 100 && buf.subarray(0, 5).toString('ascii').startsWith('%PDF-')) {
-            try {
-              if (!fs.existsSync(UPLOADED_PDF_DIR)) {
-                fs.mkdirSync(UPLOADED_PDF_DIR, { recursive: true });
-              }
-              fs.writeFileSync(path.join(UPLOADED_PDF_DIR, `${safeId}.pdf`), buf);
-            } catch {}
-            return { book, chapters, pdfBuffer: buf };
-          }
+function getUploadedPdfBufferById(bookId) {
+  if (!bookId) return null;
+  const { pdfDirs } = getStorageCandidates();
+  const safeId = sanitizeBookFileId(bookId);
+  if (!safeId) return null;
+  for (const dir of pdfDirs) {
+    try {
+      const resolvedDir = path.resolve(dir);
+      const pdfPath = path.resolve(resolvedDir, `${safeId}.pdf`);
+      if (!pdfPath.startsWith(resolvedDir + path.sep)) continue;
+      if (fs.existsSync(pdfPath)) {
+        const buf = fs.readFileSync(pdfPath);
+        if (buf.length > 100 && buf.subarray(0, 5).toString('ascii').startsWith('%PDF-')) {
+          return buf;
         }
       }
+    } catch {}
+  }
+  return null;
+}
 
-      return { book, chapters, pdfBuffer: null };
-    }
-  } catch {}
+function getEditorialStoredBookAndChapters(bookId) {
+  if (!bookId) return { book: null, chapters: [], pdfBuffer: null };
+  const { storePaths, pdfDirs } = getStorageCandidates();
+  for (const storePath of storePaths) {
+    try {
+      if (fs.existsSync(storePath)) {
+        const parsed = JSON.parse(fs.readFileSync(storePath, 'utf8'));
+        const books = parsed?.books || {};
+        const chaptersMap = parsed?.chapters || {};
+        const safeId = String(bookId).replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 128);
+        const book = books[bookId] || books[safeId] || Object.values(books).find((b) => b && b.id === bookId) || null;
+        const chapters = Object.values(chaptersMap)
+          .filter((c) => c && c.book_id === bookId && Number(c.position) > 0)
+          .sort((a, b) => (Number(a.position) || 0) - (Number(b.position) || 0));
+
+        const binChunks = Object.values(chaptersMap)
+          .filter((c) => c && c.book_id === `pdfbin-${bookId}`)
+          .sort((a, b) => (Number(a.position) || 0) - (Number(b.position) || 0));
+        if (binChunks.length > 0) {
+          const joinedBase64 = binChunks.map((c) => String(c.content || '').trim()).join('');
+          if (joinedBase64) {
+            const buf = Buffer.from(joinedBase64, 'base64');
+            if (buf.length > 100 && buf.subarray(0, 5).toString('ascii').startsWith('%PDF-')) {
+              try {
+                const dir = pdfDirs[0];
+                if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+                fs.writeFileSync(path.join(dir, `${safeId}.pdf`), buf);
+              } catch {}
+              return { book, chapters, pdfBuffer: buf };
+            }
+          }
+        }
+
+        if (book || chapters.length > 0) {
+          return { book, chapters, pdfBuffer: null };
+        }
+      }
+    } catch {}
+  }
   return { book: null, chapters: [], pdfBuffer: null };
 }
 
@@ -289,10 +401,19 @@ export async function handlePdfProxyRequest(req, res) {
     }
 
     let pdfBuffer = null;
+    let pdfSource = 'synthesized';
 
-    // 1. Check uploaded PDF binary on server disk or editorial store chunks
+    // 1. Check uploaded PDF binary on server disk, editorial store chunks, or Firestore REST chunks
     if (bookId) {
-      pdfBuffer = getUploadedPdfBufferById(bookId) || storedData.pdfBuffer || null;
+      const uploadedBuf =
+        getUploadedPdfBufferById(bookId) ||
+        storedData.pdfBuffer ||
+        (await fetchFirestorePdfBufferById(bookId)) ||
+        null;
+      if (uploadedBuf) {
+        pdfBuffer = uploadedBuf;
+        pdfSource = 'uploaded-editorial';
+      }
     }
 
     // 2. Check if targetPdf is an inline data:application/pdf;base64,... URL
@@ -302,6 +423,7 @@ export async function handlePdfProxyRequest(req, res) {
         const buf = Buffer.from(b64, 'base64');
         if (buf.length > 100 && buf.subarray(0, 5).toString('ascii').startsWith('%PDF-')) {
           pdfBuffer = buf;
+          pdfSource = 'inline';
         }
       } catch {}
     }
@@ -324,30 +446,45 @@ export async function handlePdfProxyRequest(req, res) {
           const buffer = Buffer.from(arrayBuffer);
           if (buffer.length > 500 && buffer.subarray(0, 5).toString('ascii').startsWith('%PDF-')) {
             pdfBuffer = buffer;
+            pdfSource = 'upstream';
           }
         }
       } catch {}
     }
 
-    // 4. Fallback: synthesize clean multi-page PDF from book metadata + chapters
+    // 4. Fallback: synthesize clean multi-page PDF from book metadata + chapters (including Firestore chapters)
     if (!pdfBuffer) {
+      let chaptersForPdf = storedData.chapters;
+      if (bookId && (!chaptersForPdf || chaptersForPdf.length === 0)) {
+        const fsChapters = await queryFirestoreRestChaptersByBookId(bookId);
+        chaptersForPdf = fsChapters.filter((c) => Number(c.position) > 0);
+      }
       pdfBuffer = await synthesizeCleanBookPdf({
         title: finalTitle,
         author: finalAuthor,
         category: finalCategory,
         description: finalDesc,
-        chapters: storedData.chapters,
+        chapters: chaptersForPdf,
       });
+      pdfSource = 'synthesized';
     }
 
     res.statusCode = 200;
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Length', pdfBuffer.length);
+    res.setHeader('X-Pdf-Source', pdfSource);
+    if (pdfSource === 'synthesized') {
+      res.setHeader('X-Pdf-Fallback', 'synthesized');
+    }
     res.setHeader(
       'Content-Disposition',
       `${isDownload ? 'attachment' : 'inline'}; filename="${cleanAsciiFilename}"; filename*=UTF-8''${encodeURIComponent(cleanUtf8Filename)}`
     );
-    res.setHeader('Cache-Control', bookId ? 'no-cache' : 'public, max-age=604800, stale-while-revalidate=2592000');
+    res.setHeader('Cache-Control', bookId ? 'no-cache, no-store, must-revalidate' : 'public, max-age=604800, stale-while-revalidate=2592000');
+    if (req.method === 'HEAD') {
+      res.end();
+      return;
+    }
     res.end(pdfBuffer);
   } catch {
     res.statusCode = 500;

@@ -261,7 +261,7 @@ export const OriginalPdfViewer: React.FC<OriginalPdfViewerProps> = ({
         resolvedDataBytes = await synthesizeClientBookPdfBytes();
       }
 
-      // 5. Cloud PDF binary chunks (Firestore / Server editorial store) for editorial books
+      // 5. Uploaded PDF binary (Server proxy first for instant single-request download, then cloud chunks) for editorial books
       if (!resolvedDataBytes) {
         const lookupBookId =
           itemId ||
@@ -273,28 +273,39 @@ export const OriginalPdfViewer: React.FC<OriginalPdfViewerProps> = ({
             targetRef.startsWith("/api/books/pdf-proxy"))
         ) {
           setLoadingProgress(35);
-          const cloudBytes = await fetchCloudPdfBinary(lookupBookId);
-          if (cloudBytes && cloudBytes.byteLength > 100) {
-            resolvedDataBytes = cloudBytes.slice();
-            void savePdfBytesToIndexedDB(lookupBookId, cloudBytes.buffer.slice(0) as ArrayBuffer);
-          } else {
-            // Try server proxy for uploaded file in /tmp
-            try {
-              const proxyRes = await fetch(
-                `/api/books/pdf-proxy?id=${encodeURIComponent(lookupBookId)}&title=${encodeURIComponent(title || "")}&author=${encodeURIComponent(author || "")}`
-              );
-              if (proxyRes.ok && proxyRes.headers.get("X-Pdf-Fallback") !== "synthesized") {
-                const buf = await proxyRes.arrayBuffer();
-                if (buf.byteLength > 200) {
-                  resolvedDataBytes = new Uint8Array(buf);
-                }
+          // 5a. Direct binary stream from /api/books/pdf-proxy (serves Master Admin uploaded PDFs up to 25 MB!)
+          try {
+            const proxyRes = await fetch(
+              `/api/books/pdf-proxy?id=${encodeURIComponent(lookupBookId)}&title=${encodeURIComponent(title || "")}&author=${encodeURIComponent(author || "")}`
+            );
+            if (proxyRes.ok && proxyRes.headers.get("X-Pdf-Fallback") !== "synthesized") {
+              const buf = await proxyRes.arrayBuffer();
+              const bytes = new Uint8Array(buf);
+              if (
+                bytes.byteLength > 100 &&
+                bytes[0] === 0x25 &&
+                bytes[1] === 0x50 &&
+                bytes[2] === 0x44 &&
+                bytes[3] === 0x46
+              ) {
+                resolvedDataBytes = bytes;
+                void savePdfBytesToIndexedDB(lookupBookId, buf.slice(0));
               }
-            } catch {}
-
-            // If binary still not found, compile complete multi-page PDF from extracted chapters
-            if (!resolvedDataBytes) {
-              resolvedDataBytes = await synthesizeClientBookPdfBytes();
             }
+          } catch {}
+
+          // 5b. Fallback to Firestore/Server chunked binary if direct file wasn't present
+          if (!resolvedDataBytes) {
+            const cloudBytes = await fetchCloudPdfBinary(lookupBookId);
+            if (cloudBytes && cloudBytes.byteLength > 100) {
+              resolvedDataBytes = cloudBytes.slice();
+              void savePdfBytesToIndexedDB(lookupBookId, cloudBytes.buffer.slice(0) as ArrayBuffer);
+            }
+          }
+
+          // 5c. Last fallback: compile complete multi-page PDF from extracted chapters
+          if (!resolvedDataBytes) {
+            resolvedDataBytes = await synthesizeClientBookPdfBytes();
           }
         }
       }

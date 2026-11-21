@@ -346,10 +346,15 @@ function appendOrionLinksAsStreams(streams, links, audioMode, langCode, labelPre
     return resB - resA;
   });
 
+  const seenDecrypted = new Set(streams.map((s) => s?.url).filter(Boolean));
+
   sorted.forEach((item, idx) => {
     if (!item.link) return;
     const decryptedUrl = decryptVidstuckLink(item.link);
     if (!decryptedUrl || !decryptedUrl.startsWith('http')) return;
+    if (seenDecrypted.has(decryptedUrl)) return;
+    seenDecrypted.add(decryptedUrl);
+
     const resNum = parseInt(String(item.resolution || '1080'), 10) || 1080;
     const qualityLabel = resNum >= 1080 ? '1080p FHD' : resNum >= 720 ? '720p HD' : `${resNum}p`;
     const isHls = item.type === 'hls' || decryptedUrl.includes('.m3u8');
@@ -367,6 +372,8 @@ function appendOrionLinksAsStreams(streams, links, audioMode, langCode, labelPre
       langCode,
       quality: qualityLabel,
       url: decryptedUrl,
+      // hakunaymatata.com rejects browser Referer with HTTP 429; always stream via server-side proxy
+      requiresProxy: true,
       proxyUrl: isHls
         ? `/api/cinema/hls-proxy?url=${encodeURIComponent(decryptedUrl)}`
         : `/api/cinema/mp4-proxy?url=${encodeURIComponent(decryptedUrl)}${extraQuery}`,
@@ -419,11 +426,14 @@ async function queryHlsServer(srvKey, srvLabel, commonHeaders, metaParams, safeL
     if (!Array.isArray(data?.links) || data.links.length === 0) return [];
 
     const out = [];
+    const seenUrls = new Set();
     for (let idx = 0; idx < data.links.length; idx++) {
       const l = data.links[idx];
       if (!l?.link) continue;
       const decryptedUrl = decryptVidstuckLink(l.link);
       if (!decryptedUrl || !decryptedUrl.startsWith('http')) continue;
+      if (seenUrls.has(decryptedUrl)) continue;
+      seenUrls.add(decryptedUrl);
       const isMp4 = l.type === 'mp4' || /\.mp4($|\?)/i.test(decryptedUrl);
       out.push({
         id: `hls-${srvKey}-${idx}`,
@@ -434,6 +444,7 @@ async function queryHlsServer(srvKey, srvLabel, commonHeaders, metaParams, safeL
         langCode: 'en',
         quality: '1080p FHD',
         url: decryptedUrl,
+        requiresProxy: true,
         proxyUrl: isMp4
           ? `/api/cinema/mp4-proxy?url=${encodeURIComponent(decryptedUrl)}`
           : `/api/cinema/hls-proxy?url=${encodeURIComponent(decryptedUrl)}`,
@@ -1190,7 +1201,7 @@ export async function resolveVidstuckStreams(params) {
     });
   }
 
-  if (!initialOrion && params.type === 'tv' && !isSteelBallRun) {
+  if (!initialOrion && !isSteelBallRun) {
     initialOrion = await queryOrionVariant({
       commonHeaders,
       tmdbId: params.tmdbId,
@@ -1455,21 +1466,29 @@ export async function resolveVidstuckStreams(params) {
     }
   }
 
-  if (streams.length === 0) {
+  // Unified multi-server redundancy: if primary streams are empty or only 1 route exists,
+  // probe Atlas / Berkas / Milkyway HLS mirrors in parallel so every episode has seamless backup failover.
+  if (streams.length === 0 || (streams.length === 1 && !hasPtDub)) {
     const hlsServers = [
-      { key: 'atlas', label: 'Áudio Original 1080p FHD (Atlas · Legenda PT)' },
-      { key: 'berkas', label: 'Áudio Original 1080p FHD (Berkas · Legenda PT)' },
-      { key: 'milkyway', label: 'Áudio Original 1080p FHD (Milkyway · Legenda PT)' },
+      { key: 'atlas', label: 'Stream Unificado 1080p FHD (Atlas · Legenda PT)' },
+      { key: 'berkas', label: 'Stream Unificado 1080p FHD (Berkas · Legenda PT)' },
+      { key: 'milkyway', label: 'Stream Unificado 1080p FHD (Milkyway · Legenda PT)' },
     ];
 
-    for (const srv of hlsServers) {
-      const found = await queryHlsServer(srv.key, srv.label, commonHeaders, metaParams, safeLatestDate);
-      if (found.length > 0) {
-        found.forEach((s) => {
-          s.audioMode = 'original';
-        });
-        streams.push(...found);
-        break;
+    const hlsResults = await Promise.all(
+      hlsServers.map((srv) =>
+        queryHlsServer(srv.key, srv.label, commonHeaders, metaParams, safeLatestDate).catch(() => [])
+      )
+    );
+
+    const existingMirrorUrls = new Set(streams.map((s) => s?.url).filter(Boolean));
+    for (const found of hlsResults) {
+      for (const s of found) {
+        if (!s?.url || existingMirrorUrls.has(s.url)) continue;
+        existingMirrorUrls.add(s.url);
+        s.audioMode = 'original';
+        s.requiresProxy = true;
+        streams.push(s);
       }
     }
   }
@@ -2164,7 +2183,7 @@ export async function handleCinemaHlsProxyRequest(req, res) {
       res.statusCode = 200;
       res.setHeader(
         'Content-Type',
-        isEp2Flow ? 'video/mp2t' : contentType || 'video/mp2t'
+        isEp2Flow || isWp2Flow ? 'video/mp2t' : contentType || 'video/mp2t'
       );
       res.end(buf);
       return;
@@ -2173,7 +2192,7 @@ export async function handleCinemaHlsProxyRequest(req, res) {
     res.statusCode = 200;
     res.setHeader(
       'Content-Type',
-      isEp2Flow ? 'video/mp2t' : contentType || 'video/mp2t'
+      isEp2Flow || isWp2Flow ? 'video/mp2t' : contentType || 'video/mp2t'
     );
     if (upstream.body) {
       const nodeStream = Readable.fromWeb(upstream.body);

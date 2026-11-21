@@ -81,7 +81,7 @@ export type Purchase = {
 export const useBooks = (search = "") =>
   useQuery({
     queryKey: ["books", search],
-    staleTime: 1000 * 60 * 10,
+    staleTime: 1000 * 30,
     refetchOnWindowFocus: false,
     queryFn: async () => {
       const lowerSearch = search.toLowerCase();
@@ -299,7 +299,7 @@ export const useBook = (id?: string) =>
   useQuery({
     queryKey: ["book", id],
     enabled: !!id && !isExcludedItem({ id }),
-    staleTime: 1000 * 60 * 10,
+    staleTime: 1000 * 30,
     queryFn: async () => {
       if (!id || isExcludedItem({ id })) return null;
 
@@ -494,7 +494,7 @@ export const useChapters = (bookId?: string) =>
   useQuery({
     queryKey: ["chapters", bookId],
     enabled: !!bookId,
-    staleTime: 1000 * 60 * 10,
+    staleTime: 1000 * 30,
     queryFn: async () => {
       if (!bookId) return [];
 

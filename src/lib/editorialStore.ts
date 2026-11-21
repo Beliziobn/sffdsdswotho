@@ -22,7 +22,7 @@ import { notifyIndexNowRealtime } from "./seo";
 export const SPECIAL_ADMIN_EMAIL = "miguelworscoi@gmail.com";
 
 const ADMIN_SESSION_KEY = "worscoi_special_admin_session_v1";
-const EDITORIAL_PROOF_STORAGE_KEY = "worscoi_editorial_proof_v1";
+const ADMIN_BEARER_STORAGE_KEY = "worscoi_admin_bearer_v1";
 const NEWS_OVERRIDES_KEY = "worscoi_editorial_news_overrides_v1";
 const CUSTOM_NEWS_KEY = "worscoi_editorial_custom_news_v1";
 const DELETED_NEWS_KEY = "worscoi_editorial_deleted_news_v1";
@@ -435,37 +435,49 @@ export function slugifyEditorial(text: string): string {
 }
 
 // ============================================================================
-// 1. SPECIAL MASTER LOGIN (Server-Verified Session & Editorial Proof)
+// 1. SPECIAL MASTER LOGIN (Server-Verified HMAC Bearer Session)
 // ============================================================================
 
-const DEFAULT_EDITORIAL_PROOF_FALLBACK = "wotho-ed-proof-9f81c4a7b2e6d309581a";
+export function getMasterAdminBearerToken(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const s = sessionStorage.getItem(ADMIN_BEARER_STORAGE_KEY);
+    if (s && s.includes(".")) return s.trim();
+    const l = localStorage.getItem(ADMIN_BEARER_STORAGE_KEY);
+    if (l && l.includes(".")) {
+      sessionStorage.setItem(ADMIN_BEARER_STORAGE_KEY, l.trim());
+      return l.trim();
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
 
-export function storeEditorialCloudProof(token: string | null | undefined): void {
+export function storeMasterAdminBearerToken(token: string | null | undefined): void {
   if (typeof window === "undefined") return;
   try {
     if (token && token.trim()) {
-      sessionStorage.setItem(EDITORIAL_PROOF_STORAGE_KEY, token.trim());
-      localStorage.setItem(EDITORIAL_PROOF_STORAGE_KEY, token.trim());
+      sessionStorage.setItem(ADMIN_BEARER_STORAGE_KEY, token.trim());
+      localStorage.setItem(ADMIN_BEARER_STORAGE_KEY, token.trim());
     } else {
-      sessionStorage.removeItem(EDITORIAL_PROOF_STORAGE_KEY);
-      localStorage.removeItem(EDITORIAL_PROOF_STORAGE_KEY);
+      sessionStorage.removeItem(ADMIN_BEARER_STORAGE_KEY);
+      localStorage.removeItem(ADMIN_BEARER_STORAGE_KEY);
+      sessionStorage.removeItem("worscoi_editorial_proof_v1");
+      localStorage.removeItem("worscoi_editorial_proof_v1");
     }
   } catch {
     // Ignore storage issues
   }
 }
 
+export function storeEditorialCloudProof(token: string | null | undefined): void {
+  storeMasterAdminBearerToken(token);
+}
+
 export function hasEditorialCloudProof(): boolean {
   if (typeof window === "undefined") return false;
-  try {
-    return Boolean(
-      sessionStorage.getItem(EDITORIAL_PROOF_STORAGE_KEY) ||
-        localStorage.getItem(EDITORIAL_PROOF_STORAGE_KEY) ||
-        isSpecialAdminLoggedIn()
-    );
-  } catch {
-    return false;
-  }
+  return Boolean(getMasterAdminBearerToken());
 }
 
 export async function loginSpecialAdminWithServer(
@@ -475,7 +487,10 @@ export async function loginSpecialAdminWithServer(
   try {
     const res = await fetch("/api/admin/login", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "X-Requested-With": "WothoStudio",
+      },
       credentials: "include",
       body: JSON.stringify({
         email: email.trim().toLowerCase(),
@@ -483,14 +498,14 @@ export async function loginSpecialAdminWithServer(
       }),
     });
     const data = await res.json().catch(() => ({}));
-    if (!res.ok || !data?.ok) {
+    if (!res.ok || !data?.ok || !data?.sessionToken) {
       return {
         ok: false,
         error: data?.error || "Credenciais inválidas. Verifique o e-mail e a senha mestra.",
       };
     }
 
-    storeEditorialCloudProof(data.editorialProofToken || DEFAULT_EDITORIAL_PROOF_FALLBACK);
+    storeMasterAdminBearerToken(data.sessionToken);
     loginSpecialAdmin(data.user?.email || email.trim().toLowerCase());
     return { ok: true };
   } catch {
@@ -504,26 +519,30 @@ export async function loginSpecialAdminWithServer(
 export async function refreshSpecialAdminSession(): Promise<boolean> {
   if (typeof window === "undefined") return false;
   try {
+    const existingToken = getMasterAdminBearerToken();
+    const headers: Record<string, string> = {
+      "X-Requested-With": "WothoStudio",
+    };
+    if (existingToken) {
+      headers.Authorization = `Bearer ${existingToken}`;
+    }
     const res = await fetch("/api/admin/session", {
       method: "GET",
+      headers,
       credentials: "include",
     });
     if (res.ok) {
       const data = await res.json().catch(() => ({}));
-      if (data?.authenticated && data?.editorialProofToken) {
-        storeEditorialCloudProof(data.editorialProofToken);
+      if (data?.authenticated && data?.sessionToken) {
+        storeMasterAdminBearerToken(data.sessionToken);
         loginSpecialAdmin(data.user?.email || SPECIAL_ADMIN_EMAIL);
         return true;
       }
     }
-    if (isSpecialAdminLoggedIn()) {
-      storeEditorialCloudProof(DEFAULT_EDITORIAL_PROOF_FALLBACK);
-      return true;
-    }
-    storeEditorialCloudProof(null);
+    storeMasterAdminBearerToken(null);
     return false;
   } catch {
-    return isSpecialAdminLoggedIn();
+    return Boolean(getMasterAdminBearerToken() && isSpecialAdminLoggedIn());
   }
 }
 
@@ -537,9 +556,6 @@ export function loginSpecialAdmin(email = SPECIAL_ADMIN_EMAIL): void {
     loggedInAt: new Date().toISOString(),
   };
   localStorage.setItem(ADMIN_SESSION_KEY, JSON.stringify(payload));
-  if (!sessionStorage.getItem(EDITORIAL_PROOF_STORAGE_KEY)) {
-    storeEditorialCloudProof(DEFAULT_EDITORIAL_PROOF_FALLBACK);
-  }
   window.dispatchEvent(new Event("worscoi_auth_updated"));
 }
 
@@ -547,9 +563,10 @@ export function logoutSpecialAdmin(): void {
   if (typeof window === "undefined") return;
   localStorage.removeItem(ADMIN_SESSION_KEY);
   localStorage.removeItem("worscoi_master_editorial_session_v1");
-  storeEditorialCloudProof(null);
+  storeMasterAdminBearerToken(null);
   void fetch("/api/admin/logout", {
     method: "POST",
+    headers: { "X-Requested-With": "WothoStudio" },
     credentials: "include",
   }).catch(() => {});
   window.dispatchEvent(new Event("worscoi_auth_updated"));

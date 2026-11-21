@@ -191,6 +191,7 @@ export const SecureAnimePlayer: React.FC<SecureAnimePlayerProps> = ({
   const [isResolvingOrion, setIsResolvingOrion] = useState(true);
   const [resolvedRequestKey, setResolvedRequestKey] = useState<string>("");
   const [useEmbedFallback, setUseEmbedFallback] = useState(false);
+  const [resolveRetryCount, setResolveRetryCount] = useState(0);
   const [isAudioMenuOpen, setIsAudioMenuOpen] = useState(false);
   const [subtitleTrack, setSubtitleTrack] = useState<"pt-br" | "en" | "off">("pt-br");
 
@@ -556,7 +557,7 @@ export const SecureAnimePlayer: React.FC<SecureAnimePlayerProps> = ({
 
   const effectiveTmdbSeason = tmdbTarget.season;
   const effectiveTmdbEpisode = tmdbTarget.episode;
-  const currentResolveKey = `${episode.id}:${selectedDubId}`;
+  const currentResolveKey = `${episode.id}:${selectedDubId}:${resolveRetryCount}`;
   const shouldWaitForOrion =
     isSteelBallRun ||
     isMovieEpisode ||
@@ -592,7 +593,7 @@ export const SecureAnimePlayer: React.FC<SecureAnimePlayerProps> = ({
         ? "legendado"
         : "original";
 
-    const runResolve = async (attempt: number) => {
+    const runResolve = async (attempt: number, serverOverride?: string) => {
       const params = new URLSearchParams({
         tmdbId: String(tmdbId),
         type: tmdbTarget.mediaType,
@@ -603,8 +604,9 @@ export const SecureAnimePlayer: React.FC<SecureAnimePlayerProps> = ({
         audioMode: audioModeParam,
         dubCode,
         dubType,
+        ...(serverOverride ? { server: serverOverride } : {}),
         ...(tmdbTarget.imdbId ? { imdbId: tmdbTarget.imdbId } : {}),
-        ...(attempt > 1 ? { t: String(Date.now()) } : {}),
+        ...(attempt > 1 || resolveRetryCount > 0 ? { t: String(Date.now()) } : {}),
       });
 
       const resp = await fetch(`/api/cinema/resolve?${params.toString()}`);
@@ -616,10 +618,26 @@ export const SecureAnimePlayer: React.FC<SecureAnimePlayerProps> = ({
       try {
         let data = await runResolve(1);
         if (cancelled) return;
-        if ((!Array.isArray(data?.streams) || data.streams.length === 0) && tmdbTarget.mediaType === "tv") {
-          await new Promise((r) => setTimeout(r, 850));
+        if (!Array.isArray(data?.streams) || data.streams.length === 0) {
+          await new Promise((r) => setTimeout(r, 700));
           if (cancelled) return;
-          data = await runResolve(2).catch(() => data);
+          const retryData = await runResolve(2).catch(() => null);
+          if (retryData && Array.isArray(retryData.streams) && retryData.streams.length > 0) {
+            data = retryData;
+          } else {
+            // Unified secondary mirror cascade (Atlas -> Berkas -> Milkyway)
+            for (const mirror of ["atlas", "berkas", "milkyway"]) {
+              if (cancelled) return;
+              const mirrorData = await runResolve(2, mirror).catch(() => null);
+              if (mirrorData && Array.isArray(mirrorData.streams) && mirrorData.streams.length > 0) {
+                data = {
+                  ...data,
+                  streams: mirrorData.streams,
+                };
+                break;
+              }
+            }
+          }
         }
         if (cancelled) return;
 
@@ -631,7 +649,11 @@ export const SecureAnimePlayer: React.FC<SecureAnimePlayerProps> = ({
           }
         }
         if (Array.isArray(data?.ptbrEmbedUrls)) {
-          setPtbrEmbedUrls(data.ptbrEmbedUrls);
+          setPtbrEmbedUrls(
+            data.ptbrEmbedUrls.filter(
+              (u: string) => typeof u === "string" && !u.includes("embedyplayer.xyz")
+            )
+          );
         }
         if (Array.isArray(data?.availableDubs) && data.availableDubs.length > 0) {
           setAvailableDubs(data.availableDubs);
@@ -689,6 +711,7 @@ export const SecureAnimePlayer: React.FC<SecureAnimePlayerProps> = ({
     selectedDubId,
     effectiveTmdbSeason,
     effectiveTmdbEpisode,
+    resolveRetryCount,
   ]);
 
   // Build prioritized list of authentic streams matching the user's selected language (selectedDubId)
@@ -892,7 +915,7 @@ export const SecureAnimePlayer: React.FC<SecureAnimePlayerProps> = ({
       if (!hasStartedMetadata && videoEl.readyState < 1) {
         advanceToNextStream();
       }
-    }, 8000);
+    }, 11500);
 
     const restorePlaybackState = () => {
       hasStartedMetadata = true;
@@ -940,7 +963,12 @@ export const SecureAnimePlayer: React.FC<SecureAnimePlayerProps> = ({
         ? baseProxyUrl
         : `${baseProxyUrl}&${selfHealParams.toString()}`;
 
-      let triedProxyForThisStream = Boolean(activeStream?.requiresProxy);
+      // Always proxy Orion / hakunaymatata.com MP4s (browser Referer causes HTTP 429)
+      const mustUseProxy =
+        Boolean(activeStream?.requiresProxy) ||
+        activeRawUrl.includes("hakunaymatata.com") ||
+        activeRawUrl.includes("vidstuck.cc");
+      let triedProxyForThisStream = mustUseProxy;
       videoEl.setAttribute("referrerpolicy", "no-referrer");
       videoEl.src = triedProxyForThisStream ? proxyMp4Url : activeRawUrl;
       videoEl.load();
@@ -964,11 +992,15 @@ export const SecureAnimePlayer: React.FC<SecureAnimePlayerProps> = ({
       };
 
       videoEl.addEventListener("loadedmetadata", handleLoaded);
+      videoEl.addEventListener("loadeddata", handleLoaded);
+      videoEl.addEventListener("canplay", handleLoaded);
       videoEl.addEventListener("error", handleError);
       return () => {
         isCancelled = true;
         window.clearTimeout(watchdogTimer);
         videoEl.removeEventListener("loadedmetadata", handleLoaded);
+        videoEl.removeEventListener("loadeddata", handleLoaded);
+        videoEl.removeEventListener("canplay", handleLoaded);
         videoEl.removeEventListener("error", handleError);
       };
     }
@@ -1172,17 +1204,25 @@ export const SecureAnimePlayer: React.FC<SecureAnimePlayerProps> = ({
     handleSeekRelative(85);
   };
 
-  const safePtbrEmbed = ptbrEmbedUrls.find((u) => u && !u.includes("embedyplayer.xyz"));
-
-  const anivideoIframeUrl =
+  const verifiedArchiveEmbed =
     episode.anivideoEmbedUrl && episode.anivideoEmbedUrl.startsWith("https://archive.org/embed/")
       ? episode.anivideoEmbedUrl
-      : safePtbrEmbed ||
-        (tmdbTarget.tmdbId
-          ? tmdbTarget.mediaType === "movie"
-            ? `https://vidlink.pro/movie/${tmdbTarget.tmdbId}`
-            : `https://vidlink.pro/tv/${tmdbTarget.tmdbId}/${effectiveTmdbSeason}/${effectiveTmdbEpisode}`
-          : `https://playerflix.ink/`);
+      : null;
+
+  const safePtbrEmbed = ptbrEmbedUrls.find(
+    (u) =>
+      u &&
+      !u.includes("embedyplayer.xyz") &&
+      !u.includes("vidlink.pro") &&
+      u.startsWith("https://playerflix.ink/")
+  );
+
+  const handleReconnectUnifiedServer = () => {
+    setUseEmbedFallback(false);
+    setCandidateIdx(0);
+    setIsBuffering(true);
+    setResolveRetryCount((prev) => prev + 1);
+  };
 
   const toggleFullscreen = () => {
     if (!containerRef.current) return;
@@ -1252,14 +1292,18 @@ export const SecureAnimePlayer: React.FC<SecureAnimePlayerProps> = ({
             })}
           </div>
 
-          <button
-            type="button"
-            onClick={() => setUseEmbedFallback((prev) => !prev)}
-            className="px-2.5 py-1.5 rounded-lg bg-secondary/70 hover:bg-accent border border-border text-muted-foreground hover:text-foreground text-[11px] font-medium transition-colors cursor-pointer whitespace-nowrap"
-            title="Alternar entre Player Nativo HD e Servidor Multi-Áudio Alternativo"
-          >
-            {useEmbedFallback ? "Player Nativo HD" : "Servidor Alternativo"}
-          </button>
+          {candidateStreams.length > 1 && !useEmbedFallback && (
+            <button
+              type="button"
+              onClick={() =>
+                setCandidateIdx((prev) => (prev + 1) % candidateStreams.length)
+              }
+              className="px-2.5 py-1.5 rounded-lg bg-secondary/70 hover:bg-accent border border-border text-muted-foreground hover:text-foreground text-[11px] font-medium transition-colors cursor-pointer whitespace-nowrap"
+              title="Trocar rota interna de vídeo mantendo reprodução nativa segura"
+            >
+              Otimizar Rota
+            </button>
+          )}
 
           <div ref={audioMenuRef} className="relative shrink-0">
             <button
@@ -1468,17 +1512,49 @@ export const SecureAnimePlayer: React.FC<SecureAnimePlayerProps> = ({
               </button>
             )}
           </>
-        ) : (
-          /* Fallback Player */
+        ) : verifiedArchiveEmbed || safePtbrEmbed ? (
+          /* Safe Verified Fallback */
           <iframe
-            key={`${episode.id}-sandbox-${selectedDubId}`}
-            src={anivideoIframeUrl}
+            key={`${episode.id}-safe-${selectedDubId}`}
+            src={verifiedArchiveEmbed || safePtbrEmbed}
             title={`${animeTitle} - T${season.seasonNumber}:E${episode.number}`}
             referrerPolicy="strict-origin-when-cross-origin"
             allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture; fullscreen"
             allowFullScreen
             className="w-full h-full border-0 select-none"
           />
+        ) : (
+          /* Clean Native Server Recovery (Never shows blocked third-party refusal screens) */
+          <div className="w-full h-full flex flex-col items-center justify-center bg-neutral-950 text-white px-6 text-center gap-4">
+            <div className="max-w-md space-y-2">
+              <p className="text-sm sm:text-base font-semibold">
+                {episode.tmdbMovieId ? episode.title : `Episódio ${episode.number}: ${episode.title}`}
+              </p>
+              <p className="text-xs text-neutral-400 leading-relaxed">
+                A rota de vídeo está temporariamente congestionada. Clique abaixo para reconectar pelo servidor unificado seguro.
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center justify-center gap-2.5">
+              <button
+                type="button"
+                onClick={handleReconnectUnifiedServer}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary hover:bg-primary/90 text-white text-xs font-semibold transition-colors cursor-pointer shadow-lg"
+              >
+                <RotateCcw className="h-3.5 w-3.5" />
+                <span>Reconectar Servidor Seguro</span>
+              </button>
+              {hasNextEpisode && onNextEpisode && (
+                <button
+                  type="button"
+                  onClick={onNextEpisode}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-white/10 hover:bg-white/15 text-white text-xs font-medium transition-colors cursor-pointer"
+                >
+                  <span>Próximo Episódio</span>
+                  <SkipForward className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
+          </div>
         )}
       </div>
 

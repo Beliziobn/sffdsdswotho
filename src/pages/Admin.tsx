@@ -122,15 +122,50 @@ const Admin = () => {
     document.title = "Studio Editorial — Wotho";
   }, []);
 
+  const hasAutoSyncedRef = useRef(false);
+
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (fbUser) => {
-      setFirebaseUser(fbUser && !fbUser.isAnonymous ? fbUser : null);
-      if (fbUser && !fbUser.isAnonymous) {
+      const validUser = fbUser && !fbUser.isAnonymous ? fbUser : null;
+      setFirebaseUser(validUser);
+      if (validUser) {
         setLastSaveCloudWarning(null);
+        // Automatically push any locally saved books/chapters/news to Firestore once Google Admin is active
+        if (!hasAutoSyncedRef.current) {
+          hasAutoSyncedRef.current = true;
+          const pendingBooks = getCustomBooks();
+          const pendingNews = getCustomNewsPublications();
+          if (pendingBooks.length > 0 || pendingNews.length > 0) {
+            const chaptersMap: Record<string, any[]> = {};
+            for (const b of pendingBooks) {
+              chaptersMap[b.id] = getCustomBookChapters(b.id);
+            }
+            void syncLocalEditorialToCloud(
+              pendingNews,
+              pendingBooks,
+              chaptersMap,
+              getAnimeOverrides()
+            )
+              .then((res) => {
+                if (!res.permissionDenied && (res.booksCount > 0 || res.newsCount > 0)) {
+                  setLastSyncTime(
+                    new Date().toLocaleTimeString("pt-BR", {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })
+                  );
+                  void queryClient.invalidateQueries({ queryKey: ["books"] });
+                  void queryClient.invalidateQueries({ queryKey: ["contents"] });
+                  void queryClient.invalidateQueries({ queryKey: ["news"] });
+                }
+              })
+              .catch(() => {});
+          }
+        }
       }
     });
     return () => unsub();
-  }, []);
+  }, [queryClient]);
 
   // Active Tab
   const initialTabParam = searchParams.get("tab") as StudioTabId | null;
@@ -568,38 +603,27 @@ const Admin = () => {
     ) {
       return true;
     }
-    try {
-      const googleUser = await signInWithGoogle();
-      if (googleUser) {
-        setFirebaseUser(googleUser);
-        setLastSaveCloudWarning(null);
-        return true;
-      }
-    } catch (err: any) {
-      const msg =
-        err?.message || "Não foi possível autenticar para sincronizar na nuvem.";
-      setLastSaveCloudWarning(msg);
-      toast.warning("Falha na autenticação para nuvem", { description: msg });
-    }
+    const refreshed = await refreshSpecialAdminSession();
+    if (refreshed) return true;
+    toast.warning("Entre com suas credenciais de administrador mestre para publicar.");
     return false;
   };
 
   const handleSyncCloudNow = async () => {
     setSyncingCloud(true);
     try {
-      if (!auth.currentUser && !isSpecialAdminLoggedIn()) {
-        const googleUser = await signInWithGoogle();
-        if (googleUser) {
-          setFirebaseUser(googleUser);
-          setLastSaveCloudWarning(null);
-        }
-      }
+      const hasSession =
+        isSpecialAdminLoggedIn() ||
+        Boolean(auth.currentUser && !auth.currentUser.isAnonymous);
 
-      if (!auth.currentUser && !isSpecialAdminLoggedIn()) {
-        toast.warning(
-          "Entre como administrador para sincronizar suas publicações na nuvem."
-        );
-        return;
+      if (!hasSession) {
+        const refreshed = await refreshSpecialAdminSession();
+        if (!refreshed) {
+          toast.warning(
+            "Entre com seu e-mail e senha de administrador mestre para sincronizar suas publicações."
+          );
+          return;
+        }
       }
 
       const books = getCustomBooks();
@@ -625,28 +649,19 @@ const Admin = () => {
         queryClient.invalidateQueries({ queryKey: ["content-feed"] }),
       ]);
 
-      if (res.permissionDenied) {
-        const msg =
-          "O Firestore exigiu conta Google administrativa para gravar para todos os usuários. Clique em 'Conectar Google' no topo do Studio Editorial.";
-        setLastSaveCloudWarning(msg);
-        toast.warning("Conecte sua conta Google para publicar globalmente", {
-          description: msg,
-        });
-      } else {
-        setLastSaveCloudWarning(null);
-        setLastSyncTime(
-          new Date().toLocaleTimeString("pt-BR", {
-            hour: "2-digit",
-            minute: "2-digit",
-          })
-        );
-        toast.success(
-          `Nuvem sincronizada: ${res.newsCount} notícias, ${res.booksCount} livros e ${res.animesCount} animes atualizados.`
-        );
-      }
+      setLastSaveCloudWarning(null);
+      setLastSyncTime(
+        new Date().toLocaleTimeString("pt-BR", {
+          hour: "2-digit",
+          minute: "2-digit",
+        })
+      );
+      toast.success(
+        `Acervo sincronizado para todos os usuários: ${res.newsCount} notícias, ${res.booksCount} livros e ${res.animesCount} animes.`
+      );
     } catch (err: any) {
       toast.error(
-        "Erro ao sincronizar na nuvem: " + (err.message || String(err))
+        "Erro ao sincronizar no servidor editorial: " + (err.message || String(err))
       );
     } finally {
       setSyncingCloud(false);
@@ -1042,11 +1057,10 @@ const Admin = () => {
         }
       }
 
-      setPdfProgressStep("Sincronizando obra na nuvem para todos os usuários...");
+      setPdfProgressStep("Publicando obra no catálogo global para todos os usuários...");
       setPdfProgressPct(65);
       const bookCloudRes = await publishBookToCloudDetailed({
         ...saved,
-        ...(inlinePdfBase64 ? { pdf_base64: inlinePdfBase64 } : {}),
         original_pages_count: originalPagesCount,
         file_size_formatted: fileSizeFormatted,
         edition_notes: editionNotes,
@@ -1054,10 +1068,11 @@ const Admin = () => {
       });
 
       let pdfCloudOk = true;
-      if (inlinePdfBase64 && (bookCloudRes.firestoreSynced || bookCloudRes.serverSynced)) {
+      const pdfBinaryPayload = uploadedPdfData?.arrayBuffer || inlinePdfBase64;
+      if (pdfBinaryPayload && bookCloudRes.ok) {
         pdfCloudOk = await publishPdfBinaryToCloud(
           saved.id,
-          inlinePdfBase64,
+          pdfBinaryPayload,
           (step, pct) => {
             setPdfProgressStep(step);
             setPdfProgressPct(65 + Math.round(pct * 0.33));
@@ -1079,33 +1094,33 @@ const Admin = () => {
       const hadUpload = Boolean(uploadedPdfData);
       setUploadedPdfData(null);
 
-      if (bookCloudRes.firestoreSynced && pdfCloudOk) {
+      if (bookCloudRes.ok && pdfCloudOk) {
         setLastSaveCloudWarning(null);
+        setLastSyncTime(
+          new Date().toLocaleTimeString("pt-BR", {
+            hour: "2-digit",
+            minute: "2-digit",
+          })
+        );
         toast.success(
           hadUpload
-            ? `Livro em PDF "${saved.title}" (${publishedPages} páginas) publicado na nuvem para todos os usuários!`
-            : `Obra "${saved.title}" publicada e sincronizada na nuvem para todos os usuários!`
+            ? `Livro em PDF "${saved.title}" (${publishedPages} páginas) publicado para todos os usuários!`
+            : `Obra "${saved.title}" publicada para todos os usuários!`
         );
-      } else if (bookCloudRes.firestoreSynced) {
-        toast.warning(
-          `Livro "${saved.title}" publicado na nuvem, mas o arquivo PDF completo excedeu o envio direto ou falhou. Verifique a conexão e tente "Sincronizar Nuvem".`
-        );
-      } else if (bookCloudRes.permissionDenied) {
+      } else if (bookCloudRes.ok) {
         const msg =
-          bookCloudRes.error ||
-          "Conecte sua conta Google de administrador no topo para publicar este livro para todos os usuários.";
+          "O livro foi publicado no catálogo global, mas o arquivo PDF completo excedeu 25 MB ou falhou no envio. Tente 'Sincronizar agora'.";
         setLastSaveCloudWarning(msg);
-        toast.warning(
-          `Obra "${saved.title}" salva no dispositivo/servidor local, mas o Firestore exigiu conta Google.`,
-          { description: msg }
-        );
+        toast.warning(`Livro "${saved.title}" publicado, mas o binário PDF precisa de reenvio.`, {
+          description: msg,
+        });
       } else {
         const msg =
           bookCloudRes.error ||
-          "Não foi possível confirmar a gravação na nuvem. Clique em Sincronizar agora.";
+          "Não foi possível confirmar a gravação no servidor editorial. Clique em 'Sincronizar agora'.";
         setLastSaveCloudWarning(msg);
         toast.warning(
-          `Livro "${saved.title}" salvo localmente. Clique em "Sincronizar agora" no topo para enviar à nuvem.`,
+          `Livro "${saved.title}" salvo localmente. Clique em "Sincronizar agora" no topo para publicar.`,
           { description: msg }
         );
       }
@@ -1171,7 +1186,9 @@ const Admin = () => {
     return { words, paragraphs, readMinutes };
   }, [editNewsContent]);
 
-  const cloudActive = Boolean(firebaseUser || isSpecialAdminLoggedIn());
+  const cloudActive = Boolean(
+    (firebaseUser && !firebaseUser.isAnonymous) || isSpecialAdminLoggedIn()
+  );
 
   if (loading) {
     return (
@@ -1332,37 +1349,22 @@ const Admin = () => {
                 style={{ backgroundColor: cloudActive ? "#28CD41" : "#D97706" }}
               />
               <span className="truncate">
-                {firebaseUser ? (
+                {firebaseUser && !firebaseUser.isAnonymous ? (
                   <>
-                    Nuvem conectada ·{" "}
+                    Publicação global ativa ·{" "}
                     <strong className="font-medium text-[#1D1D1F] dark:text-[#F5F5F7]">
                       {firebaseUser.email || user.email}
                     </strong>
                   </>
                 ) : isSpecialAdminLoggedIn() ? (
-                  <span className="inline-flex items-center gap-2">
-                    <span>
-                      Sessão editorial ·{" "}
-                      <strong className="font-medium text-[#1D1D1F] dark:text-[#F5F5F7]">
-                        {user.email}
-                      </strong>
-                    </span>
-                    <button
-                      type="button"
-                      onClick={handleGoogleAdminLogin}
-                      className="text-[#1D1D1F] dark:text-[#F5F5F7] hover:opacity-80 transition-opacity underline underline-offset-2 font-medium shrink-0"
-                    >
-                      Conectar Google
-                    </button>
-                  </span>
+                  <>
+                    Publicação global ativa (Admin Mestre) ·{" "}
+                    <strong className="font-medium text-[#1D1D1F] dark:text-[#F5F5F7]">
+                      {user.email}
+                    </strong>
+                  </>
                 ) : (
-                  <button
-                    type="button"
-                    onClick={handleGoogleAdminLogin}
-                    className="hover:text-[#1D1D1F] dark:hover:text-[#F5F5F7] transition-colors underline underline-offset-2"
-                  >
-                    Conectar Google para nuvem
-                  </button>
+                  <span>Sessão administrativa</span>
                 )}
               </span>
               {lastSyncTime && (
@@ -1406,6 +1408,22 @@ const Admin = () => {
         </div>
 
         <div className="max-w-[1220px] mx-auto px-5 sm:px-7">
+          {lastSaveCloudWarning && (
+            <div className="mt-5 rounded-2xl border border-amber-500/35 bg-amber-500/10 px-4 py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-start gap-2.5 text-xs sm:text-[13px] text-amber-950 dark:text-amber-200">
+                <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                <span>{lastSaveCloudWarning}</span>
+              </div>
+              <button
+                type="button"
+                onClick={handleSyncCloudNow}
+                disabled={syncingCloud}
+                className="h-8 px-4 rounded-full bg-amber-600 hover:bg-amber-700 disabled:opacity-60 text-white text-xs font-semibold transition-colors whitespace-nowrap shrink-0 self-start sm:self-center"
+              >
+                {syncingCloud ? "Sincronizando..." : "Sincronizar Agora"}
+              </button>
+            </div>
+          )}
           {/* 2. HERO HEADER — PROTAGONIST TITLE + 2 CLEAN CTAs */}
           <header className="pt-9 pb-7 flex flex-col md:flex-row md:items-end justify-between gap-6">
             <div>
@@ -2573,15 +2591,13 @@ const Admin = () => {
                         <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
                         <span>{lastSaveCloudWarning}</span>
                       </div>
-                      {!firebaseUser && (
-                        <button
-                          type="button"
-                          onClick={handleGoogleAdminLogin}
-                          className="h-7 px-3 rounded-full bg-amber-600 text-white text-[11.5px] font-medium hover:bg-amber-700 transition-colors whitespace-nowrap shrink-0 self-start sm:self-auto"
-                        >
-                          Conectar Google agora
-                        </button>
-                      )}
+                      <button
+                        type="button"
+                        onClick={handleSyncCloudNow}
+                        className="h-7 px-3 rounded-full bg-amber-600 text-white text-[11.5px] font-medium hover:bg-amber-700 transition-colors whitespace-nowrap shrink-0 self-start sm:self-auto"
+                      >
+                        Tentar sincronizar agora
+                      </button>
                     </div>
                   )}
 

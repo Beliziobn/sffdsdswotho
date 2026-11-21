@@ -30,6 +30,7 @@ import {
   handleAdminSessionRequest,
   handleAdminLogoutRequest,
   handleEditorialCloudSyncRequest,
+  handleEditorialPdfUploadRequest,
 } from './_adminHandler.js';
 import {
   handleGeoLocateRequest,
@@ -50,20 +51,33 @@ import {
 } from '../scripts/generate_sitemap.js';
 
 export default async function handler(req: any, res: any) {
-  // Global CORS & preflight
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  const host = req.headers?.host || 'localhost';
+  const parsedUrl = new URL(req.url || '/', `http://${host}`);
+  let pathname = parsedUrl.pathname.replace(/\/+$/, '').toLowerCase();
+
+  // Scope CORS: never emit wildcard '*' on authenticated admin/editorial routes
+  const isAdminOrEditorialRoute =
+    pathname.startsWith('/api/admin/') || pathname.startsWith('/api/editorial/');
+  if (!isAdminOrEditorialRoute) {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+  } else if (req.headers?.origin) {
+    try {
+      const parsedOrigin = new URL(req.headers.origin);
+      if (parsedOrigin.host.toLowerCase() === String(host).toLowerCase()) {
+        res.setHeader('Access-Control-Allow-Origin', req.headers.origin);
+        res.setHeader('Vary', 'Origin');
+        res.setHeader('Access-Control-Allow-Credentials', 'true');
+      }
+    } catch {}
+  }
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, HEAD');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, Range, Accept');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, Range, Accept, X-Requested-With');
 
   if (req.method === 'OPTIONS') {
     res.statusCode = 204;
     res.end();
     return;
   }
-
-  const host = req.headers?.host || 'localhost';
-  const parsedUrl = new URL(req.url || '/', `http://${host}`);
-  let pathname = parsedUrl.pathname.replace(/\/+$/, '').toLowerCase();
 
   // If invoked via dynamic routing catch-all or vercel rewrites
   const rawRouteQuery = parsedUrl.searchParams.get('route') || req.query?.route;
@@ -260,6 +274,8 @@ export default async function handler(req: any, res: any) {
       return handleAdminLogoutRequest(req, res);
     case '/api/editorial/sync':
       return handleEditorialCloudSyncRequest(req, res);
+    case '/api/editorial/pdf-upload':
+      return handleEditorialPdfUploadRequest(req, res);
 
     // Geolocation & Auto-Translation
     case '/api/geo':

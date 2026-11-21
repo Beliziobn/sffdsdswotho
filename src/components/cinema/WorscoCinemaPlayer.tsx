@@ -480,8 +480,12 @@ export const WorscoCinemaPlayer: React.FC<WorscoCinemaPlayerProps> = ({
         ? currentStream.proxyUrl
         : `${currentStream.proxyUrl}&${selfHealParams.toString()}`;
 
-      const mp4Source =
-        currentStream.requiresProxy || useProxyForMp4 ? enrichedProxyUrl : currentStream.url;
+      const mustProxy =
+        Boolean(currentStream.requiresProxy) ||
+        useProxyForMp4 ||
+        currentStream.url.includes("hakunaymatata.com") ||
+        currentStream.url.includes("vidstuck.cc");
+      const mp4Source = mustProxy ? enrichedProxyUrl : currentStream.url;
       video.src = mp4Source;
       video.load();
 

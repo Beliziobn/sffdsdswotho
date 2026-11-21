@@ -37,7 +37,13 @@ import {
   handleAdminSessionRequest,
   handleAdminLogoutRequest,
   handleEditorialCloudSyncRequest,
+  handleEditorialPdfUploadRequest,
 } from './api/_adminHandler.js';
+import {
+  handlePdfProxyRequest,
+  handleBooksCatalogRequest,
+  handleBooksChaptersRequest,
+} from './api/_booksHandler.js';
 import {
   handleNewsFeedRequest,
   handleNewsArticleRequest,
@@ -370,6 +376,25 @@ function gutenbergBooksPlugin(): Plugin {
 
       server.middlewares.use('/api/books/pdf-proxy', async (req, res) => {
         try {
+          const urlObj = new URL(req.url || '', `http://${req.headers.host || 'localhost:3000'}`);
+          let targetPdf = urlObj.searchParams.get('url') || '';
+          let bookId = (urlObj.searchParams.get('id') || '').trim();
+          let requestedFilename = urlObj.searchParams.get('filename') || '';
+          const isDownload = urlObj.searchParams.get('download') === 'true';
+
+          // 0. Check if this book has an uploaded editorial PDF binary (disk, editorial store, or Firestore chunks)
+          const safeBookSlug = bookId
+            ? bookId.replace(/[^a-zA-Z0-9_-]/g, '_').replace(/^_+|_+$/g, '').slice(0, 128)
+            : '';
+          const hasUploadedDiskPdf = Boolean(
+            safeBookSlug &&
+              (fs.existsSync(path.resolve(__dirname, '.cache/wotho_editorial/wotho_uploaded_pdfs', `${safeBookSlug}.pdf`)) ||
+                fs.existsSync(path.join('/tmp/wotho_uploaded_pdfs', `${safeBookSlug}.pdf`)))
+          );
+          if (hasUploadedDiskPdf || bookId.startsWith('book-editorial-') || targetPdf.startsWith('idb://')) {
+            return handlePdfProxyRequest(req, res);
+          }
+
           res.setHeader('Access-Control-Allow-Origin', '*');
           res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
           res.setHeader('Access-Control-Allow-Headers', 'Range, Content-Type, Accept, Authorization');
@@ -380,12 +405,6 @@ function gutenbergBooksPlugin(): Plugin {
             res.end();
             return;
           }
-
-          const urlObj = new URL(req.url || '', `http://${req.headers.host || 'localhost:3000'}`);
-          let targetPdf = urlObj.searchParams.get('url') || '';
-          let bookId = urlObj.searchParams.get('id') || '';
-          let requestedFilename = urlObj.searchParams.get('filename') || '';
-          const isDownload = urlObj.searchParams.get('download') === 'true';
 
           // Resolve book metadata from registry if available
           let bookMeta = bookId ? getOriginalPdfForBook(bookId) : undefined;
@@ -506,6 +525,11 @@ function gutenbergBooksPlugin(): Plugin {
           }
         }
       });
+    },
+    configurePreviewServer(server) {
+      server.middlewares.use('/api/books/catalog', (req: any, res: any) => handleBooksCatalogRequest(req, res));
+      server.middlewares.use('/api/books/chapters', (req: any, res: any) => handleBooksChaptersRequest(req, res));
+      server.middlewares.use('/api/books/pdf-proxy', (req: any, res: any) => handlePdfProxyRequest(req, res));
     },
   };
 }
@@ -1382,21 +1406,30 @@ function sitemapPlugin(): Plugin {
 }
 
 function adminAuthPlugin(): Plugin {
+  const attachAdminMiddlewares = (server: any) => {
+    server.middlewares.use('/api/admin/login', async (req: any, res: any) => {
+      await handleAdminLoginRequest(req, res);
+    });
+    server.middlewares.use('/api/admin/session', async (req: any, res: any) => {
+      await handleAdminSessionRequest(req, res);
+    });
+    server.middlewares.use('/api/admin/logout', async (req: any, res: any) => {
+      await handleAdminLogoutRequest(req, res);
+    });
+    server.middlewares.use('/api/editorial/sync', async (req: any, res: any) => {
+      await handleEditorialCloudSyncRequest(req, res);
+    });
+    server.middlewares.use('/api/editorial/pdf-upload', async (req: any, res: any) => {
+      await handleEditorialPdfUploadRequest(req, res);
+    });
+  };
   return {
     name: 'worscoi-admin-auth',
     configureServer(server) {
-      server.middlewares.use('/api/admin/login', async (req, res) => {
-        await handleAdminLoginRequest(req, res);
-      });
-      server.middlewares.use('/api/admin/session', async (req, res) => {
-        await handleAdminSessionRequest(req, res);
-      });
-      server.middlewares.use('/api/admin/logout', async (req, res) => {
-        await handleAdminLogoutRequest(req, res);
-      });
-      server.middlewares.use('/api/editorial/sync', async (req, res) => {
-        await handleEditorialCloudSyncRequest(req, res);
-      });
+      attachAdminMiddlewares(server);
+    },
+    configurePreviewServer(server) {
+      attachAdminMiddlewares(server);
     },
   };
 }
