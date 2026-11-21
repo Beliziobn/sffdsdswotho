@@ -47,7 +47,7 @@ const WebtoonDetail = () => {
             `Leia o webtoon "${item.title}" em formato scroll vertical na íntegra na Wotho.`,
           canonicalPath: `/webtoon/${item.id}`,
           ogType: "article",
-          ogImage: item.cover || `${CANONICAL_BASE_URL}/og-image.jpg`,
+          ogImage: item.cover || `${CANONICAL_BASE_URL}/og-wotho-home.jpg`,
           ogImageAlt: item.title,
           jsonLd: [
             {
@@ -55,7 +55,7 @@ const WebtoonDetail = () => {
               "@type": "CreativeWorkSeries",
               name: item.title,
               description: item.description,
-              image: item.cover || `${CANONICAL_BASE_URL}/og-image.jpg`,
+              image: item.cover || `${CANONICAL_BASE_URL}/og-wotho-home.jpg`,
               inLanguage: "pt-BR",
               url: `${CANONICAL_BASE_URL}/webtoon/${item.id}`,
               genre: item.category,

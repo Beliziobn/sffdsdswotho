@@ -85,7 +85,7 @@ export default function CinemaDetail() {
             `Assista ${item.title} (${item.year}) em alta definição com áudio dublado PT-BR e legendas na Wotho.`,
           canonicalPath: `/cinema/${item.id}`,
           ogType: item.type === "serie" ? "video.tv_show" : "video.movie",
-          ogImage: item.posterUrl || item.backdropUrl || `${CANONICAL_BASE_URL}/og-image.jpg`,
+          ogImage: item.backdropUrl || item.posterUrl || `${CANONICAL_BASE_URL}/og-wotho-home.jpg`,
           ogImageAlt: `${item.title} (${item.year})`,
           jsonLd: [
             {
@@ -94,7 +94,7 @@ export default function CinemaDetail() {
               name: item.title,
               alternateName: item.originalTitle || undefined,
               description: item.synopsis,
-              image: item.posterUrl || item.backdropUrl || `${CANONICAL_BASE_URL}/og-image.jpg`,
+              image: item.backdropUrl || item.posterUrl || `${CANONICAL_BASE_URL}/og-wotho-home.jpg`,
               datePublished: String(item.year),
               inLanguage: "pt-BR",
               url: `${CANONICAL_BASE_URL}/cinema/${item.id}`,

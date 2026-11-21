@@ -9,9 +9,11 @@ const __dirname = path.dirname(__filename);
 const rootDir = path.resolve(__dirname, '..');
 
 const DEFAULT_ORIGIN = (process.env.VITE_APP_URL || 'https://wotho.vercel.app').replace(/\/+$/, '');
+const DEFAULT_OG_IMAGE_PATH = '/og-wotho-home.jpg';
+const BOOKS_OG_IMAGE_PATH = '/og-livros.jpg';
 
 const BOT_USER_AGENT_RE =
-  /(googlebot|google-inspectiontool|adsbot-google|mediapartners-google|storebot-google|googleother|bingbot|bingpreview|msnbot|adidxbot|slurp|duckduckbot|applebot|applebot-extended|oai-searchbot|chatgpt-user|gptbot|claudebot|perplexitybot|yandex|baiduspider|sogou|exabot|facebookexternalhit|twitterbot|linkedinbot|whatsapp|slackbot|telegrambot|discordbot|pinterest|screaming frog|ahrefsbot|semrushbot|mj12bot|petalbot)/i;
+  /(googlebot|google-inspectiontool|adsbot-google|mediapartners-google|storebot-google|googleother|googleproducer|google-read-aloud|bingbot|bingpreview|msnbot|adidxbot|slurp|duckduckbot|applebot|applebot-extended|oai-searchbot|chatgpt-user|gptbot|claudebot|perplexitybot|yandex|baiduspider|sogou|exabot|facebookexternalhit|facebot|meta-external|instagram|threads|twitterbot|linkedinbot|whatsapp|slackbot|telegrambot|discordbot|pinterest|redditbot|viber|line\/|snapchat|skypeuripreview|vkshare|embedly|iframely|cardyb|bluesky|mastodon|tumblr|flipboard|tiktok|bytespider|bitlybot|outbrain|quora|w3c_validator|screaming frog|ahrefsbot|semrushbot|mj12bot|petalbot|curl\/)/i;
 
 export function resolvePermanentRedirect(rawPathname) {
   let pathname = String(rawPathname || '/').split('?')[0];
@@ -80,6 +82,10 @@ const PRIVATE_NOINDEX_PREFIXES = [
 
 let cachedCatalog = null;
 let cachedCatalogTime = 0;
+let cachedEditorialStore = null;
+let cachedEditorialTime = 0;
+let cachedNewsArchive = null;
+let cachedNewsArchiveTime = 0;
 
 function getCatalog() {
   if (cachedCatalog && Date.now() - cachedCatalogTime < 60_000) {
@@ -88,6 +94,68 @@ function getCatalog() {
   cachedCatalog = loadSeoCatalog();
   cachedCatalogTime = Date.now();
   return cachedCatalog;
+}
+
+function getEditorialStoreForSeo() {
+  if (cachedEditorialStore && Date.now() - cachedEditorialTime < 10_000) {
+    return cachedEditorialStore;
+  }
+  const empty = { books: {}, news: {} };
+  const candidates = [
+    path.join(process.cwd(), '.cache', 'wotho_editorial', 'wotho_editorial_cloud_store_v1.json'),
+    path.join('/tmp', 'wotho_editorial_cloud_store_v1.json'),
+  ];
+  for (const filePath of candidates) {
+    try {
+      if (fs.existsSync(filePath)) {
+        const parsed = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+        if (parsed && typeof parsed === 'object') {
+          cachedEditorialStore = {
+            books: parsed.books && typeof parsed.books === 'object' ? parsed.books : {},
+            news: parsed.news && typeof parsed.news === 'object' ? parsed.news : {},
+          };
+          cachedEditorialTime = Date.now();
+          return cachedEditorialStore;
+        }
+      }
+    } catch {
+      // Try next path
+    }
+  }
+  cachedEditorialStore = empty;
+  cachedEditorialTime = Date.now();
+  return empty;
+}
+
+function getNewsArchiveForSeo() {
+  if (cachedNewsArchive && Date.now() - cachedNewsArchiveTime < 60_000) {
+    return cachedNewsArchive;
+  }
+  try {
+    const archivePath = path.resolve(rootDir, 'src/data/newsArchive.json');
+    if (fs.existsSync(archivePath)) {
+      const parsed = JSON.parse(fs.readFileSync(archivePath, 'utf8'));
+      const list = Array.isArray(parsed) ? parsed : Array.isArray(parsed?.articles) ? parsed.articles : [];
+      cachedNewsArchive = list;
+      cachedNewsArchiveTime = Date.now();
+      return list;
+    }
+  } catch {
+    // Ignore archive read failure
+  }
+  cachedNewsArchive = [];
+  cachedNewsArchiveTime = Date.now();
+  return [];
+}
+
+function resolveRequestOrigin(req) {
+  const rawHost = String(req?.headers?.['x-forwarded-host'] || req?.headers?.host || '').split(',')[0].trim();
+  if (!rawHost || /^(localhost|127\.0\.0\.1|0\.0\.0\.0)(:\d+)?$/i.test(rawHost)) {
+    return DEFAULT_ORIGIN;
+  }
+  const rawProto = String(req?.headers?.['x-forwarded-proto'] || 'https').split(',')[0].trim().toLowerCase();
+  const proto = rawProto === 'http' ? 'http' : 'https';
+  return `${proto}://${rawHost}`.replace(/\/+$/, '');
 }
 
 export function isSearchOrSocialBot(userAgent = '') {
@@ -113,14 +181,96 @@ function clampHeading(str, maxLength = 150) {
   return `${base.trim()}…`;
 }
 
-function toAbsoluteUrl(urlOrPath, origin = DEFAULT_ORIGIN) {
-  if (!urlOrPath || typeof urlOrPath !== 'string') return `${origin}/og-image.jpg`;
+function optimizeExternalSocialImage(url) {
+  let out = url;
+  // Optimize TMDB original (often 3-5MB) to w1280 (~150KB) so WhatsApp/Telegram always render it
+  if (/^https:\/\/image\.tmdb\.org\/t\/p\/original\//i.test(out)) {
+    out = out.replace(/^https:\/\/image\.tmdb\.org\/t\/p\/original\//i, 'https://image.tmdb.org/t/p/w1280/');
+  }
+  // Never mutate URLs with HMAC signatures (e.g., i.guim.co.uk ?s=...) — mutating breaks the signature with 401
+  const isSignedUrl = /[?&](s|sig|signature|token|hash|hmac)=/i.test(out) || /i\.guim\.co\.uk/i.test(out);
+  if (!isSignedUrl && /([?&])width=(?:[1-4]\d{2}|[1-9]\d)(?=&|$)/i.test(out)) {
+    out = out.replace(/([?&])width=\d+/i, '$1width=1200');
+  }
+  return out;
+}
+
+function toAbsoluteUrl(urlOrPath, origin = DEFAULT_ORIGIN, coverContext = null) {
+  const fallback = `${origin}${DEFAULT_OG_IMAGE_PATH}`;
+  if (!urlOrPath || typeof urlOrPath !== 'string') return fallback;
   const trimmed = urlOrPath.trim();
-  if (!trimmed) return `${origin}/og-image.jpg`;
-  if (trimmed.startsWith('/covers/') || trimmed.startsWith('/assets/hero-')) return `${origin}/og-image.jpg`;
-  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  if (!trimmed) return fallback;
+  // Convert inline base64 covers (e.g. Master Admin uploaded PDF covers) into crawlable binary image URLs
+  if (/^data:image\/(jpeg|jpg|png|webp|gif);base64,/i.test(trimmed)) {
+    if (coverContext?.collection && coverContext?.id) {
+      return `${origin}/api/og-cover?collection=${encodeURIComponent(coverContext.collection)}&id=${encodeURIComponent(coverContext.id)}`;
+    }
+    return fallback;
+  }
+  if (trimmed.startsWith('/covers/') || trimmed.startsWith('/assets/hero-') || trimmed === '/og-image.jpg') {
+    return fallback;
+  }
+  if (/^https?:\/\//i.test(trimmed)) return optimizeExternalSocialImage(trimmed);
   if (trimmed.startsWith('/')) return `${origin}${trimmed}`;
   return `${origin}/${trimmed}`;
+}
+
+export async function handleOgCoverRequest(req, res) {
+  const host = req.headers?.host || 'wotho.vercel.app';
+  const parsedUrl = new URL(req.url || '/', `https://${host}`);
+  const collection = (parsedUrl.searchParams.get('collection') || '').trim().toLowerCase();
+  const id = (parsedUrl.searchParams.get('id') || '').trim();
+
+  let dataUrl = '';
+  if ((collection === 'books' || collection === 'news') && id) {
+    const store = getEditorialStoreForSeo();
+    const bucket = store[collection] || {};
+    const record =
+      bucket[id] ||
+      Object.values(bucket).find((item) => item && (item.id === id || item.slug === id)) ||
+      null;
+    const candidate = record?.cover_url || record?.cover || record?.image || '';
+    if (typeof candidate === 'string' && /^data:image\/(jpeg|jpg|png|webp|gif);base64,/i.test(candidate.trim())) {
+      dataUrl = candidate.trim();
+    }
+  }
+
+  if (dataUrl) {
+    const match = dataUrl.match(/^data:(image\/(?:jpeg|jpg|png|webp|gif));base64,([A-Za-z0-9+/=\r\n]+)$/i);
+    if (match) {
+      const mime = match[1].toLowerCase() === 'image/jpg' ? 'image/jpeg' : match[1].toLowerCase();
+      const buffer = Buffer.from(match[2].replace(/\s+/g, ''), 'base64');
+      if (buffer.length > 64) {
+        res.statusCode = 200;
+        res.setHeader('Content-Type', mime);
+        res.setHeader('Content-Length', String(buffer.length));
+        res.setHeader('Cache-Control', 'public, max-age=86400, s-maxage=86400');
+        res.setHeader('X-Content-Type-Options', 'nosniff');
+        res.end(req.method === 'HEAD' ? undefined : buffer);
+        return;
+      }
+    }
+  }
+
+  // Fallback to Wotho default OG image
+  const fallbackCandidates = [
+    path.resolve(rootDir, 'dist/og-wotho-home.jpg'),
+    path.resolve(rootDir, 'public/og-wotho-home.jpg'),
+    path.resolve(rootDir, 'public/og-image.jpg'),
+  ];
+  for (const fp of fallbackCandidates) {
+    if (fs.existsSync(fp)) {
+      const buf = fs.readFileSync(fp);
+      res.statusCode = 200;
+      res.setHeader('Content-Type', 'image/jpeg');
+      res.setHeader('Content-Length', String(buf.length));
+      res.setHeader('Cache-Control', 'public, max-age=3600, s-maxage=3600');
+      res.end(req.method === 'HEAD' ? undefined : buf);
+      return;
+    }
+  }
+  res.statusCode = 404;
+  res.end();
 }
 
 function humanizeSlug(slug) {
@@ -297,6 +447,9 @@ export function resolveRouteSeo(rawPathname, customOrigin = DEFAULT_ORIGIN) {
   }
 
   const catalog = getCatalog();
+  const editorial = getEditorialStoreForSeo();
+  const editorialBooks = Object.values(editorial.books || {}).filter((b) => b && b.published !== false);
+  const editorialNews = Object.values(editorial.news || {}).filter((n) => n && n.published !== false);
 
   // Check private/utility routes (valid 200, but noindex)
   const isPrivate = PRIVATE_NOINDEX_PREFIXES.some(
@@ -306,7 +459,9 @@ export function resolveRouteSeo(rawPathname, customOrigin = DEFAULT_ORIGIN) {
   // Check reader routes that canonicalize back to the detail page
   if (canonicalPath.startsWith('/ler/')) {
     const id = decodeURIComponent(canonicalPath.slice('/ler/'.length).split('/')[0] || '');
-    const book = catalog.books.find((b) => b.id === id);
+    const book =
+      editorialBooks.find((b) => b.id === id) ||
+      catalog.books.find((b) => b.id === id);
     const title = book ? `${book.title} — Leitura Online | Wotho` : 'Leitor Digital — Wotho';
     const desc = book?.description || 'Leia a obra diretamente no navegador na plataforma Wotho.';
     return {
@@ -317,7 +472,7 @@ export function resolveRouteSeo(rawPathname, customOrigin = DEFAULT_ORIGIN) {
       title,
       description: desc,
       ogType: 'book',
-      ogImage: toAbsoluteUrl(book?.cover_url, origin),
+      ogImage: toAbsoluteUrl(book?.cover_url, origin, { collection: 'books', id: book?.id || id }),
       h1: book?.title || 'Leitor Digital Wotho',
       subtitle: book?.author || '',
       links: [
@@ -338,7 +493,7 @@ export function resolveRouteSeo(rawPathname, customOrigin = DEFAULT_ORIGIN) {
       title: 'Leitor Digital — Wotho',
       description: 'Leitura online de conteúdos digitais na plataforma Wotho.',
       ogType: 'website',
-      ogImage: `${origin}/og-image.jpg`,
+      ogImage: `${origin}${BOOKS_OG_IMAGE_PATH}`,
       h1: 'Leitor Digital Wotho',
       links: [{ href: '/livros', label: 'Explorar Livros' }],
       jsonLd: [],
@@ -364,7 +519,7 @@ export function resolveRouteSeo(rawPathname, customOrigin = DEFAULT_ORIGIN) {
       title: titles[canonicalPath] || 'Área do Usuário — Wotho',
       description: 'Acesse sua conta, histórico de leitura e downloads pessoais na plataforma Wotho.',
       ogType: 'website',
-      ogImage: `${origin}/og-image.jpg`,
+      ogImage: `${origin}${DEFAULT_OG_IMAGE_PATH}`,
       h1: titles[canonicalPath] || 'Wotho',
       links: [
         { href: '/', label: 'Página Inicial' },
@@ -479,6 +634,43 @@ export function resolveRouteSeo(rawPathname, customOrigin = DEFAULT_ORIGIN) {
         : {}),
     };
 
+    // Dynamic per-section OpenGraph preview image (never fixed across distinct sections!)
+    let sectionOgImage = `${origin}${DEFAULT_OG_IMAGE_PATH}`;
+    if (canonicalPath === '/livros') {
+      sectionOgImage = `${origin}${BOOKS_OG_IMAGE_PATH}`;
+    } else if (canonicalPath === '/cinema') {
+      const leadCinema = catalog.cinema.find((c) => c?.backdropUrl || c?.posterUrl);
+      if (leadCinema) {
+        sectionOgImage = toAbsoluteUrl(leadCinema.backdropUrl || leadCinema.posterUrl, origin);
+      }
+    } else if (canonicalPath === '/animes') {
+      const leadAnime = catalog.animes.find((a) => a?.banner || a?.cover);
+      if (leadAnime) {
+        sectionOgImage = toAbsoluteUrl(leadAnime.banner || leadAnime.cover, origin);
+      }
+    } else if (canonicalPath === '/webtoons') {
+      const leadWt = catalog.webtoons.find((w) => w?.banner || w?.cover);
+      if (leadWt) {
+        sectionOgImage = toAbsoluteUrl(leadWt.banner || leadWt.cover, origin);
+      }
+    } else if (canonicalPath === '/noticias') {
+      const leadNews =
+        editorialNews.find((n) => n?.cover_url) ||
+        catalog.news.find(
+          (n) =>
+            n?.cover_url &&
+            /^https?:\/\//i.test(n.cover_url) &&
+            !/([?&])width=(?:[1-3]\d{2}|[1-9]\d)(?=&|$)/i.test(n.cover_url)
+        ) ||
+        catalog.news.find((n) => n?.cover_url && /^https?:\/\//i.test(n.cover_url));
+      if (leadNews) {
+        sectionOgImage = toAbsoluteUrl(leadNews.cover_url, origin, {
+          collection: 'news',
+          id: leadNews.slug || leadNews.id,
+        });
+      }
+    }
+
     return {
       statusCode: 200,
       indexable: true,
@@ -487,7 +679,7 @@ export function resolveRouteSeo(rawPathname, customOrigin = DEFAULT_ORIGIN) {
       title: meta.title,
       description: meta.description,
       ogType: 'website',
-      ogImage: `${origin}/og-image.jpg`,
+      ogImage: sectionOgImage,
       ogImageAlt: meta.title,
       h1: meta.h1,
       bodyParagraphs: meta.bodyParagraphs || [meta.description],
@@ -502,19 +694,24 @@ export function resolveRouteSeo(rawPathname, customOrigin = DEFAULT_ORIGIN) {
     const prefix = isContent ? '/conteudo/' : '/livros/';
     const id = decodeURIComponent(canonicalPath.slice(prefix.length).split('/')[0] || '').trim();
     const normId = id.toLowerCase();
+    const allBooks = [...editorialBooks, ...catalog.books];
     const book =
-      catalog.books.find((b) => b.id === id || b.id.toLowerCase() === normId) ||
-      catalog.books.find((b) => b.id.toLowerCase().includes(normId) || normId.includes(b.id.toLowerCase()));
+      allBooks.find((b) => b.id === id || String(b.id || '').toLowerCase() === normId) ||
+      allBooks.find(
+        (b) =>
+          String(b.id || '').toLowerCase().includes(normId) ||
+          normId.includes(String(b.id || '').toLowerCase())
+      );
 
     if (id.length >= 1) {
       const resolvedId = book?.id || id;
-      const bookTitle = book?.title || humanizeSlug(id.replace(/^(gut|mod|curr|sci|auto)-/i, ''));
+      const bookTitle = book?.title || humanizeSlug(id.replace(/^(gut|mod|curr|sci|auto|book-editorial)-/i, ''));
       const authorName = book?.author || 'Acervo Wotho';
       const pageTitle = `${bookTitle} — ${authorName} | Wotho Livros`;
       const desc =
         book?.description ||
         `Leia "${bookTitle}" por ${authorName} online diretamente no navegador com índice de capítulos na Wotho.`;
-      const cover = toAbsoluteUrl(book?.cover_url, origin);
+      const cover = toAbsoluteUrl(book?.cover_url, origin, { collection: 'books', id: resolvedId });
       const canonicalUrl = `${origin}${prefix}${encodeURIComponent(resolvedId)}`;
 
       const bookJsonLd = {
@@ -615,13 +812,14 @@ export function resolveRouteSeo(rawPathname, customOrigin = DEFAULT_ORIGIN) {
         director: 'Cinema Wotho',
         genres: ['Drama', 'Ação'],
         synopsis: `Assista ${humanizeSlug(normId)} em alta definição com áudio dublado em português (PT-BR) e legendas completas na plataforma Wotho.`,
-        posterUrl: `${origin}/og-image.jpg`,
+        posterUrl: `${origin}${DEFAULT_OG_IMAGE_PATH}`,
       };
       const pageTitle = `${resolvedItem.title} (${resolvedItem.year}) — Cinema & Séries Wotho`;
       const desc =
         resolvedItem.synopsis ||
         `Assista ${resolvedItem.title} (${resolvedItem.year}) em alta definição com áudio dublado PT-BR e legendas na Wotho.`;
-      const cover = toAbsoluteUrl(resolvedItem.posterUrl || resolvedItem.backdropUrl, origin);
+      // Prefer widescreen 16:9 backdropUrl for social cards (looks crisp in WhatsApp/Facebook/X summary_large_image)
+      const cover = toAbsoluteUrl(resolvedItem.backdropUrl || resolvedItem.posterUrl, origin);
       const canonicalUrl = `${origin}/cinema/${encodeURIComponent(resolvedItem.id)}`;
       const isSeries = resolvedItem.type === 'serie';
 
@@ -725,7 +923,7 @@ export function resolveRouteSeo(rawPathname, customOrigin = DEFAULT_ORIGIN) {
         genres: ['Ação', 'Aventura'],
         episodesCount: 24,
         synopsis: `Assista episódios de ${humanizeSlug(normId)} dublados e legendados em português e leia capítulos de mangá integrados na Wotho.`,
-        cover: `${origin}/og-image.jpg`,
+        cover: `${origin}${DEFAULT_OG_IMAGE_PATH}`,
       };
       const pageTitle = isMangaReader
         ? `${resolvedAnime.title} — Ler Mangá Online | Wotho Animes`
@@ -733,7 +931,8 @@ export function resolveRouteSeo(rawPathname, customOrigin = DEFAULT_ORIGIN) {
       const desc =
         resolvedAnime.synopsis ||
         `Assista episódios de ${resolvedAnime.title} e leia capítulos de mangá integrados na plataforma Wotho.`;
-      const cover = toAbsoluteUrl(resolvedAnime.cover || resolvedAnime.banner, origin);
+      // Prefer widescreen banner for social link previews
+      const cover = toAbsoluteUrl(resolvedAnime.banner || resolvedAnime.cover, origin);
       const canonicalUrl = `${origin}/animes/${encodeURIComponent(resolvedAnime.id)}`;
 
       const animeJsonLd = {
@@ -828,7 +1027,7 @@ export function resolveRouteSeo(rawPathname, customOrigin = DEFAULT_ORIGIN) {
         author: 'Wotho Webtoons',
         genres: ['Fantasia', 'Ação'],
         description: `Leia o webtoon "${humanizeSlug(normId.replace(/^wt-(auto-)?/, ''))}" em formato scroll vertical de alta resolução na Wotho.`,
-        cover: `${origin}/og-image.jpg`,
+        cover: `${origin}${DEFAULT_OG_IMAGE_PATH}`,
       };
       const pageTitle = isEpisodeReader
         ? `${resolvedWt.title} — Leitura de Episódio | Wotho Webtoons`
@@ -836,7 +1035,8 @@ export function resolveRouteSeo(rawPathname, customOrigin = DEFAULT_ORIGIN) {
       const desc =
         resolvedWt.description ||
         `Leia o webtoon "${resolvedWt.title}" em formato scroll vertical de alta resolução na Wotho.`;
-      const cover = toAbsoluteUrl(resolvedWt.cover || resolvedWt.banner, origin);
+      // Prefer widescreen banner for social link previews
+      const cover = toAbsoluteUrl(resolvedWt.banner || resolvedWt.cover, origin);
       const canonicalUrl = `${origin}/webtoon/${encodeURIComponent(resolvedWt.id)}`;
 
       const wtJsonLd = {
@@ -915,23 +1115,35 @@ export function resolveRouteSeo(rawPathname, customOrigin = DEFAULT_ORIGIN) {
     const slug = decodeURIComponent(canonicalPath.slice('/noticias/'.length).split('/')[0] || '').trim();
     if (slug) {
       const normSlug = slug.toLowerCase();
+      const archiveNews = getNewsArchiveForSeo();
+      const allNews = [...editorialNews, ...catalog.news, ...archiveNews];
       const article =
-        catalog.news.find(
+        allNews.find(
           (n) =>
-            n.slug === slug ||
-            n.id === slug ||
-            (n.slug && n.slug.toLowerCase() === normSlug) ||
-            (n.id && String(n.id).toLowerCase() === normSlug)
+            n &&
+            (n.slug === slug ||
+              n.id === slug ||
+              (n.slug && String(n.slug).toLowerCase() === normSlug) ||
+              (n.id && String(n.id).toLowerCase() === normSlug))
         ) ||
-        catalog.news.find((n) => n.slug && (n.slug.toLowerCase().includes(normSlug) || normSlug.includes(n.slug.toLowerCase())));
+        allNews.find(
+          (n) =>
+            n?.slug &&
+            (String(n.slug).toLowerCase().includes(normSlug) ||
+              normSlug.includes(String(n.slug).toLowerCase()))
+        );
 
       const resolvedSlug = article?.slug || slug;
       const headline = article?.title || humanizeSlug(slug);
       const pageTitle = `${headline} — Wotho Notícias`;
       const desc =
         article?.excerpt ||
+        article?.subtitle ||
         `Leia a reportagem completa "${headline}" com análise aprofundada no portal de notícias Wotho.`;
-      const cover = toAbsoluteUrl(article?.cover_url, origin);
+      const cover = toAbsoluteUrl(article?.cover_url || article?.image, origin, {
+        collection: 'news',
+        id: resolvedSlug,
+      });
       const canonicalUrl = `${origin}/noticias/${encodeURIComponent(resolvedSlug)}`;
       const pubDate = article?.published_at || new Date().toISOString();
 
@@ -1011,8 +1223,8 @@ export function resolveRouteSeo(rawPathname, customOrigin = DEFAULT_ORIGIN) {
     title: `${fallbackTitle} — Wotho`,
     description: 'Explore livros digitais, notícias globais em tempo real, cinema, animes e webtoons na plataforma Wotho.',
     ogType: 'website',
-    ogImage: `${origin}/og-image.jpg`,
-    ogImageAlt: 'Wotho',
+    ogImage: `${origin}${DEFAULT_OG_IMAGE_PATH}`,
+    ogImageAlt: 'Wotho — Livros Digitais, Notícias Globais, Streaming e Webtoons',
     h1: `${fallbackTitle} — Wotho`,
     bodyText: `Explore o acervo completo da Wotho: biblioteca digital, jornalismo independente em tempo real, cinema, animes e webtoons.`,
     links: [
@@ -1099,10 +1311,10 @@ function renderSemanticBotShell(seo, origin = DEFAULT_ORIGIN) {
   <main>
     <section style="position:relative;height:100vh;min-height:620px;width:100%;overflow:hidden;background:#09090b;">
       <img
-        src="/og-image.jpg"
-        alt="Biblioteca digital Wotho com estantes de livros"
-        width="1920"
-        height="1080"
+        src="${escapeHtml(seo.ogImage || DEFAULT_OG_IMAGE_PATH)}"
+        alt="${escapeHtml(seo.ogImageAlt || seo.title || 'Wotho — Livros Digitais, Notícias Globais, Streaming e Webtoons')}"
+        width="1200"
+        height="630"
         style="width:100%;height:100%;object-fit:cover;display:block;"
       />
       <div style="position:absolute;inset:0;background:linear-gradient(to top, rgba(0,0,0,0.78), rgba(0,0,0,0.42), rgba(0,0,0,0.25));"></div>
@@ -1241,6 +1453,36 @@ export function injectSeoIntoHtml(html, rawPathname, options = {}) {
     /<meta\s+property="og:image:secure_url"\s+content="[^"]*"\s*\/?>/i,
     `<meta property="og:image:secure_url" content="${escapeHtml(seo.ogImage)}" />`
   );
+  const isKnown1200x630 =
+    typeof seo.ogImage === 'string' &&
+    /\/(og-wotho-home|og-livros|og-image)\.jpg(\?.*)?$/i.test(seo.ogImage);
+  const inferredImageType = /\.png(\?|$)/i.test(seo.ogImage || '')
+    ? 'image/png'
+    : /\.webp(\?|$)/i.test(seo.ogImage || '')
+      ? 'image/webp'
+      : 'image/jpeg';
+  if (isKnown1200x630) {
+    out = out.replace(
+      /<meta\s+property="og:image:type"\s+content="[^"]*"\s*\/?>/i,
+      `<meta property="og:image:type" content="image/jpeg" />`
+    );
+    out = out.replace(
+      /<meta\s+property="og:image:width"\s+content="[^"]*"\s*\/?>/i,
+      `<meta property="og:image:width" content="1200" />`
+    );
+    out = out.replace(
+      /<meta\s+property="og:image:height"\s+content="[^"]*"\s*\/?>/i,
+      `<meta property="og:image:height" content="630" />`
+    );
+  } else {
+    // Let social platforms auto-detect natural dimensions for dynamic covers/banners so they never distort or reject
+    out = out.replace(
+      /<meta\s+property="og:image:type"\s+content="[^"]*"\s*\/?>/i,
+      `<meta property="og:image:type" content="${inferredImageType}" />`
+    );
+    out = out.replace(/<meta\s+property="og:image:width"\s+content="[^"]*"\s*\/?>\s*/i, '');
+    out = out.replace(/<meta\s+property="og:image:height"\s+content="[^"]*"\s*\/?>\s*/i, '');
+  }
   out = out.replace(
     /<meta\s+property="og:image:alt"\s+content="[^"]*"\s*\/?>/i,
     `<meta property="og:image:alt" content="${escapeHtml(seo.ogImageAlt || seo.title)}" />`
@@ -1343,14 +1585,14 @@ function findIndexHtmlTemplate() {
   <meta property="og:url" content="${DEFAULT_ORIGIN}/" />
   <meta property="og:title" content="Wotho" />
   <meta property="og:description" content="Wotho" />
-  <meta property="og:image" content="${DEFAULT_ORIGIN}/og-image.jpg" />
-  <meta property="og:image:secure_url" content="${DEFAULT_ORIGIN}/og-image.jpg" />
-  <meta property="og:image:alt" content="Wotho" />
+  <meta property="og:image" content="${DEFAULT_ORIGIN}${DEFAULT_OG_IMAGE_PATH}" />
+  <meta property="og:image:secure_url" content="${DEFAULT_ORIGIN}${DEFAULT_OG_IMAGE_PATH}" />
+  <meta property="og:image:alt" content="Wotho — Livros Digitais, Notícias Globais, Streaming e Webtoons" />
   <meta name="twitter:url" content="${DEFAULT_ORIGIN}/" />
   <meta name="twitter:title" content="Wotho" />
   <meta name="twitter:description" content="Wotho" />
-  <meta name="twitter:image" content="${DEFAULT_ORIGIN}/og-image.jpg" />
-  <meta name="twitter:image:alt" content="Wotho" />
+  <meta name="twitter:image" content="${DEFAULT_ORIGIN}${DEFAULT_OG_IMAGE_PATH}" />
+  <meta name="twitter:image:alt" content="Wotho — Livros Digitais, Notícias Globais, Streaming e Webtoons" />
 </head>
 <body>
   <div id="root"><h1 id="wotho-boot-heading">Wotho — Livros Digitais, Notícias Globais, Streaming e Webtoons</h1></div>
@@ -1359,6 +1601,7 @@ function findIndexHtmlTemplate() {
 }
 
 export async function handleSeoPrerenderRequest(req, res) {
+  const requestOrigin = resolveRequestOrigin(req);
   const host = req.headers?.host || 'wotho.vercel.app';
   const parsedUrl = new URL(req.url || '/', `https://${host}`);
   let targetPath =
@@ -1382,7 +1625,7 @@ export async function handleSeoPrerenderRequest(req, res) {
   // Permanent 301 Redirects for legacy/alias/typo paths
   const redirectTarget = resolvePermanentRedirect(normalizedPath);
   if (redirectTarget) {
-    const destUrl = redirectTarget === '/' ? `${DEFAULT_ORIGIN}/` : `${DEFAULT_ORIGIN}${redirectTarget}`;
+    const destUrl = redirectTarget === '/' ? `${requestOrigin}/` : `${requestOrigin}${redirectTarget}`;
     res.statusCode = 301;
     res.setHeader('Location', destUrl);
     res.setHeader('Cache-Control', 'public, max-age=86400');
@@ -1392,7 +1635,7 @@ export async function handleSeoPrerenderRequest(req, res) {
 
   const template = findIndexHtmlTemplate();
   const { html, seo } = injectSeoIntoHtml(template, normalizedPath, {
-    origin: DEFAULT_ORIGIN,
+    origin: requestOrigin,
     isBot,
   });
 
@@ -1403,6 +1646,6 @@ export async function handleSeoPrerenderRequest(req, res) {
     res.setHeader('Link', `<${seo.canonicalUrl}>; rel="canonical"`);
   }
   res.setHeader('Vary', 'User-Agent');
-  res.setHeader('Cache-Control', isBot ? 'public, s-maxage=1800, stale-while-revalidate=3600' : 'public, max-age=0, must-revalidate');
+  res.setHeader('Cache-Control', isBot ? 'public, s-maxage=900, stale-while-revalidate=3600' : 'public, max-age=0, must-revalidate');
   res.end(html);
 }

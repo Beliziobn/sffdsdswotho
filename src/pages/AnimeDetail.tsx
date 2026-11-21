@@ -128,7 +128,7 @@ export const AnimeDetail = () => {
             `Assista ${anime.title} e leia mangás vinculados na plataforma Wotho.`,
           canonicalPath: `/animes/${anime.id}`,
           ogType: "video.tv_show",
-          ogImage: anime.cover || anime.banner || `${CANONICAL_BASE_URL}/og-image.jpg`,
+          ogImage: anime.banner || anime.cover || `${CANONICAL_BASE_URL}/og-wotho-home.jpg`,
           ogImageAlt: anime.title,
           jsonLd: [
             {
@@ -137,7 +137,7 @@ export const AnimeDetail = () => {
               name: anime.title,
               alternateName: anime.japaneseTitle || undefined,
               description: anime.synopsis,
-              image: anime.cover || anime.banner || `${CANONICAL_BASE_URL}/og-image.jpg`,
+              image: anime.banner || anime.cover || `${CANONICAL_BASE_URL}/og-wotho-home.jpg`,
               inLanguage: "pt-BR",
               url: `${CANONICAL_BASE_URL}/animes/${anime.id}`,
               genre: anime.genres,

@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { useLocation } from "react-router-dom";
 import {
+  BOOKS_OG_IMAGE,
   CANONICAL_BASE_URL,
   DEFAULT_OG_IMAGE,
   applySeoMetadata,
@@ -15,6 +16,7 @@ interface RouteMeta {
   description: string;
   schemaType?: string;
   breadcrumbName?: string;
+  ogImage?: string;
 }
 
 const ROUTE_META_MAP: Record<string, RouteMeta> = {
@@ -24,6 +26,7 @@ const ROUTE_META_MAP: Record<string, RouteMeta> = {
       "Explore a Wotho: biblioteca digital no navegador, jornalismo global em tempo real, streaming de cinema e animes em HD e webtoons em leitura vertical.",
     schemaType: "CollectionPage",
     breadcrumbName: "Início",
+    ogImage: DEFAULT_OG_IMAGE,
   },
   "/livros": {
     title: "Biblioteca de Livros Digitais no Navegador — Wotho",
@@ -31,6 +34,7 @@ const ROUTE_META_MAP: Record<string, RouteMeta> = {
       "Leia bestsellers modernos, filosofia, clássicos universais, conteúdos do ENEM e artigos científicos completos diretamente no navegador na Wotho.",
     schemaType: "CollectionPage",
     breadcrumbName: "Livros Digitais",
+    ogImage: BOOKS_OG_IMAGE,
   },
   "/noticias": {
     title: "Notícias Globais em Tempo Real — Wotho",
@@ -45,6 +49,7 @@ const ROUTE_META_MAP: Record<string, RouteMeta> = {
       "Leia histórias em quadrinhos e webtoons em formato scroll vertical de alta definição diretamente no navegador na Wotho.",
     schemaType: "CollectionPage",
     breadcrumbName: "Webtoons",
+    ogImage: "https://s4.anilist.co/file/anilistcdn/media/manga/banner/105398-4UrEhdqZukrg.jpg",
   },
   "/animes": {
     title: "Animes e Mangás em Streaming — Wotho",
@@ -52,6 +57,7 @@ const ROUTE_META_MAP: Record<string, RouteMeta> = {
       "Catálogo selecionado de animes dublados e legendados em português, episódios, trailers e capítulos de mangá integrados na Wotho.",
     schemaType: "CollectionPage",
     breadcrumbName: "Animes",
+    ogImage: "https://s4.anilist.co/file/anilistcdn/media/anime/banner/176496-5oY4k2NRqlYs.jpg",
   },
   "/cinema": {
     title: "Cinema & Séries em Streaming HD — Wotho",
@@ -59,6 +65,7 @@ const ROUTE_META_MAP: Record<string, RouteMeta> = {
       "Assista a filmes e séries aclamados com player em alta definição, áudio dublado em português (PT-BR) e legendas completas na Wotho.",
     schemaType: "CollectionPage",
     breadcrumbName: "Cinema & Séries",
+    ogImage: "https://image.tmdb.org/t/p/w1280/eZ239CUp1d6OryZEBPnO2n87gMG.jpg",
   },
   "/biblioteca": {
     title: "Minha Estante Pessoal — Wotho",
@@ -309,23 +316,26 @@ export const CanonicalManager = () => {
         canonicalPath,
         robots: robotsDirective,
         ogType: "website",
-        ogImage: DEFAULT_OG_IMAGE,
+        ogImage: meta.ogImage || DEFAULT_OG_IMAGE,
         ogImageAlt: meta.title,
         jsonLd,
       });
     } else {
-      // Dynamic detail/utility route: set canonical & robots immediately; detail page will enrich title/jsonLd
+      // Dynamic detail/utility route: preserve SSR-injected og:image while detail page hydrates
       const currentTitle = document.title || "Wotho";
       const currentDesc =
         document.querySelector('meta[name="description"]')?.getAttribute("content") ||
         "Explore a Wotho: biblioteca digital, notícias globais, streaming e webtoons.";
+      const existingOgImage =
+        document.querySelector('meta[property="og:image"]')?.getAttribute("content") ||
+        DEFAULT_OG_IMAGE;
       applySeoMetadata({
         title: currentTitle,
         description: currentDesc,
         canonicalPath,
         robots: robotsDirective,
         ogType: "website",
-        ogImage: DEFAULT_OG_IMAGE,
+        ogImage: existingOgImage,
       });
     }
   }, [location.pathname]);

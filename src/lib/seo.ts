@@ -4,7 +4,8 @@ export const CANONICAL_BASE_URL = (
   import.meta.env.VITE_APP_URL || "https://wotho.vercel.app"
 ).replace(/\/+$/, "");
 
-export const DEFAULT_OG_IMAGE = `${CANONICAL_BASE_URL}/og-image.jpg`;
+export const DEFAULT_OG_IMAGE = `${CANONICAL_BASE_URL}/og-wotho-home.jpg`;
+export const BOOKS_OG_IMAGE = `${CANONICAL_BASE_URL}/og-livros.jpg`;
 
 export type JsonLdNode = Record<string, unknown>;
 
@@ -36,8 +37,20 @@ export function normalizeCanonicalPath(pathname: string): string {
 export function resolveAbsoluteSeoUrl(urlOrPath?: string): string {
   if (!urlOrPath) return DEFAULT_OG_IMAGE;
   const trimmed = urlOrPath.trim();
-  if (!trimmed) return DEFAULT_OG_IMAGE;
-  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  if (!trimmed || trimmed.startsWith("data:") || trimmed === "/og-image.jpg") {
+    return DEFAULT_OG_IMAGE;
+  }
+  if (/^https?:\/\//i.test(trimmed)) {
+    let out = trimmed;
+    if (/^https:\/\/image\.tmdb\.org\/t\/p\/original\//i.test(out)) {
+      out = out.replace(/^https:\/\/image\.tmdb\.org\/t\/p\/original\//i, "https://image.tmdb.org/t/p/w1280/");
+    }
+    const isSignedUrl = /[?&](s|sig|signature|token|hash|hmac)=/i.test(out) || /i\.guim\.co\.uk/i.test(out);
+    if (!isSignedUrl && /([?&])width=(?:[1-4]\d{2}|[1-9]\d)(?=&|$)/i.test(out)) {
+      out = out.replace(/([?&])width=\d+/i, "$1width=1200");
+    }
+    return out;
+  }
   if (trimmed.startsWith("/")) return `${CANONICAL_BASE_URL}${trimmed}`;
   return `${CANONICAL_BASE_URL}/${trimmed}`;
 }

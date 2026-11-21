@@ -2,7 +2,7 @@
   "trailingSlash": false,
   "functions": {
     "api/[...route].ts": {
-      "includeFiles": "{index.html,dist/index.html,api/_seoCatalog.json,src/data/newsArchive.json,firebase-applet-config.json,public/robots.txt,public/sitemap.xml}"
+      "includeFiles": "{index.html,dist/index.html,api/_seoCatalog.json,src/data/newsArchive.json,firebase-applet-config.json,public/robots.txt,public/sitemap.xml,public/og-wotho-home.jpg}"
     }
   },
   "redirects": [
@@ -191,7 +191,7 @@
         {
           "type": "header",
           "key": "user-agent",
-          "value": ".*(Googlebot|googlebot|Google-InspectionTool|AdsBot-Google|Mediapartners-Google|Storebot-Google|GoogleOther|Bingbot|bingbot|BingPreview|bingpreview|msnbot|AdIdxBot|adidxbot|Slurp|slurp|DuckDuckBot|duckduckbot|Applebot|applebot|OAI-SearchBot|oai-searchbot|ChatGPT-User|chatgpt-user|GPTBot|gptbot|ClaudeBot|claudebot|PerplexityBot|perplexitybot|Yandex|yandex|facebookexternalhit|Twitterbot|twitterbot|LinkedInBot|linkedinbot|WhatsApp|whatsapp|Slackbot|slackbot|TelegramBot|telegrambot|Discordbot|discordbot).*"
+          "value": ".*(Googlebot|googlebot|Google-InspectionTool|AdsBot-Google|Mediapartners-Google|Storebot-Google|GoogleOther|GoogleProducer|Google-Read-Aloud|Bingbot|bingbot|BingPreview|bingpreview|msnbot|AdIdxBot|adidxbot|Slurp|slurp|DuckDuckBot|duckduckbot|Applebot|applebot|OAI-SearchBot|oai-searchbot|ChatGPT-User|chatgpt-user|GPTBot|gptbot|ClaudeBot|claudebot|PerplexityBot|perplexitybot|Yandex|yandex|facebookexternalhit|Facebot|facebot|Meta-External|meta-external|Instagram|instagram|Threads|threads|Twitterbot|twitterbot|LinkedInBot|linkedinbot|WhatsApp|whatsapp|Slackbot|slackbot|TelegramBot|telegrambot|Discordbot|discordbot|Pinterest|pinterest|redditbot|Viber|viber|Line|Snapchat|SkypeUriPreview|vkShare|Embedly|Iframely|cardyb|Bluesky|Mastodon|Tumblr|Flipboard|TikTok|ByteSpider|bitlybot|outbrain|quora|W3C_Validator|curl).*"
         }
       ],
       "destination": "/api/[...route]?route=seo-prerender&path=/$1"

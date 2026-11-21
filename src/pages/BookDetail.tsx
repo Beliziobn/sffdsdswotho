@@ -69,7 +69,10 @@ const BookDetail = () => {
             `Leia "${book.title}" por ${book.author} online diretamente no navegador na Wotho.`,
           canonicalPath: `/livros/${book.id}`,
           ogType: "book",
-          ogImage: book.cover_url || `${CANONICAL_BASE_URL}/og-image.jpg`,
+          ogImage:
+            book.cover_url?.startsWith("data:")
+              ? `${CANONICAL_BASE_URL}/api/og-cover?collection=books&id=${encodeURIComponent(book.id)}`
+              : book.cover_url || `${CANONICAL_BASE_URL}/og-wotho-home.jpg`,
           ogImageAlt: `${book.title} — ${book.author}`,
           jsonLd: [
             {
@@ -81,7 +84,10 @@ const BookDetail = () => {
                 name: book.author,
               },
               description: book.description,
-              image: book.cover_url || `${CANONICAL_BASE_URL}/og-image.jpg`,
+              image:
+                book.cover_url?.startsWith("data:")
+                  ? `${CANONICAL_BASE_URL}/api/og-cover?collection=books&id=${encodeURIComponent(book.id)}`
+                  : book.cover_url || `${CANONICAL_BASE_URL}/og-wotho-home.jpg`,
               inLanguage: "pt-BR",
               url: `${CANONICAL_BASE_URL}/livros/${book.id}`,
               ...(book.category ? { genre: book.category } : {}),

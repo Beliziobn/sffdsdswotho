@@ -36,7 +36,7 @@ import {
   handleGeoLocateRequest,
   handleTranslateRequest,
 } from './_geoHandler.js';
-import { handleSeoPrerenderRequest } from './_seoPrerender.js';
+import { handleSeoPrerenderRequest, handleOgCoverRequest } from './_seoPrerender.js';
 import {
   handleIndexNowRequest,
   getIndexNowStats,
@@ -147,10 +147,13 @@ export default async function handler(req: any, res: any) {
     case '/api/books/chapters':
       return handleBooksChaptersRequest(req, res);
 
-    // Googlebot & Social Crawler Prerender
+    // Googlebot & Social Crawler Prerender + Dynamic OG Cover Images
     case '/api/seo-prerender':
     case '/seo-prerender':
       return handleSeoPrerenderRequest(req, res);
+    case '/api/og-cover':
+    case '/og-cover':
+      return handleOgCoverRequest(req, res);
 
     // Sitemaps & Feeds
     case '/api/sitemap.xml':

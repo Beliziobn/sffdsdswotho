@@ -16,7 +16,7 @@ const FALLBACK_FEATURED_BOOKS: Book[] = [
     author: "James Clear",
     description:
       "Um método fácil e comprovado de criar bons hábitos e se livrar dos maus com pequenas mudanças diárias.",
-    cover_url: "/og-image.jpg",
+    cover_url: "/og-wotho-home.jpg",
     price_cents: 0,
     currency: "BRL",
     category: "Desenvolvimento Pessoal",
@@ -30,7 +30,7 @@ const FALLBACK_FEATURED_BOOKS: Book[] = [
     author: "Morgan Housel",
     description:
       "Lições atemporais sobre fortuna, ganância e felicidade para tomar decisões mais inteligentes com dinheiro.",
-    cover_url: "/og-image.jpg",
+    cover_url: "/og-wotho-home.jpg",
     price_cents: 0,
     currency: "BRL",
     category: "Finanças & Negócios",
@@ -44,7 +44,7 @@ const FALLBACK_FEATURED_BOOKS: Book[] = [
     author: "George Orwell",
     description:
       "Um dos romances mais influentes do século XX sobre vigilância, linguagem, poder e resistência individual.",
-    cover_url: "/og-image.jpg",
+    cover_url: "/og-wotho-home.jpg",
     price_cents: 0,
     currency: "BRL",
     category: "Literatura Clássica",

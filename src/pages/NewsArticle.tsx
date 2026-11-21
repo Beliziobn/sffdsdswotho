@@ -62,7 +62,10 @@ const NewsArticle = () => {
           description: (language === "en" && translatedData?.excerpt) || article.excerpt || article.title,
           canonicalPath: `/noticias/${article.slug}`,
           ogType: "article",
-          ogImage: resolvedCoverImage || `${CANONICAL_BASE_URL}/og-image.jpg`,
+          ogImage:
+            resolvedCoverImage?.startsWith("data:")
+              ? `${CANONICAL_BASE_URL}/api/og-cover?collection=news&id=${encodeURIComponent(article.slug)}`
+              : resolvedCoverImage || `${CANONICAL_BASE_URL}/og-wotho-home.jpg`,
           ogImageAlt: (language === "en" && translatedData?.title) || article.title,
           articlePublishedTime: article.published_at || undefined,
           articleSection: article.category || "Notícias",
@@ -71,7 +74,11 @@ const NewsArticle = () => {
               "@context": "https://schema.org",
               "@type": "NewsArticle",
               headline: (language === "en" && translatedData?.title) || article.title,
-              image: [resolvedCoverImage || `${CANONICAL_BASE_URL}/og-image.jpg`],
+              image: [
+                resolvedCoverImage?.startsWith("data:")
+                  ? `${CANONICAL_BASE_URL}/api/og-cover?collection=news&id=${encodeURIComponent(article.slug)}`
+                  : resolvedCoverImage || `${CANONICAL_BASE_URL}/og-wotho-home.jpg`,
+              ],
               datePublished: article.published_at,
               dateModified: article.published_at,
               articleSection: article.category || "Notícias",

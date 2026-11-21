@@ -17,6 +17,7 @@ import {
   injectSeoIntoHtml,
   isSearchOrSocialBot,
   handleSeoPrerenderRequest,
+  handleOgCoverRequest,
   resolvePermanentRedirect,
 } from './api/_seoPrerender.js';
 import {
@@ -1306,6 +1307,11 @@ function sitemapPlugin(): Plugin {
         } else {
           res.end(`User-agent: *\nAllow: /\n\nSitemap: ${origin}/sitemap.xml\n`);
         }
+        return;
+      }
+
+      if (urlPath === '/api/og-cover' || urlPath === '/og-cover') {
+        await handleOgCoverRequest(req, res);
         return;
       }
 
