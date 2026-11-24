@@ -2,6 +2,9 @@
  * Unified Manga, MangaDex & Multi-Source Pages Resolver & Image Proxy
  * High-speed, self-contained ESM handler running on both Vite Connect and Vercel Serverless.
  */
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const MANGA_PATH_MAP = {
   'solo-leveling': '/manga/2557/solo-leveling',
@@ -85,6 +88,28 @@ const MANGADEX_ID_MAP = {
   'slam-dunk': '319df2e2-e6a6-4e3a-a31c-68539c140a84',
 };
 
+const MANGA_SEARCH_TITLE_MAP = {};
+
+try {
+  const __dirname = path.dirname(fileURLToPath(import.meta.url));
+  const expandedPath = path.resolve(__dirname, '../src/data/expandedAnimesList.json');
+  if (fs.existsSync(expandedPath)) {
+    const expandedList = JSON.parse(fs.readFileSync(expandedPath, 'utf-8'));
+    if (Array.isArray(expandedList)) {
+      for (const entry of expandedList) {
+        if (!entry?.id) continue;
+        if (entry.mangaPillPath && !MANGA_PATH_MAP[entry.id]) {
+          MANGA_PATH_MAP[entry.id] = entry.mangaPillPath;
+        }
+        if (entry.manga?.mangadexId && !MANGADEX_ID_MAP[entry.id]) {
+          MANGADEX_ID_MAP[entry.id] = entry.manga.mangadexId;
+        }
+        MANGA_SEARCH_TITLE_MAP[entry.id] = entry.manga?.title || entry.title;
+      }
+    }
+  }
+} catch {}
+
 const chaptersCache = new Map();
 const pagesCache = new Map();
 const imageCache = new Map();
@@ -128,7 +153,27 @@ async function resolveRealMangaDexId(mangaId, title) {
 }
 
 export async function fetchMangaChaptersInternal(animeId, customPath) {
-  const targetPath = customPath || MANGA_PATH_MAP[animeId];
+  let targetPath = customPath || MANGA_PATH_MAP[animeId];
+  if (!targetPath && animeId) {
+    const searchQuery = MANGA_SEARCH_TITLE_MAP[animeId] || animeId.replace(/-/g, ' ');
+    try {
+      const sRes = await fetch(`https://mangapill.com/search?q=${encodeURIComponent(searchQuery)}`, {
+        headers: {
+          'User-Agent':
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+        },
+        signal: AbortSignal.timeout(6000),
+      });
+      if (sRes.ok) {
+        const sHtml = await sRes.text();
+        const match = sHtml.match(/href="(\/manga\/\d+\/[^"]+)"/);
+        if (match && match[1]) {
+          targetPath = match[1];
+          MANGA_PATH_MAP[animeId] = targetPath;
+        }
+      }
+    } catch {}
+  }
   if (!targetPath) return null;
 
   const cacheKey = `manga_chaps_${targetPath}`;

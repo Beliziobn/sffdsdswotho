@@ -39,7 +39,15 @@ import { useContentProtection } from "@/hooks/useContentProtection";
 import { usePlayerAdBlock } from "@/hooks/usePlayerAdBlock";
 import { downloadRealCinemaVideo } from "@/lib/mediaDownloaders";
 import { toast } from "sonner";
-import { CANONICAL_BASE_URL, buildBreadcrumbSchema, usePageSeo } from "@/lib/seo";
+import { ContentDetailSkeleton } from "@/components/skeletons/AppSkeletons";
+import {
+  CANONICAL_BASE_URL,
+  buildBreadcrumbSchema,
+  buildVideoObjectSchema,
+  parseDurationToIso8601,
+  toValidUploadDateIso,
+  usePageSeo,
+} from "@/lib/seo";
 
 export default function CinemaDetail() {
   const { id } = useParams<{ id: string }>();
@@ -48,7 +56,9 @@ export default function CinemaDetail() {
   usePlayerAdBlock(true);
   const playerStageRef = useRef<HTMLDivElement>(null);
 
-  const [item, setItem] = useState<CinemaItem | null>(null);
+  const [item, setItem] = useState<CinemaItem | null>(() => (id ? getCinemaById(id) || null : null));
+  const [isResolving, setIsResolving] = useState<boolean>(() => Boolean(id && !getCinemaById(id)));
+  const [catalogVersion, setCatalogVersion] = useState(0);
   const [inWatchlist, setInWatchlist] = useState(false);
   const [selectedLanguage, setSelectedLanguage] = useState<CinemaLanguage>(() =>
     getCinemaLanguagePreference()
@@ -76,10 +86,25 @@ export default function CinemaDetail() {
     setCinemaLanguagePreference(lang);
   };
 
+  const videoWatchMeta = item
+    ? buildVideoObjectSchema({
+        canonicalPath: `/cinema/${item.id}`,
+        name: `Assistir ${item.title} (${item.year}) — ${item.type === "serie" ? "Série" : "Filme"} Dublado e Legendado PT-BR`,
+        description:
+          item.synopsis ||
+          `Assista ${item.title} (${item.year}) em alta definição com áudio dublado PT-BR e legendas na Wotho.`,
+        thumbnailUrl: item.backdropUrl || item.posterUrl || `${CANONICAL_BASE_URL}/og-wotho-home.jpg`,
+        uploadDate: toValidUploadDateIso(item.year),
+        durationIso: parseDurationToIso8601(item.duration, item.type === "serie" ? "PT48M" : "PT1H55M"),
+        trailerYoutubeId: item.trailerYoutubeId,
+        isFamilyFriendly: !/^(18|\+18)$/i.test(String(item.ageRating || "")),
+      })
+    : null;
+
   usePageSeo(
-    item
+    item && videoWatchMeta
       ? {
-          title: `${item.title} (${item.year}) — Cinema & Séries Wotho`,
+          title: `Assistir ${item.title} (${item.year}) — ${item.type === "serie" ? "Série" : "Filme"} HD | Wotho Cinema`,
           description:
             item.synopsis ||
             `Assista ${item.title} (${item.year}) em alta definição com áudio dublado PT-BR e legendas na Wotho.`,
@@ -87,7 +112,14 @@ export default function CinemaDetail() {
           ogType: item.type === "serie" ? "video.tv_show" : "video.movie",
           ogImage: item.backdropUrl || item.posterUrl || `${CANONICAL_BASE_URL}/og-wotho-home.jpg`,
           ogImageAlt: `${item.title} (${item.year})`,
+          ogVideo: {
+            url: videoWatchMeta.embedUrl,
+            type: "text/html",
+            width: 1280,
+            height: 720,
+          },
           jsonLd: [
+            videoWatchMeta.schema,
             {
               "@context": "https://schema.org",
               "@type": item.type === "serie" ? "TVSeries" : "Movie",
@@ -99,6 +131,7 @@ export default function CinemaDetail() {
               inLanguage: "pt-BR",
               url: `${CANONICAL_BASE_URL}/cinema/${item.id}`,
               genre: item.genres,
+              trailer: { "@id": videoWatchMeta.videoId },
               ...(item.director ? { director: { "@type": "Person", name: item.director } } : {}),
               ...(Array.isArray(item.cast) && item.cast.length > 0
                 ? { actor: item.cast.slice(0, 6).map((name) => ({ "@type": "Person", name })) }
@@ -129,8 +162,13 @@ export default function CinemaDetail() {
   );
 
   useEffect(() => {
-    if (!id) return;
+    if (!id) {
+      setIsResolving(false);
+      return;
+    }
+    let cancelled = false;
     const applyFound = (found: CinemaItem | undefined) => {
+      if (cancelled) return;
       if (found) {
         setItem(found);
         setInWatchlist(isCinemaInWatchlist(found.id));
@@ -146,17 +184,31 @@ export default function CinemaDetail() {
       } else {
         setItem(null);
       }
+      setIsResolving(false);
     };
 
     const immediate = getCinemaById(id);
     if (immediate) {
       applyFound(immediate);
-      void ensureExpandedCinemaLoaded();
-    } else {
       void ensureExpandedCinemaLoaded().then(() => {
-        applyFound(getCinemaById(id));
+        if (!cancelled) setCatalogVersion((v) => v + 1);
       });
+    } else {
+      setIsResolving(true);
+      void ensureExpandedCinemaLoaded()
+        .then(() => {
+          if (!cancelled) {
+            setCatalogVersion((v) => v + 1);
+            applyFound(getCinemaById(id));
+          }
+        })
+        .catch(() => {
+          if (!cancelled) setIsResolving(false);
+        });
     }
+    return () => {
+      cancelled = true;
+    };
   }, [id]);
 
   useEffect(() => {
@@ -178,6 +230,18 @@ export default function CinemaDetail() {
       });
     }).catch(() => {});
   }, [item, selectedSeasonNumber, selectedEpisodeNumber]);
+
+  if (isResolving && !item) {
+    return (
+      <div className="min-h-screen bg-[#07090e] text-zinc-100 flex flex-col">
+        <Navigation variant="dark" />
+        <main className="flex-1 pt-20">
+          <ContentDetailSkeleton />
+        </main>
+        <Footer />
+      </div>
+    );
+  }
 
   if (!item) {
     return (
@@ -279,22 +343,68 @@ export default function CinemaDetail() {
   const displayTitle =
     selectedLanguage === "en" && item.originalTitle ? item.originalTitle : item.title;
 
-  const relatedItems = CINEMA_CATALOG.filter(
-    (other) =>
-      other.id !== item.id &&
-      (other.type === item.type || other.genres.some((g) => item.genres.includes(g)))
-  ).slice(0, 4);
+  const relatedItems = (() => {
+    void catalogVersion;
+    const total = CINEMA_CATALOG.length;
+    const idx = CINEMA_CATALOG.findIndex((c) => c.id === item.id);
+    const seen = new Set<string>([item.id]);
+    const picked: CinemaItem[] = [];
+    // Ring neighbors guarantee every expanded movie/series has incoming internal links
+    if (idx >= 0 && total > 1) {
+      for (const offset of [1, 2, -1, 3, -2]) {
+        const cand = CINEMA_CATALOG[(idx + offset + total) % total];
+        if (cand && !seen.has(cand.id)) {
+          seen.add(cand.id);
+          picked.push(cand);
+        }
+      }
+    }
+    for (const other of CINEMA_CATALOG) {
+      if (picked.length >= 8) break;
+      if (
+        !seen.has(other.id) &&
+        (other.type === item.type && other.genres.some((g) => item.genres.includes(g)))
+      ) {
+        seen.add(other.id);
+        picked.push(other);
+      }
+    }
+    for (const other of CINEMA_CATALOG) {
+      if (picked.length >= 8) break;
+      if (!seen.has(other.id)) {
+        seen.add(other.id);
+        picked.push(other);
+      }
+    }
+    return picked.slice(0, 8);
+  })();
 
   return (
     <div className="min-h-screen bg-[#07090e] text-zinc-100 flex flex-col selection:bg-amber-500/30">
       <Navigation variant="dark" />
 
       <main className="flex-1 pb-20">
-        {/* Dedicated Cinema Theater Stage (Full-Page Player Experience) */}
+        {/* Dedicated Cinema Watch Page Stage (Above-the-Fold VideoObject) */}
         <section
           ref={playerStageRef}
+          itemScope
+          itemType="https://schema.org/VideoObject"
           className="relative w-full pt-24 pb-10 border-b border-white/10 overflow-hidden"
         >
+          {videoWatchMeta && (
+            <>
+              <meta itemProp="name" content={String(videoWatchMeta.schema.name || item.title)} />
+              <meta itemProp="description" content={item.synopsis} />
+              <meta itemProp="thumbnailUrl" content={item.backdropUrl || item.posterUrl} />
+              <meta itemProp="uploadDate" content={toValidUploadDateIso(item.year)} />
+              <meta
+                itemProp="duration"
+                content={parseDurationToIso8601(item.duration, item.type === "serie" ? "PT48M" : "PT1H55M")}
+              />
+              <meta itemProp="embedUrl" content={videoWatchMeta.embedUrl} />
+              <meta itemProp="contentUrl" content={videoWatchMeta.contentUrl} />
+            </>
+          )}
           {/* Ambient Blurred Backdrop */}
           <div className="absolute inset-0 pointer-events-none">
             <img

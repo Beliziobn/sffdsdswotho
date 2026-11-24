@@ -1,4 +1,6 @@
 import verifiedAnimesCatalogJson from "@/data/verifiedAnimesCatalog.json";
+import expandedAnimesCatalogJson from "@/data/expandedAnimesCatalog.json";
+import expandedAnimesListJson from "@/data/expandedAnimesList.json";
 import { ANIME_MANGA_CONFIGS } from "./mangadex";
 
 const mangaConfigsCache: Record<string, any> = ANIME_MANGA_CONFIGS || {};
@@ -131,16 +133,22 @@ export const ANIME_GENRES = [
   "Isekai",
   "Esporte",
   "Comédia",
+  "Romance",
+  "Terror",
+  "Mecha",
 ];
 
-const verifiedCatalog = verifiedAnimesCatalogJson as unknown as Record<
+const verifiedCatalog: Record<
   string,
   {
     trailerYoutubeId: string;
     episodesCount: number;
     seasons: AnimeSeason[];
   }
->;
+> = {
+  ...(verifiedAnimesCatalogJson as unknown as Record<string, any>),
+  ...(expandedAnimesCatalogJson as unknown as Record<string, any>),
+};
 
 export function ensureVerifiedAnimesLoaded(): Promise<void> {
   return Promise.resolve();
@@ -189,6 +197,44 @@ function getVerifiedTrailer(animeId: string, fallback: string): string {
   return verifiedCatalog[animeId]?.trailerYoutubeId || fallback;
 }
 
+function buildCanonicalChaptersList(
+  animeId: string,
+  title: string,
+  author: string,
+  serialization: string,
+  totalCount: number,
+  seedChapters: any[] = []
+): MangaChapter[] {
+  const byNumber = new Map<number, MangaChapter>();
+  for (const ch of seedChapters) {
+    byNumber.set(ch.number, {
+      ...ch,
+      pages: ch.pages || [],
+    });
+  }
+
+  const maxPrebuilt = Math.min(Math.max(totalCount || 24, 12), 120);
+  for (let num = 1; num <= maxPrebuilt; num++) {
+    if (!byNumber.has(num)) {
+      byNumber.set(num, {
+        id: `${animeId}-cap-${num}`,
+        number: num,
+        title:
+          num === 1
+            ? `Capítulo 1: O Início de ${title}`
+            : `Capítulo ${num}: ${title} #${num}`,
+        pagesCount: num === 1 ? 46 : 24,
+        pages: [],
+        description: `Capítulo ${num} da edição oficial de ${author} publicada na ${serialization}.`,
+        releaseDate: "Oficial",
+        isFree: true,
+      });
+    }
+  }
+
+  return Array.from(byNumber.values()).sort((a, b) => a.number - b.number);
+}
+
 function buildMangaInfo(
   animeId: string,
   fallback: {
@@ -207,45 +253,34 @@ function buildMangaInfo(
   if (cfg) {
     return {
       title: cfg.canonicalTitle,
-      chaptersCount: cfg.totalChaptersEstimate,
+      chaptersCount: cfg.totalChaptersEstimate || fallback.chaptersCount,
       author: cfg.author,
       artist: cfg.artist,
-      cover: cfg.officialCover,
+      cover: cfg.officialCover || fallback.cover,
       status: cfg.status === "Completo" ? "Completo" : "Em publicação",
-      mangadexId: cfg.mangadexId,
+      mangadexId: cfg.mangadexId || fallback.mangadexId,
       serialization: cfg.serialization,
       publisher: cfg.publisher,
-      chapters: cfg.initialChapters.map((ch: any) => ({
-        ...ch,
-        pages: ch.pages || [],
-      })),
+      chapters: buildCanonicalChaptersList(
+        animeId,
+        cfg.canonicalTitle,
+        cfg.author,
+        cfg.serialization,
+        cfg.totalChaptersEstimate || fallback.chaptersCount,
+        cfg.initialChapters || []
+      ),
     };
   }
 
   return {
     ...fallback,
-    chapters: [
-      {
-        id: `${animeId}-cap-1`,
-        number: 1,
-        title: `Capítulo 1: O Início de ${fallback.title}`,
-        pagesCount: 42,
-        pages: [],
-        description: `Capítulo de abertura oficial da obra original de ${fallback.author}.`,
-        releaseDate: "2024",
-        isFree: true,
-      },
-      {
-        id: `${animeId}-cap-2`,
-        number: 2,
-        title: `Capítulo 2: Despertar e Destino`,
-        pagesCount: 28,
-        pages: [],
-        description: `Segundo capítulo canônico publicado na ${fallback.serialization}.`,
-        releaseDate: "2024",
-        isFree: true,
-      },
-    ],
+    chapters: buildCanonicalChaptersList(
+      animeId,
+      fallback.title,
+      fallback.author,
+      fallback.serialization,
+      fallback.chaptersCount
+    ),
   };
 }
 
@@ -2024,6 +2059,51 @@ export const ANIMES_DATA: Anime[] = [
       publisher: "Shueisha",
     }),
   },
+  ...((expandedAnimesListJson as any[]).map((entry): Anime => {
+    const seasons = getVerifiedSeasons(entry.id);
+    return {
+      id: entry.id,
+      title: entry.title,
+      japaneseTitle: entry.japaneseTitle,
+      slug: entry.slug || entry.id,
+      synopsis: entry.synopsis,
+      cover: entry.cover,
+      banner: entry.banner,
+      rating: entry.rating,
+      ratingCount: entry.ratingCount,
+      episodesCount: getVerifiedEpisodesCount(entry.id, entry.episodesCount),
+      genres: entry.genres,
+      status: entry.status === "Completo" ? "Completo" : "Em lançamento",
+      season: entry.season,
+      studio: entry.studio,
+      year: entry.year,
+      audio: entry.audio || "Dublado & Legendado PT-BR",
+      trailerYoutubeId: getVerifiedTrailer(entry.id, entry.trailerYoutubeId),
+      broadcastDay: entry.broadcastDay || "Sábado",
+      featured: Boolean(entry.featured),
+      trending: Boolean(entry.trending),
+      isDeepPhilosophical: Boolean(entry.isDeepPhilosophical),
+      isRecentTop: Boolean(entry.isRecentTop),
+      rank: entry.rank,
+      tmdbId: entry.tmdbId,
+      imdbId: entry.imdbId,
+      seasons,
+      get episodes() {
+        return this.seasons.flatMap((s) => s.episodes);
+      },
+      manga: buildMangaInfo(entry.id, {
+        title: entry.manga.title,
+        chaptersCount: entry.manga.chaptersCount,
+        author: entry.manga.author,
+        artist: entry.manga.artist,
+        cover: entry.manga.cover || entry.cover,
+        status: entry.manga.status === "Completo" ? "Completo" : "Em publicação",
+        mangadexId: entry.manga.mangadexId,
+        serialization: entry.manga.serialization,
+        publisher: entry.manga.publisher,
+      }),
+    };
+  })),
 ];
 
 /** LocalStorage Watchlist helper to save user favorites */

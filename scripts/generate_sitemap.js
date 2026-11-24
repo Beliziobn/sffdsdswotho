@@ -34,13 +34,27 @@ function escapeXml(unsafe) {
 }
 
 function toAbsoluteImageUrl(img, origin = BASE_URL) {
-  if (!img || typeof img !== 'string') return `${origin}/og-image.jpg`;
+  if (!img || typeof img !== 'string') return `${origin}/og-wotho-home.jpg`;
   const trimmed = img.trim();
-  if (!trimmed) return `${origin}/og-image.jpg`;
-  if (trimmed.startsWith('/covers/') || trimmed.startsWith('/assets/hero-')) return `${origin}/og-image.jpg`;
+  if (!trimmed) return `${origin}/og-wotho-home.jpg`;
+  if (trimmed.startsWith('/covers/') || trimmed.startsWith('/assets/hero-') || trimmed === '/og-image.jpg') {
+    return `${origin}/og-wotho-home.jpg`;
+  }
   if (/^https?:\/\//i.test(trimmed)) return trimmed;
   if (trimmed.startsWith('/')) return `${origin}${trimmed}`;
   return `${origin}/${trimmed}`;
+}
+
+function parseDurationToSeconds(durationStr, fallbackSeconds = 150) {
+  if (!durationStr || typeof durationStr !== 'string') return fallbackSeconds;
+  const hMatch = durationStr.match(/(\d+)\s*h/i);
+  const mMatch = durationStr.match(/(\d+)\s*m/i);
+  const sMatch = durationStr.match(/(\d+)\s*s/i);
+  let total = 0;
+  if (hMatch) total += parseInt(hMatch[1], 10) * 3600;
+  if (mMatch) total += parseInt(mMatch[1], 10) * 60;
+  if (sMatch) total += parseInt(sMatch[1], 10);
+  return total > 0 ? total : fallbackSeconds;
 }
 
 const MIN_SITEMAP_TIMESTAMP = new Date('2024-01-01T00:00:00.000Z').getTime();
@@ -67,6 +81,16 @@ function toIsoDate(value, fallbackIso) {
 
 function toW3cDateOnly(value, fallbackIso) {
   return toIsoDate(value, fallbackIso).split('T')[0];
+}
+
+function toVideoPublicationIso(year, fallbackIso) {
+  const numYear = Number(year) || 0;
+  const nowYear = new Date().getUTCFullYear();
+  if (numYear >= 1980 && numYear <= nowYear) {
+    const clampedYear = Math.min(numYear, nowYear);
+    return `${clampedYear}-06-15T12:00:00Z`;
+  }
+  return toIsoDate(fallbackIso, new Date().toISOString());
 }
 
 function truncateText(text, max = 180) {
@@ -180,11 +204,17 @@ async function bundleAndLoadTsCatalog() {
         genres: Array.isArray(c.genres) ? c.genres : [],
         year: c.year || 2024,
         duration: c.duration || '',
+        ageRating: c.ageRating || '14',
+        quality: c.quality || '1080p FHD',
         rating: c.rating || 8.0,
         ratingCount: c.ratingCount || 1000,
         posterUrl: c.posterUrl || '',
         backdropUrl: c.backdropUrl || '',
+        trailerYoutubeId: c.trailerYoutubeId || '',
         seasonsCount: Array.isArray(c.seasons) ? c.seasons.length : 0,
+        episodesCount: Array.isArray(c.seasons)
+          ? c.seasons.reduce((acc, s) => acc + (Array.isArray(s.episodes) ? s.episodes.length : 0), 0)
+          : 0,
       })),
       animes: ANIMES_DATA.map((a) => ({
         id: a.id,
@@ -196,10 +226,14 @@ async function bundleAndLoadTsCatalog() {
         studio: a.studio || '',
         cover: a.cover || '',
         banner: a.banner || '',
+        trailerYoutubeId: a.trailerYoutubeId || '',
+        seasonsCount: Array.isArray(a.seasons) ? a.seasons.length : 1,
         episodesCount: a.episodesCount || 12,
         rating: a.rating || 8.8,
         ratingCount: a.ratingCount || 2000,
         author: a.manga?.author || a.studio || '',
+        mangaTitle: a.manga?.title || '',
+        mangaChaptersCount: a.manga?.chaptersCount || 0,
       })),
       webtoons: [...BASE_CURATED_WEBTOONS, ...EXPANDED_WEBTOONS].map((w) => ({
         id: w.id,
@@ -309,7 +343,7 @@ export async function generateCatalogSnapshot() {
           id: a.id || a.slug,
           slug: a.slug,
           title: String(a.title || '').trim(),
-          excerpt: truncateText(a.excerpt || a.content || '', 280),
+          excerpt: truncateText(a.excerpt || a.content || '', 600),
           category: a.category || 'Notícias',
           author: a.author || a.source_name || 'Redação Wotho',
           source_name: a.source_name || 'Wotho Notícias',
@@ -332,7 +366,7 @@ export async function generateCatalogSnapshot() {
     if (!prev || (b.description && b.description.length > (prev.description || '').length)) {
       bookMap.set(b.id, {
         ...b,
-        description: truncateText(b.description || '', 340),
+        description: truncateText(b.description || '', 900),
       });
     }
   }
@@ -344,7 +378,7 @@ export async function generateCatalogSnapshot() {
     if (!cinemaMap.has(c.id)) {
       cinemaMap.set(c.id, {
         ...c,
-        synopsis: truncateText(c.synopsis || '', 340),
+        synopsis: truncateText(c.synopsis || '', 900),
       });
     }
   }
@@ -356,7 +390,7 @@ export async function generateCatalogSnapshot() {
     if (!animeMap.has(a.id)) {
       animeMap.set(a.id, {
         ...a,
-        synopsis: truncateText(a.synopsis || '', 340),
+        synopsis: truncateText(a.synopsis || '', 900),
       });
     }
   }
@@ -368,7 +402,7 @@ export async function generateCatalogSnapshot() {
     if (!webtoonMap.has(w.id)) {
       webtoonMap.set(w.id, {
         ...w,
-        description: truncateText(w.description || '', 340),
+        description: truncateText(w.description || '', 900),
       });
     }
   }
@@ -447,8 +481,6 @@ function formatUrlEntry(entry, origin) {
   let out = '  <url>\n';
   out += `    <loc>${escapeXml(entry.loc)}</loc>\n`;
   if (entry.lastmod) out += `    <lastmod>${escapeXml(entry.lastmod)}</lastmod>\n`;
-  if (entry.changefreq) out += `    <changefreq>${entry.changefreq}</changefreq>\n`;
-  if (entry.priority) out += `    <priority>${entry.priority}</priority>\n`;
   if (entry.image) {
     const absImg = toAbsoluteImageUrl(entry.image, origin);
     out += '    <image:image>\n';
@@ -473,17 +505,28 @@ function wrapUrlset(entries, origin) {
   return xml;
 }
 
+function stableCatalogDate(yearValue, fallbackDate) {
+  const numYear = Number(yearValue) || 0;
+  const nowYear = new Date().getUTCFullYear();
+  if (numYear >= 2024 && numYear < nowYear) {
+    return `${numYear}-06-15`;
+  }
+  if (numYear > 0 && numYear < 2024) {
+    return '2025-01-15';
+  }
+  return fallbackDate;
+}
+
 function buildSectionEntries(catalog, customOrigin = BASE_URL) {
   const origin = (customOrigin || BASE_URL).replace(/\/+$/, '');
   const catalogLastmodIso = toIsoDate(catalog.generatedAt, new Date().toISOString());
   const catalogLastmodDate = toW3cDateOnly(catalogLastmodIso, catalogLastmodIso);
 
-  const latestNewsIso =
-    (catalog.news || [])
-      .map((n) => n?.published_at)
-      .filter(Boolean)
-      .sort()
-      .pop() || catalogLastmodIso;
+  const sortedNews = [...(catalog.news || [])]
+    .filter((n) => n && n.slug && n.title)
+    .sort((a, b) => new Date(b.published_at || 0).getTime() - new Date(a.published_at || 0).getTime());
+
+  const latestNewsIso = sortedNews[0]?.published_at || catalogLastmodIso;
   const latestNewsDate = toW3cDateOnly(latestNewsIso, catalogLastmodIso);
 
   const pages = STATIC_ROUTES.map((route) => {
@@ -491,89 +534,151 @@ function buildSectionEntries(catalog, customOrigin = BASE_URL) {
     return {
       loc: route.path === '/' ? `${origin}/` : `${origin}${route.path}`,
       lastmod: isDynamicFeedRoute ? latestNewsDate : catalogLastmodDate,
-      changefreq: route.changefreq,
-      priority: route.priority,
-      image: `${origin}/og-image.jpg`,
+      image: `${origin}/og-wotho-home.jpg`,
       imageTitle: route.title,
     };
   });
 
   const books = (catalog.books || []).map((b) => {
-    const numYear = Number(b.year) || 0;
-    const rawDate =
-      b.updated_at ||
-      b.published_at ||
-      (numYear >= 2024 && numYear <= 2026 ? `${numYear}-06-01T00:00:00.000Z` : catalogLastmodIso);
+    const rawDate = b.updated_at || b.published_at;
     return {
       loc: `${origin}/livros/${encodeURIComponent(b.id)}`,
-      lastmod: toW3cDateOnly(rawDate, catalogLastmodIso),
-      changefreq: b.kind === 'scientific' ? 'monthly' : 'weekly',
-      priority: '0.8',
-      image: b.cover_url || `${origin}/og-image.jpg`,
+      lastmod: rawDate ? toW3cDateOnly(rawDate, catalogLastmodIso) : stableCatalogDate(b.year, catalogLastmodDate),
+      image: b.cover_url || `${origin}/og-wotho-home.jpg`,
       imageTitle: b.title || b.id,
     };
   });
 
   const cinema = (catalog.cinema || []).map((c) => {
-    const numYear = Number(c.year) || 0;
-    const rawDate =
-      c.updated_at ||
-      (numYear >= 2026
-        ? catalogLastmodIso
-        : numYear >= 2024
-        ? `${numYear}-06-01T00:00:00.000Z`
-        : catalogLastmodIso);
+    const rawDate = c.updated_at;
     return {
       loc: `${origin}/cinema/${encodeURIComponent(c.id)}`,
-      lastmod: toW3cDateOnly(rawDate, catalogLastmodIso),
-      changefreq: 'weekly',
-      priority: '0.8',
-      image: c.posterUrl || c.backdropUrl || `${origin}/og-image.jpg`,
+      lastmod: rawDate ? toW3cDateOnly(rawDate, catalogLastmodIso) : stableCatalogDate(c.year, catalogLastmodDate),
+      image: c.backdropUrl || c.posterUrl || `${origin}/og-wotho-home.jpg`,
       imageTitle: c.title || c.id,
     };
   });
 
   const animes = (catalog.animes || []).map((a) => {
-    const numYear = Number(a.year) || 0;
-    const rawDate =
-      a.updated_at ||
-      (numYear >= 2026
-        ? catalogLastmodIso
-        : numYear >= 2024
-        ? `${numYear}-06-01T00:00:00.000Z`
-        : catalogLastmodIso);
+    const rawDate = a.updated_at;
     return {
       loc: `${origin}/animes/${encodeURIComponent(a.id)}`,
-      lastmod: toW3cDateOnly(rawDate, catalogLastmodIso),
-      changefreq: 'weekly',
-      priority: '0.8',
-      image: a.cover || a.banner || `${origin}/og-image.jpg`,
+      lastmod: rawDate ? toW3cDateOnly(rawDate, catalogLastmodIso) : stableCatalogDate(a.year, catalogLastmodDate),
+      image: a.banner || a.cover || `${origin}/og-wotho-home.jpg`,
       imageTitle: a.title || a.id,
     };
   });
 
   const webtoons = (catalog.webtoons || []).map((w) => {
-    const rawDate = w.updated_at || w.published_at || catalogLastmodIso;
+    const rawDate = w.updated_at || w.published_at;
     return {
       loc: `${origin}/webtoon/${encodeURIComponent(w.id)}`,
-      lastmod: toW3cDateOnly(rawDate, catalogLastmodIso),
-      changefreq: w.status === 'Completo' ? 'monthly' : 'weekly',
-      priority: '0.8',
-      image: w.cover || w.banner || `${origin}/og-image.jpg`,
+      lastmod: rawDate ? toW3cDateOnly(rawDate, catalogLastmodIso) : '2025-06-01',
+      image: w.banner || w.cover || `${origin}/og-wotho-home.jpg`,
       imageTitle: w.title || w.id,
     };
   });
 
-  const news = (catalog.news || []).slice(0, 1500).map((n) => ({
+  // Cap sitemap-news to the 150 freshest/richest articles to protect crawl budget
+  // and prevent "Detetada – atualmente não indexada" caused by 1,000+ stale syndicated stubs.
+  const news = sortedNews.slice(0, 150).map((n) => ({
     loc: `${origin}/noticias/${encodeURIComponent(n.slug)}`,
     lastmod: toW3cDateOnly(n.updated_at || n.published_at, catalogLastmodIso),
-    changefreq: 'daily',
-    priority: '0.7',
-    image: n.cover_url || `${origin}/og-image.jpg`,
+    image: n.cover_url || `${origin}/og-wotho-home.jpg`,
     imageTitle: n.title || n.slug,
   }));
 
   return { pages, books, cinema, animes, webtoons, news };
+}
+
+export function buildVideoSitemapXml(customOrigin = BASE_URL, catalogOverride = null) {
+  const origin = (customOrigin || BASE_URL).replace(/\/+$/, '');
+  const catalog = catalogOverride || loadSeoCatalog();
+  const catalogLastmodIso = toIsoDate(catalog.generatedAt, new Date().toISOString());
+
+  let xml = '<?xml version="1.0" encoding="UTF-8"?>\n';
+  xml += '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"\n';
+  xml += '        xmlns:video="http://www.google.com/schemas/sitemap-video/1.1">\n';
+
+  let count = 0;
+
+  const appendVideoEntry = ({
+    loc,
+    ytId,
+    title,
+    description,
+    thumbnailUrl,
+    durationSec,
+    pubDateIso,
+    familyFriendly,
+    tags,
+  }) => {
+    if (!loc || !ytId || !/^[A-Za-z0-9_-]{6,20}$/.test(String(ytId).trim())) return;
+    const cleanYt = String(ytId).trim();
+    const safeThumb = toAbsoluteImageUrl(
+      thumbnailUrl || `https://i.ytimg.com/vi/${cleanYt}/hqdefault.jpg`,
+      origin
+    ).replace(/^https:\/\/image\.tmdb\.org\/t\/p\/original\//i, 'https://image.tmdb.org/t/p/w1280/');
+    const safeTitle = truncateText(title, 100);
+    const safeDesc = truncateText(description || title, 1800);
+    const clampedDuration = Math.min(28800, Math.max(30, Math.round(durationSec || 150)));
+
+    xml += '  <url>\n';
+    xml += `    <loc>${escapeXml(loc)}</loc>\n`;
+    xml += '    <video:video>\n';
+    xml += `      <video:thumbnail_loc>${escapeXml(safeThumb)}</video:thumbnail_loc>\n`;
+    xml += `      <video:title>${escapeXml(safeTitle)}</video:title>\n`;
+    xml += `      <video:description>${escapeXml(safeDesc)}</video:description>\n`;
+    xml += `      <video:player_loc>https://www.youtube.com/embed/${escapeXml(cleanYt)}</video:player_loc>\n`;
+    xml += `      <video:duration>${clampedDuration}</video:duration>\n`;
+    xml += `      <video:publication_date>${escapeXml(pubDateIso)}</video:publication_date>\n`;
+    xml += `      <video:family_friendly>${familyFriendly ? 'yes' : 'no'}</video:family_friendly>\n`;
+    xml += '      <video:live>no</video:live>\n';
+    for (const tag of (tags || []).slice(0, 6)) {
+      if (tag) xml += `      <video:tag>${escapeXml(String(tag).slice(0, 32))}</video:tag>\n`;
+    }
+    xml += '    </video:video>\n';
+    xml += '  </url>\n';
+    count += 1;
+  };
+
+  for (const c of catalog.cinema || []) {
+    if (!c?.id || !c?.trailerYoutubeId) continue;
+    const isAdult = String(c.ageRating || '').includes('18');
+    appendVideoEntry({
+      loc: `${origin}/cinema/${encodeURIComponent(c.id)}`,
+      ytId: c.trailerYoutubeId,
+      title: `${c.title} (${c.year}) — Assistir Online | Wotho`,
+      description:
+        c.synopsis ||
+        `Assista ${c.title} (${c.year}) em alta definição com áudio dublado PT-BR e legendas completas na Wotho.`,
+      thumbnailUrl: c.backdropUrl || c.posterUrl,
+      durationSec: parseDurationToSeconds(c.duration, 150),
+      pubDateIso: toVideoPublicationIso(c.year, catalogLastmodIso),
+      familyFriendly: !isAdult,
+      tags: [...(c.genres || []), c.type === 'serie' ? 'Série' : 'Filme', 'Dublado PT-BR'],
+    });
+  }
+
+  for (const a of catalog.animes || []) {
+    if (!a?.id || !a?.trailerYoutubeId) continue;
+    appendVideoEntry({
+      loc: `${origin}/animes/${encodeURIComponent(a.id)}`,
+      ytId: a.trailerYoutubeId,
+      title: `${a.title} — Assistir Anime Online | Wotho`,
+      description:
+        a.synopsis ||
+        `Assista episódios de ${a.title} dublados e legendados em português e leia o mangá integrado na Wotho.`,
+      thumbnailUrl: a.banner || a.cover,
+      durationSec: 1440,
+      pubDateIso: toVideoPublicationIso(a.year, catalogLastmodIso),
+      familyFriendly: true,
+      tags: [...(a.genres || []), 'Anime', a.studio || 'Streaming'],
+    });
+  }
+
+  xml += '</urlset>\n';
+  return { xml, count };
 }
 
 export function buildSitemapXml(customOrigin = BASE_URL, catalogOverride = null) {
@@ -634,6 +739,7 @@ export function buildSitemapIndexXml(customOrigin = BASE_URL, catalogOverride = 
     { loc: `${origin}/sitemap-animes.xml`, lastmod: catalogLastmod },
     { loc: `${origin}/sitemap-webtoons.xml`, lastmod: catalogLastmod },
     { loc: `${origin}/sitemap-news.xml`, lastmod: latestNewsDate },
+    { loc: `${origin}/video-sitemap.xml`, lastmod: catalogLastmod },
     { loc: `${origin}/news-sitemap.xml`, lastmod: latestNewsDate },
   ];
 
@@ -652,7 +758,14 @@ export function buildSitemapIndexXml(customOrigin = BASE_URL, catalogOverride = 
 export function buildNewsSitemapXml(customOrigin = BASE_URL, catalogOverride = null) {
   const origin = (customOrigin || BASE_URL).replace(/\/+$/, '');
   const catalog = catalogOverride || loadSeoCatalog();
-  const articles = (catalog.news || []).slice(0, 250);
+  const sorted = [...(catalog.news || [])]
+    .filter((a) => a?.slug && a?.title)
+    .sort((a, b) => new Date(b.published_at || 0).getTime() - new Date(a.published_at || 0).getTime());
+
+  // Google News Sitemap guidelines: prioritize articles published within 48h, fallback to 50 freshest
+  const cutoff48h = Date.now() - 48 * 60 * 60 * 1000;
+  const recent48h = sorted.filter((a) => new Date(a.published_at || 0).getTime() >= cutoff48h);
+  const articles = (recent48h.length > 0 ? recent48h : sorted.slice(0, 50)).slice(0, 100);
 
   let xml = '<?xml version="1.0" encoding="UTF-8"?>\n';
   xml += '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"\n';
@@ -733,8 +846,11 @@ if (isDirectRun) {
     const { xml: mainXml, count: totalCount } = buildSitemapXml(BASE_URL, catalog);
     fs.writeFileSync(path.resolve(rootDir, 'public/sitemap.xml'), mainXml, 'utf8');
 
-    const { xml: indexXml } = buildSitemapIndexXml(BASE_URL);
+    const { xml: indexXml } = buildSitemapIndexXml(BASE_URL, catalog);
     fs.writeFileSync(path.resolve(rootDir, 'public/sitemap-index.xml'), indexXml, 'utf8');
+
+    const { xml: videoSitemapXml, count: videoCount } = buildVideoSitemapXml(BASE_URL, catalog);
+    fs.writeFileSync(path.resolve(rootDir, 'public/video-sitemap.xml'), videoSitemapXml, 'utf8');
 
     const { xml: newsSitemapXml } = buildNewsSitemapXml(BASE_URL, catalog);
     fs.writeFileSync(path.resolve(rootDir, 'public/news-sitemap.xml'), newsSitemapXml, 'utf8');
@@ -749,7 +865,7 @@ if (isDirectRun) {
     }
 
     console.log(
-      `[SEO Generator] Wrote api/_seoCatalog.json & ${totalCount} canonical URLs across sitemap.xml, sitemap-index.xml, news-sitemap.xml, rss.xml, and 6 sub-sitemaps.`
+      `[SEO Generator] Wrote api/_seoCatalog.json & ${totalCount} canonical URLs + ${videoCount} video watch URLs across sitemap-index.xml, video-sitemap.xml, news-sitemap.xml, rss.xml, and 6 sub-sitemaps.`
     );
   })();
 }

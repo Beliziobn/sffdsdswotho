@@ -2,7 +2,7 @@
   "trailingSlash": false,
   "functions": {
     "api/[...route].ts": {
-      "includeFiles": "{index.html,dist/index.html,api/_seoCatalog.json,src/data/newsArchive.json,firebase-applet-config.json,public/robots.txt,public/sitemap.xml,public/og-wotho-home.jpg}"
+      "includeFiles": "{index.html,dist/index.html,api/_seoCatalog.json,src/data/newsArchive.json,src/data/expandedAnimesList.json,firebase-applet-config.json,public/robots.txt,public/sitemap.xml,public/sitemap-index.xml,public/video-sitemap.xml,public/og-wotho-home.jpg}"
     }
   },
   "redirects": [
@@ -166,6 +166,10 @@
       "destination": "/api/[...route]?route=news-sitemap.xml"
     },
     {
+      "source": "/video-sitemap.xml",
+      "destination": "/api/[...route]?route=video-sitemap.xml"
+    },
+    {
       "source": "/rss.xml",
       "destination": "/api/[...route]?route=rss.xml"
     },
@@ -186,24 +190,24 @@
       "destination": "/api/[...route]?route=$1"
     },
     {
-      "source": "/((?!api/|_vercel/|\\.well-known/|assets/|chapters/|pdf/|sitemap.*\\.xml|news-sitemap\\.xml|rss\\.xml|feed\\.xml|robots\\.txt|llms.*\\.txt|.*\\..*).*)",
+      "source": "/((?!api/|_vercel/|\\.well-known/|assets/|chapters/|pdf/|sitemap.*\\.xml|news-sitemap\\.xml|video-sitemap\\.xml|rss\\.xml|feed\\.xml|robots\\.txt|llms.*\\.txt|.*\\..*).*)",
       "has": [
         {
           "type": "header",
           "key": "user-agent",
-          "value": ".*(Googlebot|googlebot|Google-InspectionTool|AdsBot-Google|Mediapartners-Google|Storebot-Google|GoogleOther|GoogleProducer|Google-Read-Aloud|Bingbot|bingbot|BingPreview|bingpreview|msnbot|AdIdxBot|adidxbot|Slurp|slurp|DuckDuckBot|duckduckbot|Applebot|applebot|OAI-SearchBot|oai-searchbot|ChatGPT-User|chatgpt-user|GPTBot|gptbot|ClaudeBot|claudebot|PerplexityBot|perplexitybot|Yandex|yandex|facebookexternalhit|Facebot|facebot|Meta-External|meta-external|Instagram|instagram|Threads|threads|Twitterbot|twitterbot|LinkedInBot|linkedinbot|WhatsApp|whatsapp|Slackbot|slackbot|TelegramBot|telegrambot|Discordbot|discordbot|Pinterest|pinterest|redditbot|Viber|viber|Line|Snapchat|SkypeUriPreview|vkShare|Embedly|Iframely|cardyb|Bluesky|Mastodon|Tumblr|Flipboard|TikTok|ByteSpider|bitlybot|outbrain|quora|W3C_Validator|curl).*"
+          "value": ".*(Googlebot|googlebot|Googlebot-Video|Googlebot-Image|Googlebot-News|Google-InspectionTool|AdsBot-Google|Mediapartners-Google|Storebot-Google|GoogleOther|GoogleProducer|Google-Read-Aloud|Bingbot|bingbot|BingPreview|bingpreview|msnbot|AdIdxBot|adidxbot|Slurp|slurp|DuckDuckBot|duckduckbot|Applebot|applebot|OAI-SearchBot|oai-searchbot|ChatGPT-User|chatgpt-user|GPTBot|gptbot|ClaudeBot|claudebot|PerplexityBot|perplexitybot|Yandex|yandex|facebookexternalhit|Facebot|facebot|Meta-External|meta-external|Instagram|instagram|Threads|threads|Twitterbot|twitterbot|LinkedInBot|linkedinbot|WhatsApp|whatsapp|Slackbot|slackbot|TelegramBot|telegrambot|Discordbot|discordbot|Pinterest|pinterest|redditbot|Viber|viber|Line|Snapchat|SkypeUriPreview|vkShare|Embedly|Iframely|cardyb|Bluesky|Mastodon|Tumblr|Flipboard|TikTok|ByteSpider|bitlybot|outbrain|quora|W3C_Validator|curl).*"
         }
       ],
       "destination": "/api/[...route]?route=seo-prerender&path=/$1"
     },
     {
-      "source": "/((?!api/|_vercel/|\\.well-known/|assets/|chapters/|pdf/|sitemap.*\\.xml|news-sitemap\\.xml|rss\\.xml|feed\\.xml|robots\\.txt|llms.*\\.txt|.*\\..*).*)",
+      "source": "/((?!api/|_vercel/|\\.well-known/|assets/|chapters/|pdf/|sitemap.*\\.xml|news-sitemap\\.xml|video-sitemap\\.xml|rss\\.xml|feed\\.xml|robots\\.txt|llms.*\\.txt|.*\\..*).*)",
       "destination": "/index.html"
     }
   ],
   "headers": [
     {
-      "source": "/(sitemap.*\\.xml|news-sitemap\\.xml)",
+      "source": "/(sitemap.*\\.xml|news-sitemap\\.xml|video-sitemap\\.xml)",
       "headers": [
         {
           "key": "Content-Type",

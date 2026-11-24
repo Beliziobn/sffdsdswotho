@@ -46,6 +46,7 @@ import {
   buildSitemapIndexXml,
   buildSubSitemapXml,
   buildNewsSitemapXml,
+  buildVideoSitemapXml,
   buildRssXml,
   loadSeoCatalog,
 } from '../scripts/generate_sitemap.js';
@@ -190,6 +191,16 @@ export default async function handler(req: any, res: any) {
       return;
     }
 
+    case '/api/video-sitemap.xml':
+    case '/video-sitemap.xml': {
+      res.statusCode = 200;
+      res.setHeader('Content-Type', 'application/xml; charset=utf-8');
+      res.setHeader('Cache-Control', 'public, max-age=3600, s-maxage=3600');
+      const { xml } = buildVideoSitemapXml('https://wotho.vercel.app');
+      res.end(xml);
+      return;
+    }
+
     case '/api/rss.xml':
     case '/rss.xml':
     case '/api/feed.xml':
@@ -258,8 +269,9 @@ export default async function handler(req: any, res: any) {
             news: cat.news?.length || 0,
           },
           sitemaps: [
-            'https://wotho.vercel.app/sitemap.xml',
             'https://wotho.vercel.app/sitemap-index.xml',
+            'https://wotho.vercel.app/video-sitemap.xml',
+            'https://wotho.vercel.app/sitemap.xml',
             'https://wotho.vercel.app/news-sitemap.xml',
             'https://wotho.vercel.app/rss.xml',
           ],

@@ -18,6 +18,7 @@ import {
   Captions,
 } from "lucide-react";
 import { AnimeEpisode, AnimeSeason } from "@/lib/animes";
+import expandedAnimesListJson from "@/data/expandedAnimesList.json";
 import { toast } from "sonner";
 
 interface SecureAnimePlayerProps {
@@ -112,7 +113,12 @@ const DEFAULT_ANIME_DUB_PRESETS: AvailableDubOption[] = [
   },
 ];
 
+const EXPANDED_ANIME_TMDB_MAP: Record<string, number> = Object.fromEntries(
+  (expandedAnimesListJson as any[]).map((entry) => [entry.id, Number(entry.tmdbId)])
+);
+
 const ANIME_TMDB_MAP: Record<string, number> = {
+  ...EXPANDED_ANIME_TMDB_MAP,
   "solo-leveling": 127532,
   "frieren-beyond-journeys-end": 209867,
   "orb-movements-of-the-earth": 204635,

@@ -318,10 +318,11 @@ export const CanonicalManager = () => {
         ogType: "website",
         ogImage: meta.ogImage || DEFAULT_OG_IMAGE,
         ogImageAlt: meta.title,
+        ogVideo: null,
         jsonLd,
       });
     } else {
-      // Dynamic detail/utility route: preserve SSR-injected og:image while detail page hydrates
+      // Dynamic detail/utility route: preserve SSR-injected og:image and og:type while detail page hydrates
       const currentTitle = document.title || "Wotho";
       const currentDesc =
         document.querySelector('meta[name="description"]')?.getAttribute("content") ||
@@ -329,13 +330,27 @@ export const CanonicalManager = () => {
       const existingOgImage =
         document.querySelector('meta[property="og:image"]')?.getAttribute("content") ||
         DEFAULT_OG_IMAGE;
+      const existingOgType = document
+        .querySelector('meta[property="og:type"]')
+        ?.getAttribute("content");
+      const isVideoWatchRoute =
+        /^\/cinema\/[^/]+$/.test(normalizedPath) ||
+        (/^\/animes\/[^/]+$/.test(normalizedPath) && !isReaderSubRoute);
+      const safeOgType: "website" | "article" | "book" | "video.movie" | "video.tv_show" =
+        existingOgType === "video.movie" ||
+        existingOgType === "video.tv_show" ||
+        existingOgType === "article" ||
+        existingOgType === "book"
+          ? existingOgType
+          : "website";
       applySeoMetadata({
         title: currentTitle,
         description: currentDesc,
         canonicalPath,
         robots: robotsDirective,
-        ogType: "website",
+        ogType: safeOgType,
         ogImage: existingOgImage,
+        ...(isVideoWatchRoute ? {} : { ogVideo: null }),
       });
     }
   }, [location.pathname]);

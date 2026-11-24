@@ -13,7 +13,7 @@ const DEFAULT_OG_IMAGE_PATH = '/og-wotho-home.jpg';
 const BOOKS_OG_IMAGE_PATH = '/og-livros.jpg';
 
 const BOT_USER_AGENT_RE =
-  /(googlebot|google-inspectiontool|adsbot-google|mediapartners-google|storebot-google|googleother|googleproducer|google-read-aloud|bingbot|bingpreview|msnbot|adidxbot|slurp|duckduckbot|applebot|applebot-extended|oai-searchbot|chatgpt-user|gptbot|claudebot|perplexitybot|yandex|baiduspider|sogou|exabot|facebookexternalhit|facebot|meta-external|instagram|threads|twitterbot|linkedinbot|whatsapp|slackbot|telegrambot|discordbot|pinterest|redditbot|viber|line\/|snapchat|skypeuripreview|vkshare|embedly|iframely|cardyb|bluesky|mastodon|tumblr|flipboard|tiktok|bytespider|bitlybot|outbrain|quora|w3c_validator|screaming frog|ahrefsbot|semrushbot|mj12bot|petalbot|curl\/)/i;
+  /(googlebot|googlebot-video|googlebot-image|googlebot-news|google-inspectiontool|adsbot-google|mediapartners-google|storebot-google|googleother|googleproducer|google-read-aloud|bingbot|bingpreview|msnbot|adidxbot|slurp|duckduckbot|applebot|applebot-extended|oai-searchbot|chatgpt-user|gptbot|claudebot|perplexitybot|yandex|baiduspider|sogou|exabot|facebookexternalhit|facebot|meta-external|instagram|threads|twitterbot|linkedinbot|whatsapp|slackbot|telegrambot|discordbot|pinterest|redditbot|viber|line\/|snapchat|skypeuripreview|vkshare|embedly|iframely|cardyb|bluesky|mastodon|tumblr|flipboard|tiktok|bytespider|bitlybot|outbrain|quora|w3c_validator|screaming frog|ahrefsbot|semrushbot|mj12bot|petalbot|curl\/)/i;
 
 export function resolvePermanentRedirect(rawPathname) {
   let pathname = String(rawPathname || '/').split('?')[0];
@@ -292,6 +292,136 @@ function buildBreadcrumbJsonLd(items, origin) {
       item: item.url.startsWith('http') ? item.url : `${origin}${item.url}`,
     })),
   };
+}
+
+function parseIsoDuration(durationStr, fallbackIso = 'PT2M30S') {
+  if (!durationStr || typeof durationStr !== 'string') return fallbackIso;
+  const hMatch = durationStr.match(/(\d+)\s*h/i);
+  const mMatch = durationStr.match(/(\d+)\s*m/i);
+  const sMatch = durationStr.match(/(\d+)\s*s/i);
+  const h = hMatch ? parseInt(hMatch[1], 10) : 0;
+  const m = mMatch ? parseInt(mMatch[1], 10) : 0;
+  const s = sMatch ? parseInt(sMatch[1], 10) : 0;
+  if (h === 0 && m === 0 && s === 0) return fallbackIso;
+  return `PT${h > 0 ? `${h}H` : ''}${m > 0 ? `${m}M` : ''}${s > 0 ? `${s}S` : ''}`;
+}
+
+function toValidUploadDateIso(yearVal) {
+  const y = Number(yearVal) || 0;
+  const nowYear = new Date().getUTCFullYear();
+  if (y >= 1980 && y <= nowYear) {
+    return `${y}-06-15T12:00:00Z`;
+  }
+  return '2025-06-15T12:00:00Z';
+}
+
+function buildVideoWatchMeta({
+  ytId,
+  name,
+  description,
+  thumbnailUrl,
+  uploadDate,
+  durationIso,
+  canonicalUrl,
+  isFamilyFriendly = true,
+  origin = DEFAULT_ORIGIN,
+}) {
+  const cleanYt = typeof ytId === 'string' && /^[A-Za-z0-9_-]{6,20}$/.test(ytId.trim()) ? ytId.trim() : '';
+  if (!cleanYt) return null;
+  const embedUrl = `https://www.youtube.com/embed/${cleanYt}`;
+  const contentUrl = `https://www.youtube.com/watch?v=${cleanYt}`;
+  const ytThumb = `https://i.ytimg.com/vi/${cleanYt}/hqdefault.jpg`;
+  const thumbnails = Array.from(new Set([thumbnailUrl, ytThumb].filter(Boolean)));
+  const videoId = `${canonicalUrl}#video`;
+
+  const videoJsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'VideoObject',
+    '@id': videoId,
+    name,
+    description,
+    thumbnailUrl: thumbnails,
+    uploadDate,
+    duration: durationIso,
+    embedUrl,
+    contentUrl,
+    inLanguage: 'pt-BR',
+    isFamilyFriendly: Boolean(isFamilyFriendly),
+    publisher: {
+      '@type': 'Organization',
+      name: 'Wotho',
+      logo: {
+        '@type': 'ImageObject',
+        url: `${origin}/favicon-512x512.png`,
+        width: 512,
+        height: 512,
+      },
+    },
+    potentialAction: {
+      '@type': 'WatchAction',
+      target: canonicalUrl,
+    },
+  };
+
+  return {
+    ytId: cleanYt,
+    videoId,
+    name,
+    description,
+    thumbnailUrl: thumbnails[0] || ytThumb,
+    uploadDate,
+    durationIso,
+    embedUrl,
+    contentUrl,
+    videoJsonLd,
+  };
+}
+
+/**
+ * Builds a strongly-connected internal link neighborhood around an item in the catalog
+ * (next 6 + prev 2 in the catalog ring + up to 8 same-genre neighbors) so ZERO pages
+ * are orphaned from the HTML crawl graph.
+ */
+function buildConnectedRelatedLinks(list, currentId, getHref, getLabel, getGenres, maxTotal = 16) {
+  if (!Array.isArray(list) || list.length <= 1) return [];
+  const idx = list.findIndex((x) => x && (x.id === currentId || x.slug === currentId));
+  const current = idx >= 0 ? list[idx] : null;
+  const curGenres = new Set(
+    ((current && getGenres ? getGenres(current) : []) || []).map((g) => String(g).toLowerCase())
+  );
+
+  const picked = [];
+  const seen = new Set([currentId]);
+  const add = (entry) => {
+    if (!entry) return;
+    const key = entry.id || entry.slug;
+    if (!key || seen.has(key)) return;
+    seen.add(key);
+    picked.push({ href: getHref(entry), label: getLabel(entry) });
+  };
+
+  const n = list.length;
+  const base = idx >= 0 ? idx : 0;
+  // Ring neighbors: guarantees every item in the catalog has incoming links!
+  for (let offset = 1; offset <= 6; offset++) add(list[(base + offset) % n]);
+  for (let offset = 1; offset <= 2; offset++) add(list[(base - offset + n) % n]);
+
+  // Same-genre thematic neighbors
+  if (curGenres.size > 0) {
+    for (let i = 0; i < n && picked.length < maxTotal; i++) {
+      const candidate = list[(base + 7 + i) % n];
+      if (!candidate) continue;
+      const gList = (getGenres ? getGenres(candidate) : []) || [];
+      if (gList.some((g) => curGenres.has(String(g).toLowerCase()))) {
+        add(candidate);
+      }
+    }
+  }
+
+  for (let i = 0; i < n && picked.length < maxTotal; i++) {
+    add(list[(base + 7 + i) % n]);
+  }
+  return picked.slice(0, maxTotal);
 }
 
 const STATIC_PAGE_META = {
@@ -578,7 +708,7 @@ export function resolveRouteSeo(rawPathname, customOrigin = DEFAULT_ORIGIN) {
         name: a.title,
       }));
     } else if (canonicalPath === '/webtoons') {
-      links = catalog.webtoons.slice(0, 120).map((w) => ({ href: `/webtoon/${w.id}`, label: w.title }));
+      links = catalog.webtoons.map((w) => ({ href: `/webtoon/${w.id}`, label: w.title }));
       itemListElements = catalog.webtoons.slice(0, 20).map((w, i) => ({
         '@type': 'ListItem',
         position: i + 1,
@@ -586,7 +716,7 @@ export function resolveRouteSeo(rawPathname, customOrigin = DEFAULT_ORIGIN) {
         name: w.title,
       }));
     } else if (canonicalPath === '/noticias') {
-      links = catalog.news.slice(0, 80).map((n) => ({ href: `/noticias/${n.slug}`, label: n.title }));
+      links = catalog.news.slice(0, 150).map((n) => ({ href: `/noticias/${n.slug}`, label: n.title }));
       itemListElements = catalog.news.slice(0, 20).map((n, i) => ({
         '@type': 'ListItem',
         position: i + 1,
@@ -598,8 +728,8 @@ export function resolveRouteSeo(rawPathname, customOrigin = DEFAULT_ORIGIN) {
         ...catalog.books.map((b) => ({ href: `/livros/${b.id}`, label: `${b.title} — ${b.author}` })),
         ...catalog.cinema.map((c) => ({ href: `/cinema/${c.id}`, label: `${c.title} (${c.year})` })),
         ...catalog.animes.map((a) => ({ href: `/animes/${a.id}`, label: a.title })),
-        ...catalog.webtoons.slice(0, 120).map((w) => ({ href: `/webtoon/${w.id}`, label: w.title })),
-        ...catalog.news.slice(0, 60).map((n) => ({ href: `/noticias/${n.slug}`, label: n.title })),
+        ...catalog.webtoons.map((w) => ({ href: `/webtoon/${w.id}`, label: w.title })),
+        ...catalog.news.slice(0, 150).map((n) => ({ href: `/noticias/${n.slug}`, label: n.title })),
       ];
     }
 
@@ -739,10 +869,22 @@ export function resolveRouteSeo(rawPathname, customOrigin = DEFAULT_ORIGIN) {
           : {}),
       };
 
-      const relatedLinks = catalog.books
-        .filter((b) => b.id !== resolvedId)
-        .slice(0, 12)
-        .map((b) => ({ href: `/livros/${b.id}`, label: `${b.title} — ${b.author}` }));
+      const relatedLinks = buildConnectedRelatedLinks(
+        catalog.books,
+        resolvedId,
+        (b) => `/livros/${b.id}`,
+        (b) => `${b.title} — ${b.author}`,
+        (b) => [b.category].filter(Boolean),
+        14
+      );
+
+      const bookEditorialParagraphs = [
+        desc,
+        `"${bookTitle}", escrito por ${authorName}${book?.year ? ` (${book.year})` : ''}, integra o acervo digital da Wotho na editoria de ${book?.category || 'Literatura e Conhecimento'}. A edição online oferece leitura contínua diretamente no navegador (HTML5 e PDF nativo), sem necessidade de aplicativos externos, com navegação rápida por capítulos, ajuste tipográfico e acompanhamento de progresso.`,
+        book?.kind === 'scientific'
+          ? `Classificado como artigo científico comentado${book?.institution ? ` vinculado a ${book.institution}` : ''}${book?.doi ? ` (DOI: ${book.doi})` : ''}, o texto apresenta síntese metodológica, resultados principais e contexto acadêmico para estudantes e pesquisadores de língua portuguesa.`
+          : `Além da leitura integral gratuita na plataforma, esta ficha catalográfica disponibiliza dados bibliográficos verificados, tempo estimado de leitura (${book?.read_time || 60} minutos) e recomendações correlatas para aprofundamento literário e educacional.`,
+      ];
 
       return {
         statusCode: 200,
@@ -759,6 +901,7 @@ export function resolveRouteSeo(rawPathname, customOrigin = DEFAULT_ORIGIN) {
         ogImageAlt: `${bookTitle} — ${authorName}`,
         h1: bookTitle,
         subtitle: `Por ${authorName}${book?.category ? ` · ${book.category}` : ''}`,
+        bodyParagraphs: bookEditorialParagraphs,
         bodyText: desc,
         coverImage: cover,
         facts: [
@@ -766,6 +909,7 @@ export function resolveRouteSeo(rawPathname, customOrigin = DEFAULT_ORIGIN) {
           { label: 'Autor(a)', value: authorName },
           ...(book?.category ? [{ label: 'Categoria', value: book.category }] : []),
           ...(book?.year ? [{ label: 'Ano', value: String(book.year) }] : []),
+          { label: 'Tempo de Leitura', value: `${book?.read_time || 60} min` },
           { label: 'Formato', value: 'Livro Digital no Navegador (HTML5 / PDF)' },
           { label: 'Plataforma', value: 'Wotho Biblioteca Digital' },
           { label: 'Idioma', value: 'Português (Brasil)' },
@@ -789,7 +933,7 @@ export function resolveRouteSeo(rawPathname, customOrigin = DEFAULT_ORIGIN) {
     }
   }
 
-  // Dynamic Detail: /cinema/:id
+  // Dynamic Detail / Dedicated Video Watch Page: /cinema/:id
   if (lowerPath.startsWith('/cinema/')) {
     const id = decodeURIComponent(canonicalPath.slice('/cinema/'.length).split('/')[0] || '').trim();
     const normId = id.toLowerCase();
@@ -814,14 +958,30 @@ export function resolveRouteSeo(rawPathname, customOrigin = DEFAULT_ORIGIN) {
         synopsis: `Assista ${humanizeSlug(normId)} em alta definição com áudio dublado em português (PT-BR) e legendas completas na plataforma Wotho.`,
         posterUrl: `${origin}${DEFAULT_OG_IMAGE_PATH}`,
       };
-      const pageTitle = `${resolvedItem.title} (${resolvedItem.year}) — Cinema & Séries Wotho`;
+      const isSeries = resolvedItem.type === 'serie';
+      const pageTitle = `Assistir ${resolvedItem.title} (${resolvedItem.year}) — ${isSeries ? 'Série' : 'Filme'} HD | Wotho`;
       const desc =
         resolvedItem.synopsis ||
         `Assista ${resolvedItem.title} (${resolvedItem.year}) em alta definição com áudio dublado PT-BR e legendas na Wotho.`;
-      // Prefer widescreen 16:9 backdropUrl for social cards (looks crisp in WhatsApp/Facebook/X summary_large_image)
       const cover = toAbsoluteUrl(resolvedItem.backdropUrl || resolvedItem.posterUrl, origin);
       const canonicalUrl = `${origin}/cinema/${encodeURIComponent(resolvedItem.id)}`;
-      const isSeries = resolvedItem.type === 'serie';
+      const isFamilyFriendly = !String(resolvedItem.ageRating || '').includes('18');
+      const uploadDateIso = toValidUploadDateIso(resolvedItem.year);
+      const durationIso = parseIsoDuration(resolvedItem.duration, isSeries ? 'PT48M' : 'PT2H');
+
+      const videoWatch = item
+        ? buildVideoWatchMeta({
+            ytId: resolvedItem.trailerYoutubeId,
+            name: `${resolvedItem.title} (${resolvedItem.year}) — ${isSeries ? 'Série Completa' : 'Filme'} em Português`,
+            description: desc,
+            thumbnailUrl: cover,
+            uploadDate: uploadDateIso,
+            durationIso,
+            canonicalUrl,
+            isFamilyFriendly,
+            origin,
+          })
+        : null;
 
       const cinemaJsonLd = {
         '@context': 'https://schema.org',
@@ -838,6 +998,9 @@ export function resolveRouteSeo(rawPathname, customOrigin = DEFAULT_ORIGIN) {
         ...(Array.isArray(resolvedItem.cast) && resolvedItem.cast.length > 0
           ? { actor: resolvedItem.cast.map((name) => ({ '@type': 'Person', name })) }
           : {}),
+        ...(isSeries && resolvedItem.seasonsCount ? { numberOfSeasons: resolvedItem.seasonsCount } : {}),
+        ...(isSeries && resolvedItem.episodesCount ? { numberOfEpisodes: resolvedItem.episodesCount } : {}),
+        ...(videoWatch ? { trailer: { '@id': videoWatch.videoId } } : {}),
         ...(resolvedItem.rating
           ? {
               aggregateRating: {
@@ -851,54 +1014,87 @@ export function resolveRouteSeo(rawPathname, customOrigin = DEFAULT_ORIGIN) {
         publisher: { '@type': 'Organization', name: 'Wotho' },
       };
 
-      const relatedLinks = catalog.cinema
-        .filter((c) => c.id !== resolvedItem.id)
-        .slice(0, 12)
-        .map((c) => ({ href: `/cinema/${c.id}`, label: `${c.title} (${c.year})` }));
+      const relatedLinks = buildConnectedRelatedLinks(
+        catalog.cinema,
+        resolvedItem.id,
+        (c) => `/cinema/${c.id}`,
+        (c) => `${c.title} (${c.year}) — ${c.type === 'serie' ? 'Série' : 'Filme'}`,
+        (c) => c.genres,
+        16
+      );
+
+      const castText =
+        Array.isArray(resolvedItem.cast) && resolvedItem.cast.length > 0
+          ? ` O elenco reúne ${resolvedItem.cast.join(', ')}.`
+          : '';
+      const seasonText =
+        isSeries && resolvedItem.seasonsCount
+          ? ` Esta página de visualização disponibiliza ${resolvedItem.seasonsCount} ${resolvedItem.seasonsCount === 1 ? 'temporada' : 'temporadas'}${resolvedItem.episodesCount ? ` e ${resolvedItem.episodesCount} episódios organizados` : ''} com troca direta no player principal.`
+          : resolvedItem.duration
+          ? ` A produção possui duração aproximada de ${resolvedItem.duration} e classificação indicativa ${resolvedItem.ageRating || '14'}.`
+          : '';
+
+      const cinemaParagraphs = [
+        desc,
+        `${resolvedItem.title}${resolvedItem.originalTitle && resolvedItem.originalTitle !== resolvedItem.title ? ` (título original: ${resolvedItem.originalTitle})` : ''} é ${isSeries ? 'uma série' : 'um filme'} de ${(resolvedItem.genres || ['Drama']).join(', ')} lançado em ${resolvedItem.year}${resolvedItem.director ? `, com direção de ${resolvedItem.director}` : ''}.${castText}${seasonText}`,
+        `Na página oficial de visualização da Wotho Cinema & Séries, o vídeo é exibido em destaque no topo em resolução ${resolvedItem.quality || '1080p FHD'}, com suporte a áudio dublado em português (PT-BR), áudio original e legendas sincronizadas, além de ficha técnica verificada e recomendações do mesmo gênero.`,
+      ];
 
       return {
-        statusCode: 200,
+        statusCode: item ? 200 : 404,
         indexable: Boolean(item),
         robots: item
           ? 'index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1'
-          : 'noindex, follow',
-        canonicalUrl,
+          : 'noindex, nofollow',
+        canonicalUrl: item ? canonicalUrl : null,
         title: pageTitle,
         description: desc,
         ogType: isSeries ? 'video.tv_show' : 'video.movie',
         ogImage: cover,
         ogImageAlt: `${resolvedItem.title} (${resolvedItem.year})`,
+        videoWatch,
         h1: `${resolvedItem.title} (${resolvedItem.year})`,
-        subtitle: `${isSeries ? 'Série' : 'Filme'} · ${resolvedItem.director || 'Cinema Wotho'} · ${(resolvedItem.genres || []).join(', ')}`,
+        subtitle: `Página de Visualização · ${isSeries ? 'Série' : 'Filme'} · ${resolvedItem.director || 'Cinema Wotho'} · ${(resolvedItem.genres || []).join(', ')}`,
+        bodyParagraphs: cinemaParagraphs,
         bodyText: desc,
         coverImage: cover,
         facts: [
           { label: 'Título', value: resolvedItem.title },
           ...(resolvedItem.originalTitle ? [{ label: 'Título Original', value: resolvedItem.originalTitle }] : []),
-          { label: 'Tipo', value: isSeries ? 'Série' : 'Filme' },
+          { label: 'Formato', value: isSeries ? 'Série Completa (Streaming)' : 'Filme Completo (Streaming)' },
           { label: 'Ano de Lançamento', value: String(resolvedItem.year) },
+          ...(resolvedItem.duration ? [{ label: 'Duração', value: resolvedItem.duration }] : []),
+          ...(isSeries && resolvedItem.seasonsCount
+            ? [{ label: 'Temporadas', value: `${resolvedItem.seasonsCount} (${resolvedItem.episodesCount || 0} episódios)` }]
+            : []),
           ...(resolvedItem.director ? [{ label: 'Direção', value: resolvedItem.director }] : []),
+          ...(Array.isArray(resolvedItem.cast) && resolvedItem.cast.length > 0
+            ? [{ label: 'Elenco Principal', value: resolvedItem.cast.join(', ') }]
+            : []),
           ...(resolvedItem.genres?.length ? [{ label: 'Gêneros', value: resolvedItem.genres.join(', ') }] : []),
-          { label: 'Áudio e Legendas', value: 'Dublado Português (PT-BR) & Legendado' },
-          { label: 'Plataforma', value: 'Wotho Cinema & Séries' },
+          { label: 'Qualidade & Áudio', value: `${resolvedItem.quality || '1080p FHD'} · Dublado PT-BR & Legendado` },
+          ...(resolvedItem.rating ? [{ label: 'Avaliação Média', value: `${resolvedItem.rating} / 10` }] : []),
         ],
         links: relatedLinks,
-        jsonLd: [
-          cinemaJsonLd,
-          buildBreadcrumbJsonLd(
-            [
-              { name: 'Wotho', url: '/' },
-              { name: 'Cinema & Séries', url: '/cinema' },
-              { name: resolvedItem.title, url: canonicalUrl },
-            ],
-            origin
-          ),
-        ],
+        jsonLd: item
+          ? [
+              ...(videoWatch ? [videoWatch.videoJsonLd] : []),
+              cinemaJsonLd,
+              buildBreadcrumbJsonLd(
+                [
+                  { name: 'Wotho', url: '/' },
+                  { name: 'Cinema & Séries', url: '/cinema' },
+                  { name: resolvedItem.title, url: canonicalUrl },
+                ],
+                origin
+              ),
+            ]
+          : [],
       };
     }
   }
 
-  // Dynamic Detail: /animes/:id (and /animes/:id/manga)
+  // Dynamic Detail / Dedicated Video Watch Page: /animes/:id (and /animes/:id/manga)
   if (lowerPath.startsWith('/animes/')) {
     const parts = canonicalPath.slice('/animes/'.length).split('/');
     const id = decodeURIComponent(parts[0] || '').trim();
@@ -927,13 +1123,28 @@ export function resolveRouteSeo(rawPathname, customOrigin = DEFAULT_ORIGIN) {
       };
       const pageTitle = isMangaReader
         ? `${resolvedAnime.title} — Ler Mangá Online | Wotho Animes`
-        : `${resolvedAnime.title} — Streaming de Anime & Mangá | Wotho`;
+        : `Assistir ${resolvedAnime.title} — Anime HD & Mangá Completo | Wotho`;
       const desc =
         resolvedAnime.synopsis ||
         `Assista episódios de ${resolvedAnime.title} e leia capítulos de mangá integrados na plataforma Wotho.`;
-      // Prefer widescreen banner for social link previews
       const cover = toAbsoluteUrl(resolvedAnime.banner || resolvedAnime.cover, origin);
       const canonicalUrl = `${origin}/animes/${encodeURIComponent(resolvedAnime.id)}`;
+      const uploadDateIso = toValidUploadDateIso(resolvedAnime.year);
+
+      const videoWatch =
+        anime && !isMangaReader
+          ? buildVideoWatchMeta({
+              ytId: resolvedAnime.trailerYoutubeId,
+              name: `${resolvedAnime.title} — Assistir Episódios em Português (PT-BR)`,
+              description: desc,
+              thumbnailUrl: cover,
+              uploadDate: uploadDateIso,
+              durationIso: 'PT24M',
+              canonicalUrl,
+              isFamilyFriendly: true,
+              origin,
+            })
+          : null;
 
       const animeJsonLd = {
         '@context': 'https://schema.org',
@@ -945,8 +1156,10 @@ export function resolveRouteSeo(rawPathname, customOrigin = DEFAULT_ORIGIN) {
         inLanguage: 'pt-BR',
         url: canonicalUrl,
         genre: resolvedAnime.genres,
+        numberOfSeasons: resolvedAnime.seasonsCount || 1,
         numberOfEpisodes: resolvedAnime.episodesCount || undefined,
         productionCompany: resolvedAnime.studio ? { '@type': 'Organization', name: resolvedAnime.studio } : undefined,
+        ...(videoWatch ? { trailer: { '@id': videoWatch.videoId } } : {}),
         ...(resolvedAnime.rating
           ? {
               aggregateRating: {
@@ -960,52 +1173,76 @@ export function resolveRouteSeo(rawPathname, customOrigin = DEFAULT_ORIGIN) {
         publisher: { '@type': 'Organization', name: 'Wotho' },
       };
 
-      const relatedLinks = catalog.animes
-        .filter((a) => a.id !== resolvedAnime.id)
-        .slice(0, 12)
-        .map((a) => ({ href: `/animes/${a.id}`, label: a.title }));
+      const relatedLinks = buildConnectedRelatedLinks(
+        catalog.animes,
+        resolvedAnime.id,
+        (a) => `/animes/${a.id}`,
+        (a) => `${a.title} (${a.year}) — Anime & Mangá`,
+        (a) => a.genres,
+        16
+      );
+
+      const mangaSummary =
+        resolvedAnime.mangaChaptersCount > 0
+          ? ` Além dos episódios em vídeo, a página integra o mangá completo "${resolvedAnime.mangaTitle || resolvedAnime.title}"${resolvedAnime.author ? ` de ${resolvedAnime.author}` : ''}, com ${resolvedAnime.mangaChaptersCount} capítulos catalogados e sincronização episódio-capítulo via CanonBridge.`
+          : ` Obra de animação produzida pelo estúdio ${resolvedAnime.studio || 'Wotho Animes'} com guia completo de temporadas e episódios.`;
+
+      const animeParagraphs = [
+        desc,
+        `${resolvedAnime.title}${resolvedAnime.japaneseTitle ? ` (${resolvedAnime.japaneseTitle})` : ''} estreou em ${resolvedAnime.year || 2024} com animação de ${resolvedAnime.studio || 'estúdio japonês'}, reunindo os gêneros ${(resolvedAnime.genres || ['Ação']).join(', ')} ao longo de ${resolvedAnime.seasonsCount || 1} ${(resolvedAnime.seasonsCount || 1) === 1 ? 'temporada' : 'temporadas'} e ${resolvedAnime.episodesCount || 12} episódios verificados.${mangaSummary}`,
+        `Nesta página dedicada de visualização da Wotho Animes, o player unificado 1080p FHD oferece opções de áudio Dublado PT-BR, Legendado PT-BR, Japonês Original, Inglês, Espanhol e Francês, além de navegação direta entre episódios e capítulos do mangá.`,
+      ];
 
       return {
-        statusCode: 200,
+        statusCode: anime ? 200 : 404,
         indexable: Boolean(anime) && !isMangaReader,
         robots:
-          !anime || isMangaReader
+          !anime
+            ? 'noindex, nofollow'
+            : isMangaReader
             ? 'noindex, follow'
             : 'index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1',
-        canonicalUrl,
+        canonicalUrl: anime ? canonicalUrl : null,
         title: pageTitle,
         description: desc,
         ogType: 'video.tv_show',
         ogImage: cover,
         ogImageAlt: resolvedAnime.title,
+        videoWatch,
         h1: resolvedAnime.title,
-        subtitle: `${resolvedAnime.studio || 'Anime'} · ${resolvedAnime.year || ''} · ${(resolvedAnime.genres || []).join(', ')}`,
+        subtitle: `Página de Visualização · ${resolvedAnime.studio || 'Anime'} · ${resolvedAnime.year || ''} · ${(resolvedAnime.genres || []).join(', ')}`,
+        bodyParagraphs: animeParagraphs,
         bodyText: desc,
         coverImage: cover,
         facts: [
           { label: 'Título', value: resolvedAnime.title },
           ...(resolvedAnime.japaneseTitle ? [{ label: 'Título em Japonês', value: resolvedAnime.japaneseTitle }] : []),
           ...(resolvedAnime.studio ? [{ label: 'Estúdio', value: resolvedAnime.studio }] : []),
-          ...(resolvedAnime.year ? [{ label: 'Ano', value: String(resolvedAnime.year) }] : []),
-          ...(resolvedAnime.episodesCount ? [{ label: 'Episódios Verificados', value: String(resolvedAnime.episodesCount) }] : []),
+          ...(resolvedAnime.year ? [{ label: 'Ano de Estreia', value: String(resolvedAnime.year) }] : []),
+          { label: 'Temporadas & Episódios', value: `${resolvedAnime.seasonsCount || 1} temp. · ${resolvedAnime.episodesCount || 12} episódios` },
+          ...(resolvedAnime.mangaChaptersCount
+            ? [{ label: 'Mangá Integrado', value: `${resolvedAnime.mangaTitle || resolvedAnime.title} (${resolvedAnime.mangaChaptersCount} caps)` }]
+            : []),
+          ...(resolvedAnime.author ? [{ label: 'Autor(a) Original', value: resolvedAnime.author }] : []),
           ...(resolvedAnime.genres?.length ? [{ label: 'Gêneros', value: resolvedAnime.genres.join(', ') }] : []),
-          { label: 'Idiomas Disponíveis', value: 'Dublado PT-BR, Legendado PT-BR, Japonês Original, Inglês, Espanhol e Francês' },
-          { label: 'Plataforma', value: 'Wotho Animes & Mangás' },
+          { label: 'Áudio e Legendas', value: 'Dublado PT-BR, Legendado PT-BR, Japonês Original, EN, ES e FR' },
         ],
-        links: [{ href: `/animes/${resolvedAnime.id}/manga`, label: `Ler mangá de ${resolvedAnime.title}` }, ...relatedLinks],
-        jsonLd: isMangaReader
-          ? []
-          : [
-              animeJsonLd,
-              buildBreadcrumbJsonLd(
-                [
-                  { name: 'Wotho', url: '/' },
-                  { name: 'Animes', url: '/animes' },
-                  { name: resolvedAnime.title, url: canonicalUrl },
-                ],
-                origin
-              ),
-            ],
+        links: [{ href: `/animes/${resolvedAnime.id}/manga`, label: `Ler mangá completo de ${resolvedAnime.title}` }, ...relatedLinks],
+        jsonLd:
+          !anime || isMangaReader
+            ? []
+            : [
+                ...(videoWatch ? [videoWatch.videoJsonLd] : []),
+                animeJsonLd,
+                buildBreadcrumbJsonLd(
+                  [
+                    { name: 'Wotho', url: '/' },
+                    { name: 'Animes', url: '/animes' },
+                    { name: resolvedAnime.title, url: canonicalUrl },
+                  ],
+                  origin
+                ),
+              ],
       };
     }
   }
@@ -1062,19 +1299,31 @@ export function resolveRouteSeo(rawPathname, customOrigin = DEFAULT_ORIGIN) {
         publisher: { '@type': 'Organization', name: 'Wotho' },
       };
 
-      const relatedLinks = catalog.webtoons
-        .filter((w) => w.id !== resolvedWt.id)
-        .slice(0, 12)
-        .map((w) => ({ href: `/webtoon/${w.id}`, label: w.title }));
+      const relatedLinks = buildConnectedRelatedLinks(
+        catalog.webtoons,
+        resolvedWt.id,
+        (w) => `/webtoon/${w.id}`,
+        (w) => `${w.title} — Webtoon Online`,
+        (w) => w.genres,
+        16
+      );
+
+      const wtParagraphs = [
+        desc,
+        `"${resolvedWt.title}" é uma série ilustrada criada por ${resolvedWt.author || 'Wotho Webtoons'}, catalogada nos gêneros ${(resolvedWt.genres || ['Fantasia', 'Ação']).join(', ')} e otimizada para leitura contínua em formato scroll vertical de alta resolução diretamente no navegador.`,
+        `Na Wotho Webtoons, os leitores acompanham todos os episódios com carregamento rápido, navegação contínua entre capítulos e acesso imediato a obras semelhantes da mesma curadoria editorial.`,
+      ];
 
       return {
-        statusCode: 200,
+        statusCode: wt ? 200 : 404,
         indexable: Boolean(wt) && !isEpisodeReader,
         robots:
-          !wt || isEpisodeReader
+          !wt
+            ? 'noindex, nofollow'
+            : isEpisodeReader
             ? 'noindex, follow'
             : 'index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1',
-        canonicalUrl,
+        canonicalUrl: wt ? canonicalUrl : null,
         title: pageTitle,
         description: desc,
         ogType: 'article',
@@ -1082,6 +1331,7 @@ export function resolveRouteSeo(rawPathname, customOrigin = DEFAULT_ORIGIN) {
         ogImageAlt: resolvedWt.title,
         h1: resolvedWt.title,
         subtitle: `${resolvedWt.author || 'Webtoon'}${resolvedWt.genres?.length ? ` · ${resolvedWt.genres.join(', ')}` : ''}`,
+        bodyParagraphs: wtParagraphs,
         bodyText: desc,
         coverImage: cover,
         facts: [
@@ -1093,19 +1343,20 @@ export function resolveRouteSeo(rawPathname, customOrigin = DEFAULT_ORIGIN) {
           { label: 'Plataforma', value: 'Wotho Webtoons & Comics' },
         ],
         links: [{ href: `/webtoon/${resolvedWt.id}/ler`, label: `Ler "${resolvedWt.title}" online` }, ...relatedLinks],
-        jsonLd: isEpisodeReader
-          ? []
-          : [
-              wtJsonLd,
-              buildBreadcrumbJsonLd(
-                [
-                  { name: 'Wotho', url: '/' },
-                  { name: 'Webtoons', url: '/webtoons' },
-                  { name: resolvedWt.title, url: canonicalUrl },
-                ],
-                origin
-              ),
-            ],
+        jsonLd:
+          !wt || isEpisodeReader
+            ? []
+            : [
+                wtJsonLd,
+                buildBreadcrumbJsonLd(
+                  [
+                    { name: 'Wotho', url: '/' },
+                    { name: 'Webtoons', url: '/webtoons' },
+                    { name: resolvedWt.title, url: canonicalUrl },
+                  ],
+                  origin
+                ),
+              ],
       };
     }
   }
@@ -1171,16 +1422,33 @@ export function resolveRouteSeo(rawPathname, customOrigin = DEFAULT_ORIGIN) {
         },
       };
 
-      const relatedLinks = catalog.news
-        .filter((n) => n.slug !== resolvedSlug)
-        .slice(0, 12)
-        .map((n) => ({ href: `/noticias/${n.slug}`, label: n.title }));
+      const relatedLinks = buildConnectedRelatedLinks(
+        catalog.news.map((n) => ({ ...n, id: n.slug || n.id })),
+        resolvedSlug,
+        (n) => `/noticias/${n.slug || n.id}`,
+        (n) => n.title,
+        (n) => (n.category ? [n.category] : []),
+        14
+      );
+
+      const articleBodyText =
+        typeof article?.content === 'string' && article.content.trim().length > 80
+          ? article.content.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 1200)
+          : '';
+
+      const newsParagraphs = [
+        desc,
+        ...(articleBodyText && articleBodyText !== desc ? [articleBodyText] : []),
+        `Cobertura publicada na editoria ${article?.category || 'Notícias Globais'} pela equipe editorial da Wotho Notícias (${article?.source_name || 'Redação Wotho'}), com contextualização contínua e arquivos relacionados.`,
+      ];
 
       return {
-        statusCode: 200,
-        indexable: true,
-        robots: 'index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1',
-        canonicalUrl,
+        statusCode: article ? 200 : 404,
+        indexable: Boolean(article),
+        robots: article
+          ? 'index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1'
+          : 'noindex, nofollow',
+        canonicalUrl: article ? canonicalUrl : null,
         title: pageTitle,
         description: desc,
         ogType: 'article',
@@ -1188,6 +1456,7 @@ export function resolveRouteSeo(rawPathname, customOrigin = DEFAULT_ORIGIN) {
         ogImageAlt: headline,
         h1: headline,
         subtitle: `${article?.category || 'Reportagem Especial'} · ${article?.source_name || 'Wotho Notícias'}`,
+        bodyParagraphs: newsParagraphs,
         bodyText: desc,
         coverImage: cover,
         facts: [
@@ -1198,35 +1467,37 @@ export function resolveRouteSeo(rawPathname, customOrigin = DEFAULT_ORIGIN) {
           { label: 'Veículo', value: 'Wotho Jornalismo Independente' },
         ],
         links: relatedLinks,
-        jsonLd: [
-          newsJsonLd,
-          buildBreadcrumbJsonLd(
-            [
-              { name: 'Wotho', url: '/' },
-              { name: 'Notícias', url: '/noticias' },
-              { name: headline, url: canonicalUrl },
-            ],
-            origin
-          ),
-        ],
+        jsonLd: article
+          ? [
+              newsJsonLd,
+              buildBreadcrumbJsonLd(
+                [
+                  { name: 'Wotho', url: '/' },
+                  { name: 'Notícias', url: '/noticias' },
+                  { name: headline, url: canonicalUrl },
+                ],
+                origin
+              ),
+            ]
+          : [],
       };
     }
   }
 
-  // Fallback for any other path: return HTTP 200 with canonical directory hub so crawlers never hit 4xx
-  const fallbackTitle = humanizeSlug(canonicalPath.replace(/^\/+/, '')) || 'Catálogo Geral';
+  // Fallback for unrecognized paths: return true HTTP 404 (prevents Google Soft 404 & crawl budget waste)
+  const fallbackTitle = humanizeSlug(canonicalPath.replace(/^\/+/, '')) || 'Página Não Encontrada';
   return {
-    statusCode: 200,
+    statusCode: 404,
     indexable: false,
-    robots: 'noindex, follow',
-    canonicalUrl: `${origin}/`,
-    title: `${fallbackTitle} — Wotho`,
-    description: 'Explore livros digitais, notícias globais em tempo real, cinema, animes e webtoons na plataforma Wotho.',
+    robots: 'noindex, nofollow',
+    canonicalUrl: null,
+    title: `${fallbackTitle} — Página não encontrada | Wotho`,
+    description: 'A página solicitada não foi encontrada. Explore livros digitais, notícias globais, cinema, animes e webtoons na plataforma Wotho.',
     ogType: 'website',
     ogImage: `${origin}${DEFAULT_OG_IMAGE_PATH}`,
     ogImageAlt: 'Wotho — Livros Digitais, Notícias Globais, Streaming e Webtoons',
-    h1: `${fallbackTitle} — Wotho`,
-    bodyText: `Explore o acervo completo da Wotho: biblioteca digital, jornalismo independente em tempo real, cinema, animes e webtoons.`,
+    h1: 'Página não encontrada',
+    bodyText: `O endereço solicitado não corresponde a uma página ativa da Wotho. Explore nossas seções principais abaixo.`,
     links: [
       { href: '/', label: 'Página Inicial' },
       { href: '/livros', label: 'Livros Digitais' },
@@ -1258,18 +1529,19 @@ function renderSemanticBotShell(seo, origin = DEFAULT_ORIGIN) {
     .map((p) => `<p style="margin:0 0 16px 0;color:#d4d4d8;font-size:15px;">${escapeHtml(p)}</p>`)
     .join('\n        ');
 
+  // Preserve full internal link graph on directory/hub pages (eliminates orphan pages)
   const linksHtml = (seo.links || [])
-    .slice(0, 150)
+    .slice(0, 1200)
     .map(
       (item) =>
         `<li style="margin:6px 0;"><a href="${escapeHtml(item.href)}" style="color:#ffffff;text-decoration:underline;">${escapeHtml(item.label)}</a></li>`
     )
     .join('\n          ');
 
-  const coverHtml = seo.coverImage
+  const coverHtml = seo.coverImage && !seo.videoWatch
     ? `<figure style="margin:20px 0;"><img src="${escapeHtml(seo.coverImage)}" alt="${escapeHtml(
         seo.ogImageAlt || seo.h1 || seo.title
-      )}" width="320" style="max-width:100%;height:auto;border-radius:12px;" /><figcaption style="font-size:12px;color:#a1a1aa;margin-top:6px;">${escapeHtml(
+      )}" width="640" style="max-width:100%;height:auto;border-radius:12px;" /><figcaption style="font-size:12px;color:#a1a1aa;margin-top:6px;">${escapeHtml(
         seo.ogImageAlt || seo.h1 || seo.title
       )} — Wotho</figcaption></figure>`
     : '';
@@ -1291,48 +1563,72 @@ function renderSemanticBotShell(seo, origin = DEFAULT_ORIGIN) {
       </section>`
       : '';
 
-  return `<div id="wotho-ssr-seo" style="min-height:100vh;width:100%;background:#09090b;color:#fafafa;font-family:'DM Sans',system-ui,sans-serif;line-height:1.7;margin:0;padding:0;overflow-x:hidden;">
-  <header data-nosnippet style="position:fixed;top:0;left:0;right:0;z-index:100;padding:20px 24px;">
-    <div style="max-width:1280px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:24px;">
-      <a href="/" style="display:flex;align-items:center;gap:6px;text-decoration:none;color:#ffffff;">
-        <img src="/favicon.svg" alt="Wotho" width="32" height="32" style="width:32px;height:32px;object-fit:contain;filter:brightness(0) invert(1);" />
-        <span style="font-size:16px;font-weight:400;letter-spacing:0.025em;color:#ffffff;">otho</span>
-      </a>
-      <nav aria-label="Navegação Principal" style="display:flex;flex-wrap:wrap;align-items:center;gap:28px;">
-        ${navLinks.map((n) => `<a href="${escapeHtml(n.href)}" style="font-size:11px;text-transform:uppercase;letter-spacing:0.08em;color:#ffffff;text-decoration:none;">${escapeHtml(n.label)}</a>`).join('\n        ')}
-      </nav>
-      <div style="display:flex;align-items:center;gap:10px;">
-        <a href="/perfil" style="height:32px;padding:0 18px;border-radius:9999px;font-size:11px;text-transform:uppercase;letter-spacing:0.08em;color:#ffffff;text-decoration:none;border:1px solid rgba(255,255,255,0.3);background:rgba(255,255,255,0.1);display:inline-flex;align-items:center;">
-          Meu Perfil
-        </a>
+  // Dedicated Video Watch Page above-the-fold layout for /cinema/:id and /animes/:id
+  // Satisfies Google Video Indexing "Video must be the main content on a dedicated watch page"
+  const topStageHtml = seo.videoWatch
+    ? `<section aria-label="Player de Vídeo Principal" itemscope itemtype="https://schema.org/VideoObject" style="max-width:1120px;margin:0 auto;padding:88px 24px 24px 24px;">
+      <meta itemprop="name" content="${escapeHtml(seo.videoWatch.name)}" />
+      <meta itemprop="description" content="${escapeHtml(seo.videoWatch.description)}" />
+      <meta itemprop="thumbnailUrl" content="${escapeHtml(seo.videoWatch.thumbnailUrl)}" />
+      <meta itemprop="uploadDate" content="${escapeHtml(seo.videoWatch.uploadDate)}" />
+      <meta itemprop="duration" content="${escapeHtml(seo.videoWatch.durationIso)}" />
+      <meta itemprop="embedUrl" content="${escapeHtml(seo.videoWatch.embedUrl)}" />
+      <meta itemprop="contentUrl" content="${escapeHtml(seo.videoWatch.contentUrl)}" />
+      <div style="margin-bottom:16px;">
+        <span style="display:block;font-size:11px;text-transform:uppercase;letter-spacing:0.16em;color:rgba(255,255,255,0.7);margin-bottom:6px;">
+          ${escapeHtml(seo.subtitle || 'Página de Visualização de Vídeo')}
+        </span>
+        <h1 id="wotho-boot-heading" style="font-size:32px;font-weight:600;line-height:1.25;letter-spacing:-0.01em;color:#ffffff;margin:0;">
+          ${escapeHtml(clampHeading(seo.h1 || seo.title, 150))}
+        </h1>
       </div>
-    </div>
-  </header>
-  <main>
-    <section style="position:relative;height:100vh;min-height:620px;width:100%;overflow:hidden;background:#09090b;">
+      <div style="position:relative;width:100%;aspect-ratio:16/9;min-height:420px;background:#000000;border-radius:14px;overflow:hidden;border:1px solid rgba(255,255,255,0.12);">
+        <iframe
+          src="${escapeHtml(seo.videoWatch.embedUrl)}?rel=0"
+          title="${escapeHtml(seo.videoWatch.name)}"
+          width="1280"
+          height="720"
+          frameborder="0"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
+          allowfullscreen
+          style="position:absolute;inset:0;width:100%;height:100%;border:0;"
+        ></iframe>
+      </div>
+    </section>`
+    : `<section style="position:relative;min-height:360px;max-height:520px;width:100%;overflow:hidden;background:#09090b;">
       <img
         src="${escapeHtml(seo.ogImage || DEFAULT_OG_IMAGE_PATH)}"
         alt="${escapeHtml(seo.ogImageAlt || seo.title || 'Wotho — Livros Digitais, Notícias Globais, Streaming e Webtoons')}"
         width="1200"
         height="630"
-        style="width:100%;height:100%;object-fit:cover;display:block;"
+        style="width:100%;height:420px;object-fit:cover;display:block;"
       />
-      <div style="position:absolute;inset:0;background:linear-gradient(to top, rgba(0,0,0,0.78), rgba(0,0,0,0.42), rgba(0,0,0,0.25));"></div>
-      <div style="position:absolute;bottom:56px;left:24px;right:24px;max-width:1280px;margin:0 auto;z-index:10;">
+      <div style="position:absolute;inset:0;background:linear-gradient(to top, rgba(0,0,0,0.82), rgba(0,0,0,0.42), rgba(0,0,0,0.25));"></div>
+      <div style="position:absolute;bottom:40px;left:24px;right:24px;max-width:1120px;margin:0 auto;z-index:10;">
         <span style="display:block;font-size:11px;text-transform:uppercase;letter-spacing:0.2em;color:rgba(255,255,255,0.75);margin-bottom:8px;">
           ${escapeHtml(seo.subtitle || 'Plataforma Editorial & Streaming')}
         </span>
-        <h1 id="wotho-boot-heading" style="font-size:28px;font-weight:300;line-height:1.35;letter-spacing:-0.01em;color:#ffffff;max-width:672px;margin:0;">
+        <h1 id="wotho-boot-heading" style="font-size:28px;font-weight:400;line-height:1.35;letter-spacing:-0.01em;color:#ffffff;max-width:760px;margin:0;">
           ${escapeHtml(clampHeading(seo.h1 || seo.title, 150))}
         </h1>
       </div>
-      <div style="position:absolute;bottom:32px;left:24px;right:24px;max-width:1280px;margin:0 auto;z-index:10;display:flex;gap:8px;">
-        <div style="flex:1;height:2px;background:#ffffff;"></div>
-        <div style="flex:1;height:2px;background:rgba(255,255,255,0.3);"></div>
-        <div style="flex:1;height:2px;background:rgba(255,255,255,0.3);"></div>
-      </div>
-    </section>
-    <article style="max-width:1120px;margin:0 auto;padding:56px 24px;">
+    </section>`;
+
+  return `<div id="wotho-ssr-seo" style="min-height:100vh;width:100%;background:#09090b;color:#fafafa;font-family:'DM Sans',system-ui,sans-serif;line-height:1.7;margin:0;padding:0;overflow-x:hidden;">
+  <header data-nosnippet style="position:fixed;top:0;left:0;right:0;z-index:100;padding:16px 24px;background:rgba(9,9,11,0.92);border-bottom:1px solid rgba(255,255,255,0.08);">
+    <div style="max-width:1280px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:24px;">
+      <a href="/" style="display:flex;align-items:center;gap:6px;text-decoration:none;color:#ffffff;">
+        <img src="/favicon.svg" alt="Wotho" width="28" height="28" style="width:28px;height:28px;object-fit:contain;filter:brightness(0) invert(1);" />
+        <span style="font-size:16px;font-weight:400;letter-spacing:0.025em;color:#ffffff;">otho</span>
+      </a>
+      <nav aria-label="Navegação Principal" style="display:flex;flex-wrap:wrap;align-items:center;gap:24px;">
+        ${navLinks.map((n) => `<a href="${escapeHtml(n.href)}" style="font-size:11px;text-transform:uppercase;letter-spacing:0.08em;color:#ffffff;text-decoration:none;">${escapeHtml(n.label)}</a>`).join('\n        ')}
+      </nav>
+    </div>
+  </header>
+  <main>
+    ${topStageHtml}
+    <article style="max-width:1120px;margin:0 auto;padding:32px 24px 56px 24px;">
       <section data-snippet="true" aria-label="Conteúdo Editorial Principal">
         ${paragraphsHtml}
       </section>
@@ -1342,7 +1638,7 @@ function renderSemanticBotShell(seo, origin = DEFAULT_ORIGIN) {
         linksHtml
           ? `<section aria-label="Catálogo e Links Relacionados" style="margin-top:32px;">
           <h2 style="font-size:20px;font-weight:400;color:#ffffff;">Explorar na Wotho</h2>
-          <ul style="color:#d4d4d8;">
+          <ul style="color:#d4d4d8;columns:2;column-gap:28px;">
             ${linksHtml}
           </ul>
         </section>`
@@ -1359,7 +1655,8 @@ function renderSemanticBotShell(seo, origin = DEFAULT_ORIGIN) {
         <a href="/privacidade" style="color:rgba(250,250,250,0.75);text-decoration:none;">Política de Privacidade</a>
         <a href="/termos" style="color:rgba(250,250,250,0.75);text-decoration:none;">Termos de Uso</a>
         <a href="/mapa-do-site" style="color:rgba(250,250,250,0.75);text-decoration:none;">Mapa do Site</a>
-        <a href="/sitemap.xml" style="color:rgba(250,250,250,0.75);text-decoration:none;">Sitemap XML</a>
+        <a href="/sitemap-index.xml" style="color:rgba(250,250,250,0.75);text-decoration:none;">Sitemap Index</a>
+        <a href="/video-sitemap.xml" style="color:rgba(250,250,250,0.75);text-decoration:none;">Video Sitemap</a>
         <a href="/rss.xml" style="color:rgba(250,250,250,0.75);text-decoration:none;">RSS Feed</a>
       </nav>
     </div>
@@ -1509,6 +1806,20 @@ export function injectSeoIntoHtml(html, rawPathname, options = {}) {
     `<meta name="twitter:image:alt" content="${escapeHtml(seo.ogImageAlt || seo.title)}" />`
   );
 
+  // 5b. OpenGraph Video tags exclusively on Dedicated Video Watch Pages (/cinema/:id, /animes/:id)
+  out = out.replace(/<meta\s+property="og:video(?::[a-z_]+)?"\s+content="[^"]*"\s*\/?>\s*/gi, '');
+  if (seo.videoWatch && seo.videoWatch.embedUrl) {
+    const ogVideoTags = [
+      `<meta property="og:video" content="${escapeHtml(seo.videoWatch.embedUrl)}" />`,
+      `<meta property="og:video:url" content="${escapeHtml(seo.videoWatch.embedUrl)}" />`,
+      `<meta property="og:video:secure_url" content="${escapeHtml(seo.videoWatch.embedUrl)}" />`,
+      `<meta property="og:video:type" content="text/html" />`,
+      `<meta property="og:video:width" content="1280" />`,
+      `<meta property="og:video:height" content="720" />`,
+    ].join('\n    ');
+    out = out.replace('</head>', `    ${ogVideoTags}\n  </head>`);
+  }
+
   // 6. Strip any pre-existing SSR JSON-LD (e.g. from built dist/index.html) and inject route-specific JSON-LD Schema.org
   out = out.replace(/<script\s+type="application\/ld\+json"\s+data-ssr-seo="true">[\s\S]*?<\/script>\s*/gi, '');
   if (Array.isArray(seo.jsonLd) && seo.jsonLd.length > 0) {
@@ -1639,13 +1950,20 @@ export async function handleSeoPrerenderRequest(req, res) {
     isBot,
   });
 
-  res.statusCode = 200;
+  res.statusCode = seo.statusCode || 200;
   res.setHeader('Content-Type', 'text/html; charset=utf-8');
   res.setHeader('X-Robots-Tag', seo.robots);
   if (seo.canonicalUrl) {
     res.setHeader('Link', `<${seo.canonicalUrl}>; rel="canonical"`);
   }
   res.setHeader('Vary', 'User-Agent');
-  res.setHeader('Cache-Control', isBot ? 'public, s-maxage=900, stale-while-revalidate=3600' : 'public, max-age=0, must-revalidate');
+  res.setHeader(
+    'Cache-Control',
+    res.statusCode === 404
+      ? 'public, max-age=60, s-maxage=300'
+      : isBot
+        ? 'public, s-maxage=900, stale-while-revalidate=3600'
+        : 'public, max-age=0, must-revalidate'
+  );
   res.end(html);
 }

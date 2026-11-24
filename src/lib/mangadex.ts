@@ -4,6 +4,8 @@
  * for all anime series on Worscoi.
  */
 
+import expandedAnimesListJson from "@/data/expandedAnimesList.json";
+
 export interface MangaDexChapter {
   id: string;
   number: string;
@@ -1652,6 +1654,56 @@ export const ANIME_MANGA_CONFIGS: Record<string, AnimeMangaHubConfig> = {
       };
     }),
   },
+  ...Object.fromEntries(
+    (expandedAnimesListJson as any[]).map((entry) => {
+      const totalChaps = Math.max(12, entry.manga?.chaptersCount || 50);
+      const prebuiltCount = Math.min(totalChaps, 120);
+      const pillMatch = (entry.mangaPillPath || "").match(/^\/manga\/(\d+)\/(.+)$/);
+      const pillId = pillMatch ? pillMatch[1] : "";
+      const pillSlug = pillMatch ? pillMatch[2] : entry.id;
+
+      const initialChapters = Array.from({ length: prebuiltCount }, (_, idx) => {
+        const chNum = idx + 1;
+        const code = 10000000 + chNum * 1000;
+        const chapterUrl = pillId
+          ? `/chapters/${pillId}-${code}/${pillSlug}-chapter-${chNum}`
+          : undefined;
+        return {
+          id: pillId ? `${pillId}-${code}-${pillSlug}-chapter-${chNum}` : `${entry.id}-cap-${chNum}`,
+          number: chNum,
+          title:
+            chNum === 1
+              ? `Capítulo 1 — O Início de ${entry.manga?.title || entry.title}`
+              : `Capítulo ${chNum} — ${entry.manga?.title || entry.title} #${chNum}`,
+          pagesCount: chNum === 1 ? 48 : 24,
+          ...(chapterUrl ? { chapterUrl } : {}),
+          description: `Capítulo oficial ${chNum} do mangá ${entry.manga?.title || entry.title} por ${entry.manga?.author || "Autor Original"}.`,
+          releaseDate: String(entry.year || "2024"),
+          isFree: true,
+          mangadexChapterId: entry.manga?.mangadexId || undefined,
+        };
+      });
+
+      const cfg: AnimeMangaHubConfig & { searchTitle?: string } = {
+        animeId: entry.id,
+        mangadexId: entry.manga?.mangadexId || "",
+        canonicalTitle: entry.manga?.title || entry.title,
+        searchTitle: entry.manga?.searchTitle || entry.manga?.title || entry.title,
+        japaneseTitle: entry.japaneseTitle || entry.title,
+        author: entry.manga?.author || "Autor Original",
+        artist: entry.manga?.artist || entry.manga?.author || "Artista Original",
+        publisher: entry.manga?.publisher || "Shueisha / Kodansha",
+        serialization: entry.manga?.serialization || "Edição Oficial",
+        status: entry.manga?.status === "Completo" ? "Completo" : "Em publicação",
+        officialCover: entry.manga?.cover || entry.cover,
+        totalChaptersEstimate: totalChaps,
+        defaultLanguage: "pt-br",
+        initialChapters,
+      };
+
+      return [entry.id, cfg];
+    })
+  ),
 };
 
 // In-memory cache for chapters and pages to ensure lightning speed
@@ -1768,7 +1820,7 @@ export async function fetchAnimeMangaPages(
 
   // 1. Primary Multi-Language MangaDex Resolver (fetches exact language: pt-br, en, or ja!)
   const langParam = language === "pt" ? "pt-br" : language === "en" ? "en" : "ja";
-  const searchTitle = config?.canonicalTitle || animeId.replace(/-/g, " ");
+  const searchTitle = (config as any)?.searchTitle || config?.canonicalTitle || animeId.replace(/-/g, " ");
   const mangadexId = config?.mangadexId || "";
 
   if (mangadexId || searchTitle) {

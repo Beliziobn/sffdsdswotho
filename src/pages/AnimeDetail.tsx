@@ -25,7 +25,7 @@ import {
   resolveCanonBridge,
 } from "@/lib/canonBridge";
 import { useContentProtection } from "@/hooks/useContentProtection";
-import { ChapterListSkeleton } from "@/components/skeletons/AppSkeletons";
+import { ChapterListSkeleton, ContentDetailSkeleton } from "@/components/skeletons/AppSkeletons";
 import {
   Play,
   Star,
@@ -52,7 +52,13 @@ import {
 import { downloadRealAnimeEpisode, downloadRealMangaChapter } from "@/lib/mediaDownloaders";
 import { toast } from "sonner";
 import ShareDialog from "@/components/ShareDialog";
-import { CANONICAL_BASE_URL, buildBreadcrumbSchema, usePageSeo } from "@/lib/seo";
+import {
+  CANONICAL_BASE_URL,
+  buildBreadcrumbSchema,
+  buildVideoObjectSchema,
+  toValidUploadDateIso,
+  usePageSeo,
+} from "@/lib/seo";
 
 export const AnimeDetail = () => {
   useContentProtection();
@@ -61,15 +67,37 @@ export const AnimeDetail = () => {
   const navigate = useNavigate();
   const playerSectionRef = useRef<HTMLDivElement>(null);
   const [catalogVersion, setCatalogVersion] = useState(0);
+  const [isResolvingCatalog, setIsResolvingCatalog] = useState<boolean>(() =>
+    Boolean(id && !ANIMES_DATA.find((a) => a.id === id || a.slug === id))
+  );
 
   useEffect(() => {
-    void ensureVerifiedAnimesLoaded().then(() => {
-      setCatalogVersion((v) => v + 1);
-    });
-    const handleVerifiedLoaded = () => setCatalogVersion((v) => v + 1);
+    let cancelled = false;
+    if (id && !ANIMES_DATA.find((a) => a.id === id || a.slug === id)) {
+      setIsResolvingCatalog(true);
+    }
+    void ensureVerifiedAnimesLoaded()
+      .then(() => {
+        if (!cancelled) {
+          setCatalogVersion((v) => v + 1);
+          setIsResolvingCatalog(false);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setIsResolvingCatalog(false);
+      });
+    const handleVerifiedLoaded = () => {
+      if (!cancelled) {
+        setCatalogVersion((v) => v + 1);
+        setIsResolvingCatalog(false);
+      }
+    };
     window.addEventListener("worscoi_animes_verified_loaded", handleVerifiedLoaded);
-    return () => window.removeEventListener("worscoi_animes_verified_loaded", handleVerifiedLoaded);
-  }, []);
+    return () => {
+      cancelled = true;
+      window.removeEventListener("worscoi_animes_verified_loaded", handleVerifiedLoaded);
+    };
+  }, [id]);
 
   const anime = useMemo(() => {
     const found = ANIMES_DATA.find((a) => a.id === id || a.slug === id);
@@ -118,11 +146,27 @@ export const AnimeDetail = () => {
     }
   }, [searchParams, anime]);
 
-  // Dynamic SEO Synchronization
+  const videoWatchMeta = useMemo(() => {
+    if (!anime) return null;
+    return buildVideoObjectSchema({
+      canonicalPath: `/animes/${anime.id}`,
+      name: `Assistir ${anime.title} — Episódios Dublados e Legendados PT-BR`,
+      description:
+        anime.synopsis ||
+        `Assista ${anime.title} em alta definição dublado e legendado e leia capítulos de mangá integrados na Wotho.`,
+      thumbnailUrl: anime.banner || anime.cover || `${CANONICAL_BASE_URL}/og-wotho-home.jpg`,
+      uploadDate: toValidUploadDateIso(anime.year),
+      durationIso: "PT24M",
+      trailerYoutubeId: anime.trailerYoutubeId,
+      isFamilyFriendly: true,
+    });
+  }, [anime]);
+
+  // Dynamic SEO Synchronization (Dedicated Video Watch Page)
   usePageSeo(
-    anime
+    anime && videoWatchMeta
       ? {
-          title: `${anime.title} — Streaming de Anime & Mangá | Wotho`,
+          title: `Assistir ${anime.title} — Anime HD & Mangá Completo | Wotho`,
           description:
             anime.synopsis ||
             `Assista ${anime.title} e leia mangás vinculados na plataforma Wotho.`,
@@ -130,7 +174,14 @@ export const AnimeDetail = () => {
           ogType: "video.tv_show",
           ogImage: anime.banner || anime.cover || `${CANONICAL_BASE_URL}/og-wotho-home.jpg`,
           ogImageAlt: anime.title,
+          ogVideo: {
+            url: videoWatchMeta.embedUrl,
+            type: "text/html",
+            width: 1280,
+            height: 720,
+          },
           jsonLd: [
+            videoWatchMeta.schema,
             {
               "@context": "https://schema.org",
               "@type": "TVSeries",
@@ -141,7 +192,9 @@ export const AnimeDetail = () => {
               inLanguage: "pt-BR",
               url: `${CANONICAL_BASE_URL}/animes/${anime.id}`,
               genre: anime.genres,
+              numberOfSeasons: anime.seasons?.length || 1,
               numberOfEpisodes: anime.episodesCount,
+              trailer: { "@id": videoWatchMeta.videoId },
               ...(anime.studio
                 ? { productionCompany: { "@type": "Organization", name: anime.studio } }
                 : {}),
@@ -246,11 +299,31 @@ export const AnimeDetail = () => {
   }, [anime, mangaLangFilter]);
 
   const relatedAnimes = useMemo(() => {
+    void catalogVersion;
     if (!anime) return [];
-    return ANIMES_DATA.filter(
-      (a) => a.id !== anime.id && a.genres.some((g) => anime.genres.includes(g))
-    ).slice(0, 4);
-  }, [anime]);
+    const total = ANIMES_DATA.length;
+    const idx = ANIMES_DATA.findIndex((a) => a.id === anime.id);
+    const seen = new Set<string>([anime.id]);
+    const picked: Anime[] = [];
+    // Ring neighbors ensure every anime receives internal links in the site graph
+    if (idx >= 0 && total > 1) {
+      for (const offset of [1, 2, -1, 3, -2]) {
+        const cand = ANIMES_DATA[(idx + offset + total) % total];
+        if (cand && !seen.has(cand.id)) {
+          seen.add(cand.id);
+          picked.push(cand);
+        }
+      }
+    }
+    for (const a of ANIMES_DATA) {
+      if (picked.length >= 8) break;
+      if (!seen.has(a.id) && a.genres.some((g) => anime.genres.includes(g))) {
+        seen.add(a.id);
+        picked.push(a);
+      }
+    }
+    return picked.slice(0, 8);
+  }, [anime, catalogVersion]);
 
   const activeSeason = useMemo(() => {
     if (!anime) return null;
@@ -320,12 +393,24 @@ export const AnimeDetail = () => {
       : `/animes/${anime.id}/manga`;
   };
 
+  if (isResolvingCatalog && !anime) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col justify-between">
+        <Navigation />
+        <main className="flex-1 pt-20">
+          <ContentDetailSkeleton />
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+
   if (!anime) {
     return (
       <div className="min-h-screen bg-background flex flex-col justify-between">
         <Navigation />
         <div className="container mx-auto px-6 py-32 text-center">
-          <h2 className="text-2xl font-semibold mb-3 text-foreground">Anime não encontrado</h2>
+          <h1 className="text-2xl font-semibold mb-3 text-foreground">Anime não encontrado</h1>
           <p className="text-sm text-muted-foreground mb-6">
             O anime solicitado não foi localizado em nosso catálogo.
           </p>
@@ -445,39 +530,188 @@ export const AnimeDetail = () => {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
-      <Navigation />
+      <Navigation variant="dark" />
 
-      {/* Atmospheric Banner Header */}
-      <div className="relative w-full h-[46vh] min-h-[340px] overflow-hidden" data-protected-media>
-        <img
-          src={currentBanner}
-          alt={anime.title}
-          className="absolute inset-0 w-full h-full object-cover object-center brightness-[0.45] transition-all duration-500"
-        />
-        {ambientTheme && (
-          <div
-            className="absolute inset-0 opacity-60"
-            style={{
-              background: `radial-gradient(ellipse 70% 60% at 70% 25%, rgba(${ambientTheme.ambientRgb}, 0.25), transparent 70%)`,
-            }}
-          />
+      {/* Dedicated Above-the-Fold Video Watch Page Stage (Google Video Indexing Compliant) */}
+      <section
+        ref={playerSectionRef}
+        itemScope
+        itemType="https://schema.org/VideoObject"
+        className="relative w-full bg-[#07090e] text-zinc-100 pt-24 pb-10 border-b border-white/10 overflow-hidden"
+        data-protected-media
+      >
+        {videoWatchMeta && (
+          <>
+            <meta itemProp="name" content={String(videoWatchMeta.schema.name || anime.title)} />
+            <meta itemProp="description" content={anime.synopsis} />
+            <meta itemProp="thumbnailUrl" content={currentBanner || currentPoster} />
+            <meta itemProp="uploadDate" content={toValidUploadDateIso(anime.year)} />
+            <meta itemProp="duration" content="PT24M" />
+            <meta itemProp="embedUrl" content={videoWatchMeta.embedUrl} />
+            <meta itemProp="contentUrl" content={videoWatchMeta.contentUrl} />
+          </>
         )}
-        <div className="absolute inset-0 bg-gradient-to-t from-background via-background/70 to-transparent" />
-        <div className="absolute inset-0 bg-gradient-to-r from-background/90 via-background/40 to-transparent" />
 
-        <div className="relative h-full container mx-auto px-6 lg:px-12 flex flex-col justify-end pb-10">
-          <Link
-            to="/animes"
-            className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground mb-8 w-fit transition-colors"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            <span>Voltar para o catálogo</span>
-          </Link>
+        {/* Ambient Blurred Backdrop */}
+        <div className="absolute inset-0 pointer-events-none">
+          <img
+            src={currentBanner}
+            alt={anime.title}
+            className="w-full h-full object-cover object-center opacity-20 blur-2xl scale-110 transition-all duration-500"
+          />
+          {ambientTheme && (
+            <div
+              className="absolute inset-0 opacity-45"
+              style={{
+                background: `radial-gradient(ellipse 70% 60% at 70% 25%, rgba(${ambientTheme.ambientRgb}, 0.22), transparent 70%)`,
+              }}
+            />
+          )}
+          <div className="absolute inset-0 bg-gradient-to-b from-[#07090e]/85 via-[#07090e]/92 to-[#07090e]" />
         </div>
-      </div>
 
-      {/* Main Layout */}
-      <div className="container mx-auto px-6 lg:px-12 -mt-24 relative z-10 pb-20">
+        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          {/* Compact Top Watch Header */}
+          <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-5">
+            <div className="space-y-2">
+              <Link
+                to="/animes"
+                className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-medium text-zinc-300 hover:text-white transition"
+              >
+                <ArrowLeft className="h-3.5 w-3.5 text-amber-400" />
+                <span>Voltar para o Catálogo de Animes</span>
+              </Link>
+
+              <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs text-zinc-300 tabular-nums pt-0.5">
+                <span className="font-semibold uppercase tracking-wider text-amber-400">
+                  {anime.status}
+                </span>
+                <span className="text-zinc-600">·</span>
+                <span className="font-medium text-white">{anime.year}</span>
+                <span className="text-zinc-600">·</span>
+                <span>{anime.studio}</span>
+                <span className="text-zinc-600">·</span>
+                <span className="inline-flex items-center gap-1 text-amber-400 font-semibold">
+                  <Star className="h-3.5 w-3.5 fill-current" />
+                  {anime.rating.toFixed(1)}
+                </span>
+                <span className="text-zinc-600">·</span>
+                <span>{anime.audio}</span>
+              </div>
+
+              <h1 className="text-2xl sm:text-4xl lg:text-5xl font-semibold text-white tracking-tight text-balance leading-tight">
+                {anime.title}
+              </h1>
+              {anime.japaneseTitle && (
+                <p className="text-xs text-zinc-400">
+                  {anime.japaneseTitle} · {Array.from(new Set(anime.genres || [])).join(" · ")}
+                </p>
+              )}
+            </div>
+
+            {/* Quick Watch Page Actions */}
+            <div className="flex flex-wrap items-center gap-2 shrink-0">
+              {!isOriginal && activeBridge && (
+                <Link
+                  to={getMangaReaderPath(activeBridge.targetChapter)}
+                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-black text-xs font-semibold transition whitespace-nowrap"
+                >
+                  <ArrowLeftRight className="h-3.5 w-3.5" />
+                  <span>{activeBridge.ctaLabel}</span>
+                </Link>
+              )}
+              <button
+                type="button"
+                onClick={handleWatchlist}
+                className={`inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl border text-xs font-medium transition cursor-pointer whitespace-nowrap ${
+                  inWatchlist
+                    ? "bg-amber-500/15 border-amber-500/50 text-amber-300"
+                    : "bg-white/5 border-white/10 hover:bg-white/10 text-white"
+                }`}
+              >
+                {inWatchlist ? (
+                  <>
+                    <BookmarkCheck className="h-4 w-4 text-amber-400" />
+                    <span>Na Lista</span>
+                  </>
+                ) : (
+                  <>
+                    <Bookmark className="h-4 w-4" />
+                    <span>Salvar</span>
+                  </>
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsShareModalOpen(true)}
+                className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-zinc-200 hover:text-white text-xs font-medium transition cursor-pointer whitespace-nowrap"
+                title="Compartilhar obra"
+              >
+                <Share2 className="h-4 w-4" />
+                <span className="hidden sm:inline">Compartilhar</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Primary Above-the-Fold 16:9 Secure Anime Player */}
+          {activeSeason && activeEpisode && (
+            <SecureAnimePlayer
+              animeTitle={anime.title}
+              season={activeSeason}
+              episode={activeEpisode}
+              onSelectEpisode={(epNum) => setActiveEpisodeNumber(epNum)}
+              onDubChange={(dubId) => setSelectedDubId(dubId)}
+              onNextEpisode={() => {
+                const idx = currentSeasonEpisodes.findIndex(
+                  (e) => e.number === activeEpisode.number
+                );
+                if (idx !== -1 && idx < currentSeasonEpisodes.length - 1) {
+                  setActiveEpisodeNumber(currentSeasonEpisodes[idx + 1].number);
+                } else {
+                  const nextSeason = anime.seasons?.find(
+                    (s) => s.seasonNumber === activeSeason.seasonNumber + 1
+                  );
+                  if (nextSeason && nextSeason.episodes.length > 0) {
+                    setActiveSeasonNumber(nextSeason.seasonNumber);
+                    setActiveEpisodeNumber(nextSeason.episodes[0].number);
+                    toast.success(`Iniciando ${nextSeason.title}!`);
+                  }
+                }
+              }}
+              onPreviousEpisode={() => {
+                const idx = currentSeasonEpisodes.findIndex(
+                  (e) => e.number === activeEpisode.number
+                );
+                if (idx > 0) {
+                  setActiveEpisodeNumber(currentSeasonEpisodes[idx - 1].number);
+                } else if (activeSeason.seasonNumber > 1) {
+                  const prevSeason = anime.seasons?.find(
+                    (s) => s.seasonNumber === activeSeason.seasonNumber - 1
+                  );
+                  if (prevSeason && prevSeason.episodes.length > 0) {
+                    setActiveSeasonNumber(prevSeason.seasonNumber);
+                    setActiveEpisodeNumber(
+                      prevSeason.episodes[prevSeason.episodes.length - 1].number
+                    );
+                  }
+                }
+              }}
+              hasNextEpisode={
+                currentSeasonEpisodes.findIndex((e) => e.number === activeEpisode.number) <
+                  currentSeasonEpisodes.length - 1 ||
+                !!anime.seasons?.find((s) => s.seasonNumber === activeSeason.seasonNumber + 1)
+              }
+              hasPreviousEpisode={
+                currentSeasonEpisodes.findIndex((e) => e.number === activeEpisode.number) > 0 ||
+                activeSeason.seasonNumber > 1
+              }
+            />
+          )}
+        </div>
+      </section>
+
+      {/* Main Editorial Content Below the Watch Stage */}
+      <div className="container mx-auto px-6 lg:px-12 pt-10 relative z-10 pb-20">
         <div className="grid grid-cols-1 md:grid-cols-12 gap-8 lg:gap-12">
           {/* Left Column: Clean 2:3 Poster + Unified Single Decision Action Cluster */}
           <aside className="md:col-span-4 lg:col-span-3 flex flex-col items-center md:items-start">
@@ -642,35 +876,11 @@ export const AnimeDetail = () => {
             )}
           </aside>
 
-          {/* Right Column: Editorial Overview + CanonBridge Switcher + Player / Chapters */}
+          {/* Right Column: Editorial Overview + CanonBridge Switcher + Episodes / Chapters */}
           <div className="md:col-span-8 lg:col-span-9">
-            {/* Zero-Pill Editorial Eyebrow */}
-            <div className="flex flex-wrap items-center gap-2.5 text-xs text-muted-foreground mb-2.5 tabular-nums">
-              <span className="font-semibold text-primary">{anime.status}</span>
-              <span aria-hidden="true">·</span>
-              <span className="inline-flex items-center gap-1 text-amber-500 font-semibold">
-                <Star className="h-3.5 w-3.5 fill-current" />
-                {anime.rating.toFixed(1)}
-              </span>
-              <span>({anime.ratingCount.toLocaleString()} avaliações)</span>
-              <span aria-hidden="true">·</span>
-              <span>{anime.audio}</span>
-            </div>
-
-            <h1 className="text-3xl md:text-4xl lg:text-5xl font-semibold text-foreground tracking-tight text-balance mb-1.5">
-              {anime.title}
-            </h1>
-            <p className="text-xs sm:text-sm text-muted-foreground mb-3">
-              {anime.japaneseTitle} · {anime.studio} · {anime.year}
-            </p>
-
-            {/* Unboxed Typographic Genres */}
-            <p className="text-xs text-muted-foreground mb-6">
-              {Array.from(new Set(anime.genres || [])).join(" · ")}
-            </p>
-
             {/* Synopsis */}
             <div data-snippet="true" className="mb-8 max-w-3xl">
+              <h2 className="text-lg font-semibold text-foreground mb-2">Sinopse Oficial</h2>
               <p className="text-sm md:text-base text-foreground/85 leading-relaxed">
                 {anime.synopsis}
               </p>
@@ -742,63 +952,9 @@ export const AnimeDetail = () => {
               </div>
             </div>
 
-            {/* TAB 1: WATCH ANIME */}
+            {/* TAB 1: EPISODES & SEASONS */}
             {activeTab === "episodes" && activeSeason && activeEpisode && (
-              <div ref={playerSectionRef}>
-                {/* Secure Anti-Redirect Video Player with Unified Audio & Subtitles Popover */}
-                <div className="mb-8">
-                  <SecureAnimePlayer
-                    animeTitle={anime.title}
-                    season={activeSeason}
-                    episode={activeEpisode}
-                    onSelectEpisode={(epNum) => setActiveEpisodeNumber(epNum)}
-                    onDubChange={(dubId) => setSelectedDubId(dubId)}
-                    onNextEpisode={() => {
-                      const idx = currentSeasonEpisodes.findIndex(
-                        (e) => e.number === activeEpisode.number
-                      );
-                      if (idx !== -1 && idx < currentSeasonEpisodes.length - 1) {
-                        setActiveEpisodeNumber(currentSeasonEpisodes[idx + 1].number);
-                      } else {
-                        const nextSeason = anime.seasons?.find(
-                          (s) => s.seasonNumber === activeSeason.seasonNumber + 1
-                        );
-                        if (nextSeason && nextSeason.episodes.length > 0) {
-                          setActiveSeasonNumber(nextSeason.seasonNumber);
-                          setActiveEpisodeNumber(nextSeason.episodes[0].number);
-                          toast.success(`Iniciando ${nextSeason.title}!`);
-                        }
-                      }
-                    }}
-                    onPreviousEpisode={() => {
-                      const idx = currentSeasonEpisodes.findIndex(
-                        (e) => e.number === activeEpisode.number
-                      );
-                      if (idx > 0) {
-                        setActiveEpisodeNumber(currentSeasonEpisodes[idx - 1].number);
-                      } else if (activeSeason.seasonNumber > 1) {
-                        const prevSeason = anime.seasons?.find(
-                          (s) => s.seasonNumber === activeSeason.seasonNumber - 1
-                        );
-                        if (prevSeason && prevSeason.episodes.length > 0) {
-                          setActiveSeasonNumber(prevSeason.seasonNumber);
-                          setActiveEpisodeNumber(
-                            prevSeason.episodes[prevSeason.episodes.length - 1].number
-                          );
-                        }
-                      }
-                    }}
-                    hasNextEpisode={
-                      currentSeasonEpisodes.findIndex((e) => e.number === activeEpisode.number) <
-                        currentSeasonEpisodes.length - 1 ||
-                      !!anime.seasons?.find((s) => s.seasonNumber === activeSeason.seasonNumber + 1)
-                    }
-                    hasPreviousEpisode={
-                      currentSeasonEpisodes.findIndex((e) => e.number === activeEpisode.number) > 0 ||
-                      activeSeason.seasonNumber > 1
-                    }
-                  />
-                </div>
+              <div>
 
                 {/* Season Selector */}
                 {anime.seasons && anime.seasons.length > 1 && (

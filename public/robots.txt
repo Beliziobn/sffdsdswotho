@@ -1,18 +1,17 @@
 # ==============================================================================
 # Wotho Official Robots.txt
 # Domain: https://wotho.vercel.app
-# Optimized for Bing Search, Microsoft Copilot Grounding APIs & Google Search
+# Optimized for Google Search, Google Video Indexing & Bing Search
 # ==============================================================================
 
-User-agent: Bingbot
+User-agent: Googlebot
 Allow: /
 Allow: /assets/
-Allow: /api/
-Allow: /sitemap.xml
+Allow: /api/og-cover
 Allow: /sitemap-index.xml
+Allow: /video-sitemap.xml
 Allow: /news-sitemap.xml
-Allow: /api/sitemap.xml
-Disallow: /api/admin/
+Disallow: /api/
 Disallow: /admin
 Disallow: /auth
 Disallow: /perfil
@@ -32,117 +31,37 @@ Disallow: /*?*ref=
 Disallow: /*?*sort=
 Disallow: /*?*filter=
 
-User-agent: BingPreview
+User-agent: Googlebot-Video
 Allow: /
+Allow: /cinema/
+Allow: /animes/
+Allow: /video-sitemap.xml
 Allow: /assets/
-Allow: /api/
-Disallow: /api/admin/
+Disallow: /api/
 Disallow: /admin
 Disallow: /auth
-Disallow: /perfil
-Disallow: /compra/
-
-User-agent: msnbot
-Allow: /
-Allow: /api/
-Disallow: /api/admin/
-Disallow: /admin
-Disallow: /auth
-Disallow: /perfil
-Disallow: /compra/
-
-User-agent: AdIdxBot
-Allow: /
-
-User-agent: OAI-SearchBot
-Allow: /
-Allow: /api/
-Disallow: /api/admin/
-Disallow: /admin
-Disallow: /auth
-Disallow: /perfil
-Disallow: /compra/
-
-User-agent: ChatGPT-User
-Allow: /
-Allow: /api/
-Disallow: /api/admin/
-Disallow: /admin
-Disallow: /auth
-
-User-agent: GPTBot
-Allow: /
-Allow: /api/
-Disallow: /api/admin/
-Disallow: /admin
-Disallow: /auth
-
-User-agent: ClaudeBot
-Allow: /
-Allow: /api/
-Disallow: /api/admin/
-Disallow: /admin
-Disallow: /auth
-
-User-agent: PerplexityBot
-Allow: /
-Allow: /api/
-Disallow: /api/admin/
-Disallow: /admin
-Disallow: /auth
-
-User-agent: Googlebot
-Allow: /
-Allow: /assets/
-Allow: /api/
-Allow: /sitemap.xml
-Allow: /sitemap-index.xml
-Allow: /news-sitemap.xml
-Allow: /api/sitemap.xml
-Disallow: /api/admin/
-Disallow: /admin
-Disallow: /auth
-Disallow: /perfil
-Disallow: /meu-perfil
-Disallow: /redefinir-senha
-Disallow: /compra/
-Disallow: /biblioteca
-Disallow: /continuar-lendo
-Disallow: /para-voce
-Disallow: /buscar
-Disallow: /ler/
-Disallow: /leitura/
-Disallow: /*?*utm_
-Disallow: /*?*fbclid=
-Disallow: /*?*gclid=
 
 User-agent: Googlebot-Image
 Allow: /
+Allow: /api/og-cover
+Disallow: /admin
+Disallow: /auth
 
 User-agent: Googlebot-News
 Allow: /
 Allow: /noticias
 Allow: /news-sitemap.xml
+Disallow: /api/
+Disallow: /admin
 
-User-agent: Googlebot-Video
-Allow: /
-Allow: /cinema
-Allow: /animes
-
-User-agent: AdsBot-Google
-Allow: /
-
-User-agent: Mediapartners-Google
-Allow: /
-
-User-agent: APIs-Google
-Allow: /
-
-User-agent: *
+User-agent: Bingbot
 Allow: /
 Allow: /assets/
-Allow: /api/
-Disallow: /api/admin/
+Allow: /api/og-cover
+Allow: /sitemap-index.xml
+Allow: /video-sitemap.xml
+Allow: /news-sitemap.xml
+Disallow: /api/
 Disallow: /admin
 Disallow: /auth
 Disallow: /perfil
@@ -159,7 +78,42 @@ Disallow: /*?*utm_
 Disallow: /*?*fbclid=
 Disallow: /*?*gclid=
 Disallow: /*?*ref=
+Disallow: /*?*sort=
+Disallow: /*?*filter=
 
-Sitemap: https://wotho.vercel.app/sitemap.xml
+User-agent: AdsBot-Google
+Allow: /
+
+User-agent: Mediapartners-Google
+Allow: /
+
+User-agent: APIs-Google
+Allow: /
+
+User-agent: *
+Allow: /
+Allow: /assets/
+Allow: /api/og-cover
+Disallow: /api/
+Disallow: /admin
+Disallow: /auth
+Disallow: /perfil
+Disallow: /meu-perfil
+Disallow: /redefinir-senha
+Disallow: /compra/
+Disallow: /biblioteca
+Disallow: /continuar-lendo
+Disallow: /para-voce
+Disallow: /buscar
+Disallow: /ler/
+Disallow: /leitura/
+Disallow: /*?*utm_
+Disallow: /*?*fbclid=
+Disallow: /*?*gclid=
+Disallow: /*?*ref=
+Disallow: /*?*sort=
+Disallow: /*?*filter=
+
+# Clean non-duplicated Sitemap declarations (sitemap-index.xml includes all sub-sitemaps)
 Sitemap: https://wotho.vercel.app/sitemap-index.xml
-Sitemap: https://wotho.vercel.app/news-sitemap.xml
+Sitemap: https://wotho.vercel.app/video-sitemap.xml

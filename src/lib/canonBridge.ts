@@ -1,4 +1,5 @@
 import { Anime, AnimeEpisode } from "./animes";
+import expandedAnimesListJson from "@/data/expandedAnimesList.json";
 
 export interface CanonBridgeMapping {
   /** Whether anime episodes adapt a manga source directly */
@@ -39,7 +40,18 @@ export interface PhilosophicalWorkMeta {
   themeLabel: string;
 }
 
+const EXPANDED_CANON_BRIDGE_MAP: Record<string, CanonBridgeMapping> = Object.fromEntries(
+  (expandedAnimesListJson as any[]).map((entry) => [
+    entry.id,
+    {
+      hasMangaAdaptation: true,
+      chaptersPerEpisode: Number(entry.chaptersPerEpisode) || 2.5,
+    },
+  ])
+);
+
 const CANON_BRIDGE_REGISTRY: Record<string, CanonBridgeMapping> = {
+  ...EXPANDED_CANON_BRIDGE_MAP,
   "solo-leveling": {
     hasMangaAdaptation: true,
     chaptersPerEpisode: 3.4,

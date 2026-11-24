@@ -4,8 +4,6 @@
   <url>
     <loc>https://wotho.vercel.app/livros/mod-habitos-atomicos</loc>
     <lastmod>2024-01-20</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
     <image:image>
       <image:loc>https://covers.openlibrary.org/b/id/12539702-L.jpg</image:loc>
       <image:title>Hábitos Atômicos</image:title>
@@ -14,8 +12,6 @@
   <url>
     <loc>https://wotho.vercel.app/livros/mod-psicologia-financeira</loc>
     <lastmod>2024-01-21</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
     <image:image>
       <image:loc>https://covers.openlibrary.org/b/id/10523456-L.jpg</image:loc>
       <image:title>A Psicologia Financeira</image:title>
@@ -24,8 +20,6 @@
   <url>
     <loc>https://wotho.vercel.app/livros/mod-a-psicologia-financeira</loc>
     <lastmod>2024-01-21</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
     <image:image>
       <image:loc>https://covers.openlibrary.org/b/id/10523456-L.jpg</image:loc>
       <image:title>A Psicologia Financeira</image:title>
@@ -34,8 +28,6 @@
   <url>
     <loc>https://wotho.vercel.app/livros/mod-pai-rico-pai-pobre</loc>
     <lastmod>2024-01-22</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
     <image:image>
       <image:loc>https://covers.openlibrary.org/b/id/12423985-L.jpg</image:loc>
       <image:title>Pai Rico, Pai Pobre</image:title>
@@ -44,8 +36,6 @@
   <url>
     <loc>https://wotho.vercel.app/livros/mod-1984-orwell</loc>
     <lastmod>2024-01-23</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
     <image:image>
       <image:loc>https://covers.openlibrary.org/b/id/853463-L.jpg</image:loc>
       <image:title>1984</image:title>
@@ -54,8 +44,6 @@
   <url>
     <loc>https://wotho.vercel.app/livros/mod-homem-mais-rico-babilonia</loc>
     <lastmod>2024-01-24</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
     <image:image>
       <image:loc>https://covers.openlibrary.org/b/id/10543678-L.jpg</image:loc>
       <image:title>O Homem Mais Rico da Babilônia</image:title>
@@ -64,8 +52,6 @@
   <url>
     <loc>https://wotho.vercel.app/livros/mod-o-homem-mais-rico-da-babilonia</loc>
     <lastmod>2024-01-24</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
     <image:image>
       <image:loc>https://covers.openlibrary.org/b/id/10543678-L.jpg</image:loc>
       <image:title>O Homem Mais Rico da Babilônia</image:title>
@@ -74,8 +60,6 @@
   <url>
     <loc>https://wotho.vercel.app/livros/mod-antifragil</loc>
     <lastmod>2024-01-25</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
     <image:image>
       <image:loc>https://covers.openlibrary.org/b/id/10865780-L.jpg</image:loc>
       <image:title>Antifrágil: Coisas que se Beneficiam com o Caos</image:title>
@@ -84,8 +68,6 @@
   <url>
     <loc>https://wotho.vercel.app/livros/mod-comece-pelo-porque</loc>
     <lastmod>2024-01-26</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
     <image:image>
       <image:loc>https://covers.openlibrary.org/b/id/8315206-L.jpg</image:loc>
       <image:title>Comece pelo Porquê</image:title>
@@ -94,8 +76,6 @@
   <url>
     <loc>https://wotho.vercel.app/livros/mod-em-busca-de-sentido</loc>
     <lastmod>2024-01-27</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
     <image:image>
       <image:loc>https://covers.openlibrary.org/b/id/8231996-L.jpg</image:loc>
       <image:title>Em Busca de Sentido</image:title>
@@ -104,8 +84,6 @@
   <url>
     <loc>https://wotho.vercel.app/livros/mod-essencialismo</loc>
     <lastmod>2024-01-28</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
     <image:image>
       <image:loc>https://covers.openlibrary.org/b/id/10298412-L.jpg</image:loc>
       <image:title>Essencialismo</image:title>
@@ -114,8 +92,6 @@
   <url>
     <loc>https://wotho.vercel.app/livros/mod-as-48-leis-do-poder</loc>
     <lastmod>2024-01-29</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
     <image:image>
       <image:loc>https://covers.openlibrary.org/b/id/8378912-L.jpg</image:loc>
       <image:title>As 48 Leis do Poder</image:title>
@@ -124,8 +100,6 @@
   <url>
     <loc>https://wotho.vercel.app/livros/mod-leis-do-poder</loc>
     <lastmod>2024-01-29</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
     <image:image>
       <image:loc>https://covers.openlibrary.org/b/id/8378912-L.jpg</image:loc>
       <image:title>As 48 Leis do Poder</image:title>
@@ -134,8 +108,6 @@
   <url>
     <loc>https://wotho.vercel.app/livros/mod-manual-de-epicteto</loc>
     <lastmod>2024-01-30</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
     <image:image>
       <image:loc>https://covers.openlibrary.org/b/id/8542104-L.jpg</image:loc>
       <image:title>Manual de Epicteto (Enchiridion)</image:title>
@@ -144,8 +116,6 @@
   <url>
     <loc>https://wotho.vercel.app/livros/mod-manual-epicteto</loc>
     <lastmod>2024-01-30</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
     <image:image>
       <image:loc>https://covers.openlibrary.org/b/id/8542104-L.jpg</image:loc>
       <image:title>Manual de Epicteto (Enchiridion)</image:title>
@@ -154,8 +124,6 @@
   <url>
     <loc>https://wotho.vercel.app/livros/mod-meditacoes-marco-aurelio</loc>
     <lastmod>2024-01-31</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
     <image:image>
       <image:loc>https://covers.openlibrary.org/b/id/12818902-L.jpg</image:loc>
       <image:title>Meditações</image:title>
@@ -164,8 +132,6 @@
   <url>
     <loc>https://wotho.vercel.app/livros/mod-meditacoes</loc>
     <lastmod>2024-01-31</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
     <image:image>
       <image:loc>https://covers.openlibrary.org/b/id/12818902-L.jpg</image:loc>
       <image:title>Meditações</image:title>
@@ -174,8 +140,6 @@
   <url>
     <loc>https://wotho.vercel.app/livros/mod-os-segredos-da-mente-milionaria</loc>
     <lastmod>2024-02-01</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
     <image:image>
       <image:loc>https://covers.openlibrary.org/b/id/8765412-L.jpg</image:loc>
       <image:title>Os Segredos da Mente Milionária</image:title>
@@ -184,8 +148,6 @@
   <url>
     <loc>https://wotho.vercel.app/livros/mod-mente-milionaria</loc>
     <lastmod>2024-02-01</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
     <image:image>
       <image:loc>https://covers.openlibrary.org/b/id/8765412-L.jpg</image:loc>
       <image:title>Os Segredos da Mente Milionária</image:title>
@@ -194,8 +156,6 @@
   <url>
     <loc>https://wotho.vercel.app/livros/mod-mindset</loc>
     <lastmod>2024-02-02</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
     <image:image>
       <image:loc>https://covers.openlibrary.org/b/id/10398412-L.jpg</image:loc>
       <image:title>Mindset: A Nova Psicologia do Sucesso</image:title>
@@ -204,8 +164,6 @@
   <url>
     <loc>https://wotho.vercel.app/livros/mod-pedagogia-da-autonomia</loc>
     <lastmod>2024-02-03</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
     <image:image>
       <image:loc>https://covers.openlibrary.org/b/id/10234567-L.jpg</image:loc>
       <image:title>Pedagogia da Autonomia</image:title>
@@ -214,8 +172,6 @@
   <url>
     <loc>https://wotho.vercel.app/livros/mod-pedagogia-autonomia</loc>
     <lastmod>2024-02-03</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
     <image:image>
       <image:loc>https://covers.openlibrary.org/b/id/10234567-L.jpg</image:loc>
       <image:title>Pedagogia da Autonomia</image:title>
@@ -224,8 +180,6 @@
   <url>
     <loc>https://wotho.vercel.app/livros/mod-o-poder-do-habito</loc>
     <lastmod>2024-02-04</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
     <image:image>
       <image:loc>https://covers.openlibrary.org/b/id/8314125-L.jpg</image:loc>
       <image:title>O Poder do Hábito</image:title>
@@ -234,8 +188,6 @@
   <url>
     <loc>https://wotho.vercel.app/livros/mod-poder-do-habito</loc>
     <lastmod>2024-02-04</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
     <image:image>
       <image:loc>https://covers.openlibrary.org/b/id/8314125-L.jpg</image:loc>
       <image:title>O Poder do Hábito</image:title>
@@ -244,8 +196,6 @@
   <url>
     <loc>https://wotho.vercel.app/livros/mod-rapido-e-devagar</loc>
     <lastmod>2024-02-05</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
     <image:image>
       <image:loc>https://covers.openlibrary.org/b/id/8234912-L.jpg</image:loc>
       <image:title>Rápido e Devagar: Duas Formas de Pensar</image:title>
@@ -254,8 +204,6 @@
   <url>
     <loc>https://wotho.vercel.app/livros/mod-roube-como-um-artista</loc>
     <lastmod>2024-02-06</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
     <image:image>
       <image:loc>https://covers.openlibrary.org/b/id/8123984-L.jpg</image:loc>
       <image:title>Roube Como um Artista</image:title>
@@ -264,8 +212,6 @@
   <url>
     <loc>https://wotho.vercel.app/livros/mod-roube-como-artista</loc>
     <lastmod>2024-02-06</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
     <image:image>
       <image:loc>https://covers.openlibrary.org/b/id/8123984-L.jpg</image:loc>
       <image:title>Roube Como um Artista</image:title>
@@ -274,8 +220,6 @@
   <url>
     <loc>https://wotho.vercel.app/livros/mod-sobre-a-brevidade-da-vida</loc>
     <lastmod>2024-02-07</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
     <image:image>
       <image:loc>https://covers.openlibrary.org/b/id/8451290-L.jpg</image:loc>
       <image:title>Sobre a Brevidade da Vida</image:title>
@@ -284,8 +228,6 @@
   <url>
     <loc>https://wotho.vercel.app/livros/curr-matematica-ensino-medio-completo</loc>
     <lastmod>2026-01-01</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
     <image:image>
       <image:loc>https://images.unsplash.com/photo-1509228468518-180dd4864904?w=1200&amp;auto=format&amp;fit=crop&amp;q=80</image:loc>
       <image:title>Matemática Fundamental &amp; Avançada para o Ensino Médio</image:title>
@@ -294,8 +236,6 @@
   <url>
     <loc>https://wotho.vercel.app/livros/curr-fisica-ensino-medio-completo</loc>
     <lastmod>2026-01-01</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
     <image:image>
       <image:loc>https://images.unsplash.com/photo-1636466497217-26a8cbeaf0aa?w=1200&amp;auto=format&amp;fit=crop&amp;q=80</image:loc>
       <image:title>Física Geral &amp; Experimental: Mecânica, Termologia, Óptica e Eletricidade</image:title>
@@ -304,8 +244,6 @@
   <url>
     <loc>https://wotho.vercel.app/livros/curr-quimica-geral-e-organica</loc>
     <lastmod>2026-01-01</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
     <image:image>
       <image:loc>https://images.unsplash.com/photo-1532094349884-543bc11b234d?w=1200&amp;auto=format&amp;fit=crop&amp;q=80</image:loc>
       <image:title>Química Essencial: Estrutura Atômica, Estequiometria, Equilíbrio e Funções Orgânicas</image:title>
@@ -314,8 +252,6 @@
   <url>
     <loc>https://wotho.vercel.app/livros/curr-biologia-ecologia-genetica</loc>
     <lastmod>2026-01-01</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
     <image:image>
       <image:loc>https://images.unsplash.com/photo-1530497610245-94d3c16cda28?w=1200&amp;auto=format&amp;fit=crop&amp;q=80</image:loc>
       <image:title>Biologia Moderna: Da Célula aos Ecossistemas, Genética e Biotecnologia</image:title>
@@ -324,8 +260,6 @@
   <url>
     <loc>https://wotho.vercel.app/livros/curr-historia-geral-e-do-brasil</loc>
     <lastmod>2026-01-01</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
     <image:image>
       <image:loc>https://images.unsplash.com/photo-1461360370896-922624d12aa1?w=1200&amp;auto=format&amp;fit=crop&amp;q=80</image:loc>
       <image:title>História Geral &amp; do Brasil: Da Antiguidade Clássica ao Mundo Contemporâneo</image:title>
@@ -334,8 +268,6 @@
   <url>
     <loc>https://wotho.vercel.app/livros/curr-redacao-literatura-vestibulares</loc>
     <lastmod>2026-01-01</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
     <image:image>
       <image:loc>https://images.unsplash.com/photo-1455390582262-044cdead277a?w=1200&amp;auto=format&amp;fit=crop&amp;q=80</image:loc>
       <image:title>Redação Nota 1000 &amp; Literatura Brasileira e Portuguesa</image:title>
@@ -344,8 +276,6 @@
   <url>
     <loc>https://wotho.vercel.app/livros/sci-computacao-quantica-decoerencia</loc>
     <lastmod>2026-03-14</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.8</priority>
     <image:image>
       <image:loc>https://images.unsplash.com/photo-1635070041078-e363dbe005cb?w=1200&amp;auto=format&amp;fit=crop&amp;q=80</image:loc>
       <image:title>Supressão de Decoerência em Qubits Supercondutores via Códigos de Superfície</image:title>
@@ -354,8 +284,6 @@
   <url>
     <loc>https://wotho.vercel.app/livros/sci-neurociencia-plasticidade-sinaptica</loc>
     <lastmod>2026-02-28</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.8</priority>
     <image:image>
       <image:loc>https://images.unsplash.com/photo-1559757175-5700dde675bc?w=1200&amp;auto=format&amp;fit=crop&amp;q=80</image:loc>
       <image:title>Remodelamento Ultraestrutural de Espinhas Dendríticas e Mecanismos da LTP no Hipocampo</image:title>
@@ -364,8 +292,6 @@
   <url>
     <loc>https://wotho.vercel.app/livros/sci-genetica-crispr-prime-editing</loc>
     <lastmod>2026-04-02</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.8</priority>
     <image:image>
       <image:loc>https://images.unsplash.com/photo-1532187863486-abf9dbad1b69?w=1200&amp;auto=format&amp;fit=crop&amp;q=80</image:loc>
       <image:title>Correção de Mutações Pontuais via Prime Editing em Células Hematopoiéticas Humanas</image:title>
@@ -374,8 +300,6 @@
   <url>
     <loc>https://wotho.vercel.app/livros/sci-astrofisica-james-webb-galaxias</loc>
     <lastmod>2026-01-20</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.8</priority>
     <image:image>
       <image:loc>https://images.unsplash.com/photo-1507668077129-56e32842fceb?w=1200&amp;auto=format&amp;fit=crop&amp;q=80</image:loc>
       <image:title>Galáxias Maciças Primitivas em Altos Redshifts (z &gt; 10) e Tensões com o Modelo ΛCDM</image:title>
@@ -384,8 +308,6 @@
   <url>
     <loc>https://wotho.vercel.app/livros/auto-emilio-ou-da-educacao-2789</loc>
     <lastmod>2026-11-12</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
     <image:image>
       <image:loc>https://images.unsplash.com/photo-1497633762265-9d179a990aa6?w=1200&amp;auto=format&amp;fit=crop&amp;q=80</image:loc>
       <image:title>Emílio, ou Da Educação</image:title>
@@ -394,8 +316,6 @@
   <url>
     <loc>https://wotho.vercel.app/livros/auto-inteligencia-emocional-6235</loc>
     <lastmod>2026-11-10</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
     <image:image>
       <image:loc>https://images.unsplash.com/photo-1507413245164-6160d8298b31?w=1200&amp;auto=format&amp;fit=crop&amp;q=80</image:loc>
       <image:title>Inteligência Emocional</image:title>
@@ -404,8 +324,6 @@
   <url>
     <loc>https://wotho.vercel.app/livros/auto-discurso-do-metodo-8266</loc>
     <lastmod>2026-11-09</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
     <image:image>
       <image:loc>https://images.unsplash.com/photo-1461360370896-922624d12aa1?w=1200&amp;auto=format&amp;fit=crop&amp;q=80</image:loc>
       <image:title>Discurso do Método</image:title>
@@ -414,8 +332,6 @@
   <url>
     <loc>https://wotho.vercel.app/livros/auto-etica-a-nicomaco-9631</loc>
     <lastmod>2026-11-06</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
     <image:image>
       <image:loc>https://images.unsplash.com/photo-1461360370896-922624d12aa1?w=1200&amp;auto=format&amp;fit=crop&amp;q=80</image:loc>
       <image:title>Ética a Nicômaco</image:title>
@@ -424,8 +340,6 @@
   <url>
     <loc>https://wotho.vercel.app/livros/auto-a-republica-6259</loc>
     <lastmod>2026-11-04</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
     <image:image>
       <image:loc>https://images.unsplash.com/photo-1461360370896-922624d12aa1?w=1200&amp;auto=format&amp;fit=crop&amp;q=80</image:loc>
       <image:title>A República</image:title>
@@ -434,8 +348,6 @@
   <url>
     <loc>https://wotho.vercel.app/livros/auto-a-arte-da-guerra-0890</loc>
     <lastmod>2026-11-04</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
     <image:image>
       <image:loc>https://images.unsplash.com/photo-1519791883288-dc8bd696e667?w=1200&amp;auto=format&amp;fit=crop&amp;q=80</image:loc>
       <image:title>A Arte da Guerra</image:title>
@@ -444,8 +356,6 @@
   <url>
     <loc>https://wotho.vercel.app/livros/auto-arte-da-guerra</loc>
     <lastmod>2026-11-04</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
     <image:image>
       <image:loc>https://images.unsplash.com/photo-1519791883288-dc8bd696e667?w=1200&amp;auto=format&amp;fit=crop&amp;q=80</image:loc>
       <image:title>A Arte da Guerra</image:title>
@@ -454,8 +364,6 @@
   <url>
     <loc>https://wotho.vercel.app/livros/auto-republica-platao</loc>
     <lastmod>2026-11-04</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
     <image:image>
       <image:loc>https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=1200&amp;auto=format&amp;fit=crop&amp;q=80</image:loc>
       <image:title>A República</image:title>

@@ -10,6 +10,7 @@ import {
   buildSitemapIndexXml,
   buildSubSitemapXml,
   buildNewsSitemapXml,
+  buildVideoSitemapXml,
   buildRssXml,
   loadSeoCatalog,
 } from './scripts/generate_sitemap.js';
@@ -1286,6 +1287,10 @@ function sitemapPlugin(): Plugin {
 
       if (urlPath === '/news-sitemap.xml' || urlPath === '/api/news-sitemap.xml') {
         if (serveXmlCached('news-sitemap.xml', 1800000, () => buildNewsSitemapXml(origin).xml)) return;
+      }
+
+      if (urlPath === '/video-sitemap.xml' || urlPath === '/api/video-sitemap.xml') {
+        if (serveXmlCached('video-sitemap.xml', 3600000, () => buildVideoSitemapXml(origin).xml)) return;
       }
 
       if (urlPath === '/rss.xml' || urlPath === '/feed.xml' || urlPath === '/api/rss.xml') {

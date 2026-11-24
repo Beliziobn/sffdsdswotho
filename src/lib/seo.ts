@@ -9,6 +9,13 @@ export const BOOKS_OG_IMAGE = `${CANONICAL_BASE_URL}/og-livros.jpg`;
 
 export type JsonLdNode = Record<string, unknown>;
 
+export interface OgVideoOptions {
+  url: string;
+  type?: string;
+  width?: number;
+  height?: number;
+}
+
 export interface PageSeoOptions {
   title: string;
   description: string;
@@ -16,6 +23,7 @@ export interface PageSeoOptions {
   ogType?: "website" | "article" | "book" | "video.movie" | "video.tv_show";
   ogImage?: string;
   ogImageAlt?: string;
+  ogVideo?: OgVideoOptions | null;
   robots?: string;
   keywords?: string;
   jsonLd?: JsonLdNode | JsonLdNode[];
@@ -69,6 +77,103 @@ export function upsertMetaTag(
     document.head.appendChild(el);
   }
   el.setAttribute("content", content);
+}
+
+export function removeMetaTag(selector: string) {
+  if (typeof document === "undefined") return;
+  document.querySelectorAll(selector).forEach((el) => el.remove());
+}
+
+export function parseDurationToIso8601(durationStr?: string, fallback = "PT1H45M"): string {
+  if (!durationStr) return fallback;
+  const s = String(durationStr).toLowerCase();
+  const hMatch = s.match(/(\d+)\s*h/);
+  const mMatch = s.match(/(\d+)\s*m(?:in)?/);
+  const h = hMatch ? parseInt(hMatch[1], 10) : 0;
+  const m = mMatch ? parseInt(mMatch[1], 10) : 0;
+  if (h > 0 && m > 0) return `PT${h}H${m}M`;
+  if (h > 0) return `PT${h}H`;
+  if (m > 0) return `PT${m}M`;
+  return fallback;
+}
+
+export function toValidUploadDateIso(yearOrDate?: string | number): string {
+  if (typeof yearOrDate === "string" && /^\d{4}-\d{2}-\d{2}/.test(yearOrDate)) {
+    return yearOrDate.includes("T") ? yearOrDate : `${yearOrDate.slice(0, 10)}T12:00:00Z`;
+  }
+  const y = Number(yearOrDate);
+  if (Number.isFinite(y) && y >= 1920 && y <= 2030) {
+    return `${Math.floor(y)}-01-15T12:00:00Z`;
+  }
+  return "2025-01-15T12:00:00Z";
+}
+
+export interface VideoObjectSchemaInput {
+  canonicalPath: string;
+  name: string;
+  description: string;
+  thumbnailUrl: string;
+  uploadDate: string;
+  durationIso?: string;
+  trailerYoutubeId?: string;
+  isFamilyFriendly?: boolean;
+}
+
+/**
+ * Generates a Google Video Indexing compliant VideoObject JSON-LD node
+ * for dedicated watch pages (/cinema/:id and /animes/:id).
+ */
+export function buildVideoObjectSchema(input: VideoObjectSchemaInput): {
+  videoId: string;
+  embedUrl: string;
+  contentUrl: string;
+  schema: JsonLdNode;
+} {
+  const cleanPath = normalizeCanonicalPath(input.canonicalPath);
+  const canonicalUrl = `${CANONICAL_BASE_URL}${cleanPath}`;
+  const cleanYt = (input.trailerYoutubeId || "").trim();
+  const hasYt = /^[a-zA-Z0-9_-]{11}$/.test(cleanYt);
+  const embedUrl = hasYt ? `https://www.youtube.com/embed/${cleanYt}` : canonicalUrl;
+  const contentUrl = hasYt ? `https://www.youtube.com/watch?v=${cleanYt}` : canonicalUrl;
+  const videoId = `${canonicalUrl}#video`;
+  const thumb = resolveAbsoluteSeoUrl(input.thumbnailUrl);
+  const thumbs = hasYt
+    ? [thumb, `https://i.ytimg.com/vi/${cleanYt}/hqdefault.jpg`]
+    : [thumb];
+
+  return {
+    videoId,
+    embedUrl,
+    contentUrl,
+    schema: {
+      "@context": "https://schema.org",
+      "@type": "VideoObject",
+      "@id": videoId,
+      name: input.name,
+      description: input.description,
+      thumbnailUrl: thumbs,
+      uploadDate: input.uploadDate,
+      duration: input.durationIso || "PT1H45M",
+      embedUrl,
+      contentUrl,
+      inLanguage: "pt-BR",
+      isFamilyFriendly: input.isFamilyFriendly !== false,
+      publisher: {
+        "@type": "Organization",
+        name: "Wotho",
+        logo: {
+          "@type": "ImageObject",
+          url: `${CANONICAL_BASE_URL}/favicon-512x512.png`,
+          width: 512,
+          height: 512,
+        },
+      },
+      potentialAction: {
+        "@type": "WatchAction",
+        target: canonicalUrl,
+      },
+    },
+  };
 }
 
 export function upsertLinkTag(rel: string, href: string, extraAttrs?: Record<string, string>) {
@@ -191,6 +296,22 @@ export function applySeoMetadata(options: PageSeoOptions) {
   upsertMetaTag('meta[property="og:image:secure_url"]', "property", "og:image:secure_url", ogImage);
   upsertMetaTag('meta[property="og:image:alt"]', "property", "og:image:alt", ogImageAlt);
 
+  if (options.ogVideo?.url) {
+    upsertMetaTag('meta[property="og:video"]', "property", "og:video", options.ogVideo.url);
+    upsertMetaTag('meta[property="og:video:url"]', "property", "og:video:url", options.ogVideo.url);
+    upsertMetaTag('meta[property="og:video:secure_url"]', "property", "og:video:secure_url", options.ogVideo.url);
+    upsertMetaTag('meta[property="og:video:type"]', "property", "og:video:type", options.ogVideo.type || "text/html");
+    upsertMetaTag('meta[property="og:video:width"]', "property", "og:video:width", String(options.ogVideo.width || 1280));
+    upsertMetaTag('meta[property="og:video:height"]', "property", "og:video:height", String(options.ogVideo.height || 720));
+  } else if (options.ogVideo === null || (options.ogType && options.ogType !== "video.movie" && options.ogType !== "video.tv_show")) {
+    removeMetaTag('meta[property="og:video"]');
+    removeMetaTag('meta[property="og:video:url"]');
+    removeMetaTag('meta[property="og:video:secure_url"]');
+    removeMetaTag('meta[property="og:video:type"]');
+    removeMetaTag('meta[property="og:video:width"]');
+    removeMetaTag('meta[property="og:video:height"]');
+  }
+
   if (options.articlePublishedTime) {
     upsertMetaTag(
       'meta[property="article:published_time"]',
@@ -221,6 +342,7 @@ export function applySeoMetadata(options: PageSeoOptions) {
 
 export function usePageSeo(options: PageSeoOptions | null) {
   const serializedJsonLd = options?.jsonLd ? JSON.stringify(options.jsonLd) : "";
+  const ogVideoUrl = options?.ogVideo?.url || "";
 
   useEffect(() => {
     if (!options || options.enabled === false) return;
@@ -234,6 +356,7 @@ export function usePageSeo(options: PageSeoOptions | null) {
     options?.ogType,
     options?.ogImage,
     options?.ogImageAlt,
+    ogVideoUrl,
     options?.robots,
     options?.keywords,
     options?.articlePublishedTime,

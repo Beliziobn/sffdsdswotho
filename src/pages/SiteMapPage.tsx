@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   BookOpen,
@@ -14,9 +15,9 @@ import Navigation from "@/components/Navigation";
 import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { ANIMES_DATA } from "@/lib/animes";
+import { ANIMES_DATA, ensureVerifiedAnimesLoaded } from "@/lib/animes";
 import { BASE_CURATED_WEBTOONS } from "@/lib/webtoons";
-import { CINEMA_CATALOG } from "@/lib/cinema";
+import { CINEMA_CATALOG, ensureExpandedCinemaLoaded } from "@/lib/cinema";
 import { NEWS_CATEGORIES } from "@/lib/news";
 
 const MAIN_PAGES = [
@@ -72,6 +73,18 @@ const CURRICULAR_AND_SCIENTIFIC = [
 ];
 
 const SiteMapPage = () => {
+  const [, setCatalogVersion] = useState(0);
+
+  useEffect(() => {
+    let active = true;
+    void Promise.all([ensureExpandedCinemaLoaded(), ensureVerifiedAnimesLoaded()]).then(() => {
+      if (active) setCatalogVersion((v) => v + 1);
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
+
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col">
       <Navigation />
@@ -93,9 +106,9 @@ const SiteMapPage = () => {
           </div>
 
           <Button asChild variant="outline" size="sm" className="rounded-full text-xs self-start md:self-auto gap-2">
-            <a href="/sitemap.xml" target="_blank" rel="noopener noreferrer">
+            <a href="/sitemap-index.xml" target="_blank" rel="noopener noreferrer">
               <FileCode className="h-3.5 w-3.5 text-primary" />
-              Acessar sitemap.xml Oficial
+              Acessar sitemap-index.xml Oficial
               <ExternalLink className="h-3 w-3 opacity-60" />
             </a>
           </Button>
@@ -265,8 +278,9 @@ const SiteMapPage = () => {
             Todas as URLs deste índice correspondem a rotas canônicas verificadas, com metadados sincronizados, links diretos e suporte a leitura instantânea no navegador. Os arquivos XML canônicos são gerados em conformidade com as diretrizes do Google Search Console.
           </p>
           <div className="flex flex-wrap gap-4 mt-3 text-[11px] font-mono">
-            <a href="/sitemap.xml" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">/sitemap.xml</a>
             <a href="/sitemap-index.xml" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">/sitemap-index.xml</a>
+            <a href="/video-sitemap.xml" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">/video-sitemap.xml</a>
+            <a href="/sitemap.xml" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">/sitemap.xml</a>
             <a href="/news-sitemap.xml" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">/news-sitemap.xml</a>
             <a href="/rss.xml" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">/rss.xml</a>
           </div>

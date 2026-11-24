@@ -91,6 +91,11 @@ const Footer = () => {
                   Privacidade
                 </Link>
               </li>
+              <li>
+                <Link to="/mapa-do-site" className="text-background/70 hover:text-background smooth-hover text-xs font-light">
+                  Mapa do Site
+                </Link>
+              </li>
             </ul>
           </div>
 
@@ -130,6 +135,9 @@ const Footer = () => {
             </Link>
             <Link to="/contato" className="hover:text-background smooth-hover">
               Contato
+            </Link>
+            <Link to="/mapa-do-site" className="hover:text-background smooth-hover">
+              Mapa do Site
             </Link>
           </div>
         </div>
