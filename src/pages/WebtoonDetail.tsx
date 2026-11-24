@@ -72,6 +72,14 @@ const WebtoonDetail = () => {
             ]),
           ],
         }
+      : !isLoading
+      ? {
+          title: "Webtoon não encontrado — Wotho Webtoons",
+          description: "O webtoon solicitado não foi encontrado na plataforma Wotho.",
+          robots: "noindex, nofollow",
+          ogVideo: null,
+          jsonLd: [],
+        }
       : null
   );
 

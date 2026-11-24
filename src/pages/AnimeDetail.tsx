@@ -220,6 +220,14 @@ export const AnimeDetail = () => {
             ]),
           ],
         }
+      : !isResolvingCatalog
+      ? {
+          title: "Anime não encontrado — Wotho Animes",
+          description: "O anime solicitado não foi encontrado no catálogo Wotho Animes.",
+          robots: "noindex, nofollow",
+          ogVideo: null,
+          jsonLd: [],
+        }
       : null
   );
 

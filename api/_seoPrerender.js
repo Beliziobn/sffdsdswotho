@@ -182,7 +182,7 @@ function clampHeading(str, maxLength = 150) {
 }
 
 function optimizeExternalSocialImage(url) {
-  let out = url;
+  let out = String(url || '').replace(/^http:\/\//i, 'https://');
   // Optimize TMDB original (often 3-5MB) to w1280 (~150KB) so WhatsApp/Telegram always render it
   if (/^https:\/\/image\.tmdb\.org\/t\/p\/original\//i.test(out)) {
     out = out.replace(/^https:\/\/image\.tmdb\.org\/t\/p\/original\//i, 'https://image.tmdb.org/t/p/w1280/');
@@ -309,10 +309,11 @@ function parseIsoDuration(durationStr, fallbackIso = 'PT2M30S') {
 function toValidUploadDateIso(yearVal) {
   const y = Number(yearVal) || 0;
   const nowYear = new Date().getUTCFullYear();
-  if (y >= 1980 && y <= nowYear) {
-    return `${y}-06-15T12:00:00Z`;
+  if (y >= 1970 && y <= nowYear) {
+    const monthDay = y === nowYear ? '01-15' : '06-15';
+    return `${y}-${monthDay}T12:00:00Z`;
   }
-  return '2025-06-15T12:00:00Z';
+  return '2025-01-15T12:00:00Z';
 }
 
 function buildVideoWatchMeta({
@@ -825,13 +826,8 @@ export function resolveRouteSeo(rawPathname, customOrigin = DEFAULT_ORIGIN) {
     const id = decodeURIComponent(canonicalPath.slice(prefix.length).split('/')[0] || '').trim();
     const normId = id.toLowerCase();
     const allBooks = [...editorialBooks, ...catalog.books];
-    const book =
-      allBooks.find((b) => b.id === id || String(b.id || '').toLowerCase() === normId) ||
-      allBooks.find(
-        (b) =>
-          String(b.id || '').toLowerCase().includes(normId) ||
-          normId.includes(String(b.id || '').toLowerCase())
-      );
+    const book = allBooks.find((b) => b.id === id || String(b.id || '').toLowerCase() === normId);
+    const isDynamicEditorialBook = /^(book-editorial-|gut-|guten-|mod-|curr-|sci-|auto-)/i.test(id);
 
     if (id.length >= 1) {
       const resolvedId = book?.id || id;
@@ -886,49 +882,59 @@ export function resolveRouteSeo(rawPathname, customOrigin = DEFAULT_ORIGIN) {
           : `Além da leitura integral gratuita na plataforma, esta ficha catalográfica disponibiliza dados bibliográficos verificados, tempo estimado de leitura (${book?.read_time || 60} minutos) e recomendações correlatas para aprofundamento literário e educacional.`,
       ];
 
+      const existsOrDynamic = Boolean(book) || isDynamicEditorialBook;
       return {
-        statusCode: 200,
-        indexable: Boolean(book) || /^(gut|guten|mod|curr|sci|auto)-/i.test(id),
-        robots:
-          Boolean(book) || /^(gut|guten|mod|curr|sci|auto)-/i.test(id)
-            ? 'index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1'
-            : 'noindex, follow',
-        canonicalUrl,
-        title: pageTitle,
-        description: desc,
+        statusCode: existsOrDynamic ? 200 : 404,
+        indexable: Boolean(book),
+        robots: book
+          ? 'index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1'
+          : isDynamicEditorialBook
+          ? 'noindex, follow'
+          : 'noindex, nofollow',
+        canonicalUrl: existsOrDynamic ? canonicalUrl : null,
+        title: existsOrDynamic ? pageTitle : 'Livro não encontrado | Wotho',
+        description: existsOrDynamic
+          ? desc
+          : 'O livro solicitado não foi encontrado na biblioteca digital Wotho.',
         ogType: 'book',
         ogImage: cover,
         ogImageAlt: `${bookTitle} — ${authorName}`,
-        h1: bookTitle,
-        subtitle: `Por ${authorName}${book?.category ? ` · ${book.category}` : ''}`,
-        bodyParagraphs: bookEditorialParagraphs,
+        h1: existsOrDynamic ? bookTitle : 'Livro não encontrado',
+        subtitle: existsOrDynamic ? `Por ${authorName}${book?.category ? ` · ${book.category}` : ''}` : 'Biblioteca Digital Wotho',
+        bodyParagraphs: existsOrDynamic
+          ? bookEditorialParagraphs
+          : ['O livro solicitado não foi encontrado. Explore outras obras gratuitas na biblioteca digital Wotho.'],
         bodyText: desc,
         coverImage: cover,
-        facts: [
-          { label: 'Obra', value: bookTitle },
-          { label: 'Autor(a)', value: authorName },
-          ...(book?.category ? [{ label: 'Categoria', value: book.category }] : []),
-          ...(book?.year ? [{ label: 'Ano', value: String(book.year) }] : []),
-          { label: 'Tempo de Leitura', value: `${book?.read_time || 60} min` },
-          { label: 'Formato', value: 'Livro Digital no Navegador (HTML5 / PDF)' },
-          { label: 'Plataforma', value: 'Wotho Biblioteca Digital' },
-          { label: 'Idioma', value: 'Português (Brasil)' },
-        ],
+        facts: existsOrDynamic
+          ? [
+              { label: 'Obra', value: bookTitle },
+              { label: 'Autor(a)', value: authorName },
+              ...(book?.category ? [{ label: 'Categoria', value: book.category }] : []),
+              ...(book?.year ? [{ label: 'Ano', value: String(book.year) }] : []),
+              { label: 'Tempo de Leitura', value: `${book?.read_time || 60} min` },
+              { label: 'Formato', value: 'Livro Digital no Navegador (HTML5 / PDF)' },
+              { label: 'Plataforma', value: 'Wotho Biblioteca Digital' },
+              { label: 'Idioma', value: 'Português (Brasil)' },
+            ]
+          : [],
         links: [
-          { href: `/ler/${encodeURIComponent(resolvedId)}`, label: `Ler "${bookTitle}" online no navegador` },
+          ...(existsOrDynamic ? [{ href: `/ler/${encodeURIComponent(resolvedId)}`, label: `Ler "${bookTitle}" online no navegador` }] : []),
           ...relatedLinks,
         ],
-        jsonLd: [
-          bookJsonLd,
-          buildBreadcrumbJsonLd(
-            [
-              { name: 'Wotho', url: '/' },
-              { name: 'Livros', url: '/livros' },
-              { name: bookTitle, url: canonicalUrl },
-            ],
-            origin
-          ),
-        ],
+        jsonLd: book
+          ? [
+              bookJsonLd,
+              buildBreadcrumbJsonLd(
+                [
+                  { name: 'Wotho', url: '/' },
+                  { name: 'Livros', url: '/livros' },
+                  { name: bookTitle, url: canonicalUrl },
+                ],
+                origin
+              ),
+            ]
+          : [],
       };
     }
   }
@@ -937,14 +943,7 @@ export function resolveRouteSeo(rawPathname, customOrigin = DEFAULT_ORIGIN) {
   if (lowerPath.startsWith('/cinema/')) {
     const id = decodeURIComponent(canonicalPath.slice('/cinema/'.length).split('/')[0] || '').trim();
     const normId = id.toLowerCase();
-    const item =
-      catalog.cinema.find((c) => c.id === id || c.id.toLowerCase() === normId) ||
-      catalog.cinema.find(
-        (c) =>
-          c.id.toLowerCase().startsWith(normId) ||
-          normId.startsWith(c.id.toLowerCase()) ||
-          c.id.toLowerCase().includes(normId)
-      );
+    const item = catalog.cinema.find((c) => c.id === id || c.id.toLowerCase() === normId);
 
     if (id.length >= 1) {
       const resolvedItem = item || {
@@ -968,10 +967,15 @@ export function resolveRouteSeo(rawPathname, customOrigin = DEFAULT_ORIGIN) {
       const isFamilyFriendly = !String(resolvedItem.ageRating || '').includes('18');
       const uploadDateIso = toValidUploadDateIso(resolvedItem.year);
       const durationIso = parseIsoDuration(resolvedItem.duration, isSeries ? 'PT48M' : 'PT2H');
+      // Never leak Dune: Part Two's fallback trailer ID onto unrelated titles
+      const authenticTrailerYt =
+        resolvedItem.trailerYoutubeId === 'Way9Dexny3w' && resolvedItem.id !== 'duna-parte-2'
+          ? ''
+          : resolvedItem.trailerYoutubeId;
 
       const videoWatch = item
         ? buildVideoWatchMeta({
-            ytId: resolvedItem.trailerYoutubeId,
+            ytId: authenticTrailerYt,
             name: `${resolvedItem.title} (${resolvedItem.year}) — ${isSeries ? 'Série Completa' : 'Filme'} em Português`,
             description: desc,
             thumbnailUrl: cover,
@@ -1100,14 +1104,9 @@ export function resolveRouteSeo(rawPathname, customOrigin = DEFAULT_ORIGIN) {
     const id = decodeURIComponent(parts[0] || '').trim();
     const normId = id.toLowerCase();
     const isMangaReader = (parts[1] || '').toLowerCase() === 'manga';
-    const anime =
-      catalog.animes.find((a) => a.id === id || a.id.toLowerCase() === normId) ||
-      catalog.animes.find(
-        (a) =>
-          a.id.toLowerCase().startsWith(normId) ||
-          normId.startsWith(a.id.toLowerCase()) ||
-          a.id.toLowerCase().includes(normId)
-      );
+    const anime = catalog.animes.find(
+      (a) => a.id === id || a.id.toLowerCase() === normId || (a.slug && a.slug.toLowerCase() === normId)
+    );
 
     if (id.length >= 1) {
       const resolvedAnime = anime || {
@@ -1253,9 +1252,13 @@ export function resolveRouteSeo(rawPathname, customOrigin = DEFAULT_ORIGIN) {
     const id = decodeURIComponent(parts[0] || '').trim();
     const normId = id.toLowerCase();
     const isEpisodeReader = parts.length > 1;
-    const wt =
-      catalog.webtoons.find((w) => w.id === id || w.id.toLowerCase() === normId || w.id.toLowerCase() === `wt-${normId}` || w.id.toLowerCase() === `wt-auto-${normId}`) ||
-      catalog.webtoons.find((w) => w.id.toLowerCase().includes(normId));
+    const wt = catalog.webtoons.find(
+      (w) =>
+        w.id === id ||
+        w.id.toLowerCase() === normId ||
+        w.id.toLowerCase() === `wt-${normId}` ||
+        w.id.toLowerCase() === `wt-auto-${normId}`
+    );
 
     if (id.length >= 1) {
       const resolvedWt = wt || {
@@ -1368,21 +1371,14 @@ export function resolveRouteSeo(rawPathname, customOrigin = DEFAULT_ORIGIN) {
       const normSlug = slug.toLowerCase();
       const archiveNews = getNewsArchiveForSeo();
       const allNews = [...editorialNews, ...catalog.news, ...archiveNews];
-      const article =
-        allNews.find(
-          (n) =>
-            n &&
-            (n.slug === slug ||
-              n.id === slug ||
-              (n.slug && String(n.slug).toLowerCase() === normSlug) ||
-              (n.id && String(n.id).toLowerCase() === normSlug))
-        ) ||
-        allNews.find(
-          (n) =>
-            n?.slug &&
-            (String(n.slug).toLowerCase().includes(normSlug) ||
-              normSlug.includes(String(n.slug).toLowerCase()))
-        );
+      const article = allNews.find(
+        (n) =>
+          n &&
+          (n.slug === slug ||
+            n.id === slug ||
+            (n.slug && String(n.slug).toLowerCase() === normSlug) ||
+            (n.id && String(n.id).toLowerCase() === normSlug))
+      );
 
       const resolvedSlug = article?.slug || slug;
       const headline = article?.title || humanizeSlug(slug);
@@ -1722,6 +1718,7 @@ export function injectSeoIntoHtml(html, rawPathname, options = {}) {
     );
   } else {
     out = out.replace(/<link\s+rel="canonical"\s+href="[^"]*"\s*\/?>\s*/i, '');
+    out = out.replace(/<link\s+rel="alternate"\s+hreflang="[^"]*"\s+href="[^"]*"\s*\/?>\s*/gi, '');
   }
 
   // 5. OpenGraph & Twitter tags

@@ -109,6 +109,14 @@ const NewsArticle = () => {
             ]),
           ],
         }
+      : !isLoading
+      ? {
+          title: "Notícia não encontrada — Wotho Notícias",
+          description: "A reportagem solicitada não foi encontrada no portal Wotho Notícias.",
+          robots: "noindex, nofollow",
+          ogVideo: null,
+          jsonLd: [],
+        }
       : null
   );
 

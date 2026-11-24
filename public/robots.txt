@@ -10,6 +10,7 @@ Allow: /assets/
 Allow: /api/og-cover
 Allow: /sitemap-index.xml
 Allow: /video-sitemap.xml
+Allow: /sitemap-video.xml
 Allow: /news-sitemap.xml
 Disallow: /api/
 Disallow: /admin
@@ -36,6 +37,7 @@ Allow: /
 Allow: /cinema/
 Allow: /animes/
 Allow: /video-sitemap.xml
+Allow: /sitemap-video.xml
 Allow: /assets/
 Disallow: /api/
 Disallow: /admin
@@ -60,6 +62,7 @@ Allow: /assets/
 Allow: /api/og-cover
 Allow: /sitemap-index.xml
 Allow: /video-sitemap.xml
+Allow: /sitemap-video.xml
 Allow: /news-sitemap.xml
 Disallow: /api/
 Disallow: /admin

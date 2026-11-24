@@ -103,6 +103,14 @@ const BookDetail = () => {
             ]),
           ],
         }
+      : !isLoading
+      ? {
+          title: "Livro não encontrado — Wotho Livros",
+          description: "O livro solicitado não foi encontrado na biblioteca digital Wotho.",
+          robots: "noindex, nofollow",
+          ogVideo: null,
+          jsonLd: [],
+        }
       : null
   );
 

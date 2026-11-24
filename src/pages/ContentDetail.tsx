@@ -68,6 +68,14 @@ const ContentDetail = () => {
             ]),
           ],
         }
+      : !isLoading
+      ? {
+          title: "Conteúdo não encontrado — Wotho",
+          description: "O conteúdo solicitado não foi encontrado na plataforma Wotho.",
+          robots: "noindex, nofollow",
+          ogVideo: null,
+          jsonLd: [],
+        }
       : null
   );
 

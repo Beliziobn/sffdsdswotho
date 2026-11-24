@@ -41,7 +41,16 @@ function toAbsoluteImageUrl(img, origin = BASE_URL) {
   if (trimmed.startsWith('/covers/') || trimmed.startsWith('/assets/hero-') || trimmed === '/og-image.jpg') {
     return `${origin}/og-wotho-home.jpg`;
   }
-  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  if (/^https?:\/\//i.test(trimmed)) {
+    let normalized = trimmed.replace(/^http:\/\//i, 'https://');
+    if (/^https:\/\/image\.tmdb\.org\/t\/p\/original\//i.test(normalized)) {
+      normalized = normalized.replace(
+        /^https:\/\/image\.tmdb\.org\/t\/p\/original\//i,
+        'https://image.tmdb.org/t/p/w1280/'
+      );
+    }
+    return normalized;
+  }
   if (trimmed.startsWith('/')) return `${origin}${trimmed}`;
   return `${origin}/${trimmed}`;
 }
@@ -91,10 +100,14 @@ function toW3cDateOnly(value, fallbackIso) {
 function toVideoPublicationDate(year, fallbackIso) {
   const numYear = Number(year) || 0;
   const nowYear = new Date().getUTCFullYear();
-  if (numYear >= 1900 && numYear <= nowYear) {
+  // Google Video Sitemap rejects pre-1970 (pre-Unix-epoch) publication_date values
+  if (numYear >= 1970 && numYear <= nowYear) {
     // Use Jan 15 for current year so publication_date is never in the future regardless of UTC clock
     const monthDay = numYear === nowYear ? '01-15' : '06-15';
     return `${numYear}-${monthDay}`;
+  }
+  if (numYear > 0 && numYear < 1970) {
+    return '2025-01-15';
   }
   return toW3cDateOnly(fallbackIso, new Date().toISOString());
 }

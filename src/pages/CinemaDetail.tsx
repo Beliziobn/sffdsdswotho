@@ -86,6 +86,11 @@ export default function CinemaDetail() {
     setCinemaLanguagePreference(lang);
   };
 
+  const authenticTrailerYt =
+    item && item.trailerYoutubeId === "Way9Dexny3w" && item.id !== "duna-parte-2"
+      ? undefined
+      : item?.trailerYoutubeId;
+
   const videoWatchMeta = item
     ? buildVideoObjectSchema({
         canonicalPath: `/cinema/${item.id}`,
@@ -96,7 +101,7 @@ export default function CinemaDetail() {
         thumbnailUrl: item.backdropUrl || item.posterUrl || `${CANONICAL_BASE_URL}/og-wotho-home.jpg`,
         uploadDate: toValidUploadDateIso(item.year),
         durationIso: parseDurationToIso8601(item.duration, item.type === "serie" ? "PT48M" : "PT1H55M"),
-        trailerYoutubeId: item.trailerYoutubeId,
+        trailerYoutubeId: authenticTrailerYt,
         isFamilyFriendly: !/^(18|\+18)$/i.test(String(item.ageRating || "")),
       })
     : null;
@@ -112,14 +117,16 @@ export default function CinemaDetail() {
           ogType: item.type === "serie" ? "video.tv_show" : "video.movie",
           ogImage: item.backdropUrl || item.posterUrl || `${CANONICAL_BASE_URL}/og-wotho-home.jpg`,
           ogImageAlt: `${item.title} (${item.year})`,
-          ogVideo: {
-            url: videoWatchMeta.embedUrl,
-            type: "text/html",
-            width: 1280,
-            height: 720,
-          },
+          ogVideo: authenticTrailerYt
+            ? {
+                url: videoWatchMeta.embedUrl,
+                type: "text/html",
+                width: 1280,
+                height: 720,
+              }
+            : null,
           jsonLd: [
-            videoWatchMeta.schema,
+            ...(authenticTrailerYt ? [videoWatchMeta.schema] : []),
             {
               "@context": "https://schema.org",
               "@type": item.type === "serie" ? "TVSeries" : "Movie",
@@ -131,7 +138,7 @@ export default function CinemaDetail() {
               inLanguage: "pt-BR",
               url: `${CANONICAL_BASE_URL}/cinema/${item.id}`,
               genre: item.genres,
-              trailer: { "@id": videoWatchMeta.videoId },
+              ...(authenticTrailerYt ? { trailer: { "@id": videoWatchMeta.videoId } } : {}),
               ...(item.director ? { director: { "@type": "Person", name: item.director } } : {}),
               ...(Array.isArray(item.cast) && item.cast.length > 0
                 ? { actor: item.cast.slice(0, 6).map((name) => ({ "@type": "Person", name })) }
@@ -157,6 +164,14 @@ export default function CinemaDetail() {
               { name: item.title, path: `/cinema/${item.id}` },
             ]),
           ],
+        }
+      : !isResolving
+      ? {
+          title: "Título não encontrado — Wotho Cinema",
+          description: "O filme ou série solicitado não foi encontrado no catálogo Wotho Cinema.",
+          robots: "noindex, nofollow",
+          ogVideo: null,
+          jsonLd: [],
         }
       : null
   );

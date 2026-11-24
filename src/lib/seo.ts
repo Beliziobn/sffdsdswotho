@@ -49,7 +49,7 @@ export function resolveAbsoluteSeoUrl(urlOrPath?: string): string {
     return DEFAULT_OG_IMAGE;
   }
   if (/^https?:\/\//i.test(trimmed)) {
-    let out = trimmed;
+    let out = trimmed.replace(/^http:\/\//i, "https://");
     if (/^https:\/\/image\.tmdb\.org\/t\/p\/original\//i.test(out)) {
       out = out.replace(/^https:\/\/image\.tmdb\.org\/t\/p\/original\//i, "https://image.tmdb.org/t/p/w1280/");
     }
@@ -99,11 +99,17 @@ export function parseDurationToIso8601(durationStr?: string, fallback = "PT1H45M
 
 export function toValidUploadDateIso(yearOrDate?: string | number): string {
   if (typeof yearOrDate === "string" && /^\d{4}-\d{2}-\d{2}/.test(yearOrDate)) {
-    return yearOrDate.includes("T") ? yearOrDate : `${yearOrDate.slice(0, 10)}T12:00:00Z`;
+    const yStr = Number(yearOrDate.slice(0, 4));
+    if (yStr >= 1970) {
+      return yearOrDate.includes("T") ? yearOrDate : `${yearOrDate.slice(0, 10)}T12:00:00Z`;
+    }
+    return "2025-01-15T12:00:00Z";
   }
   const y = Number(yearOrDate);
-  if (Number.isFinite(y) && y >= 1920 && y <= 2030) {
-    return `${Math.floor(y)}-01-15T12:00:00Z`;
+  const nowYear = new Date().getUTCFullYear();
+  if (Number.isFinite(y) && y >= 1970 && y <= nowYear) {
+    const monthDay = Math.floor(y) === nowYear ? "01-15" : "06-15";
+    return `${Math.floor(y)}-${monthDay}T12:00:00Z`;
   }
   return "2025-01-15T12:00:00Z";
 }
@@ -284,9 +290,13 @@ export function applySeoMetadata(options: PageSeoOptions) {
     upsertMetaTag('meta[name="keywords"]', "name", "keywords", options.keywords);
   }
 
-  upsertLinkTag("canonical", canonicalUrl);
-  upsertLinkTag("alternate", canonicalUrl, { hreflang: "pt-BR" });
-  upsertLinkTag("alternate", canonicalUrl, { hreflang: "x-default" });
+  if (isNoindex) {
+    document.querySelectorAll('link[rel="canonical"], link[rel="alternate"][hreflang]').forEach((el) => el.remove());
+  } else {
+    upsertLinkTag("canonical", canonicalUrl);
+    upsertLinkTag("alternate", canonicalUrl, { hreflang: "pt-BR" });
+    upsertLinkTag("alternate", canonicalUrl, { hreflang: "x-default" });
+  }
 
   upsertMetaTag('meta[property="og:type"]', "property", "og:type", options.ogType || "website");
   upsertMetaTag('meta[property="og:url"]', "property", "og:url", canonicalUrl);
