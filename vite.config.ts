@@ -1289,7 +1289,12 @@ function sitemapPlugin(): Plugin {
         if (serveXmlCached('news-sitemap.xml', 1800000, () => buildNewsSitemapXml(origin).xml)) return;
       }
 
-      if (urlPath === '/video-sitemap.xml' || urlPath === '/api/video-sitemap.xml') {
+      if (
+        urlPath === '/video-sitemap.xml' ||
+        urlPath === '/api/video-sitemap.xml' ||
+        urlPath === '/sitemap-video.xml' ||
+        urlPath === '/api/sitemap-video.xml'
+      ) {
         if (serveXmlCached('video-sitemap.xml', 3600000, () => buildVideoSitemapXml(origin).xml)) return;
       }
 

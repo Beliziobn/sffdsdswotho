@@ -170,6 +170,10 @@
       "destination": "/api/[...route]?route=video-sitemap.xml"
     },
     {
+      "source": "/sitemap-video.xml",
+      "destination": "/api/[...route]?route=video-sitemap.xml"
+    },
+    {
       "source": "/rss.xml",
       "destination": "/api/[...route]?route=rss.xml"
     },
@@ -266,7 +270,7 @@
       ]
     },
     {
-      "source": "/api/(.*)",
+      "source": "/api/((?!sitemap.*\\.xml|video-sitemap\\.xml|news-sitemap\\.xml|rss\\.xml|feed\\.xml|og-cover).*)",
       "headers": [
         {
           "key": "X-Robots-Tag",

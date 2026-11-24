@@ -192,7 +192,9 @@ export default async function handler(req: any, res: any) {
     }
 
     case '/api/video-sitemap.xml':
-    case '/video-sitemap.xml': {
+    case '/video-sitemap.xml':
+    case '/api/sitemap-video.xml':
+    case '/sitemap-video.xml': {
       res.statusCode = 200;
       res.setHeader('Content-Type', 'application/xml; charset=utf-8');
       res.setHeader('Cache-Control', 'public, max-age=3600, s-maxage=3600');

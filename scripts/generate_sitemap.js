@@ -26,6 +26,7 @@ export const STATIC_ROUTES = [
 function escapeXml(unsafe) {
   if (unsafe === null || unsafe === undefined) return '';
   return String(unsafe)
+    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F\uFFFE\uFFFF]/g, '')
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
@@ -59,12 +60,16 @@ function parseDurationToSeconds(durationStr, fallbackSeconds = 150) {
 
 const MIN_SITEMAP_TIMESTAMP = new Date('2024-01-01T00:00:00.000Z').getTime();
 
+function stripIsoMillis(iso) {
+  return String(iso || '').replace(/\.\d+Z$/, 'Z');
+}
+
 function toIsoDate(value, fallbackIso) {
   const fallbackParsed = new Date(fallbackIso || Date.now());
   const safeFallbackMs = Number.isNaN(fallbackParsed.getTime())
     ? Date.now()
     : Math.max(fallbackParsed.getTime(), MIN_SITEMAP_TIMESTAMP);
-  const safeFallbackIso = new Date(safeFallbackMs).toISOString();
+  const safeFallbackIso = stripIsoMillis(new Date(safeFallbackMs).toISOString());
 
   if (!value) return safeFallbackIso;
   const parsed = new Date(value);
@@ -74,23 +79,24 @@ function toIsoDate(value, fallbackIso) {
   }
   const nowMs = Date.now();
   if (ms > nowMs) {
-    return new Date(nowMs).toISOString();
+    return stripIsoMillis(new Date(nowMs).toISOString());
   }
-  return parsed.toISOString();
+  return stripIsoMillis(parsed.toISOString());
 }
 
 function toW3cDateOnly(value, fallbackIso) {
   return toIsoDate(value, fallbackIso).split('T')[0];
 }
 
-function toVideoPublicationIso(year, fallbackIso) {
+function toVideoPublicationDate(year, fallbackIso) {
   const numYear = Number(year) || 0;
   const nowYear = new Date().getUTCFullYear();
-  if (numYear >= 1980 && numYear <= nowYear) {
-    const clampedYear = Math.min(numYear, nowYear);
-    return `${clampedYear}-06-15T12:00:00Z`;
+  if (numYear >= 1900 && numYear <= nowYear) {
+    // Use Jan 15 for current year so publication_date is never in the future regardless of UTC clock
+    const monthDay = numYear === nowYear ? '01-15' : '06-15';
+    return `${numYear}-${monthDay}`;
   }
-  return toIsoDate(fallbackIso, new Date().toISOString());
+  return toW3cDateOnly(fallbackIso, new Date().toISOString());
 }
 
 function truncateText(text, max = 180) {
@@ -602,61 +608,84 @@ export function buildVideoSitemapXml(customOrigin = BASE_URL, catalogOverride = 
 
   let count = 0;
 
+  const seenLocs = new Set();
+
   const appendVideoEntry = ({
     loc,
+    lastmod,
     ytId,
     title,
     description,
     thumbnailUrl,
     durationSec,
-    pubDateIso,
+    pubDate,
     familyFriendly,
     tags,
   }) => {
-    if (!loc || !ytId || !/^[A-Za-z0-9_-]{6,20}$/.test(String(ytId).trim())) return;
+    if (!loc || seenLocs.has(loc) || !ytId || !/^[A-Za-z0-9_-]{6,20}$/.test(String(ytId).trim())) return;
+    seenLocs.add(loc);
     const cleanYt = String(ytId).trim();
     const safeThumb = toAbsoluteImageUrl(
       thumbnailUrl || `https://i.ytimg.com/vi/${cleanYt}/hqdefault.jpg`,
       origin
     ).replace(/^https:\/\/image\.tmdb\.org\/t\/p\/original\//i, 'https://image.tmdb.org/t/p/w1280/');
-    const safeTitle = truncateText(title, 100);
-    const safeDesc = truncateText(description || title, 1800);
+    // Keep title strictly <= 90 raw chars so even XML-escaped length stays <= 100 (Google Video Sitemap limit)
+    const safeTitle = truncateText(title, 90);
+    // Concise 280-char description keeps total XML well under 500 KB for instant Googlebot parsing
+    const safeDesc = truncateText(description || title, 280);
     const clampedDuration = Math.min(28800, Math.max(30, Math.round(durationSec || 150)));
+    const uniqueTags = [];
+    const seenTags = new Set();
+    for (const rawTag of tags || []) {
+      const cleaned = truncateText(String(rawTag || '').trim(), 32);
+      const key = cleaned.toLowerCase();
+      if (cleaned && !seenTags.has(key)) {
+        seenTags.add(key);
+        uniqueTags.push(cleaned);
+      }
+      if (uniqueTags.length >= 4) break;
+    }
 
     xml += '  <url>\n';
     xml += `    <loc>${escapeXml(loc)}</loc>\n`;
+    if (lastmod) xml += `    <lastmod>${escapeXml(lastmod)}</lastmod>\n`;
     xml += '    <video:video>\n';
     xml += `      <video:thumbnail_loc>${escapeXml(safeThumb)}</video:thumbnail_loc>\n`;
     xml += `      <video:title>${escapeXml(safeTitle)}</video:title>\n`;
     xml += `      <video:description>${escapeXml(safeDesc)}</video:description>\n`;
     xml += `      <video:player_loc>https://www.youtube.com/embed/${escapeXml(cleanYt)}</video:player_loc>\n`;
     xml += `      <video:duration>${clampedDuration}</video:duration>\n`;
-    xml += `      <video:publication_date>${escapeXml(pubDateIso)}</video:publication_date>\n`;
+    xml += `      <video:publication_date>${escapeXml(pubDate)}</video:publication_date>\n`;
     xml += `      <video:family_friendly>${familyFriendly ? 'yes' : 'no'}</video:family_friendly>\n`;
     xml += '      <video:live>no</video:live>\n';
-    for (const tag of (tags || []).slice(0, 6)) {
-      if (tag) xml += `      <video:tag>${escapeXml(String(tag).slice(0, 32))}</video:tag>\n`;
+    for (const tag of uniqueTags) {
+      xml += `      <video:tag>${escapeXml(tag)}</video:tag>\n`;
     }
     xml += '    </video:video>\n';
     xml += '  </url>\n';
     count += 1;
   };
 
+  const catalogLastmodDate = toW3cDateOnly(catalogLastmodIso, catalogLastmodIso);
+
   for (const c of catalog.cinema || []) {
     if (!c?.id || !c?.trailerYoutubeId) continue;
+    // Skip placeholder fallback Dune trailer ID on unrelated titles so every video entry is authentic
+    if (c.trailerYoutubeId === 'Way9Dexny3w' && c.id !== 'duna-parte-2') continue;
     const isAdult = String(c.ageRating || '').includes('18');
     appendVideoEntry({
       loc: `${origin}/cinema/${encodeURIComponent(c.id)}`,
+      lastmod: stableCatalogDate(c.year, catalogLastmodDate),
       ytId: c.trailerYoutubeId,
-      title: `${c.title} (${c.year}) — Assistir Online | Wotho`,
+      title: `${c.title} (${c.year}) — Wotho`,
       description:
         c.synopsis ||
         `Assista ${c.title} (${c.year}) em alta definição com áudio dublado PT-BR e legendas completas na Wotho.`,
       thumbnailUrl: c.backdropUrl || c.posterUrl,
       durationSec: parseDurationToSeconds(c.duration, 150),
-      pubDateIso: toVideoPublicationIso(c.year, catalogLastmodIso),
+      pubDate: toVideoPublicationDate(c.year, catalogLastmodIso),
       familyFriendly: !isAdult,
-      tags: [...(c.genres || []), c.type === 'serie' ? 'Série' : 'Filme', 'Dublado PT-BR'],
+      tags: [...(c.genres || []), c.type === 'serie' ? 'Série' : 'Filme'],
     });
   }
 
@@ -664,16 +693,17 @@ export function buildVideoSitemapXml(customOrigin = BASE_URL, catalogOverride = 
     if (!a?.id || !a?.trailerYoutubeId) continue;
     appendVideoEntry({
       loc: `${origin}/animes/${encodeURIComponent(a.id)}`,
+      lastmod: stableCatalogDate(a.year, catalogLastmodDate),
       ytId: a.trailerYoutubeId,
-      title: `${a.title} — Assistir Anime Online | Wotho`,
+      title: `${a.title} — Anime Online | Wotho`,
       description:
         a.synopsis ||
         `Assista episódios de ${a.title} dublados e legendados em português e leia o mangá integrado na Wotho.`,
       thumbnailUrl: a.banner || a.cover,
       durationSec: 1440,
-      pubDateIso: toVideoPublicationIso(a.year, catalogLastmodIso),
+      pubDate: toVideoPublicationDate(a.year, catalogLastmodIso),
       familyFriendly: true,
-      tags: [...(a.genres || []), 'Anime', a.studio || 'Streaming'],
+      tags: [...(a.genres || []), 'Anime'],
     });
   }
 
