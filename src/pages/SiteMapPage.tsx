@@ -27,10 +27,6 @@ const MAIN_PAGES = [
   { path: "/animes", title: "Portal de Animes", desc: "Fichas completas, episódios, trailers e leitura de mangás vinculados." },
   { path: "/cinema", title: "Cinema & Séries", desc: "Catálogo de filmes e séries com player imersivo, temporadas e alta definição." },
   { path: "/noticias", title: "Portal de Notícias", desc: "Cobertura diária de cultura, futebol, mercado, tecnologia e entretenimento." },
-  { path: "/biblioteca", title: "Minha Estante", desc: "Acesse seus livros salvos, títulos adquiridos e histórico de leitura." },
-  { path: "/para-voce", title: "Recomendações Personalizadas", desc: "Sugestões de leitura baseadas nos seus interesses." },
-  { path: "/continuar-lendo", title: "Continuar Leitura", desc: "Retome suas leituras exatamente de onde parou." },
-  { path: "/buscar", title: "Busca Global", desc: "Pesquise por títulos, autores, gêneros ou notícias." },
   { path: "/sobre", title: "Sobre a Wotho", desc: "Manifesto, valores, proposta editorial e pilares da plataforma." },
   { path: "/contato", title: "Contato e Atendimento", desc: "Canais diretos, formulário para dúvidas e sugestões, e FAQ." },
   { path: "/termos", title: "Termos de Uso", desc: "Condições gerais de navegação e utilização da plataforma." },
@@ -259,7 +255,7 @@ const SiteMapPage = () => {
             {NEWS_CATEGORIES.map((cat) => (
               <Link
                 key={cat}
-                to={`/noticias?categoria=${encodeURIComponent(cat.toLowerCase())}`}
+                to="/noticias"
                 className="px-3.5 py-1.5 rounded-full border border-border bg-card hover:border-primary/50 text-xs text-foreground font-light transition-all"
               >
                 {cat}

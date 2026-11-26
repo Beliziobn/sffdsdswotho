@@ -44,7 +44,7 @@ const ContentDetail = () => {
           description:
             item.description ||
             `Leia "${item.title}" por ${item.author} online diretamente no navegador na Wotho.`,
-          canonicalPath: `/conteudo/${item.id}`,
+          canonicalPath: `/livros/${item.id}`,
           ogType: item.type === "academic" ? "article" : "book",
           ogImage: item.cover || `${CANONICAL_BASE_URL}/og-wotho-home.jpg`,
           ogImageAlt: `${item.title} — ${item.author}`,
@@ -57,14 +57,14 @@ const ContentDetail = () => {
               description: item.description,
               image: item.cover || `${CANONICAL_BASE_URL}/og-wotho-home.jpg`,
               inLanguage: "pt-BR",
-              url: `${CANONICAL_BASE_URL}/conteudo/${item.id}`,
+              url: `${CANONICAL_BASE_URL}/livros/${item.id}`,
               genre: item.category,
               publisher: { "@type": "Organization", name: "Wotho" },
             },
             buildBreadcrumbSchema([
               { name: "Wotho", path: "/" },
               { name: "Livros & Acervo", path: "/livros" },
-              { name: item.title, path: `/conteudo/${item.id}` },
+              { name: item.title, path: `/livros/${item.id}` },
             ]),
           ],
         }

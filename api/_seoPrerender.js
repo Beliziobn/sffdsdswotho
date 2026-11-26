@@ -40,8 +40,9 @@ export function resolvePermanentRedirect(rawPathname) {
     const slug = clean.slice('/webtoons/'.length);
     if (slug) return `/webtoon/${slug}`;
   }
-  if (lower.startsWith('/livro/')) {
-    const slug = clean.slice('/livro/'.length);
+  if (lower.startsWith('/livro/') || lower.startsWith('/conteudo/')) {
+    const prefixLen = lower.startsWith('/conteudo/') ? '/conteudo/'.length : '/livro/'.length;
+    const slug = clean.slice(prefixLen);
     if (slug) return `/livros/${slug}`;
   }
   if (lower.startsWith('/noticia/') || lower.startsWith('/news/')) {
@@ -76,8 +77,6 @@ const PRIVATE_NOINDEX_PREFIXES = [
   '/continuar-lendo',
   '/para-voce',
   '/buscar',
-  '/ler',
-  '/leitura',
 ];
 
 let cachedCatalog = null;
@@ -588,45 +587,35 @@ export function resolveRouteSeo(rawPathname, customOrigin = DEFAULT_ORIGIN) {
   );
 
   // Check reader routes that canonicalize back to the detail page
-  if (canonicalPath.startsWith('/ler/')) {
-    const id = decodeURIComponent(canonicalPath.slice('/ler/'.length).split('/')[0] || '');
+  if (canonicalPath.startsWith('/ler/') || canonicalPath.startsWith('/leitura/')) {
+    const prefix = canonicalPath.startsWith('/leitura/') ? '/leitura/' : '/ler/';
+    const id = decodeURIComponent(canonicalPath.slice(prefix.length).split('/')[0] || '').trim();
+    const normId = id.toLowerCase();
     const book =
-      editorialBooks.find((b) => b.id === id) ||
-      catalog.books.find((b) => b.id === id);
+      editorialBooks.find((b) => b.id === id || String(b.id || '').toLowerCase() === normId) ||
+      catalog.books.find((b) => b.id === id || String(b.id || '').toLowerCase() === normId);
+    const isDynamicEditorialBook = /^(book-editorial-|gut-|guten-|mod-|curr-|sci-|auto-)/i.test(id);
+    const exists = Boolean(book) || isDynamicEditorialBook;
+    const resolvedId = book?.id || id;
     const title = book ? `${book.title} — Leitura Online | Wotho` : 'Leitor Digital — Wotho';
     const desc = book?.description || 'Leia a obra diretamente no navegador na plataforma Wotho.';
     return {
-      statusCode: 200,
-      indexable: false,
-      robots: 'noindex, follow',
-      canonicalUrl: `${origin}/livros/${encodeURIComponent(id)}`,
-      title,
+      statusCode: exists ? 200 : 404,
+      indexable: Boolean(book),
+      robots: exists
+        ? 'index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1'
+        : 'noindex, nofollow',
+      canonicalUrl: exists ? `${origin}/livros/${encodeURIComponent(resolvedId)}` : null,
+      title: exists ? title : 'Livro não encontrado | Wotho',
       description: desc,
       ogType: 'book',
-      ogImage: toAbsoluteUrl(book?.cover_url, origin, { collection: 'books', id: book?.id || id }),
+      ogImage: toAbsoluteUrl(book?.cover_url, origin, { collection: 'books', id: resolvedId }),
       h1: book?.title || 'Leitor Digital Wotho',
       subtitle: book?.author || '',
       links: [
-        { href: `/livros/${encodeURIComponent(id)}`, label: `Voltar para ficha do livro` },
+        ...(exists ? [{ href: `/livros/${encodeURIComponent(resolvedId)}`, label: `Voltar para ficha do livro` }] : []),
         { href: '/livros', label: 'Catálogo de Livros' },
       ],
-      jsonLd: [],
-    };
-  }
-
-  if (canonicalPath.startsWith('/leitura/')) {
-    const id = decodeURIComponent(canonicalPath.slice('/leitura/'.length).split('/')[0] || '');
-    return {
-      statusCode: 200,
-      indexable: false,
-      robots: 'noindex, follow',
-      canonicalUrl: `${origin}/conteudo/${encodeURIComponent(id)}`,
-      title: 'Leitor Digital — Wotho',
-      description: 'Leitura online de conteúdos digitais na plataforma Wotho.',
-      ogType: 'website',
-      ogImage: `${origin}${BOOKS_OG_IMAGE_PATH}`,
-      h1: 'Leitor Digital Wotho',
-      links: [{ href: '/livros', label: 'Explorar Livros' }],
       jsonLd: [],
     };
   }
@@ -717,7 +706,7 @@ export function resolveRouteSeo(rawPathname, customOrigin = DEFAULT_ORIGIN) {
         name: w.title,
       }));
     } else if (canonicalPath === '/noticias') {
-      links = catalog.news.slice(0, 150).map((n) => ({ href: `/noticias/${n.slug}`, label: n.title }));
+      links = catalog.news.slice(0, 1200).map((n) => ({ href: `/noticias/${n.slug}`, label: n.title }));
       itemListElements = catalog.news.slice(0, 20).map((n, i) => ({
         '@type': 'ListItem',
         position: i + 1,
@@ -730,7 +719,7 @@ export function resolveRouteSeo(rawPathname, customOrigin = DEFAULT_ORIGIN) {
         ...catalog.cinema.map((c) => ({ href: `/cinema/${c.id}`, label: `${c.title} (${c.year})` })),
         ...catalog.animes.map((a) => ({ href: `/animes/${a.id}`, label: a.title })),
         ...catalog.webtoons.map((w) => ({ href: `/webtoon/${w.id}`, label: w.title })),
-        ...catalog.news.slice(0, 150).map((n) => ({ href: `/noticias/${n.slug}`, label: n.title })),
+        ...catalog.news.slice(0, 1200).map((n) => ({ href: `/noticias/${n.slug}`, label: n.title })),
       ];
     }
 
@@ -918,10 +907,7 @@ export function resolveRouteSeo(rawPathname, customOrigin = DEFAULT_ORIGIN) {
               { label: 'Idioma', value: 'Português (Brasil)' },
             ]
           : [],
-        links: [
-          ...(existsOrDynamic ? [{ href: `/ler/${encodeURIComponent(resolvedId)}`, label: `Ler "${bookTitle}" online no navegador` }] : []),
-          ...relatedLinks,
-        ],
+        links: relatedLinks,
         jsonLd: book
           ? [
               bookJsonLd,
@@ -1194,13 +1180,10 @@ export function resolveRouteSeo(rawPathname, customOrigin = DEFAULT_ORIGIN) {
 
       return {
         statusCode: anime ? 200 : 404,
-        indexable: Boolean(anime) && !isMangaReader,
-        robots:
-          !anime
-            ? 'noindex, nofollow'
-            : isMangaReader
-            ? 'noindex, follow'
-            : 'index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1',
+        indexable: Boolean(anime),
+        robots: anime
+          ? 'index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1'
+          : 'noindex, nofollow',
         canonicalUrl: anime ? canonicalUrl : null,
         title: pageTitle,
         description: desc,
@@ -1226,7 +1209,7 @@ export function resolveRouteSeo(rawPathname, customOrigin = DEFAULT_ORIGIN) {
           ...(resolvedAnime.genres?.length ? [{ label: 'Gêneros', value: resolvedAnime.genres.join(', ') }] : []),
           { label: 'Áudio e Legendas', value: 'Dublado PT-BR, Legendado PT-BR, Japonês Original, EN, ES e FR' },
         ],
-        links: [{ href: `/animes/${resolvedAnime.id}/manga`, label: `Ler mangá completo de ${resolvedAnime.title}` }, ...relatedLinks],
+        links: relatedLinks,
         jsonLd:
           !anime || isMangaReader
             ? []
@@ -1319,13 +1302,10 @@ export function resolveRouteSeo(rawPathname, customOrigin = DEFAULT_ORIGIN) {
 
       return {
         statusCode: wt ? 200 : 404,
-        indexable: Boolean(wt) && !isEpisodeReader,
-        robots:
-          !wt
-            ? 'noindex, nofollow'
-            : isEpisodeReader
-            ? 'noindex, follow'
-            : 'index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1',
+        indexable: Boolean(wt),
+        robots: wt
+          ? 'index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1'
+          : 'noindex, nofollow',
         canonicalUrl: wt ? canonicalUrl : null,
         title: pageTitle,
         description: desc,
@@ -1345,7 +1325,7 @@ export function resolveRouteSeo(rawPathname, customOrigin = DEFAULT_ORIGIN) {
           { label: 'Idioma', value: 'Português (Brasil)' },
           { label: 'Plataforma', value: 'Wotho Webtoons & Comics' },
         ],
-        links: [{ href: `/webtoon/${resolvedWt.id}/ler`, label: `Ler "${resolvedWt.title}" online` }, ...relatedLinks],
+        links: relatedLinks,
         jsonLd:
           !wt || isEpisodeReader
             ? []
@@ -1525,9 +1505,9 @@ function renderSemanticBotShell(seo, origin = DEFAULT_ORIGIN) {
     .map((p) => `<p style="margin:0 0 16px 0;color:#d4d4d8;font-size:15px;">${escapeHtml(p)}</p>`)
     .join('\n        ');
 
-  // Preserve full internal link graph on directory/hub pages (eliminates orphan pages)
+  // Preserve full internal link graph on directory/hub pages (eliminates orphan pages across all 2,400+ items)
   const linksHtml = (seo.links || [])
-    .slice(0, 1200)
+    .slice(0, 2600)
     .map(
       (item) =>
         `<li style="margin:6px 0;"><a href="${escapeHtml(item.href)}" style="color:#ffffff;text-decoration:underline;">${escapeHtml(item.label)}</a></li>`

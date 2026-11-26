@@ -363,6 +363,7 @@ export async function generateCatalogSnapshot() {
           slug: a.slug,
           title: String(a.title || '').trim(),
           excerpt: truncateText(a.excerpt || a.content || '', 600),
+          content: truncateText(String(a.content || a.excerpt || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim(), 2200),
           category: a.category || 'Notícias',
           author: a.author || a.source_name || 'Redação Wotho',
           source_name: a.source_name || 'Wotho Notícias',
@@ -598,9 +599,8 @@ function buildSectionEntries(catalog, customOrigin = BASE_URL) {
     };
   });
 
-  // Cap sitemap-news to the 150 freshest/richest articles to protect crawl budget
-  // and prevent "Detetada – atualmente não indexada" caused by 1,000+ stale syndicated stubs.
-  const news = sortedNews.slice(0, 150).map((n) => ({
+  // Include all verified news articles (up to 1,500) so none of the 1,187 articles are orphaned in GSC
+  const news = sortedNews.slice(0, 1500).map((n) => ({
     loc: `${origin}/noticias/${encodeURIComponent(n.slug)}`,
     lastmod: toW3cDateOnly(n.updated_at || n.published_at, catalogLastmodIso),
     image: n.cover_url || `${origin}/og-wotho-home.jpg`,

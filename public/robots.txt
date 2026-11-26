@@ -23,8 +23,6 @@ Disallow: /biblioteca
 Disallow: /continuar-lendo
 Disallow: /para-voce
 Disallow: /buscar
-Disallow: /ler/
-Disallow: /leitura/
 Disallow: /*?*utm_
 Disallow: /*?*fbclid=
 Disallow: /*?*gclid=
@@ -75,8 +73,6 @@ Disallow: /biblioteca
 Disallow: /continuar-lendo
 Disallow: /para-voce
 Disallow: /buscar
-Disallow: /ler/
-Disallow: /leitura/
 Disallow: /*?*utm_
 Disallow: /*?*fbclid=
 Disallow: /*?*gclid=
@@ -108,8 +104,6 @@ Disallow: /biblioteca
 Disallow: /continuar-lendo
 Disallow: /para-voce
 Disallow: /buscar
-Disallow: /ler/
-Disallow: /leitura/
 Disallow: /*?*utm_
 Disallow: /*?*fbclid=
 Disallow: /*?*gclid=
@@ -120,3 +114,4 @@ Disallow: /*?*filter=
 # Clean non-duplicated Sitemap declarations (sitemap-index.xml includes all sub-sitemaps)
 Sitemap: https://wotho.vercel.app/sitemap-index.xml
 Sitemap: https://wotho.vercel.app/video-sitemap.xml
+

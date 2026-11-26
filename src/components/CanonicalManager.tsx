@@ -158,8 +158,6 @@ const PRIVATE_NOINDEX_PREFIXES = [
   "/continuar-lendo",
   "/para-voce",
   "/buscar",
-  "/ler/",
-  "/leitura/",
 ];
 
 function resolveCanonicalAlias(normalizedPath: string): string {
@@ -167,9 +165,10 @@ function resolveCanonicalAlias(normalizedPath: string): string {
     const id = normalizedPath.slice("/ler/".length).split("/")[0];
     return id ? `/livros/${id}` : "/livros";
   }
-  if (normalizedPath.startsWith("/leitura/")) {
-    const id = normalizedPath.slice("/leitura/".length).split("/")[0];
-    return id ? `/conteudo/${id}` : "/livros";
+  if (normalizedPath.startsWith("/leitura/") || normalizedPath.startsWith("/conteudo/")) {
+    const prefix = normalizedPath.startsWith("/conteudo/") ? "/conteudo/" : "/leitura/";
+    const id = normalizedPath.slice(prefix.length).split("/")[0];
+    return id ? `/livros/${id}` : "/livros";
   }
   if (/^\/animes\/([^/]+)\/manga/.test(normalizedPath)) {
     const id = normalizedPath.split("/")[2];
@@ -258,13 +257,11 @@ export const CanonicalManager = () => {
       /^\/animes\/[^/]+\/manga/.test(normalizedPath) ||
       /^\/webtoon\/[^/]+\/(ep|ler)/.test(normalizedPath);
 
-    const isPrivateRoute =
-      isReaderSubRoute ||
-      PRIVATE_NOINDEX_PREFIXES.some(
-        (prefix) =>
-          normalizedPath === prefix ||
-          normalizedPath.startsWith(prefix.endsWith("/") ? prefix : `${prefix}/`)
-      );
+    const isPrivateRoute = PRIVATE_NOINDEX_PREFIXES.some(
+      (prefix) =>
+        normalizedPath === prefix ||
+        normalizedPath.startsWith(prefix.endsWith("/") ? prefix : `${prefix}/`)
+    );
 
     const canonicalPath = resolveCanonicalAlias(normalizedPath);
     const robotsDirective = normalizedPath.startsWith("/admin")
