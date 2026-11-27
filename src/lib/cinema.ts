@@ -2883,6 +2883,433 @@ export const CINEMA_CATALOG: CinemaItem[] = [
         ]
       }
     ]
+  },
+  {
+    "id": "uma-advogada-extraordinaria",
+    "imdbId": "tt20869502",
+    "tmdbId": 197067,
+    "title": "Uma Advogada Extraordinária",
+    "originalTitle": "Extraordinary Attorney Woo",
+    "type": "serie",
+    "synopsis": "Recém-contratada pelo prestigiado escritório de advocacia Hanbada, Woo Young-woo — uma jovem genial com memória fotográfica e no espectro autista — usa sua perspectiva única e brilhante para desvendar casos complexos dentro e fora do tribunal.",
+    "director": "Yoo In-sik, Moon Ji-won",
+    "cast": [
+      "Park Eun-bin",
+      "Kang Tae-oh",
+      "Kang Ki-young",
+      "Jeon Bae-soo",
+      "Ha Yoon-kyung",
+      "Joo Jong-hyuk"
+    ],
+    "genres": [
+      "Drama",
+      "Doramas",
+      "Romance"
+    ],
+    "year": 2022,
+    "duration": "1 Temporada",
+    "rating": 8.7,
+    "ratingCount": 1240,
+    "ageRating": "14",
+    "quality": "4K HDR",
+    "audio": "Dublado & Legendado",
+    "backdropUrl": "https://image.tmdb.org/t/p/original/39owosjolYd3gKufgM9jMdSSk9t.jpg",
+    "posterUrl": "https://image.tmdb.org/t/p/w500/3KOjBpFIbdRa39ZETAnD1qA9acD.jpg",
+    "trailerYoutubeId": "MxeXECe2t-c",
+    "featured": true,
+    "trending": true,
+    "awardWinning": true,
+    "seasons": [
+      {
+        "seasonNumber": 1,
+        "seasonTitle": "Temporada 1",
+        "episodes": [
+          {
+            "episodeNumber": 1,
+            "title": "A extraordinária advogada Woo",
+            "duration": "1h 18m",
+            "synopsis": "Em seu primeiro dia de trabalho no escritório Hanbada, Woo Young-woo encontra um aliado, um cético e uma velha conhecida enquanto assume a defesa de um caso de agressão entre um casal de idosos.",
+            "thumbnail": "https://image.tmdb.org/t/p/w500/tbKT9TtW8eBVw9lPMik8xwIS2hQ.jpg"
+          },
+          {
+            "episodeNumber": 2,
+            "title": "O vestido de noiva que caiu",
+            "duration": "1h 10m",
+            "synopsis": "O pai de uma noiva exige uma indenização milionária de um hotel de luxo após um acidente constrangedor no casamento. Lee Jun-ho faz um pedido especial a Young-woo.",
+            "thumbnail": "https://image.tmdb.org/t/p/w500/l8OpiYfWhhRZc2EaTPsITsGLVnY.jpg"
+          },
+          {
+            "episodeNumber": 3,
+            "title": "Eu sou Pengsoo",
+            "duration": "1h 11m",
+            "synopsis": "Uma tragédia envolvendo dois irmãos força uma família a encarar uma verdade dolorosa no tribunal. Young-woo busca uma forma incomum de se comunicar com o réu.",
+            "thumbnail": "https://image.tmdb.org/t/p/w500/inRZYHvFTNQ9Bi0HIvnNrxzNSAP.jpg"
+          },
+          {
+            "episodeNumber": 4,
+            "title": "A briga dos três irmãos",
+            "duration": "1h 9m",
+            "synopsis": "O pai de Dong Geu-ra-mi assina um acordo injusto de herança com seus irmãos, e Young-woo elabora uma estratégia jurídica brilhante para reverter a fraude.",
+            "thumbnail": "https://image.tmdb.org/t/p/w500/kLtwFDj1JabHp3gnr1iAZXBTORV.jpg"
+          },
+          {
+            "episodeNumber": 5,
+            "title": "Curinga vs. Estrategista",
+            "duration": "1h 8m",
+            "synopsis": "Uma disputa de propriedade intelectual entre duas fabricantes de caixas eletrônicos acirra a rivalidade entre Young-woo e Kwon Min-woo.",
+            "thumbnail": "https://image.tmdb.org/t/p/w500/6bXt6zcTIOTezI5ONV4wIbGD57K.jpg"
+          },
+          {
+            "episodeNumber": 6,
+            "title": "Se eu fosse uma baleia…",
+            "duration": "1h 10m",
+            "synopsis": "Young-woo se une a Choi Su-yeon para ajudar uma desertora norte-coreana a reencontrar a filha e reduzir uma sentença de quatro anos de prisão.",
+            "thumbnail": "https://image.tmdb.org/t/p/w500/jblT0WUAXhnBoxKwyWSAKaD0lVg.jpg"
+          },
+          {
+            "episodeNumber": 7,
+            "title": "Um conto sobre Sodeok-dong I",
+            "duration": "1h 8m",
+            "synopsis": "Os moradores de uma pequena vila entram com uma ação coletiva para impedir que uma nova rodovia divida sua comunidade. O escritório Hanbada enfrenta sua maior rival.",
+            "thumbnail": "https://image.tmdb.org/t/p/w500/ziss3u7CWFXsCxylGn8jimiYU5E.jpg"
+          },
+          {
+            "episodeNumber": 8,
+            "title": "Um conto sobre Sodeok-dong II",
+            "duration": "1h 7m",
+            "synopsis": "O escritório Taesan ganha vantagem sobre o Hanbada, mas uma árvore histórica no topo da colina dá a Young-woo a chave decisiva para vencer o caso.",
+            "thumbnail": "https://image.tmdb.org/t/p/w500/9Vn82FBvUK4TetS9Pdg6KS6Q95O.jpg"
+          },
+          {
+            "episodeNumber": 9,
+            "title": "O flautista",
+            "duration": "1h 11m",
+            "synopsis": "O autoproclamado comandante do movimento de libertação das crianças é preso por sequestro após levar alunos de um cursinho para brincar nas montanhas.",
+            "thumbnail": "https://image.tmdb.org/t/p/w500/nLhFidq6pbLTeVWgIq6RMh59CbL.jpg"
+          },
+          {
+            "episodeNumber": 10,
+            "title": "Depois damos as mãos",
+            "duration": "1h 11m",
+            "synopsis": "Um homem é acusado de se aproveitar de uma jovem com deficiência intelectual, levantando um debate delicado sobre autonomia e amor no tribunal.",
+            "thumbnail": "https://image.tmdb.org/t/p/w500/m0xwTztXVVrQQdV6cHqIvp8m0G4.jpg"
+          },
+          {
+            "episodeNumber": 11,
+            "title": "Sr. Sal, Sra. Pimenta e Advogada Molho de Soja",
+            "duration": "1h 13m",
+            "synopsis": "Young-woo enfrenta um dilema ético e jurídico quando um casal busca aconselhamento para dividir um prêmio milionário de loteria.",
+            "thumbnail": "https://image.tmdb.org/t/p/w500/g1sBSkiRMqqQfJCmdwIFK3466vA.jpg"
+          },
+          {
+            "episodeNumber": 12,
+            "title": "Golfinho do rio Yangtzé",
+            "duration": "1h 12m",
+            "synopsis": "Young-woo descobre o lado corporativo sombrio de um caso de demissão discriminatória por gênero, enquanto Jung Myeong-seok enfrenta uma ameaça pessoal.",
+            "thumbnail": "https://image.tmdb.org/t/p/w500/ms4UZT7LmU1tU1eFi7nfe5YtPbF.jpg"
+          },
+          {
+            "episodeNumber": 13,
+            "title": "A Noite Azul de Jeju I",
+            "duration": "1h 5m",
+            "synopsis": "A equipe viaja à Ilha de Jeju para defender um templo budista processado por cobrar taxa de preservação cultural dos visitantes.",
+            "thumbnail": "https://image.tmdb.org/t/p/w500/5XD78dD1rubtjRD4iSxm1GBtiO4.jpg"
+          },
+          {
+            "episodeNumber": 14,
+            "title": "A Noite Azul de Jeju II",
+            "duration": "1h 11m",
+            "synopsis": "Os advogados do Hanbada procuram o dono do restaurante favorito de Myeong-seok em Jeju, enquanto Young-woo enfrenta obstáculos no julgamento e em seu relacionamento.",
+            "thumbnail": "https://image.tmdb.org/t/p/w500/3SJPLTi2Y1iSWiLcfLZzC00fYhp.jpg"
+          },
+          {
+            "episodeNumber": 15,
+            "title": "Dizer e fazer coisas não pedidas",
+            "duration": "1h 7m",
+            "synopsis": "Young-woo entra em conflito com seu novo supervisor durante um caso gigantesco de vazamento de dados pessoais de uma plataforma de comércio eletrônico.",
+            "thumbnail": "https://image.tmdb.org/t/p/w500/osCUR0gtwjjcZysdvjencupIga7.jpg"
+          },
+          {
+            "episodeNumber": 16,
+            "title": "Embora incomum e peculiar",
+            "duration": "1h 23m",
+            "synopsis": "Young-woo recebe uma prova decisiva que pode mudar o destino do julgamento e de sua própria família, enquanto Jun-ho abre seu coração.",
+            "thumbnail": "https://image.tmdb.org/t/p/w500/3ru9ojDhnztuOVJWQqKfvPkskjf.jpg"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "law-school",
+    "imdbId": "tt13885336",
+    "tmdbId": 119773,
+    "title": "Law School",
+    "originalTitle": "Law School (로스쿨)",
+    "type": "serie",
+    "synopsis": "Depois que um assassinato misterioso acontece durante um julgamento simulado na mais prestigiada faculdade de Direito da Coreia do Sul, um ex-promotor implacável e seus alunos ambiciosos colocam a lei e a justiça à prova para descobrir a verdade.",
+    "director": "Kim Sok-yun",
+    "cast": [
+      "Kim Myung-min",
+      "Kim Bum",
+      "Ryu Hye-young",
+      "Lee Jung-eun",
+      "Lee Soo-kyung",
+      "Lee David",
+      "Go Youn-jung"
+    ],
+    "genres": [
+      "Drama",
+      "Suspense",
+      "Crime",
+      "Doramas"
+    ],
+    "year": 2021,
+    "duration": "1 Temporada",
+    "rating": 8.3,
+    "ratingCount": 740,
+    "ageRating": "14",
+    "quality": "4K HDR",
+    "audio": "Dublado & Legendado",
+    "backdropUrl": "https://image.tmdb.org/t/p/original/17yvu1IGd1sTLugw2yXO1i2R3cT.jpg",
+    "posterUrl": "https://image.tmdb.org/t/p/w500/epxYmFG584Bqyy0gkV9Y0cNh6Wh.jpg",
+    "trailerYoutubeId": "IR9cIGXbYLk",
+    "featured": true,
+    "trending": true,
+    "awardWinning": true,
+    "seasons": [
+      {
+        "seasonNumber": 1,
+        "seasonTitle": "Temporada 1",
+        "episodes": [
+          {
+            "episodeNumber": 1,
+            "title": "Episódio 1",
+            "duration": "1h 3m",
+            "synopsis": "Um estudante faz uma descoberta chocante durante uma simulação de julgamento na faculdade de Direito da Universidade Hankuk. Yang Jong-hoon, ex-promotor e agora professor, examina a cena do crime.",
+            "thumbnail": "https://image.tmdb.org/t/p/w500/8JfjrITbtbfrSRB9bJ9v3w23Jua.jpg"
+          },
+          {
+            "episodeNumber": 2,
+            "title": "Episódio 2",
+            "duration": "1h 3m",
+            "synopsis": "Vários indícios apontam para Jong-hoon, levando a polícia a interrogá-lo e prendê-lo. O passado de Han Joon-hwi com a vítima o expõe diante dos colegas.",
+            "thumbnail": "https://image.tmdb.org/t/p/w500/rFYlEYeJgkbTarGSWzVIkg41BWS.jpg"
+          },
+          {
+            "episodeNumber": 3,
+            "title": "Episódio 3",
+            "duration": "1h 3m",
+            "synopsis": "Joon-hwi se torna suspeito do assassinato, levando as autoridades a solicitar uma segunda autópsia. Um ataque inesperado na prisão coloca a vida de Jong-hoon em perigo.",
+            "thumbnail": "https://image.tmdb.org/t/p/w500/tFvcz2sQ79vvwKzErSN9iLdWMht.jpg"
+          },
+          {
+            "episodeNumber": 4,
+            "title": "Episódio 4",
+            "duration": "1h 4m",
+            "synopsis": "De volta à sala de aula sob liberdade provisória, Jong-hoon propõe que seus alunos usem seu próprio processo criminal como estudo de caso.",
+            "thumbnail": "https://image.tmdb.org/t/p/w500/nPgcfMfQ4cWDMxPE0IHYjI75gDg.jpg"
+          },
+          {
+            "episodeNumber": 5,
+            "title": "Episódio 5",
+            "duration": "1h 5m",
+            "synopsis": "Um escândalo de plágio acadêmico revela pistas ligadas a provas que podem inocentar Jong-hoon. Kang Sol A se dedica a ajudar uma cliente na clínica jurídica.",
+            "thumbnail": "https://image.tmdb.org/t/p/w500/nEkeq3og7MV2DqXu56P02zPhcyU.jpg"
+          },
+          {
+            "episodeNumber": 6,
+            "title": "Episódio 6",
+            "duration": "1h 3m",
+            "synopsis": "Antes da primeira audiência do julgamento, Jong-hoon descobre o segredo guardado por Kang Sol B. Preocupado com um vizinho suspeito, Joon-hwi protege Sol A.",
+            "thumbnail": "https://image.tmdb.org/t/p/w500/yqHMV2oFoeLXLfF0lI2jERK7cg4.jpg"
+          },
+          {
+            "episodeNumber": 7,
+            "title": "Episódio 7",
+            "duration": "1h 6m",
+            "synopsis": "Sol A fica surpresa quando Jong-hoon recebe uma ligação inesperada. No tribunal, Seo Ji-ho revela a história trágica envolvendo seu pai.",
+            "thumbnail": "https://image.tmdb.org/t/p/w500/rygEDfiyRLj4rFwadzml2BjA05z.jpg"
+          },
+          {
+            "episodeNumber": 8,
+            "title": "Episódio 8",
+            "duration": "1h 6m",
+            "synopsis": "O promotor Jin Hyeong-u apresenta uma testemunha ocular contra Jong-hoon. Pressionada por ameaças, Jeon Ye-seul precisa tomar uma decisão crucial.",
+            "thumbnail": "https://image.tmdb.org/t/p/w500/r5VbKGRq9N1L2ROQ5URN4XlOkbj.jpg"
+          },
+          {
+            "episodeNumber": 9,
+            "title": "Episódio 9",
+            "duration": "1h 6m",
+            "synopsis": "Ye-seul enfrenta dificuldades para encontrar representação legal após um acidente. A professora Kim Eun-suk confia que seus alunos defenderão a verdade.",
+            "thumbnail": "https://image.tmdb.org/t/p/w500/o7xcN1gO5aZ5hGWzqAZ09bkLvkg.jpg"
+          },
+          {
+            "episodeNumber": 10,
+            "title": "Episódio 10",
+            "duration": "1h 6m",
+            "synopsis": "Joon-hwi encontra uma evidência determinante para absolver Jong-hoon. Os alunos da faculdade se unem para estruturar a tese de legítima defesa de Ye-seul.",
+            "thumbnail": "https://image.tmdb.org/t/p/w500/g5Pow95z8e7ftgG75WVyYfaY7hl.jpg"
+          },
+          {
+            "episodeNumber": 11,
+            "title": "Episódio 11",
+            "duration": "1h 4m",
+            "synopsis": "Os estudantes iniciam seus estágios práticos, e Joon-hwi se infiltra no gabinete do promotor Jin. O júri popular é convocado para o julgamento de Ye-seul.",
+            "thumbnail": "https://image.tmdb.org/t/p/w500/kn401THAkwjcbEKrAcyhVKMZOwK.jpg"
+          },
+          {
+            "episodeNumber": 12,
+            "title": "Episódio 12",
+            "duration": "1h 4m",
+            "synopsis": "Quando uma reviravolta ameaça o julgamento de Ye-seul, Jong-hoon utiliza técnicas rigorosas de interrogatório para expor toda a verdade perante os jurados.",
+            "thumbnail": "https://image.tmdb.org/t/p/w500/vO49thBJ33KHw83PP20iANcwnZe.jpg"
+          },
+          {
+            "episodeNumber": 13,
+            "title": "Episódio 13",
+            "duration": "1h 6m",
+            "synopsis": "Um novo suspeito é detido pela morte de Seo Byung-ju, mas Jong-hoon desconfia das verdadeiras intenções por trás da confissão. Sai o veredito de Ye-seul.",
+            "thumbnail": "https://image.tmdb.org/t/p/w500/b4RddU760Hkbv3DkDVZISOrkmrz.jpg"
+          },
+          {
+            "episodeNumber": 14,
+            "title": "Episódio 14",
+            "duration": "1h 5m",
+            "synopsis": "As motivações ocultas de Lee Man-ho vêm à tona. Jong-hoon e os estudantes investigam quem realmente estava presente na noite do crime.",
+            "thumbnail": "https://image.tmdb.org/t/p/w500/swDA4E8TqlOAHvyBPLhgN6luixa.jpg"
+          },
+          {
+            "episodeNumber": 15,
+            "title": "Episódio 15",
+            "duration": "1h 6m",
+            "synopsis": "Kang Sol A reencontra sua irmã gêmea Kang Dan e descobre a conexão com o deputado Ko Hyeong-su. Os estudantes preparam uma denúncia pública.",
+            "thumbnail": "https://image.tmdb.org/t/p/w500/svqAb9Cp25Yz7ueGSBglFK18YuY.jpg"
+          },
+          {
+            "episodeNumber": 16,
+            "title": "Episódio 16",
+            "duration": "1h 9m",
+            "synopsis": "No confronto final no tribunal, Jong-hoon, Joon-hwi e Kang Sol A desmascaram a corrupção de Ko Hyeong-su e provam que a lei deve servir à verdadeira justiça.",
+            "thumbnail": "https://image.tmdb.org/t/p/w500/5lAXWUhFTUihNbjJBPknu2mB7lU.jpg"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "move-to-heaven",
+    "imdbId": "tt11052470",
+    "tmdbId": 96571,
+    "title": "Move to Heaven (A Caminho do Céu)",
+    "originalTitle": "Move to Heaven",
+    "type": "serie",
+    "synopsis": "Geu-ru, um jovem com síndrome de Asperger, e seu tio ex-presidiário Sang-gu trabalham como limpadores de traumas na empresa Move to Heaven, organizando os pertences de pessoas que faleceram e entregando suas últimas histórias não contadas a quem ficou.",
+    "director": "Kim Sung-ho",
+    "cast": [
+      "Lee Je-hoon",
+      "Tang Joon-sang",
+      "Hong Seung-hee",
+      "Ji Jin-hee",
+      "Lee Jae-wook",
+      "Jung Suk-yong"
+    ],
+    "genres": [
+      "Drama",
+      "Doramas"
+    ],
+    "year": 2021,
+    "duration": "1 Temporada",
+    "rating": 8.6,
+    "ratingCount": 890,
+    "ageRating": "14",
+    "quality": "4K HDR",
+    "audio": "Dublado & Legendado",
+    "backdropUrl": "https://image.tmdb.org/t/p/original/tsdhmP9H7ZDveYDE0wkh90tjX3S.jpg",
+    "posterUrl": "https://image.tmdb.org/t/p/w500/fhfXsPou90rCy1Nw4oyP28jyPVl.jpg",
+    "trailerYoutubeId": "URviNI-7SuQ",
+    "featured": true,
+    "trending": true,
+    "awardWinning": true,
+    "seasons": [
+      {
+        "seasonNumber": 1,
+        "seasonTitle": "Temporada 1",
+        "episodes": [
+          {
+            "episodeNumber": 1,
+            "title": "Episódio 1",
+            "duration": "53m",
+            "synopsis": "Han Jeong-u e seu filho Han Geu-ru limpam o quarto solitário de um jovem estagiário que sofreu um acidente de trabalho e descobrem seus sonhos e o amor pelos pais.",
+            "thumbnail": "https://image.tmdb.org/t/p/w500/lOSKtOdYqegd5Crvlh5H3854MNh.jpg"
+          },
+          {
+            "episodeNumber": 2,
+            "title": "Episódio 2",
+            "duration": "50m",
+            "synopsis": "Após uma perda repentina, Cho Sang-gu assume a guarda provisória de Geu-ru e passa a trabalhar na Move to Heaven, onde buscam a mensagem oculta de uma mãe idosa.",
+            "thumbnail": "https://image.tmdb.org/t/p/w500/s8xS1T2IldgLwwyePfbKOCIIaNT.jpg"
+          },
+          {
+            "episodeNumber": 3,
+            "title": "Episódio 3",
+            "duration": "46m",
+            "synopsis": "O dono de uma alfaiataria revela o verdadeiro desejo de uma mãe para o filho. A equipe Move to Heaven é chamada para limpar a cena de um crime brutal.",
+            "thumbnail": "https://image.tmdb.org/t/p/w500/oKBKYtRF3FVoGaefZQz5woGQDTH.jpg"
+          },
+          {
+            "episodeNumber": 4,
+            "title": "Episódio 4",
+            "duration": "47m",
+            "synopsis": "O manual de um aparelho encontrado no apartamento de uma professora de jardim de infância assassinada tira o sono de Geu-ru, que tenta provar a verdade.",
+            "thumbnail": "https://image.tmdb.org/t/p/w500/aGQCvh55QWVFygd25MpIZfqzI4u.jpg"
+          },
+          {
+            "episodeNumber": 5,
+            "title": "Episódio 5",
+            "duration": "56m",
+            "synopsis": "Geu-ru, Sang-gu e Na-mu procuram o ente querido de um médico falecido para entregar uma caixa amarela repleta de cartas, música e promessas para o futuro.",
+            "thumbnail": "https://image.tmdb.org/t/p/w500/d9BLLxkkuNpMRl8MOXPgTDbQdap.jpg"
+          },
+          {
+            "episodeNumber": 6,
+            "title": "Episódio 6",
+            "duration": "54m",
+            "synopsis": "Sang-gu e Geu-ru organizam uma despedida digna e emocionante para um casal de idosos que dedicou toda a vida ao trabalho e ao amor mútuo.",
+            "thumbnail": "https://image.tmdb.org/t/p/w500/jNkUknBCK6kWCAhDdEFfQl6uY02.jpg"
+          },
+          {
+            "episodeNumber": 7,
+            "title": "Episódio 7",
+            "duration": "44m",
+            "synopsis": "Memórias de dez anos atrás revelam como Sang-gu treinou o jovem lutador Kim Su-cheol e a tragédia no ringue que mudou suas vidas para sempre.",
+            "thumbnail": "https://image.tmdb.org/t/p/w500/nyNoavKutLymMsUIhGsA3w9MQK.jpg"
+          },
+          {
+            "episodeNumber": 8,
+            "title": "Episódio 8",
+            "duration": "52m",
+            "synopsis": "Coagido a voltar às lutas clandestinas para proteger Geu-ru, Sang-gu é surpreendido quando o sobrinho o leva a revisitar antigas lembranças de família.",
+            "thumbnail": "https://image.tmdb.org/t/p/w500/2gyV4TU3fyfyb5fM7YUcMav2X0J.jpg"
+          },
+          {
+            "episodeNumber": 9,
+            "title": "Episódio 9",
+            "duration": "55m",
+            "synopsis": "A busca de Matthew Green, um jovem adotado no exterior, por sua mãe biológica termina em um doloroso mal-entendido que apenas a Move to Heaven pode esclarecer.",
+            "thumbnail": "https://image.tmdb.org/t/p/w500/ldBQ0U4Fy1NE6HpPhrdEbzfSSj9.jpg"
+          },
+          {
+            "episodeNumber": 10,
+            "title": "Episódio 10",
+            "duration": "1h 2m",
+            "synopsis": "Ainda sem forças para organizar a última mudança de seu pai Jeong-u, Geu-ru foge para o aquário, e Sang-gu descobre o verdadeiro elo que unia os dois irmãos.",
+            "thumbnail": "https://image.tmdb.org/t/p/w500/sqdxCPjIHs8VgwAgq07XMMrENCX.jpg"
+          }
+        ]
+      }
+    ]
   }
 ];
 
@@ -2912,8 +3339,16 @@ export function ensureExpandedCinemaLoaded(): Promise<void> {
   return expandedCinemaPromise;
 }
 
+const CINEMA_SLUG_ALIASES: Record<string, string> = {
+  "a-caminho-do-ceu": "move-to-heaven",
+  "extraordinary-attorney-woo": "uma-advogada-extraordinaria",
+};
+
 export function getCinemaById(id: string): CinemaItem | undefined {
-  return CINEMA_CATALOG.find((item) => item.id === id || item.imdbId === id);
+  const normalized = CINEMA_SLUG_ALIASES[id] || id;
+  return CINEMA_CATALOG.find(
+    (item) => item.id === normalized || item.id === id || item.imdbId === id
+  );
 }
 
 export function getFeaturedCinema(): CinemaItem[] {

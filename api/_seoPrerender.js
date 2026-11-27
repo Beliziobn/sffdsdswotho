@@ -63,6 +63,8 @@ export function resolvePermanentRedirect(rawPathname) {
     const slug = clean.replace(/^\/(filmes?|series?)\//i, '');
     if (slug) return `/cinema/${slug}`;
   }
+  if (lower === '/cinema/a-caminho-do-ceu') return '/cinema/move-to-heaven';
+  if (lower === '/cinema/extraordinary-attorney-woo') return '/cinema/uma-advogada-extraordinaria';
   return null;
 }
 

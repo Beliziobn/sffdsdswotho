@@ -146,6 +146,30 @@
     </image:image>
   </url>
   <url>
+    <loc>https://wotho.vercel.app/cinema/uma-advogada-extraordinaria</loc>
+    <lastmod>2025-01-15</lastmod>
+    <image:image>
+      <image:loc>https://image.tmdb.org/t/p/w1280/39owosjolYd3gKufgM9jMdSSk9t.jpg</image:loc>
+      <image:title>Uma Advogada Extraordinária</image:title>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://wotho.vercel.app/cinema/law-school</loc>
+    <lastmod>2025-01-15</lastmod>
+    <image:image>
+      <image:loc>https://image.tmdb.org/t/p/w1280/17yvu1IGd1sTLugw2yXO1i2R3cT.jpg</image:loc>
+      <image:title>Law School</image:title>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://wotho.vercel.app/cinema/move-to-heaven</loc>
+    <lastmod>2025-01-15</lastmod>
+    <image:image>
+      <image:loc>https://image.tmdb.org/t/p/w1280/tsdhmP9H7ZDveYDE0wkh90tjX3S.jpg</image:loc>
+      <image:title>Move to Heaven (A Caminho do Céu)</image:title>
+    </image:image>
+  </url>
+  <url>
     <loc>https://wotho.vercel.app/cinema/classe-dos-herois-fracos</loc>
     <lastmod>2025-01-15</lastmod>
     <image:image>
@@ -227,7 +251,7 @@
   </url>
   <url>
     <loc>https://wotho.vercel.app/cinema/aprendendo-a-licao</loc>
-    <lastmod>2026-11-26</lastmod>
+    <lastmod>2026-11-27</lastmod>
     <image:image>
       <image:loc>https://image.tmdb.org/t/p/w1280/sGitHICLzIQQBiwE67lZLy6W67u.jpg</image:loc>
       <image:title>Aprendendo a Lição</image:title>
@@ -522,14 +546,6 @@
     </image:image>
   </url>
   <url>
-    <loc>https://wotho.vercel.app/cinema/uma-advogada-extraordinaria</loc>
-    <lastmod>2025-01-15</lastmod>
-    <image:image>
-      <image:loc>https://image.tmdb.org/t/p/w1280/39owosjolYd3gKufgM9jMdSSk9t.jpg</image:loc>
-      <image:title>Uma Advogada Extraordinária</image:title>
-    </image:image>
-  </url>
-  <url>
     <loc>https://wotho.vercel.app/cinema/descendentes-do-sol</loc>
     <lastmod>2025-01-15</lastmod>
     <image:image>
@@ -703,14 +719,6 @@
     <image:image>
       <image:loc>https://image.tmdb.org/t/p/w1280/3sEwJrB9zHAAS9J8oZ3ohjse0k4.jpg</image:loc>
       <image:title>Primeira Vez Amor</image:title>
-    </image:image>
-  </url>
-  <url>
-    <loc>https://wotho.vercel.app/cinema/a-caminho-do-ceu</loc>
-    <lastmod>2025-01-15</lastmod>
-    <image:image>
-      <image:loc>https://image.tmdb.org/t/p/w1280/tsdhmP9H7ZDveYDE0wkh90tjX3S.jpg</image:loc>
-      <image:title>A Caminho do Céu</image:title>
     </image:image>
   </url>
   <url>
@@ -4571,7 +4579,7 @@
   </url>
   <url>
     <loc>https://wotho.vercel.app/cinema/os-supertontos</loc>
-    <lastmod>2026-11-26</lastmod>
+    <lastmod>2026-11-27</lastmod>
     <image:image>
       <image:loc>https://image.tmdb.org/t/p/w1280/y2u7d8evmnTivi3LaVql01Sfea4.jpg</image:loc>
       <image:title>Os SUPERtontos</image:title>
@@ -4675,7 +4683,7 @@
   </url>
   <url>
     <loc>https://wotho.vercel.app/cinema/a-coroa-perfeita</loc>
-    <lastmod>2026-11-26</lastmod>
+    <lastmod>2026-11-27</lastmod>
     <image:image>
       <image:loc>https://image.tmdb.org/t/p/w1280/6ekykPwvAywJRjFEnUoCFWTO9O3.jpg</image:loc>
       <image:title>A Coroa Perfeita</image:title>
@@ -4739,7 +4747,7 @@
   </url>
   <url>
     <loc>https://wotho.vercel.app/cinema/agente-kim-reativado</loc>
-    <lastmod>2026-11-26</lastmod>
+    <lastmod>2026-11-27</lastmod>
     <image:image>
       <image:loc>https://image.tmdb.org/t/p/w1280/g1LJLlmWP74zv9yXKEXm7g9p10O.jpg</image:loc>
       <image:title>Agente Kim: Reativado</image:title>
@@ -4787,7 +4795,7 @@
   </url>
   <url>
     <loc>https://wotho.vercel.app/cinema/se-desejos-matassem</loc>
-    <lastmod>2026-11-26</lastmod>
+    <lastmod>2026-11-27</lastmod>
     <image:image>
       <image:loc>https://image.tmdb.org/t/p/w1280/5BzfcAW5ZI2m7QypeJBbYNjBuR0.jpg</image:loc>
       <image:title>Se Desejos Matassem...</image:title>
@@ -5131,7 +5139,7 @@
   </url>
   <url>
     <loc>https://wotho.vercel.app/cinema/o-corpo</loc>
-    <lastmod>2026-11-26</lastmod>
+    <lastmod>2026-11-27</lastmod>
     <image:image>
       <image:loc>https://image.tmdb.org/t/p/w1280/hYJqUoXRZnodGxgVZTM8uwr5kbC.jpg</image:loc>
       <image:title>O Corpo</image:title>
@@ -5139,7 +5147,7 @@
   </url>
   <url>
     <loc>https://wotho.vercel.app/cinema/visionquest</loc>
-    <lastmod>2026-11-26</lastmod>
+    <lastmod>2026-11-27</lastmod>
     <image:image>
       <image:loc>https://image.tmdb.org/t/p/w1280/uoXXbN2PrOxH6UKyP7kYwmGpAAP.jpg</image:loc>
       <image:title>VisionQuest</image:title>
@@ -5147,7 +5155,7 @@
   </url>
   <url>
     <loc>https://wotho.vercel.app/cinema/estrada-das-lagrimas</loc>
-    <lastmod>2026-11-26</lastmod>
+    <lastmod>2026-11-27</lastmod>
     <image:image>
       <image:loc>https://image.tmdb.org/t/p/w1280/7ojpD6ARKYhRxnsjzMIrorOfj4T.jpg</image:loc>
       <image:title>Estrada das Lágrimas</image:title>
@@ -5155,7 +5163,7 @@
   </url>
   <url>
     <loc>https://wotho.vercel.app/cinema/12-12-12</loc>
-    <lastmod>2026-11-26</lastmod>
+    <lastmod>2026-11-27</lastmod>
     <image:image>
       <image:loc>https://image.tmdb.org/t/p/w1280/tjy25xpiFeo2gahl7N0hoxbRtG7.jpg</image:loc>
       <image:title>12 12 12</image:title>
@@ -5179,7 +5187,7 @@
   </url>
   <url>
     <loc>https://wotho.vercel.app/cinema/os-altruistas</loc>
-    <lastmod>2026-11-26</lastmod>
+    <lastmod>2026-11-27</lastmod>
     <image:image>
       <image:loc>https://image.tmdb.org/t/p/w1280/m8JTMj7jDMJFZAPP1ASmSi4gMWi.jpg</image:loc>
       <image:title>Os Altruístas</image:title>
@@ -5195,7 +5203,7 @@
   </url>
   <url>
     <loc>https://wotho.vercel.app/cinema/a-imperatriz-se-casou-novamente</loc>
-    <lastmod>2026-11-26</lastmod>
+    <lastmod>2026-11-27</lastmod>
     <image:image>
       <image:loc>https://image.tmdb.org/t/p/w1280/fNcpHmuZLKoyhNMBEzdqzX8iIvg.jpg</image:loc>
       <image:title>A Imperatriz Se Casou Novamente</image:title>
@@ -5211,7 +5219,7 @@
   </url>
   <url>
     <loc>https://wotho.vercel.app/cinema/a-odisseia</loc>
-    <lastmod>2026-11-26</lastmod>
+    <lastmod>2026-11-27</lastmod>
     <image:image>
       <image:loc>https://image.tmdb.org/t/p/w1280/dZI4Ek4qc2Fib2G1zFkGhKKuc6j.jpg</image:loc>
       <image:title>A Odisseia</image:title>
@@ -5219,7 +5227,7 @@
   </url>
   <url>
     <loc>https://wotho.vercel.app/cinema/jogos-vorazes-amanhecer-na-colheita</loc>
-    <lastmod>2026-11-26</lastmod>
+    <lastmod>2026-11-27</lastmod>
     <image:image>
       <image:loc>https://image.tmdb.org/t/p/w1280/aqFZcr2dxSZ2UwWSo1WC6C0rwDf.jpg</image:loc>
       <image:title>Jogos Vorazes: Amanhecer na Colheita</image:title>
@@ -5227,7 +5235,7 @@
   </url>
   <url>
     <loc>https://wotho.vercel.app/cinema/vingadores-doutor-destino</loc>
-    <lastmod>2026-11-26</lastmod>
+    <lastmod>2026-11-27</lastmod>
     <image:image>
       <image:loc>https://image.tmdb.org/t/p/w1280/g3gpP5YDbA85DsA0bt5mgGQIe5q.jpg</image:loc>
       <image:title>Vingadores: Doutor Destino</image:title>
@@ -5235,7 +5243,7 @@
   </url>
   <url>
     <loc>https://wotho.vercel.app/cinema/a-furia-da-besta</loc>
-    <lastmod>2026-11-26</lastmod>
+    <lastmod>2026-11-27</lastmod>
     <image:image>
       <image:loc>https://image.tmdb.org/t/p/w1280/r5RYEmZzm1Z6imS7XfiKPnMlyc7.jpg</image:loc>
       <image:title>A Fúria da Besta</image:title>
@@ -5243,7 +5251,7 @@
   </url>
   <url>
     <loc>https://wotho.vercel.app/cinema/godzilla-minus-zero</loc>
-    <lastmod>2026-11-26</lastmod>
+    <lastmod>2026-11-27</lastmod>
     <image:image>
       <image:loc>https://image.tmdb.org/t/p/w1280/oqrYIDH4tvfEzPe1yqT4jzmAWHQ.jpg</image:loc>
       <image:title>Godzilla Minus Zero</image:title>
@@ -5251,7 +5259,7 @@
   </url>
   <url>
     <loc>https://wotho.vercel.app/cinema/madden-o-homem-e-o-jogo</loc>
-    <lastmod>2026-11-26</lastmod>
+    <lastmod>2026-11-27</lastmod>
     <image:image>
       <image:loc>https://image.tmdb.org/t/p/w1280/lRsapglJZIyMfGl8oQyNASlZqDC.jpg</image:loc>
       <image:title>Madden: O Homem e o Jogo</image:title>
@@ -5259,7 +5267,7 @@
   </url>
   <url>
     <loc>https://wotho.vercel.app/cinema/protegendo-estrelas</loc>
-    <lastmod>2026-11-26</lastmod>
+    <lastmod>2026-11-27</lastmod>
     <image:image>
       <image:loc>https://image.tmdb.org/t/p/w1280/qHvap0vpfTBIbv7cnR0OyBRqQHG.jpg</image:loc>
       <image:title>Protegendo Estrelas</image:title>
@@ -5267,7 +5275,7 @@
   </url>
   <url>
     <loc>https://wotho.vercel.app/cinema/tipo-irmas</loc>
-    <lastmod>2026-11-26</lastmod>
+    <lastmod>2026-11-27</lastmod>
     <image:image>
       <image:loc>https://image.tmdb.org/t/p/w1280/g1bEboMx1a8JCg1jXeDCh24RtgW.jpg</image:loc>
       <image:title>Tipo Irmãs</image:title>
@@ -5275,7 +5283,7 @@
   </url>
   <url>
     <loc>https://wotho.vercel.app/cinema/homem-aranha-um-novo-dia</loc>
-    <lastmod>2026-11-26</lastmod>
+    <lastmod>2026-11-27</lastmod>
     <image:image>
       <image:loc>https://image.tmdb.org/t/p/w1280/r08LxMJCbf1SiJIWeyH9aJmdqwC.jpg</image:loc>
       <image:title>Homem-Aranha: Um Novo Dia</image:title>
@@ -5283,7 +5291,7 @@
   </url>
   <url>
     <loc>https://wotho.vercel.app/cinema/outra-mamae</loc>
-    <lastmod>2026-11-26</lastmod>
+    <lastmod>2026-11-27</lastmod>
     <image:image>
       <image:loc>https://image.tmdb.org/t/p/w1280/smZ8BT4Vzw4iCEppTLCnN8jNYtn.jpg</image:loc>
       <image:title>Outra Mamãe</image:title>
@@ -5291,7 +5299,7 @@
   </url>
   <url>
     <loc>https://wotho.vercel.app/cinema/resident-evil</loc>
-    <lastmod>2026-11-26</lastmod>
+    <lastmod>2026-11-27</lastmod>
     <image:image>
       <image:loc>https://image.tmdb.org/t/p/w1280/3icyRAqgakNcQn6aDVz9libFmBA.jpg</image:loc>
       <image:title>Resident Evil</image:title>
@@ -5299,7 +5307,7 @@
   </url>
   <url>
     <loc>https://wotho.vercel.app/cinema/ebenezer-e-os-fantasmas-do-natal</loc>
-    <lastmod>2026-11-26</lastmod>
+    <lastmod>2026-11-27</lastmod>
     <image:image>
       <image:loc>https://image.tmdb.org/t/p/w1280/274ahmbkJSzdmcWrWSTu9DFv5rp.jpg</image:loc>
       <image:title>Ebenezer e os Fantasmas do Natal</image:title>
@@ -5307,7 +5315,7 @@
   </url>
   <url>
     <loc>https://wotho.vercel.app/cinema/enfeiticadas-bem-vindos-a-hexe</loc>
-    <lastmod>2026-11-26</lastmod>
+    <lastmod>2026-11-27</lastmod>
     <image:image>
       <image:loc>https://image.tmdb.org/t/p/w1280/pYIJeLvfbVamFGO6hOERGVP2gTf.jpg</image:loc>
       <image:title>Enfeitiçadas: Bem-vindos a Hexe</image:title>
@@ -5315,7 +5323,7 @@
   </url>
   <url>
     <loc>https://wotho.vercel.app/cinema/coracao-selvagem</loc>
-    <lastmod>2026-11-26</lastmod>
+    <lastmod>2026-11-27</lastmod>
     <image:image>
       <image:loc>https://image.tmdb.org/t/p/w1280/yE766yhgg98tKwTKd8CyNvAtmn6.jpg</image:loc>
       <image:title>Coração Selvagem</image:title>
@@ -5323,7 +5331,7 @@
   </url>
   <url>
     <loc>https://wotho.vercel.app/cinema/duna-parte-tres</loc>
-    <lastmod>2026-11-26</lastmod>
+    <lastmod>2026-11-27</lastmod>
     <image:image>
       <image:loc>https://image.tmdb.org/t/p/w1280/i5E9H7Ik0u61ylDDTbmUpTL3Yw.jpg</image:loc>
       <image:title>Duna: Parte Três</image:title>
@@ -5331,7 +5339,7 @@
   </url>
   <url>
     <loc>https://wotho.vercel.app/cinema/perfeitos-mentirosos</loc>
-    <lastmod>2026-11-26</lastmod>
+    <lastmod>2026-11-27</lastmod>
     <image:image>
       <image:loc>https://image.tmdb.org/t/p/w1280/OiXyM1w9NxdV450GpV92B0YPMj.jpg</image:loc>
       <image:title>Perfeitos Mentirosos</image:title>
@@ -5339,7 +5347,7 @@
   </url>
   <url>
     <loc>https://wotho.vercel.app/cinema/a-bola-preta</loc>
-    <lastmod>2026-11-26</lastmod>
+    <lastmod>2026-11-27</lastmod>
     <image:image>
       <image:loc>https://image.tmdb.org/t/p/w1280/bDsmYvrzto7xrEwqDpLC3SPhn9A.jpg</image:loc>
       <image:title>A Bola Preta</image:title>
@@ -5347,7 +5355,7 @@
   </url>
   <url>
     <loc>https://wotho.vercel.app/cinema/no-coracao-de-nashville</loc>
-    <lastmod>2026-11-26</lastmod>
+    <lastmod>2026-11-27</lastmod>
     <image:image>
       <image:loc>https://image.tmdb.org/t/p/w1280/psTMZj8gvsfYVfvd7FZCHH4xL6P.jpg</image:loc>
       <image:title>No Coração de Nashville</image:title>
@@ -5355,7 +5363,7 @@
   </url>
   <url>
     <loc>https://wotho.vercel.app/cinema/allen</loc>
-    <lastmod>2026-11-26</lastmod>
+    <lastmod>2026-11-27</lastmod>
     <image:image>
       <image:loc>https://image.tmdb.org/t/p/w1280/51fGmBW7WjyJouP9TjIcxRpCUNk.jpg</image:loc>
       <image:title>Allen</image:title>
@@ -5363,7 +5371,7 @@
   </url>
   <url>
     <loc>https://wotho.vercel.app/cinema/eu-sou-o-rocky</loc>
-    <lastmod>2026-11-26</lastmod>
+    <lastmod>2026-11-27</lastmod>
     <image:image>
       <image:loc>https://image.tmdb.org/t/p/w1280/1lnnjBCRLZzKRhQipK5zm61YkPe.jpg</image:loc>
       <image:title>Eu Sou o Rocky</image:title>
@@ -5371,7 +5379,7 @@
   </url>
   <url>
     <loc>https://wotho.vercel.app/cinema/como-roubar-um-banco</loc>
-    <lastmod>2026-11-26</lastmod>
+    <lastmod>2026-11-27</lastmod>
     <image:image>
       <image:loc>https://image.tmdb.org/t/p/w1280/u38hNQbxvIicUdfrHpqa9puBnA9.jpg</image:loc>
       <image:title>Como Roubar um Banco</image:title>
@@ -5379,7 +5387,7 @@
   </url>
   <url>
     <loc>https://wotho.vercel.app/cinema/o-bosque-selvagem</loc>
-    <lastmod>2026-11-26</lastmod>
+    <lastmod>2026-11-27</lastmod>
     <image:image>
       <image:loc>https://image.tmdb.org/t/p/w1280/sl5NJ1vtyhP9Vr88bB4blULsJYp.jpg</image:loc>
       <image:title>O Bosque Selvagem</image:title>
@@ -5387,7 +5395,7 @@
   </url>
   <url>
     <loc>https://wotho.vercel.app/cinema/street-fighter</loc>
-    <lastmod>2026-11-26</lastmod>
+    <lastmod>2026-11-27</lastmod>
     <image:image>
       <image:loc>https://image.tmdb.org/t/p/w1280/zDE9hd1SG9695YncbZGjSf7Z9Jk.jpg</image:loc>
       <image:title>Street Fighter</image:title>
@@ -5395,7 +5403,7 @@
   </url>
   <url>
     <loc>https://wotho.vercel.app/cinema/primetime</loc>
-    <lastmod>2026-11-26</lastmod>
+    <lastmod>2026-11-27</lastmod>
     <image:image>
       <image:loc>https://image.tmdb.org/t/p/w1280/sEsMwSDUWGIx9EfNxzM6KzVSsSQ.jpg</image:loc>
       <image:title>Primetime</image:title>
@@ -5403,7 +5411,7 @@
   </url>
   <url>
     <loc>https://wotho.vercel.app/cinema/obsessao</loc>
-    <lastmod>2026-11-26</lastmod>
+    <lastmod>2026-11-27</lastmod>
     <image:image>
       <image:loc>https://image.tmdb.org/t/p/w1280/5lTZyuBTNOfawsfPT8Q0cIg6qAF.jpg</image:loc>
       <image:title>Obsessão</image:title>
@@ -5411,7 +5419,7 @@
   </url>
   <url>
     <loc>https://wotho.vercel.app/cinema/cavalo-selvagem-nove</loc>
-    <lastmod>2026-11-26</lastmod>
+    <lastmod>2026-11-27</lastmod>
     <image:image>
       <image:loc>https://image.tmdb.org/t/p/w1280/3uLA0ujne91bkzFStZICCYeqhnt.jpg</image:loc>
       <image:title>Cavalo Selvagem Nove</image:title>
@@ -5419,7 +5427,7 @@
   </url>
   <url>
     <loc>https://wotho.vercel.app/cinema/como-nasce-um-assassino</loc>
-    <lastmod>2026-11-26</lastmod>
+    <lastmod>2026-11-27</lastmod>
     <image:image>
       <image:loc>https://image.tmdb.org/t/p/w1280/mfpjOQ6hsvMUIFyzWglwerbpgFS.jpg</image:loc>
       <image:title>Como Nasce um Assassino</image:title>
@@ -5427,7 +5435,7 @@
   </url>
   <url>
     <loc>https://wotho.vercel.app/cinema/fuga-mortal</loc>
-    <lastmod>2026-11-26</lastmod>
+    <lastmod>2026-11-27</lastmod>
     <image:image>
       <image:loc>https://image.tmdb.org/t/p/w1280/bySCyjQXNPgsnLTlgJpSMnRazPD.jpg</image:loc>
       <image:title>Fuga Mortal</image:title>
@@ -5435,7 +5443,7 @@
   </url>
   <url>
     <loc>https://wotho.vercel.app/cinema/tudo-pode-ser-visto</loc>
-    <lastmod>2026-11-26</lastmod>
+    <lastmod>2026-11-27</lastmod>
     <image:image>
       <image:loc>https://image.tmdb.org/t/p/w1280/rrbbzCyS45yooXpUGJatfptlHYI.jpg</image:loc>
       <image:title>Tudo Pode Ser Visto</image:title>
@@ -5443,7 +5451,7 @@
   </url>
   <url>
     <loc>https://wotho.vercel.app/cinema/transformacao-de-natal</loc>
-    <lastmod>2026-11-26</lastmod>
+    <lastmod>2026-11-27</lastmod>
     <image:image>
       <image:loc>https://image.tmdb.org/t/p/w1280/4BsOLok9WaTTTcSpmoMtCLERScS.jpg</image:loc>
       <image:title>Transformação de Natal</image:title>
@@ -5451,7 +5459,7 @@
   </url>
   <url>
     <loc>https://wotho.vercel.app/cinema/cara-de-barro</loc>
-    <lastmod>2026-11-26</lastmod>
+    <lastmod>2026-11-27</lastmod>
     <image:image>
       <image:loc>https://image.tmdb.org/t/p/w1280/f1TVhqJJdxMvUsUDuKHS0ekgYkk.jpg</image:loc>
       <image:title>Cara-de-Barro</image:title>
@@ -5459,7 +5467,7 @@
   </url>
   <url>
     <loc>https://wotho.vercel.app/cinema/ramayana-o-nascimento-de-uma-lenda</loc>
-    <lastmod>2026-11-26</lastmod>
+    <lastmod>2026-11-27</lastmod>
     <image:image>
       <image:loc>https://image.tmdb.org/t/p/w1280/yHVZncPRZr63mezRX20IyKLrSkv.jpg</image:loc>
       <image:title>Ramayana: O Nascimento de uma Lenda</image:title>
@@ -5467,7 +5475,7 @@
   </url>
   <url>
     <loc>https://wotho.vercel.app/cinema/a-arte-de-ser-heumann</loc>
-    <lastmod>2026-11-26</lastmod>
+    <lastmod>2026-11-27</lastmod>
     <image:image>
       <image:loc>https://image.tmdb.org/t/p/w1280/25aB8RXP4mfQLFRSuEEhk0d0sTC.jpg</image:loc>
       <image:title>A Arte de Ser Heumann</image:title>
@@ -5475,7 +5483,7 @@
   </url>
   <url>
     <loc>https://wotho.vercel.app/cinema/codigo-vinganca</loc>
-    <lastmod>2026-11-26</lastmod>
+    <lastmod>2026-11-27</lastmod>
     <image:image>
       <image:loc>https://image.tmdb.org/t/p/w1280/qDa0fqDqIBCovRp975RvtGPcuN3.jpg</image:loc>
       <image:title>Código: Vingança</image:title>
@@ -5483,7 +5491,7 @@
   </url>
   <url>
     <loc>https://wotho.vercel.app/cinema/as-novas-desventuras-de-cliff-booth</loc>
-    <lastmod>2026-11-26</lastmod>
+    <lastmod>2026-11-27</lastmod>
     <image:image>
       <image:loc>https://image.tmdb.org/t/p/w1280/qqPspJFy0XrEoVTKZdp0Em7kej6.jpg</image:loc>
       <image:title>As Novas Desventuras de Cliff Booth</image:title>
@@ -5491,7 +5499,7 @@
   </url>
   <url>
     <loc>https://wotho.vercel.app/cinema/amor-possivel</loc>
-    <lastmod>2026-11-26</lastmod>
+    <lastmod>2026-11-27</lastmod>
     <image:image>
       <image:loc>https://image.tmdb.org/t/p/w1280/k0BY5D4Ya6NHhsvNYMmaabpvUtS.jpg</image:loc>
       <image:title>Amor Possível</image:title>
@@ -5499,7 +5507,7 @@
   </url>
   <url>
     <loc>https://wotho.vercel.app/cinema/hope-o-primeiro-impacto</loc>
-    <lastmod>2026-11-26</lastmod>
+    <lastmod>2026-11-27</lastmod>
     <image:image>
       <image:loc>https://image.tmdb.org/t/p/w1280/qqHFLg90IUSoTmSMpKOOW5RyqN3.jpg</image:loc>
       <image:title>Hope: O Primeiro Impacto</image:title>
@@ -5507,7 +5515,7 @@
   </url>
   <url>
     <loc>https://wotho.vercel.app/cinema/sem-desistir</loc>
-    <lastmod>2026-11-26</lastmod>
+    <lastmod>2026-11-27</lastmod>
     <image:image>
       <image:loc>https://image.tmdb.org/t/p/w1280/bjt53Hjqwl9VrtJkDv39GwmE1QN.jpg</image:loc>
       <image:title>Sem Desistir</image:title>
@@ -5515,7 +5523,7 @@
   </url>
   <url>
     <loc>https://wotho.vercel.app/cinema/uma-historia-de-derry</loc>
-    <lastmod>2026-11-26</lastmod>
+    <lastmod>2026-11-27</lastmod>
     <image:image>
       <image:loc>https://image.tmdb.org/t/p/w1280/z26LxXDMmAIzKr06FPDudCJyvsM.jpg</image:loc>
       <image:title>Uma História de Derry</image:title>
@@ -5523,7 +5531,7 @@
   </url>
   <url>
     <loc>https://wotho.vercel.app/cinema/boiuna-terror-no-amazonas</loc>
-    <lastmod>2026-11-26</lastmod>
+    <lastmod>2026-11-27</lastmod>
     <image:image>
       <image:loc>https://image.tmdb.org/t/p/w1280/9nU0FKNefmhbgi2xXlvZchZsqwm.jpg</image:loc>
       <image:title>Boiúna - Terror no Amazonas</image:title>
@@ -5531,7 +5539,7 @@
   </url>
   <url>
     <loc>https://wotho.vercel.app/cinema/ghost-soldier</loc>
-    <lastmod>2026-11-26</lastmod>
+    <lastmod>2026-11-27</lastmod>
     <image:image>
       <image:loc>https://image.tmdb.org/t/p/w1280/ggqvhSdAASrseKuMlzk51sbvbE8.jpg</image:loc>
       <image:title>Ghost Soldier</image:title>
@@ -5539,7 +5547,7 @@
   </url>
   <url>
     <loc>https://wotho.vercel.app/cinema/a-queda-2-no-limite</loc>
-    <lastmod>2026-11-26</lastmod>
+    <lastmod>2026-11-27</lastmod>
     <image:image>
       <image:loc>https://image.tmdb.org/t/p/w1280/nGau0KBOaRILSK5MqFcuTfv7GMl.jpg</image:loc>
       <image:title>A Queda 2: No Limite</image:title>
@@ -5547,7 +5555,7 @@
   </url>
   <url>
     <loc>https://wotho.vercel.app/cinema/the-fix</loc>
-    <lastmod>2026-11-26</lastmod>
+    <lastmod>2026-11-27</lastmod>
     <image:image>
       <image:loc>https://image.tmdb.org/t/p/w1280/dJTWIecL2vxsCRl5G0lRhPsfrhc.jpg</image:loc>
       <image:title>The Fix</image:title>
@@ -5555,7 +5563,7 @@
   </url>
   <url>
     <loc>https://wotho.vercel.app/cinema/verity</loc>
-    <lastmod>2026-11-26</lastmod>
+    <lastmod>2026-11-27</lastmod>
     <image:image>
       <image:loc>https://image.tmdb.org/t/p/w1280/cKetrF2dAnQ0AMV5i4BMOs41I5P.jpg</image:loc>
       <image:title>Verity</image:title>
@@ -5563,7 +5571,7 @@
   </url>
   <url>
     <loc>https://wotho.vercel.app/cinema/buddy</loc>
-    <lastmod>2026-11-26</lastmod>
+    <lastmod>2026-11-27</lastmod>
     <image:image>
       <image:loc>https://image.tmdb.org/t/p/w1280/sMmG82PtjK8A9rVc34gwKQtCm3A.jpg</image:loc>
       <image:title>Buddy</image:title>
@@ -5571,7 +5579,7 @@
   </url>
   <url>
     <loc>https://wotho.vercel.app/cinema/velocidade-e-paixao</loc>
-    <lastmod>2026-11-26</lastmod>
+    <lastmod>2026-11-27</lastmod>
     <image:image>
       <image:loc>https://image.tmdb.org/t/p/w1280/hbz4aeVsjnKb2HRoFbbr46Egh8y.jpg</image:loc>
       <image:title>Velocidade e Paixão</image:title>
@@ -5579,7 +5587,7 @@
   </url>
   <url>
     <loc>https://wotho.vercel.app/cinema/a-ilha-esquecida</loc>
-    <lastmod>2026-11-26</lastmod>
+    <lastmod>2026-11-27</lastmod>
     <image:image>
       <image:loc>https://image.tmdb.org/t/p/w1280/2o9FzuBzCqrDTdlHRuEVnGD2d5h.jpg</image:loc>
       <image:title>A Ilha Esquecida</image:title>
@@ -5595,7 +5603,7 @@
   </url>
   <url>
     <loc>https://wotho.vercel.app/cinema/zona-zero</loc>
-    <lastmod>2026-11-26</lastmod>
+    <lastmod>2026-11-27</lastmod>
     <image:image>
       <image:loc>https://image.tmdb.org/t/p/w1280/iGViga8sDCET1S6GfwOlAbuhSGQ.jpg</image:loc>
       <image:title>Zona Zero</image:title>
@@ -5603,7 +5611,7 @@
   </url>
   <url>
     <loc>https://wotho.vercel.app/cinema/o-gatola-da-cartola</loc>
-    <lastmod>2026-11-26</lastmod>
+    <lastmod>2026-11-27</lastmod>
     <image:image>
       <image:loc>https://image.tmdb.org/t/p/w1280/56Bepb58k71UUTVwKN1SxHmfzPK.jpg</image:loc>
       <image:title>O Gatola da Cartola</image:title>
@@ -5627,7 +5635,7 @@
   </url>
   <url>
     <loc>https://wotho.vercel.app/cinema/apocalipse-z-novo-mundo</loc>
-    <lastmod>2026-11-26</lastmod>
+    <lastmod>2026-11-27</lastmod>
     <image:image>
       <image:loc>https://image.tmdb.org/t/p/w1280/o3XwuDUj0n8qnK91p6q8LKfr6rj.jpg</image:loc>
       <image:title>Apocalipse Z: Novo Mundo</image:title>
@@ -5635,7 +5643,7 @@
   </url>
   <url>
     <loc>https://wotho.vercel.app/cinema/devoradores-de-estrelas</loc>
-    <lastmod>2026-11-26</lastmod>
+    <lastmod>2026-11-27</lastmod>
     <image:image>
       <image:loc>https://image.tmdb.org/t/p/w1280/2I1OFQJ0L9T0dpU6FobKFWV2PxX.jpg</image:loc>
       <image:title>Devoradores de Estrelas</image:title>
@@ -5667,7 +5675,7 @@
   </url>
   <url>
     <loc>https://wotho.vercel.app/cinema/o-fim-da-rua</loc>
-    <lastmod>2026-11-26</lastmod>
+    <lastmod>2026-11-27</lastmod>
     <image:image>
       <image:loc>https://image.tmdb.org/t/p/w1280/wnR8pwWtoL3TFwP41mLCt91ReCt.jpg</image:loc>
       <image:title>O Fim da Rua</image:title>
@@ -5675,7 +5683,7 @@
   </url>
   <url>
     <loc>https://wotho.vercel.app/cinema/toy-story-5</loc>
-    <lastmod>2026-11-26</lastmod>
+    <lastmod>2026-11-27</lastmod>
     <image:image>
       <image:loc>https://image.tmdb.org/t/p/w1280/qjTqY5coNiz6sVtPng40IzltsoN.jpg</image:loc>
       <image:title>Toy Story 5</image:title>
@@ -5683,7 +5691,7 @@
   </url>
   <url>
     <loc>https://wotho.vercel.app/cinema/sobrenatural-agora-entre-nos</loc>
-    <lastmod>2026-11-26</lastmod>
+    <lastmod>2026-11-27</lastmod>
     <image:image>
       <image:loc>https://image.tmdb.org/t/p/w1280/p40lmrdI4blcAPZQMTPaiy5v5Ym.jpg</image:loc>
       <image:title>Sobrenatural: Agora Entre Nós</image:title>
@@ -5707,7 +5715,7 @@
   </url>
   <url>
     <loc>https://wotho.vercel.app/cinema/ponto-sem-retorno</loc>
-    <lastmod>2026-11-26</lastmod>
+    <lastmod>2026-11-27</lastmod>
     <image:image>
       <image:loc>https://image.tmdb.org/t/p/w1280/3k7GzxOdLZkN3eZsuhLi2eRzkXO.jpg</image:loc>
       <image:title>Ponto Sem Retorno</image:title>
@@ -5723,7 +5731,7 @@
   </url>
   <url>
     <loc>https://wotho.vercel.app/cinema/batman-a-queda-do-morcego-parte-1</loc>
-    <lastmod>2026-11-26</lastmod>
+    <lastmod>2026-11-27</lastmod>
     <image:image>
       <image:loc>https://image.tmdb.org/t/p/w1280/caBIySpwuFi2i7ynvHIlnxJLOdN.jpg</image:loc>
       <image:title>Batman: A Queda do Morcego - Parte 1</image:title>
@@ -5731,7 +5739,7 @@
   </url>
   <url>
     <loc>https://wotho.vercel.app/cinema/avatar-aang-o-ultimo-mestre-do-ar</loc>
-    <lastmod>2026-11-26</lastmod>
+    <lastmod>2026-11-27</lastmod>
     <image:image>
       <image:loc>https://image.tmdb.org/t/p/w1280/ezbrL1dMymKQZw7mDEWa2ZTzN7d.jpg</image:loc>
       <image:title>Avatar Aang: O Último Mestre do Ar</image:title>
@@ -5739,7 +5747,7 @@
   </url>
   <url>
     <loc>https://wotho.vercel.app/cinema/como-magica</loc>
-    <lastmod>2026-11-26</lastmod>
+    <lastmod>2026-11-27</lastmod>
     <image:image>
       <image:loc>https://image.tmdb.org/t/p/w1280/zMwhWailP1WY7sb6AoE6b8ugoy.jpg</image:loc>
       <image:title>Como Mágica</image:title>
@@ -5755,7 +5763,7 @@
   </url>
   <url>
     <loc>https://wotho.vercel.app/cinema/socias-por-accidente</loc>
-    <lastmod>2026-11-26</lastmod>
+    <lastmod>2026-11-27</lastmod>
     <image:image>
       <image:loc>https://image.tmdb.org/t/p/w1280/iCML6fBe3X0y06P33bM7dyYXPKZ.jpg</image:loc>
       <image:title>Socias por accidente</image:title>
@@ -5763,7 +5771,7 @@
   </url>
   <url>
     <loc>https://wotho.vercel.app/cinema/a-captura</loc>
-    <lastmod>2026-11-26</lastmod>
+    <lastmod>2026-11-27</lastmod>
     <image:image>
       <image:loc>https://image.tmdb.org/t/p/w1280/c4U96GrPRfnNrS01mBtqnocvlLJ.jpg</image:loc>
       <image:title>A Captura</image:title>
@@ -5787,7 +5795,7 @@
   </url>
   <url>
     <loc>https://wotho.vercel.app/cinema/michael</loc>
-    <lastmod>2026-11-26</lastmod>
+    <lastmod>2026-11-27</lastmod>
     <image:image>
       <image:loc>https://image.tmdb.org/t/p/w1280/ufSwlnECLoUbBjPrFqEQcWBzHwc.jpg</image:loc>
       <image:title>Michael</image:title>
@@ -5811,7 +5819,7 @@
   </url>
   <url>
     <loc>https://wotho.vercel.app/cinema/meu-querido-assassino</loc>
-    <lastmod>2026-11-26</lastmod>
+    <lastmod>2026-11-27</lastmod>
     <image:image>
       <image:loc>https://image.tmdb.org/t/p/w1280/xA6AM5MvEkieZKlv1Tn3sN23I7i.jpg</image:loc>
       <image:title>Meu Querido Assassino</image:title>
@@ -5971,7 +5979,7 @@
   </url>
   <url>
     <loc>https://wotho.vercel.app/cinema/vingadora</loc>
-    <lastmod>2026-11-26</lastmod>
+    <lastmod>2026-11-27</lastmod>
     <image:image>
       <image:loc>https://image.tmdb.org/t/p/w1280/vpuPY4UziUCxv7gYYoaZQ3LX7to.jpg</image:loc>
       <image:title>Vingadora</image:title>
@@ -5987,7 +5995,7 @@
   </url>
   <url>
     <loc>https://wotho.vercel.app/cinema/your-mother-your-mother-your-mother</loc>
-    <lastmod>2026-11-26</lastmod>
+    <lastmod>2026-11-27</lastmod>
     <image:image>
       <image:loc>https://image.tmdb.org/t/p/w1280/45Mbs6dmn2W0hvuyxXPDkKREHpP.jpg</image:loc>
       <image:title>Your Mother Your Mother Your Mother</image:title>
@@ -5995,7 +6003,7 @@
   </url>
   <url>
     <loc>https://wotho.vercel.app/cinema/matchbox-o-filme</loc>
-    <lastmod>2026-11-26</lastmod>
+    <lastmod>2026-11-27</lastmod>
     <image:image>
       <image:loc>https://image.tmdb.org/t/p/w1280/jdJsnhHfkIi3J7jwfiCFT4gXNx5.jpg</image:loc>
       <image:title>Matchbox - O Filme</image:title>
@@ -6003,7 +6011,7 @@
   </url>
   <url>
     <loc>https://wotho.vercel.app/cinema/2</loc>
-    <lastmod>2026-11-26</lastmod>
+    <lastmod>2026-11-27</lastmod>
     <image:image>
       <image:loc>https://image.tmdb.org/t/p/w1280/uxGoKyTnXylK5M4z1hyyaWbmBV7.jpg</image:loc>
       <image:title>ஜெயிலர் 2</image:title>
@@ -6011,7 +6019,7 @@
   </url>
   <url>
     <loc>https://wotho.vercel.app/cinema/el-despertar</loc>
-    <lastmod>2026-11-26</lastmod>
+    <lastmod>2026-11-27</lastmod>
     <image:image>
       <image:loc>https://image.tmdb.org/t/p/w1280/4pYKqctQvvdyhuGjiK4szH9jEv9.jpg</image:loc>
       <image:title>El despertar</image:title>
@@ -6035,7 +6043,7 @@
   </url>
   <url>
     <loc>https://wotho.vercel.app/cinema/tres-horas-para-viver</loc>
-    <lastmod>2026-11-26</lastmod>
+    <lastmod>2026-11-27</lastmod>
     <image:image>
       <image:loc>https://image.tmdb.org/t/p/w1280/npXZNWjOEYrqdMDPQ11SGBrXqAG.jpg</image:loc>
       <image:title>Três Horas Para Viver</image:title>
@@ -6043,7 +6051,7 @@
   </url>
   <url>
     <loc>https://wotho.vercel.app/cinema/angel-and-the-badman</loc>
-    <lastmod>2026-11-26</lastmod>
+    <lastmod>2026-11-27</lastmod>
     <image:image>
       <image:loc>https://image.tmdb.org/t/p/w1280/hULWeQoEJUhiZ6NlANxsLoMJJ5p.jpg</image:loc>
       <image:title>Angel and the Badman</image:title>
@@ -6347,7 +6355,7 @@
   </url>
   <url>
     <loc>https://wotho.vercel.app/cinema/the-intern</loc>
-    <lastmod>2026-11-26</lastmod>
+    <lastmod>2026-11-27</lastmod>
     <image:image>
       <image:loc>https://image.tmdb.org/t/p/w1280/OroFBNgB2RBzj2X65CweVhhQQG.jpg</image:loc>
       <image:title>The Intern</image:title>
@@ -6379,7 +6387,7 @@
   </url>
   <url>
     <loc>https://wotho.vercel.app/cinema/razao-e-sensibilidade</loc>
-    <lastmod>2026-11-26</lastmod>
+    <lastmod>2026-11-27</lastmod>
     <image:image>
       <image:loc>https://image.tmdb.org/t/p/w1280/tIcONOFK9D3F89ETK8DBS1hIwVF.jpg</image:loc>
       <image:title>Razão e Sensibilidade</image:title>
@@ -6387,7 +6395,7 @@
   </url>
   <url>
     <loc>https://wotho.vercel.app/cinema/wicker</loc>
-    <lastmod>2026-11-26</lastmod>
+    <lastmod>2026-11-27</lastmod>
     <image:image>
       <image:loc>https://image.tmdb.org/t/p/w1280/xVh1ypMoVkMf5IB7y3hnRplJ14c.jpg</image:loc>
       <image:title>Wicker</image:title>
@@ -6395,7 +6403,7 @@
   </url>
   <url>
     <loc>https://wotho.vercel.app/cinema/drummer-boy</loc>
-    <lastmod>2026-11-26</lastmod>
+    <lastmod>2026-11-27</lastmod>
     <image:image>
       <image:loc>https://image.tmdb.org/t/p/w1280/5KF459N6jOfRV7kV9XV7ZQdCLKK.jpg</image:loc>
       <image:title>Drummer Boy</image:title>
@@ -6403,7 +6411,7 @@
   </url>
   <url>
     <loc>https://wotho.vercel.app/cinema/entrando-numa-grande-fria</loc>
-    <lastmod>2026-11-26</lastmod>
+    <lastmod>2026-11-27</lastmod>
     <image:image>
       <image:loc>https://image.tmdb.org/t/p/w1280/1zcCFBcqEQtAtXDh6EoBPy16RLR.jpg</image:loc>
       <image:title>Entrando Numa Grande Fria</image:title>
@@ -6411,7 +6419,7 @@
   </url>
   <url>
     <loc>https://wotho.vercel.app/cinema/coracao-partido</loc>
-    <lastmod>2026-11-26</lastmod>
+    <lastmod>2026-11-27</lastmod>
     <image:image>
       <image:loc>https://image.tmdb.org/t/p/w1280/fRjy6zDeNjfzmjpKz8mElA9Aa6l.jpg</image:loc>
       <image:title>Coração Partido</image:title>
@@ -6419,7 +6427,7 @@
   </url>
   <url>
     <loc>https://wotho.vercel.app/cinema/da-magia-a-seducao-feitico-de-amor</loc>
-    <lastmod>2026-11-26</lastmod>
+    <lastmod>2026-11-27</lastmod>
     <image:image>
       <image:loc>https://image.tmdb.org/t/p/w1280/oIglj0Jy9duG4LnrRUpH8n001Pk.jpg</image:loc>
       <image:title>Da Magia à Sedução: Feitiço de Amor</image:title>
@@ -6427,7 +6435,7 @@
   </url>
   <url>
     <loc>https://wotho.vercel.app/cinema/a-ultima-refeicao</loc>
-    <lastmod>2026-11-26</lastmod>
+    <lastmod>2026-11-27</lastmod>
     <image:image>
       <image:loc>https://image.tmdb.org/t/p/w1280/u3riq0UYL2aowB6u1xScMfDUFmr.jpg</image:loc>
       <image:title>A Última Refeição</image:title>
@@ -6435,7 +6443,7 @@
   </url>
   <url>
     <loc>https://wotho.vercel.app/cinema/a-very-arctic-christmas</loc>
-    <lastmod>2026-11-26</lastmod>
+    <lastmod>2026-11-27</lastmod>
     <image:image>
       <image:loc>https://image.tmdb.org/t/p/w1280/zskxUdaCFkDNiS3slxQXFEDtL37.jpg</image:loc>
       <image:title>A Very Arctic Christmas</image:title>
@@ -6443,7 +6451,7 @@
   </url>
   <url>
     <loc>https://wotho.vercel.app/cinema/always-yours-never-mine</loc>
-    <lastmod>2026-11-26</lastmod>
+    <lastmod>2026-11-27</lastmod>
     <image:image>
       <image:loc>https://image.tmdb.org/t/p/w1280/b30BEsc6z7sni9AtkHAL1WuxkYP.jpg</image:loc>
       <image:title>Always Yours, Never Mine</image:title>
@@ -6451,7 +6459,7 @@
   </url>
   <url>
     <loc>https://wotho.vercel.app/cinema/o-ultimo-nascer-do-sol</loc>
-    <lastmod>2026-11-26</lastmod>
+    <lastmod>2026-11-27</lastmod>
     <image:image>
       <image:loc>https://image.tmdb.org/t/p/w1280/zFCWfU2ViMIm38G1W8UsnSpqmWn.jpg</image:loc>
       <image:title>O Último Nascer do Sol</image:title>
@@ -6467,7 +6475,7 @@
   </url>
   <url>
     <loc>https://wotho.vercel.app/cinema/o-amor-de-sua-vida</loc>
-    <lastmod>2026-11-26</lastmod>
+    <lastmod>2026-11-27</lastmod>
     <image:image>
       <image:loc>https://image.tmdb.org/t/p/w1280/4hneB0UFKOZAGJHqJ3VhDcG72uH.jpg</image:loc>
       <image:title>O Amor de Sua Vida</image:title>
@@ -6475,7 +6483,7 @@
   </url>
   <url>
     <loc>https://wotho.vercel.app/cinema/a-hipotese-do-amor</loc>
-    <lastmod>2026-11-26</lastmod>
+    <lastmod>2026-11-27</lastmod>
     <image:image>
       <image:loc>https://image.tmdb.org/t/p/w1280/o7Oy9Gbx1CCyaweL8xUhtMW4Puq.jpg</image:loc>
       <image:title>A Hipótese do Amor</image:title>
@@ -6483,7 +6491,7 @@
   </url>
   <url>
     <loc>https://wotho.vercel.app/cinema/um-ano-de-vida-compre-um-homem</loc>
-    <lastmod>2026-11-26</lastmod>
+    <lastmod>2026-11-27</lastmod>
     <image:image>
       <image:loc>https://image.tmdb.org/t/p/w1280/6vGH7JZFLzFawpwCcnNweF8j3KD.jpg</image:loc>
       <image:title>Um Ano de Vida, Compre Um Homem</image:title>
